@@ -2,3 +2,11 @@
 
 WINEPREFIX
 Merlot Apps/
+
+# Swift / Xcode
+CiderApp/.build/
+CiderApp/.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+.DS_Store
