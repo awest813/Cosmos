@@ -5,6 +5,7 @@ struct RepairView: View {
     @EnvironmentObject private var engine: CiderEngine
     @State private var logText = ""
     @State private var showConfirmReset = false
+    private static let resetWarning = "Deletes the entire Wine prefix (\(CiderEngine.defaultWinePrefix)). Steam and all game data in the prefix will be lost. You will need to re-run setup."
 
     var body: some View {
         ScrollView {
@@ -76,7 +77,7 @@ struct RepairView: View {
                         } label: {
                             Label("Reset Wine Prefix", systemImage: "trash")
                         }
-                        .help("Deletes the entire Wine prefix. Steam and all game data in the prefix will be lost. You will need to re-run setup.")
+                        .help(Self.resetWarning)
                     }
                     .padding(.vertical, 4)
                 }
@@ -101,7 +102,7 @@ struct RepairView: View {
                 Task { await engine.resetWinePrefix() }
             }
         } message: {
-            Text("This will delete \(CiderEngine.defaultWinePrefix) and all game data inside it. You will need to run setup again.")
+            Text(Self.resetWarning)
         }
     }
 

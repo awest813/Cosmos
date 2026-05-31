@@ -215,7 +215,7 @@ private struct ProfileEditorSheet: View {
             backend: backend,
             retina: retina,
             mouseWarp: mouseWarp,
-            envOverrides: envText.split(separator: "\n").map(String.init),
+            envOverrides: envText.components(separatedBy: "\n").filter { !$0.isEmpty },
             notes: notes
         )
         onSave(saved)

@@ -96,20 +96,25 @@ final class CiderEngine: ObservableObject {
     /// Remove and re-download DXMT.
     func reinstallDXMT() async {
         let dxmtRoot = Self.defaultDXMTRoot
-        await runShell("rm -rf '\(dxmtRoot)/i386-windows' '\(dxmtRoot)/x86_64-windows' '\(dxmtRoot)/x86_64-unix'")
+        let dirs = ["i386-windows", "x86_64-windows", "x86_64-unix"]
+        for dir in dirs {
+            let path = (dxmtRoot as NSString).appendingPathComponent(dir)
+            try? FileManager.default.removeItem(atPath: path)
+        }
         await runScript("run.command")
         refresh()
     }
 
     /// Delete the Wine prefix so it can be recreated on next launch.
     func resetWinePrefix() async {
-        await runShell("rm -rf '\(Self.defaultWinePrefix)'")
+        try? FileManager.default.removeItem(atPath: Self.defaultWinePrefix)
         refresh()
     }
 
     /// Kill all Wine and Steam processes.
     func killWineProcesses() async {
-        await runShell("pkill -f 'wine' 2>/dev/null; pkill -f 'Steam' 2>/dev/null; true")
+        await execute(path: "/usr/bin/pkill", arguments: ["-f", "wine"])
+        await execute(path: "/usr/bin/pkill", arguments: ["-f", "Steam"])
         refresh()
     }
 
@@ -202,11 +207,6 @@ final class CiderEngine: ObservableObject {
             return
         }
         await execute(path: "/bin/bash", arguments: [scriptPath], extraEnv: extraEnv)
-    }
-
-    /// Run an arbitrary shell command string.
-    private func runShell(_ command: String) async {
-        await execute(path: "/bin/bash", arguments: ["-c", command])
     }
 
     /// Low-level process execution with output capture.
