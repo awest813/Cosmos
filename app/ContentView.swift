@@ -119,7 +119,7 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--steam"])
             }
 
-            actionButton(title: "Launch Selected Profile", subtitle: selectedProfileLaunchSubtitle, systemImage: "gamecontroller.fill", prominent: true, disabled: isSelectedProfileLaunchDisabled) {
+            actionButton(title: "Launch Selected Profile", subtitle: selectedProfileLaunchSubtitle, systemImage: "gamecontroller.fill", prominent: true, disabled: !selectedProfileHasExecutablePath) {
                 guard let selectedProfile else { return }
                 runCommand(
                     script: "run.command",
@@ -166,11 +166,11 @@ struct ContentView: View {
             return "Choose a saved profile first"
         }
 
-        return selectedProfile.path.isEmpty ? "Please set an executable path for this profile" : "Ready to launch"
+        return selectedProfileHasExecutablePath ? "Ready to launch" : "Please set an executable path for this profile"
     }
 
-    private var isSelectedProfileLaunchDisabled: Bool {
-        selectedProfile?.path.isEmpty ?? true
+    private var selectedProfileHasExecutablePath: Bool {
+        selectedProfile?.path.isEmpty == false
     }
 
     private var consoleSection: some View {
@@ -314,7 +314,7 @@ struct ContentView: View {
     private func shellArguments(from text: String) -> [String] {
         guard !text.isEmpty else { return [] }
 
-        // This splitter only handles simple quoted groups; backslashes stay literal.
+        // This splitter only handles simple quoted groups; backslashes stay literal, unclosed quotes stay literal, and trailing whitespace is ignored.
         enum QuoteState {
             case none
             case single
