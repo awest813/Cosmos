@@ -81,8 +81,8 @@ Defaults are the values in `run.command`.
 - `MERLOT_DETACH`
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
-- `MERLOT_STEAM_LOG`
-  - Path to the detached-mode Steam log (default: `${TMPDIR:-/tmp}/merlot-steam.log`).
+- `MERLOT_LAUNCH_LOG`
+  - Path to the detached-mode launch log (default: `${TMPDIR:-/tmp}/merlot-steam.log`).
 
 Example overrides (environment variables):
 

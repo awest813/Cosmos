@@ -27,7 +27,7 @@ WINE_RETINA_MODE="${WINE_RETINA_MODE:-0}" # 1=enable RetinaMode, 0=disable Retin
 # 1=detach Steam from the Terminal after launch so closing the window doesn't kill it (Default).
 # 0=keep the original foreground behavior (Terminal window must stay open).
 MERLOT_DETACH="${MERLOT_DETACH:-1}"
-MERLOT_STEAM_LOG="${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/merlot-steam.log}"
+MERLOT_LAUNCH_LOG="${MERLOT_LAUNCH_LOG:-${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/merlot-steam.log}}"
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
@@ -55,35 +55,35 @@ EOF
 }
 
 parse_arguments() {
-  while (($# > 0)); do
-    case "$1" in
-      --steam)
-        MERLOT_LAUNCH_MODE="steam"
-        ;;
-      --game|--profile)
-        if (($# < 2)); then
-          die "Missing required argument for --game/--profile flag."
-        fi
-        PROFILE_EXECUTABLE="$2"
-        MERLOT_LAUNCH_MODE="profile"
-        shift 2
-        PROFILE_ARGS=("$@")
-        return 0
-        ;;
-      --profiles)
-        MERLOT_LAUNCH_MODE="profiles"
-        return 0
-        ;;
-      --help|-h)
-        usage
-        exit 0
-        ;;
-      *)
-        die "Unknown argument: $1"
-        ;;
-    esac
-    shift
-  done
+  case "${1:-}" in
+    "")
+      return 0
+      ;;
+    --steam)
+      MERLOT_LAUNCH_MODE="steam"
+      return 0
+      ;;
+    --profiles)
+      MERLOT_LAUNCH_MODE="profiles"
+      return 0
+      ;;
+    --game|--profile)
+      if (($# < 2)); then
+        die "Missing required argument for --game/--profile flag."
+      fi
+      PROFILE_EXECUTABLE="$2"
+      MERLOT_LAUNCH_MODE="profile"
+      PROFILE_ARGS=("${@:3}")
+      return 0
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      die "Unknown argument: $1"
+      ;;
+  esac
 }
 
 open_profiles_folder() {
@@ -395,13 +395,13 @@ launch_steam() {
       "${steam_cmd[@]}"
       ;;
     1)
-      log "Detaching Steam from this Terminal (log: ${MERLOT_STEAM_LOG})"
-      : >"${MERLOT_STEAM_LOG}" || die "Cannot write to ${MERLOT_STEAM_LOG}"
-      nohup "${steam_cmd[@]}" </dev/null >>"${MERLOT_STEAM_LOG}" 2>&1 &
+      log "Detaching Steam from this Terminal (log: ${MERLOT_LAUNCH_LOG})"
+      : >"${MERLOT_LAUNCH_LOG}" || die "Cannot write to ${MERLOT_LAUNCH_LOG}"
+      nohup "${steam_cmd[@]}" </dev/null >>"${MERLOT_LAUNCH_LOG}" 2>&1 &
       local pid="$!"
       disown
       echo "Steam is running in the background (PID ${pid}). Safe to close this Terminal window."
-      echo "Tail the log with: tail -f ${MERLOT_STEAM_LOG}"
+      echo "Tail the log with: tail -f ${MERLOT_LAUNCH_LOG}"
       ;;
     *)
       die "MERLOT_DETACH must be 0 or 1."
@@ -430,13 +430,13 @@ launch_profile() {
       "${profile_cmd[@]}"
       ;;
     1)
-      log "Detaching profile launch from this Terminal (log: ${MERLOT_STEAM_LOG})"
-      : >"${MERLOT_STEAM_LOG}" || die "Cannot write to ${MERLOT_STEAM_LOG}"
-      nohup "${profile_cmd[@]}" </dev/null >>"${MERLOT_STEAM_LOG}" 2>&1 &
+      log "Detaching profile launch from this Terminal (log: ${MERLOT_LAUNCH_LOG})"
+      : >"${MERLOT_LAUNCH_LOG}" || die "Cannot write to ${MERLOT_LAUNCH_LOG}"
+      nohup "${profile_cmd[@]}" </dev/null >>"${MERLOT_LAUNCH_LOG}" 2>&1 &
       local pid="$!"
       disown
       echo "Profile is running in the background (PID ${pid}). Safe to close this Terminal window."
-      echo "Tail the log with: tail -f ${MERLOT_STEAM_LOG}"
+      echo "Tail the log with: tail -f ${MERLOT_LAUNCH_LOG}"
       ;;
     *)
       die "MERLOT_DETACH must be 0 or 1."
