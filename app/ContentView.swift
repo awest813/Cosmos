@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct ContentView: View {
@@ -347,7 +348,7 @@ struct ContentView: View {
     }
 }
 
-private struct SavedProfile: Identifiable {
+private struct SavedProfile: Identifiable, Hashable {
     let id: String
     let name: String
     let path: String
