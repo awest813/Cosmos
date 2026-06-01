@@ -13,6 +13,7 @@ WINE_BIN="${WINE_APP}/Contents/Resources/wine/bin/wine"
 WINEPREFIX="${WINEPREFIX:-$HOME/.wine-steam-11}"
 STEAM_SETUP="/tmp/SteamSetup.exe"
 DXMT_ROOT="${DXMT_ROOT:-$HOME/DXMT}"
+PROFILE_DIRECTORY="${PROFILE_DIRECTORY:-$HOME/Library/Application Support/Cider/Profiles}"
 # GPTK_PATH: optional. When set, the D3D translation backend switches from
 # DXMT (default) to Apple's Game Porting Toolkit (D3DMetal). Point this at
 # either the GPTK root directory or the folder that contains the .dll files
@@ -30,6 +31,9 @@ MERLOT_STEAM_LOG="${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/merlot-steam.log}"
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
+MERLOT_LAUNCH_MODE="steam"
+PROFILE_EXECUTABLE="${CIDER_PROFILE_PATH:-}"
+PROFILE_ARGS="${CIDER_PROFILE_ARGS:-}"
 
 WINE_URL="https://github.com/Gcenx/macOS_Wine_builds/releases/download/${WINE_VERSION}/wine-devel-${WINE_VERSION}-osx64.tar.xz"
 STEAM_URL="https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe"
@@ -42,6 +46,44 @@ log() {
 die() {
   printf "Error: %s\n" "$1" >&2
   exit 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage: run.command [--steam|--game <path>|--profiles]
+EOF
+}
+
+parse_arguments() {
+  while (($# > 0)); do
+    case "$1" in
+      --steam)
+        MERLOT_LAUNCH_MODE="steam"
+        ;;
+      --game|--profile)
+        shift || die "${1} requires a profile executable path."
+        PROFILE_EXECUTABLE="$1"
+        MERLOT_LAUNCH_MODE="profile"
+        ;;
+      --profiles)
+        MERLOT_LAUNCH_MODE="profiles"
+        ;;
+      --help|-h)
+        usage
+        exit 0
+        ;;
+      *)
+        die "Unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+}
+
+open_profiles_folder() {
+  log "Opening saved profiles folder"
+  mkdir -p "${PROFILE_DIRECTORY}"
+  open "${PROFILE_DIRECTORY}"
 }
 
 require_macos_arm64() {
@@ -360,7 +402,49 @@ launch_steam() {
   esac
 }
 
+launch_profile() {
+  log "Launching saved profile"
+  [[ -n "${PROFILE_EXECUTABLE}" ]] || die "CIDER_PROFILE_PATH is required for --game."
+
+  local profile_executable="${PROFILE_EXECUTABLE}"
+  if [[ ! -f "${profile_executable}" && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then
+    profile_executable="${PROFILE_DIRECTORY}/${profile_executable}"
+  fi
+
+  [[ -f "${profile_executable}" ]] || die "Profile executable not found: ${PROFILE_EXECUTABLE}"
+
+  local -a profile_cmd=("${WINE_BIN}" "${profile_executable}")
+  if [[ -n "${PROFILE_ARGS}" ]]; then
+    local -a profile_args=()
+    read -r -a profile_args <<< "${PROFILE_ARGS}"
+    profile_cmd+=("${profile_args[@]}")
+  fi
+
+  case "${MERLOT_DETACH}" in
+    0)
+      "${profile_cmd[@]}"
+      ;;
+    1)
+      log "Detaching profile launch from this Terminal (log: ${MERLOT_STEAM_LOG})"
+      : >"${MERLOT_STEAM_LOG}" || die "Cannot write to ${MERLOT_STEAM_LOG}"
+      nohup "${profile_cmd[@]}" </dev/null >>"${MERLOT_STEAM_LOG}" 2>&1 &
+      disown
+      echo "Profile is running in the background (PID $!). Safe to close this Terminal window."
+      echo "Tail the log with: tail -f ${MERLOT_STEAM_LOG}"
+      ;;
+    *)
+      die "MERLOT_DETACH must be 0 or 1."
+      ;;
+  esac
+}
+
 main() {
+  parse_arguments "$@"
+  if [[ "${MERLOT_LAUNCH_MODE}" == "profiles" ]]; then
+    open_profiles_folder
+    return
+  fi
+
   require_macos_arm64
   ensure_rosetta
   ensure_wine_installed
@@ -378,7 +462,12 @@ main() {
     ensure_dxmt_installed
     enable_dxmt_env
   fi
-  launch_steam
+
+  if [[ "${MERLOT_LAUNCH_MODE}" == "profile" ]]; then
+    launch_profile
+  else
+    launch_steam
+  fi
 }
 
 main "$@"

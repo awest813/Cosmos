@@ -40,6 +40,10 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
 - Launch mode:
   - Default (`MERLOT_DETACH=1`) runs Steam with `nohup ... & disown`, redirecting stdout/stderr to `${MERLOT_STEAM_LOG}` (defaults to `${TMPDIR:-/tmp}/merlot-steam.log`). The Terminal window can be closed immediately after launch without killing Steam.
   - `MERLOT_DETACH=0` preserves the pre-patch foreground behavior (Terminal window must stay open).
+- App/dashboard actions:
+  - `run.command --steam` launches Steam explicitly.
+  - `run.command --profiles` opens `~/Library/Application Support/Cider/Profiles/` in Finder and exits.
+  - `run.command --game` launches a saved profile by reading `CIDER_PROFILE_PATH` and optional `CIDER_PROFILE_ARGS` from the environment.
 - Wine logging:
   - defaults `WINEDEBUG` to `-all,err+all` unless already set by the caller
 - Writes registry values inside the prefix:
@@ -79,6 +83,10 @@ Defaults are the values in `run.command`.
   - `0` keeps the old foreground behavior.
 - `MERLOT_STEAM_LOG`
   - Path to the detached-mode Steam log (default: `${TMPDIR:-/tmp}/merlot-steam.log`).
+- `CIDER_PROFILE_PATH`
+  - Path to a saved profile executable used by `run.command --game`.
+- `CIDER_PROFILE_ARGS`
+  - Optional arguments passed to the selected profile executable.
 
 Example overrides (environment variables):
 

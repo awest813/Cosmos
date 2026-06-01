@@ -119,9 +119,16 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--steam"])
             }
 
-            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile == nil) {
+            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile == nil || selectedProfile?.path.isEmpty == true) {
                 guard let selectedProfile else { return }
-                runCommand(script: "run.command", arguments: ["--game", selectedProfile.name])
+                runCommand(
+                    script: "run.command",
+                    arguments: ["--game"],
+                    environment: [
+                        "CIDER_PROFILE_PATH": selectedProfile.path,
+                        "CIDER_PROFILE_ARGS": selectedProfile.args
+                    ]
+                )
             }
 
             actionButton(title: "Install Merlot", subtitle: "Install dependencies and Wine tooling", systemImage: "arrow.down.circle") {
@@ -295,7 +302,7 @@ struct ContentView: View {
         return SavedProfile(id: fileURL.lastPathComponent, name: name, path: path, args: args, fileURL: fileURL)
     }
 
-    private func runCommand(script: String, arguments: [String] = []) {
+    private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
         guard let repositoryRootURL else {
             output = "Failed to locate the repository scripts directory."
             return
@@ -315,7 +322,11 @@ struct ContentView: View {
         task.executableURL = scriptURL
         task.arguments = arguments
         task.currentDirectoryURL = repositoryRootURL
-        task.environment = ProcessInfo.processInfo.environment
+        var mergedEnvironment = ProcessInfo.processInfo.environment
+        for (key, value) in environment {
+            mergedEnvironment[key] = value
+        }
+        task.environment = mergedEnvironment
 
         let pipe = Pipe()
         task.standardOutput = pipe
