@@ -411,11 +411,12 @@ launch_steam() {
 }
 
 launch_profile() {
-  log "Launching saved profile"
+  log "Launching profile: ${PROFILE_EXECUTABLE}"
   [[ -n "${PROFILE_EXECUTABLE}" ]] || die "The --game/--profile flag requires a profile executable path."
 
   local profile_executable="${PROFILE_EXECUTABLE}"
   if [[ "${profile_executable}" != /* && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then
+    # Relative names are resolved against the saved profiles directory first.
     profile_executable="${PROFILE_DIRECTORY}/${profile_executable}"
   fi
 

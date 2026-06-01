@@ -166,7 +166,7 @@ struct ContentView: View {
             return "Choose a saved profile first"
         }
 
-        return selectedProfile.path.isEmpty ? "Selected profile has no executable path" : "Ready to launch"
+        return selectedProfile.path.isEmpty ? "Please set an executable path for this profile" : "Ready to launch"
     }
 
     private var isSelectedProfileLaunchDisabled: Bool {
@@ -310,6 +310,7 @@ struct ContentView: View {
         return SavedProfile(id: fileURL.lastPathComponent, name: name, path: path, args: args, fileURL: fileURL)
     }
 
+    // Pure helper for splitting the profile args field; edge cases can be unit-tested independently of the launcher.
     private func shellArguments(from text: String) -> [String] {
         guard !text.isEmpty else { return [] }
 
