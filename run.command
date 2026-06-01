@@ -69,7 +69,7 @@ parse_arguments() {
       ;;
     --game|--profile)
       if (($# < 2)); then
-        die "Missing required argument for --game/--profile flag."
+        die "Missing required argument for $1 flag."
       fi
       PROFILE_EXECUTABLE="$2"
       MERLOT_LAUNCH_MODE="profile"
@@ -415,7 +415,7 @@ launch_profile() {
   [[ -n "${PROFILE_EXECUTABLE}" ]] || die "The --game/--profile flag requires a profile executable path."
 
   local profile_executable="${PROFILE_EXECUTABLE}"
-  if [[ ! -f "${profile_executable}" && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then
+  if [[ "${profile_executable}" != /* && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then
     profile_executable="${PROFILE_DIRECTORY}/${profile_executable}"
   fi
 

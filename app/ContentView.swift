@@ -166,7 +166,7 @@ struct ContentView: View {
             return "Choose a saved profile first"
         }
 
-        return selectedProfile.path.isEmpty ? "Selected profile has no executable path" : selectedProfile.name
+        return selectedProfile.path.isEmpty ? "Selected profile has no executable path" : "Ready to launch"
     }
 
     private var isSelectedProfileLaunchDisabled: Bool {
@@ -313,6 +313,7 @@ struct ContentView: View {
     private func shellArguments(from text: String) -> [String] {
         guard !text.isEmpty else { return [] }
 
+        // This splitter only handles simple quoted groups; backslashes stay literal.
         enum QuoteState {
             case none
             case single
@@ -320,20 +321,11 @@ struct ContentView: View {
         }
 
         var state: QuoteState = .none
-        var escaped = false
         var current = ""
         var result: [String] = []
 
         for character in text {
-            if escaped {
-                current.append(character)
-                escaped = false
-                continue
-            }
-
             switch character {
-            case "\\" where state != .single:
-                escaped = true
             case "'" where state == .none:
                 state = .single
             case "'" where state == .single:
@@ -350,11 +342,6 @@ struct ContentView: View {
             default:
                 current.append(character)
             }
-        }
-
-        if escaped {
-            // Preserve a trailing backslash so copied paths like C:\Games\ or escaped-space fragments do not lose the final character.
-            current.append("\\")
         }
 
         if !current.isEmpty {
