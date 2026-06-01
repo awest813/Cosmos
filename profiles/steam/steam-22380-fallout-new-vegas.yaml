@@ -1,0 +1,21 @@
+# Example profile — illustrates the v0 schema (see docs/PROFILE_FORMAT.md).
+# Settings here are illustrative, not yet hand-verified on hardware.
+id: fallout_new_vegas
+name: "Fallout: New Vegas"
+store: steam
+steam_appid: 22380
+status: playable
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  esync: true
+dependencies:
+  - vcrun2010
+  - d3dx9
+fixes:
+  - disable_intro_video
+  - force_borderless
+notes: "Use the in-game launcher first to set resolution, then launch the game."
+</content>

@@ -2,6 +2,12 @@
 
 For developer details, see the [Developer README](README_DEV.md).
 
+> **Project direction: Cosmos.** This project is evolving into **Cosmos**, a
+> macOS game compatibility layer and launcher (Wine + Metal translation + game
+> profiles + one-click fixes). The scripts and apps below are the current
+> "Merlot" generation; the rename is tracked as the first roadmap item. See
+> [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## References & Credits
 
 - Inspired by this Reddit post:
