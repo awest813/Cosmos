@@ -13,6 +13,7 @@ WINE_BIN="${WINE_APP}/Contents/Resources/wine/bin/wine"
 WINEPREFIX="${WINEPREFIX:-$HOME/.wine-steam-11}"
 STEAM_SETUP="/tmp/SteamSetup.exe"
 DXMT_ROOT="${DXMT_ROOT:-$HOME/DXMT}"
+PROFILE_DIRECTORY="${PROFILE_DIRECTORY:-$HOME/Library/Application Support/Cider/Profiles}"
 # GPTK_PATH: optional. When set, the D3D translation backend switches from
 # DXMT (default) to Apple's Game Porting Toolkit (D3DMetal). Point this at
 # either the GPTK root directory or the folder that contains the .dll files
@@ -26,10 +27,13 @@ WINE_RETINA_MODE="${WINE_RETINA_MODE:-0}" # 1=enable RetinaMode, 0=disable Retin
 # 1=detach Steam from the Terminal after launch so closing the window doesn't kill it (Default).
 # 0=keep the original foreground behavior (Terminal window must stay open).
 MERLOT_DETACH="${MERLOT_DETACH:-1}"
-MERLOT_STEAM_LOG="${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/merlot-steam.log}"
+MERLOT_LAUNCH_LOG="${MERLOT_LAUNCH_LOG:-${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/merlot-steam.log}}"
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
+MERLOT_LAUNCH_MODE="${MERLOT_LAUNCH_MODE:-steam}"
+PROFILE_EXECUTABLE=""
+PROFILE_ARGS=()
 
 WINE_URL="https://github.com/Gcenx/macOS_Wine_builds/releases/download/${WINE_VERSION}/wine-devel-${WINE_VERSION}-osx64.tar.xz"
 STEAM_URL="https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe"
@@ -42,6 +46,56 @@ log() {
 die() {
   printf "Error: %s\n" "$1" >&2
   exit 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage: run.command [--steam|--game <path>|--profiles]
+EOF
+}
+
+parse_arguments() {
+  case "${1:-}" in
+    "")
+      return 0
+      ;;
+    --steam)
+      if (($# > 1)); then
+        die "The --steam flag does not accept additional arguments."
+      fi
+      MERLOT_LAUNCH_MODE="steam"
+      return 0
+      ;;
+    --profiles)
+      if (($# > 1)); then
+        die "The --profiles flag does not accept additional arguments."
+      fi
+      MERLOT_LAUNCH_MODE="profiles"
+      return 0
+      ;;
+    --game|--profile)
+      if (($# < 2)); then
+        die "Missing required argument for $1 flag."
+      fi
+      PROFILE_EXECUTABLE="$2"
+      MERLOT_LAUNCH_MODE="profile"
+      PROFILE_ARGS=("${@:3}")
+      return 0
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      die "Unknown argument: $1"
+      ;;
+  esac
+}
+
+open_profiles_folder() {
+  log "Opening saved profiles folder"
+  mkdir -p "${PROFILE_DIRECTORY}"
+  open "${PROFILE_DIRECTORY}"
 }
 
 require_macos_arm64() {
@@ -347,12 +401,50 @@ launch_steam() {
       "${steam_cmd[@]}"
       ;;
     1)
-      log "Detaching Steam from this Terminal (log: ${MERLOT_STEAM_LOG})"
-      : >"${MERLOT_STEAM_LOG}" || die "Cannot write to ${MERLOT_STEAM_LOG}"
-      nohup "${steam_cmd[@]}" </dev/null >>"${MERLOT_STEAM_LOG}" 2>&1 &
+      log "Detaching Steam from this Terminal (log: ${MERLOT_LAUNCH_LOG})"
+      : >"${MERLOT_LAUNCH_LOG}" || die "Cannot write to ${MERLOT_LAUNCH_LOG}"
+      nohup "${steam_cmd[@]}" </dev/null >>"${MERLOT_LAUNCH_LOG}" 2>&1 &
+      local pid="$!"
       disown
-      echo "Steam is running in the background (PID $!). Safe to close this Terminal window."
-      echo "Tail the log with: tail -f ${MERLOT_STEAM_LOG}"
+      echo "Steam is running in the background (PID ${pid}). Safe to close this Terminal window."
+      echo "Tail the log with: tail -f ${MERLOT_LAUNCH_LOG}"
+      ;;
+    *)
+      die "MERLOT_DETACH must be 0 or 1."
+      ;;
+  esac
+}
+
+launch_profile() {
+  log "Launching profile: ${PROFILE_EXECUTABLE}"
+  [[ -n "${PROFILE_EXECUTABLE}" ]] || die "The --game/--profile flag requires a profile executable path."
+  [[ -d "${PROFILE_DIRECTORY}" ]] || die "Profile directory is not available: ${PROFILE_DIRECTORY}"
+
+  local profile_executable="${PROFILE_EXECUTABLE}"
+  if [[ "${profile_executable}" != /* && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then
+    # Relative names are resolved against the saved profiles directory first.
+    profile_executable="${PROFILE_DIRECTORY}/${profile_executable}"
+  fi
+
+  [[ -f "${profile_executable}" ]] || die "Profile executable not found: ${PROFILE_EXECUTABLE}"
+
+  local -a profile_cmd=("${WINE_BIN}" "${profile_executable}")
+  if (( ${#PROFILE_ARGS[@]} > 0 )); then
+    profile_cmd+=("${PROFILE_ARGS[@]}")
+  fi
+
+  case "${MERLOT_DETACH}" in
+    0)
+      "${profile_cmd[@]}"
+      ;;
+    1)
+      log "Detaching profile launch from this Terminal (log: ${MERLOT_LAUNCH_LOG})"
+      : >"${MERLOT_LAUNCH_LOG}" || die "Cannot write to ${MERLOT_LAUNCH_LOG}"
+      nohup "${profile_cmd[@]}" </dev/null >>"${MERLOT_LAUNCH_LOG}" 2>&1 &
+      local pid="$!"
+      disown
+      echo "Profile is running in the background (PID ${pid}). Safe to close this Terminal window."
+      echo "Tail the log with: tail -f ${MERLOT_LAUNCH_LOG}"
       ;;
     *)
       die "MERLOT_DETACH must be 0 or 1."
@@ -361,6 +453,12 @@ launch_steam() {
 }
 
 main() {
+  parse_arguments "$@"
+  if [[ "${MERLOT_LAUNCH_MODE}" == "profiles" ]]; then
+    open_profiles_folder
+    return
+  fi
+
   require_macos_arm64
   ensure_rosetta
   ensure_wine_installed
@@ -378,7 +476,12 @@ main() {
     ensure_dxmt_installed
     enable_dxmt_env
   fi
-  launch_steam
+
+  if [[ "${MERLOT_LAUNCH_MODE}" == "profile" ]]; then
+    launch_profile
+  else
+    launch_steam
+  fi
 }
 
 main "$@"

@@ -119,9 +119,12 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--steam"])
             }
 
-            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile == nil) {
+            actionButton(title: "Launch Selected Profile", subtitle: selectedProfileLaunchSubtitle, systemImage: "gamecontroller.fill", prominent: true, disabled: !selectedProfileHasExecutablePath) {
                 guard let selectedProfile else { return }
-                runCommand(script: "run.command", arguments: ["--game", selectedProfile.name])
+                runCommand(
+                    script: "run.command",
+                    arguments: ["--game", selectedProfile.path] + shellArguments(from: selectedProfile.args)
+                )
             }
 
             actionButton(title: "Install Merlot", subtitle: "Install dependencies and Wine tooling", systemImage: "arrow.down.circle") {
@@ -156,6 +159,18 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18))
         }
+    }
+
+    private var selectedProfileLaunchSubtitle: String {
+        guard let selectedProfile else {
+            return "Choose a saved profile first"
+        }
+
+        return selectedProfileHasExecutablePath ? "Ready to launch" : "Please set an executable path for this profile"
+    }
+
+    private var selectedProfileHasExecutablePath: Bool {
+        selectedProfile?.path.isEmpty == false
     }
 
     private var consoleSection: some View {
@@ -295,7 +310,52 @@ struct ContentView: View {
         return SavedProfile(id: fileURL.lastPathComponent, name: name, path: path, args: args, fileURL: fileURL)
     }
 
-    private func runCommand(script: String, arguments: [String] = []) {
+    // Pure helper for splitting the profile args field; edge cases can be unit-tested independently of the launcher and this only targets trusted local profile text.
+    private func shellArguments(from text: String) -> [String] {
+        guard !text.isEmpty else { return [] }
+
+        // This splitter only handles simple quoted groups; backslashes stay literal, unclosed quotes stay literal, and trailing whitespace is ignored.
+        enum QuoteState {
+            case none
+            case single
+            case double
+        }
+
+        let whitespaceCharacters = CharacterSet.whitespacesAndNewlines
+        var state: QuoteState = .none
+        var current = ""
+        var result: [String] = []
+
+        for character in text {
+            switch character {
+            case "'" where state == .none:
+                state = .single
+            case "'" where state == .single:
+                state = .none
+            case "\"" where state == .none:
+                state = .double
+            case "\"" where state == .double:
+                state = .none
+            default:
+                if state == .none, character.unicodeScalars.allSatisfy({ whitespaceCharacters.contains($0) }) {
+                    if !current.isEmpty {
+                        result.append(current)
+                        current = ""
+                    }
+                } else {
+                    current.append(character)
+                }
+            }
+        }
+
+        if !current.isEmpty {
+            result.append(current)
+        }
+
+        return result
+    }
+
+    private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
         guard let repositoryRootURL else {
             output = "Failed to locate the repository scripts directory."
             return
@@ -315,7 +375,11 @@ struct ContentView: View {
         task.executableURL = scriptURL
         task.arguments = arguments
         task.currentDirectoryURL = repositoryRootURL
-        task.environment = ProcessInfo.processInfo.environment
+        var mergedEnvironment = ProcessInfo.processInfo.environment
+        for (key, value) in environment {
+            mergedEnvironment[key] = value
+        }
+        task.environment = mergedEnvironment
 
         let pipe = Pipe()
         task.standardOutput = pipe
