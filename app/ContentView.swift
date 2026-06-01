@@ -135,6 +135,10 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--profiles"])
             }
 
+            actionButton(title: "Detect Steam Games", subtitle: "List installed Steam games in the bottle", systemImage: "magnifyingglass.circle") {
+                runCommand(script: "detect_steam_games.command", arguments: ["--list"])
+            }
+
             actionButton(title: "Open Logs", subtitle: "Reveal the latest launch log", systemImage: "doc.text.magnifyingglass") {
                 runCommand(script: "run.command", arguments: ["--logs"])
             }

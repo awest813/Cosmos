@@ -168,6 +168,43 @@ double-clickable `Cosmos.app` with `run.command`, `install_cosmos.command`, and
 `uninstall.command` copied into `Contents/Resources/` so the app is
 self-contained. Requires Xcode or the Command Line Tools (`swift`).
 
+## Auto-Detecting Steam Games
+
+`detect_steam_games.command` scans the Steam libraries inside the Wine prefix and
+turns each installed game into a launcher config, so you don't have to hand-write
+a `.conf` per game.
+
+How it works:
+
+1. Finds Steam in the prefix (`Program Files (x86)/Steam` or `Program Files/Steam`).
+2. Reads every library from `steamapps/libraryfolders.vdf`, mapping Windows paths
+   to the filesystem through the prefix's `dosdevices/` drive symlinks.
+3. Parses each `appmanifest_<appid>.acf` for the App ID and name.
+4. Writes one generated config per game into `cosmos_configs/` named
+   `steam-<appid>-<slug>.conf` (these carry an `AUTO-GENERATED` header and are
+   git-ignored). Games that already have a hand-curated config with the same
+   `STEAM_GAME_ID` are skipped so curated presets win.
+
+Modes:
+
+```bash
+./detect_steam_games.command --list      # print detected games, write nothing
+./detect_steam_games.command            # (default) refresh generated configs
+./detect_steam_games.command --install   # refresh configs, then build all launchers
+```
+
+Re-running refreshes the generated set (stale configs for uninstalled games are
+removed). After `--write`, run `./install_cosmos.command` to build the `.app`
+launchers. The Cosmos dashboard's "Detect Steam Games" button runs `--list`
+(read-only) so it works even from the installed app.
+
+Notes / current limitations (0.2 kickoff):
+
+- Generated launchers use the default Cosmos icon; per-game artwork extraction is
+  a follow-up.
+- Generated configs set only `STEAM_GAME_ID`; richer per-game settings (backend,
+  `DXMT_CONFIG`, etc.) are added by promoting a game to a curated config.
+
 ## Cosmos App Bundles
 
 `install_cosmos.command` assembles `Cosmos Apps/` in a temporary directory, then installs it into `/Applications/Cosmos Apps`.
