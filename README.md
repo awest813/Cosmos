@@ -2,6 +2,38 @@
 
 For developer details, see the [Developer README](README_DEV.md).
 
+## Cider App (GUI — new)
+
+Cider is a lightweight SwiftUI app that wraps the existing shell scripts into a
+point-and-click interface.  No Terminal required.
+
+### Build & Run
+
+Requires **macOS 13+** and the Xcode command-line tools (or full Xcode).
+
+```bash
+cd CiderApp
+swift build
+swift run CiderApp
+```
+
+Or open `CiderApp/Package.swift` in Xcode and press ▶.
+
+### Features
+
+| Tab | What it does |
+|-----|-------------|
+| **Setup** | Shows which components are installed (Rosetta, Wine, prefix, Steam, DXMT). One button installs everything. |
+| **Library** | Add / edit / launch game profiles with per-game settings (backend, Retina, mouse warp, env overrides). |
+| **Launchers** | Regenerate Spotlight-friendly `.app` bundles in `/Applications/Merlot Apps`. |
+| **Repair** | View Steam logs, reinstall DXMT, rebuild launchers, reset the Wine prefix, kill stuck processes. |
+
+### Game Compatibility Database
+
+`cider_compat.json` in the repo root contains starter profiles for a handful of
+tested games.  Import them into the Library or use them as a reference when
+adding your own.
+
 ## References & Credits
 
 - Inspired by this Reddit post:

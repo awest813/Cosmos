@@ -1,0 +1,47 @@
+{
+  "binding-of-isaac": {
+    "displayName": "The Binding of Isaac: Rebirth",
+    "steamGameID": "250900",
+    "backend": "dxmt",
+    "retina": false,
+    "mouseWarp": "",
+    "envOverrides": ["DXMT_CONFIG=d3d11.preferredMaxFrameRate=60;"],
+    "notes": "Works well. Cap framerate to 60 for stability."
+  },
+  "stardew-valley": {
+    "displayName": "Stardew Valley",
+    "steamGameID": "413150",
+    "backend": "dxmt",
+    "retina": false,
+    "mouseWarp": "disable",
+    "envOverrides": [],
+    "notes": "Runs great with DXMT. Disable mouse warp for best cursor behavior."
+  },
+  "hollow-knight": {
+    "displayName": "Hollow Knight",
+    "steamGameID": "367520",
+    "backend": "dxmt",
+    "retina": false,
+    "mouseWarp": "",
+    "envOverrides": [],
+    "notes": "Plays well out of the box. Controller recommended."
+  },
+  "hades": {
+    "displayName": "Hades",
+    "steamGameID": "1145360",
+    "backend": "dxmt",
+    "retina": false,
+    "mouseWarp": "",
+    "envOverrides": [],
+    "notes": "Stable with DXMT. Minor shader compilation stutter on first launch."
+  },
+  "terraria": {
+    "displayName": "Terraria",
+    "steamGameID": "105600",
+    "backend": "dxmt",
+    "retina": false,
+    "mouseWarp": "disable",
+    "envOverrides": [],
+    "notes": "Works. Disable mouse warp to fix cursor offset in menus."
+  }
+}
