@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Builds the Cosmos desktop app shell (roadmap milestone 0.1).
+#
+# Compiles the SwiftUI sources via SwiftPM, then assembles a double-clickable
+# Cosmos.app bundle with the helper scripts (run.command, install_cosmos.command,
+# uninstall.command) copied into Resources so the app is self-contained.
+#
+# Usage:
+#   scripts/build_cosmos_app.command          # build into ./build/Cosmos.app
+#   INSTALL=1 scripts/build_cosmos_app.command # also copy into /Applications
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+
+APP_NAME="Cosmos"
+BUNDLE_ID="com.cosmos.app"
+APP_VERSION="0.1"
+MIN_MACOS="13.0"
+OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
+APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
+ICON_SRC="${REPO_ROOT}/app/cosmos/AppIcon.icns"
+SCRIPTS_TO_BUNDLE=(run.command install_cosmos.command uninstall.command)
+
+log() { printf "\n==> %s\n" "$1"; }
+die() { printf "Error: %s\n" "$1" >&2; exit 1; }
+
+[[ "$(uname -s)" == "Darwin" ]] || die "Building the Cosmos app requires macOS."
+command -v swift >/dev/null 2>&1 || die "swift not found. Install Xcode or the Command Line Tools."
+
+log "Compiling ${APP_NAME} (swift build -c release)"
+(cd "${REPO_ROOT}" && swift build -c release)
+
+local_bin_dir="$(cd "${REPO_ROOT}" && swift build -c release --show-bin-path)"
+built_binary="${local_bin_dir}/${APP_NAME}"
+[[ -x "${built_binary}" ]] || die "Build did not produce ${built_binary}"
+
+log "Assembling ${APP_BUNDLE}"
+rm -rf "${APP_BUNDLE}"
+mkdir -p "${APP_BUNDLE}/Contents/MacOS" "${APP_BUNDLE}/Contents/Resources"
+
+cp "${built_binary}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
+chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
+
+cat > "${APP_BUNDLE}/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleDisplayName</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleExecutable</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleIdentifier</key>
+    <string>${BUNDLE_ID}</string>
+    <key>CFBundleVersion</key>
+    <string>${APP_VERSION}</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${APP_VERSION}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>${MIN_MACOS}</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>MIT License</string>
+</dict>
+</plist>
+EOF
+
+printf 'APPL????' > "${APP_BUNDLE}/Contents/PkgInfo"
+
+if [[ -f "${ICON_SRC}" ]]; then
+  cp "${ICON_SRC}" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
+else
+  echo "Warning: icon not found at ${ICON_SRC}; building without one."
+fi
+
+for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
+  src="${REPO_ROOT}/${script}"
+  [[ -f "${src}" ]] || die "Missing helper script: ${src}"
+  cp "${src}" "${APP_BUNDLE}/Contents/Resources/${script}"
+  chmod +x "${APP_BUNDLE}/Contents/Resources/${script}"
+done
+
+log "Built ${APP_BUNDLE}"
+
+if [[ "${INSTALL:-0}" == "1" ]]; then
+  log "Installing to /Applications/${APP_NAME}.app (may prompt for your password)"
+  sudo rm -rf "/Applications/${APP_NAME}.app"
+  sudo cp -R "${APP_BUNDLE}" "/Applications/"
+  echo "Installed /Applications/${APP_NAME}.app"
+else
+  echo "Run INSTALL=1 ${BASH_SOURCE[0]##*/} to copy it into /Applications."
+fi

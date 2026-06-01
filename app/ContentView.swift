@@ -5,18 +5,18 @@ struct ContentView: View {
     private let fileManager = FileManager.default
     private let repositoryRootURL = Self.findRepositoryRoot()
     private let profileDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/Cider/Profiles", isDirectory: true)
-    private let merlotDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Applications/Merlot", isDirectory: true)
+        .appendingPathComponent("Library/Application Support/Cosmos/Profiles", isDirectory: true)
+    private let cosmosAppsURL = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
     private let steamExecutableURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".cider/drive_c/Program Files (x86)/Steam/Steam.exe")
+        .appendingPathComponent(".wine-steam-11/drive_c/Program Files (x86)/Steam/steam.exe")
 
-    @State private var output = "Welcome to Cider\n\nSelect a saved profile or use the quick actions to manage your setup."
+    @State private var output = "Welcome to Cosmos\n\nSelect a saved profile or use the quick actions to manage your setup."
     @State private var profiles: [SavedProfile] = []
     @State private var selectedProfileID: String?
-    @State private var merlotInstalled = false
+    @State private var cosmosInstalled = false
     @State private var steamInstalled = false
     @State private var isRunning = false
+    @State private var showResetConfirmation = false
 
 
     private var selectedProfile: SavedProfile? {
@@ -27,7 +27,7 @@ struct ContentView: View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Cider")
+                    Text("Cosmos")
                         .font(.largeTitle.weight(.bold))
                     Text("Apple Silicon game launcher dashboard")
                         .font(.subheadline)
@@ -82,8 +82,8 @@ struct ContentView: View {
 
     private var statusSummary: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(merlotInstalled ? "Merlot installed" : "Merlot required", systemImage: merlotInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
-                .foregroundStyle(merlotInstalled ? Color.green : Color.orange)
+            Label(cosmosInstalled ? "Cosmos installed" : "Cosmos required", systemImage: cosmosInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
+                .foregroundStyle(cosmosInstalled ? Color.green : Color.orange)
             Label(steamInstalled ? "Steam prefix ready" : "Steam not installed yet", systemImage: steamInstalled ? "shippingbox.fill" : "shippingbox")
                 .foregroundStyle(steamInstalled ? Color.blue : Color.secondary)
             Label("\(profiles.count) saved profile\(profiles.count == 1 ? "" : "s")", systemImage: "gamecontroller")
@@ -100,14 +100,14 @@ struct ContentView: View {
             Text(selectedProfile?.name ?? "Launcher Dashboard")
                 .font(.system(size: 30, weight: .bold))
             Text(selectedProfile == nil
-                 ? "Manage Merlot, launch Steam, and quickly jump into saved game profiles from one place."
+                 ? "Manage Cosmos, launch Steam, and quickly jump into saved game profiles from one place."
                  : "Ready to launch this saved profile through the existing Wine-based shell flow.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 12) {
                 metricCard(title: "Profiles", value: "\(profiles.count)", icon: "list.bullet.rectangle")
-                metricCard(title: "Merlot", value: merlotInstalled ? "Installed" : "Needed", icon: merlotInstalled ? "checkmark.circle" : "arrow.down.circle")
+                metricCard(title: "Cosmos", value: cosmosInstalled ? "Installed" : "Needed", icon: cosmosInstalled ? "checkmark.circle" : "arrow.down.circle")
                 metricCard(title: "Steam", value: steamInstalled ? "Ready" : "Setup", icon: steamInstalled ? "shippingbox.fill" : "shippingbox")
             }
         }
@@ -127,21 +127,37 @@ struct ContentView: View {
                 )
             }
 
-            actionButton(title: "Install Merlot", subtitle: "Install dependencies and Wine tooling", systemImage: "arrow.down.circle") {
-                runCommand(script: "install_merlot.command")
+            actionButton(title: "Install Cosmos", subtitle: "Install dependencies and Wine tooling", systemImage: "arrow.down.circle") {
+                runCommand(script: "install_cosmos.command")
             }
 
             actionButton(title: "Open Profiles Folder", subtitle: "Reveal saved .conf profiles in Finder", systemImage: "folder") {
                 runCommand(script: "run.command", arguments: ["--profiles"])
             }
 
+            actionButton(title: "Open Logs", subtitle: "Reveal the latest launch log", systemImage: "doc.text.magnifyingglass") {
+                runCommand(script: "run.command", arguments: ["--logs"])
+            }
+
+            actionButton(title: "Reset Bottle", subtitle: "Delete the Steam prefix and start fresh", systemImage: "arrow.counterclockwise") {
+                showResetConfirmation = true
+            }
+
             actionButton(title: "Refresh Status", subtitle: "Reload profile and install state", systemImage: "arrow.clockwise") {
                 refreshStatus(message: "Status refreshed.")
             }
 
-            actionButton(title: "Uninstall", subtitle: "Remove the Cider prefix and app bundle", systemImage: "trash") {
+            actionButton(title: "Uninstall", subtitle: "Remove the Cosmos prefix and app bundle", systemImage: "trash") {
                 runCommand(script: "uninstall.command")
             }
+        }
+        .confirmationDialog("Reset the Steam bottle?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
+            Button("Reset Bottle", role: .destructive) {
+                runCommand(script: "run.command", arguments: ["--reset-bottle", "--force"])
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes the Wine prefix and everything installed inside it (including Steam and games). Wine and DXMT downloads are kept.")
         }
     }
 
@@ -250,7 +266,7 @@ struct ContentView: View {
     }
 
     private func refreshStatus(message: String? = nil) {
-        merlotInstalled = fileManager.fileExists(atPath: merlotDirectoryURL.path)
+        cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
 
@@ -355,15 +371,28 @@ struct ContentView: View {
         return result
     }
 
-    private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
-        guard let repositoryRootURL else {
-            output = "Failed to locate the repository scripts directory."
-            return
+    // Locate a helper script, preferring a copy bundled into the app's
+    // Resources (installed Cosmos.app) and falling back to the repository
+    // checkout (running from a development build).
+    private func resolveScript(_ script: String) -> URL? {
+        if let resourceURL = Bundle.main.resourceURL {
+            let bundled = resourceURL.appendingPathComponent(script)
+            if fileManager.isExecutableFile(atPath: bundled.path) {
+                return bundled
+            }
         }
+        if let repositoryRootURL {
+            let dev = repositoryRootURL.appendingPathComponent(script)
+            if fileManager.isExecutableFile(atPath: dev.path) {
+                return dev
+            }
+        }
+        return nil
+    }
 
-        let scriptURL = repositoryRootURL.appendingPathComponent(script)
-        guard fileManager.isExecutableFile(atPath: scriptURL.path) else {
-            output = "Script not found or not executable: \(scriptURL.lastPathComponent)"
+    private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
+        guard let scriptURL = resolveScript(script) else {
+            output = "Script not found or not executable: \(script)"
             return
         }
 
@@ -374,7 +403,7 @@ struct ContentView: View {
         let task = Process()
         task.executableURL = scriptURL
         task.arguments = arguments
-        task.currentDirectoryURL = repositoryRootURL
+        task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
         var mergedEnvironment = ProcessInfo.processInfo.environment
         for (key, value) in environment {
             mergedEnvironment[key] = value
@@ -442,6 +471,8 @@ private struct SavedProfile: Identifiable, Hashable {
     let fileURL: URL
 }
 
+#if DEBUG
 #Preview {
     ContentView()
 }
+#endif

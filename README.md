@@ -2,6 +2,16 @@
 
 For developer details, see the [Developer README](README_DEV.md).
 
+> **Cosmos** is a macOS game compatibility layer and launcher (Wine + Metal
+> translation + game profiles + one-click fixes). This repository is currently at
+> roadmap milestone **0.1 (Bootstrap)** — the scripts below set up Wine, a Steam
+> bottle, DXMT, and generate `.app` launchers. See
+> [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+>
+> Upgrading from the old "Merlot" builds? Your existing Wine prefix and saved
+> profiles are reused. The `MERLOT_*` environment variables still work as
+> aliases, and `uninstall.command` also removes the legacy `Merlot Apps` folder.
+
 ## References & Credits
 
 - Inspired by this Reddit post:
@@ -23,27 +33,27 @@ For developer details, see the [Developer README](README_DEV.md).
 #### Install:
 
 1. In Finder, locate the unzipped folder.
-2. Double-click `install_merlot.command`.
-3. If macOS blocks it, right-click `install_merlot.command` -> `Open` -> confirm `Open`.
-4. It installs `Merlot Apps` into `/Applications`.
+2. Double-click `install_cosmos.command`.
+3. If macOS blocks it, right-click `install_cosmos.command` -> `Open` -> confirm `Open`.
+4. It installs `Cosmos Apps` into `/Applications`.
 
 #### Run:
 
-1. Open one of the apps in `/Applications/Merlot Apps`, or find it in Spotlight:
-   - `Steam (Merlot).app` to launch Steam without game-specific presets.
-   - A game launcher, for example `Binding of Isaac (Merlot).app`, to use settings optimized for that game.
+1. Open one of the apps in `/Applications/Cosmos Apps`, or find it in Spotlight:
+   - `Steam (Cosmos).app` to launch Steam without game-specific presets.
+   - A game launcher, for example `Binding of Isaac (Cosmos).app`, to use settings optimized for that game.
 2. If macOS blocks it, right-click the app -> `Open` -> confirm `Open`.
-3. After Steam launches, the Terminal window prints the Steam log path and can be closed. Steam stays running in the background. (Set `MERLOT_DETACH=0` if you prefer the old foreground behavior where closing Terminal kills Steam.)
+3. After Steam launches, the Terminal window prints the Steam log path and can be closed. Steam stays running in the background. (Set `COSMOS_DETACH=0` if you prefer the old foreground behavior where closing Terminal kills Steam.)
 
-`Merlot Apps` includes `Steam (Merlot).app` plus ready-made launchers for supported games in this repository.
+`Cosmos Apps` includes `Steam (Cosmos).app` plus ready-made launchers for supported games in this repository.
 Each game launcher includes presets and tweaks optimized for that game.
 
 **Optional advanced setup:**<br>
-If you want, you can add your own config in `merlot_configs/` and run `install_merlot.command` again to create another launcher. See the [Developer README](README_DEV.md).
+If you want, you can add your own config in `cosmos_configs/` and run `install_cosmos.command` again to create another launcher. See the [Developer README](README_DEV.md).
 
 **What to expect:**
-- `install_merlot.command` may ask for your macOS password to install `Merlot Apps` into `/Applications`.
-- The first time you launch a Merlot app, you may be asked for your macOS password (to install Rosetta if it is missing).
+- `install_cosmos.command` may ask for your macOS password to install `Cosmos Apps` into `/Applications`.
+- The first time you launch a Cosmos app, you may be asked for your macOS password (to install Rosetta if it is missing).
 - The first launch can take a while because it downloads Wine, DXMT, and Steam installer.
 - At the end, Steam should launch inside Wine.
 
@@ -52,7 +62,7 @@ If you want, you can add your own config in `merlot_configs/` and run `install_m
 1. In Finder, locate the unzipped folder.
 2. Double-click `run.command`.
 3. If macOS blocks it, right-click `run.command` -> `Open` -> confirm `Open`.
-4. After Steam launches, the Terminal window prints the Steam log path and can be closed. Steam stays running in the background. (Set `MERLOT_DETACH=0` if you prefer the old foreground behavior where closing Terminal kills Steam.)
+4. After Steam launches, the Terminal window prints the Steam log path and can be closed. Steam stays running in the background. (Set `COSMOS_DETACH=0` if you prefer the old foreground behavior where closing Terminal kills Steam.)
 
 Use this option when you want the general Steam-in-Wine setup instead of a launcher tailored to a specific game.
 
@@ -67,7 +77,7 @@ If you are familiar with Terminal and bash, you can also customize launch option
 
 1. In Steam, use the menu: `Steam` -> `Exit`.
 2. Wait until Steam fully closes.
-3. You can close Terminal at any time; with the default `MERLOT_DETACH=1` behavior, Steam is detached from it.
+3. You can close Terminal at any time; with the default `COSMOS_DETACH=1` behavior, Steam is detached from it.
 
 ## Uninstall
 
@@ -75,7 +85,7 @@ If Steam is running, follow the steps in "Stop" first.
 
 1. Double-click `uninstall.command`.
 2. If macOS blocks it, right-click `uninstall.command` -> `Open` -> confirm `Open`.
-3. It may ask for your macOS password to remove `/Applications/Merlot Apps`.
+3. It may ask for your macOS password to remove `/Applications/Cosmos Apps`.
 4. It will ask for confirmation for each item it wants to remove. Type `y` to remove it, or `n` to skip it (if you want to keep something).
 
 ## Notes

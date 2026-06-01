@@ -13,7 +13,17 @@ WINE_BIN="${WINE_APP}/Contents/Resources/wine/bin/wine"
 WINEPREFIX="${WINEPREFIX:-$HOME/.wine-steam-11}"
 STEAM_SETUP="/tmp/SteamSetup.exe"
 DXMT_ROOT="${DXMT_ROOT:-$HOME/DXMT}"
-PROFILE_DIRECTORY="${PROFILE_DIRECTORY:-$HOME/Library/Application Support/Cider/Profiles}"
+COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
+# Legacy Application Support location used by pre-Cosmos (Cider) builds. Kept as
+# a fallback so existing saved profiles are still found after the rename.
+LEGACY_PROFILE_DIRECTORY="$HOME/Library/Application Support/Cider/Profiles"
+if [[ -n "${PROFILE_DIRECTORY:-}" ]]; then
+  : # Honor an explicit override unchanged.
+elif [[ ! -d "${COSMOS_SUPPORT_DIR}/Profiles" && -d "${LEGACY_PROFILE_DIRECTORY}" ]]; then
+  PROFILE_DIRECTORY="${LEGACY_PROFILE_DIRECTORY}"
+else
+  PROFILE_DIRECTORY="${COSMOS_SUPPORT_DIR}/Profiles"
+fi
 # GPTK_PATH: optional. When set, the D3D translation backend switches from
 # DXMT (default) to Apple's Game Porting Toolkit (D3DMetal). Point this at
 # either the GPTK root directory or the folder that contains the .dll files
@@ -26,12 +36,15 @@ WINEPREFIX_ALIAS_NAME="${WINEPREFIX_ALIAS_NAME:-WINEPREFIX}"
 WINE_RETINA_MODE="${WINE_RETINA_MODE:-0}" # 1=enable RetinaMode, 0=disable RetinaMode (Default)
 # 1=detach Steam from the Terminal after launch so closing the window doesn't kill it (Default).
 # 0=keep the original foreground behavior (Terminal window must stay open).
-MERLOT_DETACH="${MERLOT_DETACH:-1}"
-MERLOT_LAUNCH_LOG="${MERLOT_LAUNCH_LOG:-${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/merlot-steam.log}}"
+# COSMOS_DETACH is the current name; MERLOT_DETACH is honored for back-compat.
+COSMOS_DETACH="${COSMOS_DETACH:-${MERLOT_DETACH:-1}}"
+COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:-${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/cosmos-steam.log}}}}"
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
-MERLOT_LAUNCH_MODE="${MERLOT_LAUNCH_MODE:-steam}"
+COSMOS_LAUNCH_MODE="${COSMOS_LAUNCH_MODE:-${MERLOT_LAUNCH_MODE:-steam}}"
+# Skip the interactive confirmation for destructive actions (e.g. --reset-bottle).
+COSMOS_FORCE="${COSMOS_FORCE:-0}"
 PROFILE_EXECUTABLE=""
 PROFILE_ARGS=()
 
@@ -50,7 +63,14 @@ die() {
 
 usage() {
   cat <<'EOF'
-Usage: run.command [--steam|--game <path>|--profiles]
+Usage: run.command [ACTION]
+
+Actions:
+  (none) | --steam        Set up the bottle if needed and launch Steam (default).
+  --game <path> [args...]  Launch a saved profile executable directly.
+  --profiles               Open the saved profiles folder in Finder and exit.
+  --logs                   Open the latest launch log and exit.
+  --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
 
@@ -63,14 +83,14 @@ parse_arguments() {
       if (($# > 1)); then
         die "The --steam flag does not accept additional arguments."
       fi
-      MERLOT_LAUNCH_MODE="steam"
+      COSMOS_LAUNCH_MODE="steam"
       return 0
       ;;
     --profiles)
       if (($# > 1)); then
         die "The --profiles flag does not accept additional arguments."
       fi
-      MERLOT_LAUNCH_MODE="profiles"
+      COSMOS_LAUNCH_MODE="profiles"
       return 0
       ;;
     --game|--profile)
@@ -78,8 +98,26 @@ parse_arguments() {
         die "Missing required argument for $1 flag."
       fi
       PROFILE_EXECUTABLE="$2"
-      MERLOT_LAUNCH_MODE="profile"
+      COSMOS_LAUNCH_MODE="profile"
       PROFILE_ARGS=("${@:3}")
+      return 0
+      ;;
+    --logs)
+      if (($# > 1)); then
+        die "The --logs flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="logs"
+      return 0
+      ;;
+    --reset-bottle)
+      if (($# > 1)); then
+        [[ "$2" == "--force" ]] || die "Unknown argument for --reset-bottle: $2"
+        COSMOS_FORCE=1
+        if (($# > 2)); then
+          die "The --reset-bottle flag accepts only an optional --force argument."
+        fi
+      fi
+      COSMOS_LAUNCH_MODE="reset-bottle"
       return 0
       ;;
     --help|-h)
@@ -98,10 +136,81 @@ open_profiles_folder() {
   open "${PROFILE_DIRECTORY}"
 }
 
+confirm() {
+  local prompt="$1"
+  local reply=""
+  read -r -p "${prompt} [y/N]: " reply
+  [[ "${reply}" == "y" || "${reply}" == "Y" ]]
+}
+
+open_logs() {
+  log "Opening Cosmos launch log"
+  if [[ -f "${COSMOS_LAUNCH_LOG}" ]]; then
+    echo "Log file: ${COSMOS_LAUNCH_LOG}"
+    open "${COSMOS_LAUNCH_LOG}"
+    return
+  fi
+  echo "No log file yet at ${COSMOS_LAUNCH_LOG}."
+  echo "It is created the first time Steam or a game launches in detached mode."
+  open "$(dirname "${COSMOS_LAUNCH_LOG}")"
+}
+
+reset_bottle() {
+  log "Resetting the Steam bottle"
+  echo "This deletes the Wine prefix and everything installed inside it"
+  echo "(Steam and any games). Wine and DXMT downloads are kept."
+  echo "Prefix: ${WINEPREFIX}"
+
+  if [[ "${COSMOS_FORCE}" != "1" ]]; then
+    if [[ -t 0 ]]; then
+      confirm "Delete this prefix?" || { echo "Aborted. Nothing was removed."; return; }
+    else
+      die "Refusing to reset non-interactively. Re-run with --force (or COSMOS_FORCE=1) to proceed."
+    fi
+  fi
+
+  if [[ -d "${WINEPREFIX}" ]]; then
+    rm -rf "${WINEPREFIX}"
+    echo "Removed ${WINEPREFIX}."
+  else
+    echo "No prefix found at ${WINEPREFIX}. Nothing to remove."
+  fi
+
+  local alias_path="${SCRIPT_DIR}/${WINEPREFIX_ALIAS_NAME}"
+  if [[ -L "${alias_path}" ]]; then
+    rm -f "${alias_path}" && echo "Removed stale alias ${alias_path}."
+  fi
+
+  echo "Bottle reset. The next launch will recreate the prefix and reinstall Steam."
+}
+
 require_macos_arm64() {
   log "Checking platform"
   [[ "$(uname -s)" == "Darwin" ]] || die "This script supports macOS only."
   [[ "$(uname -m)" == "arm64" ]] || die "This script is intended for Apple Silicon (arm64)."
+}
+
+# Minimum macOS major version Cosmos supports. Matches the app bundles'
+# LSMinimumSystemVersion. Override with COSMOS_MIN_MACOS_MAJOR if needed.
+COSMOS_MIN_MACOS_MAJOR="${COSMOS_MIN_MACOS_MAJOR:-11}"
+
+require_macos_version() {
+  log "Checking macOS version"
+  local product_version major
+  product_version="$(sw_vers -productVersion 2>/dev/null || true)"
+  if [[ -z "${product_version}" ]]; then
+    echo "Could not determine macOS version (sw_vers unavailable). Continuing."
+    return
+  fi
+  major="${product_version%%.*}"
+  if [[ ! "${major}" =~ ^[0-9]+$ ]]; then
+    echo "Unrecognized macOS version string '${product_version}'. Continuing."
+    return
+  fi
+  if (( major < COSMOS_MIN_MACOS_MAJOR )); then
+    die "Cosmos requires macOS ${COSMOS_MIN_MACOS_MAJOR} or newer (detected ${product_version})."
+  fi
+  echo "macOS ${product_version} meets the minimum (>= ${COSMOS_MIN_MACOS_MAJOR})."
 }
 
 ensure_sudo_ready() {
@@ -396,21 +505,21 @@ launch_steam() {
     steam_cmd+=(-applaunch "${STEAM_GAME_ID}")
   fi
 
-  case "${MERLOT_DETACH}" in
+  case "${COSMOS_DETACH}" in
     0)
       "${steam_cmd[@]}"
       ;;
     1)
-      log "Detaching Steam from this Terminal (log: ${MERLOT_LAUNCH_LOG})"
-      : >"${MERLOT_LAUNCH_LOG}" || die "Cannot write to ${MERLOT_LAUNCH_LOG}"
-      nohup "${steam_cmd[@]}" </dev/null >>"${MERLOT_LAUNCH_LOG}" 2>&1 &
+      log "Detaching Steam from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
+      : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
+      nohup "${steam_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
       local pid="$!"
       disown
       echo "Steam is running in the background (PID ${pid}). Safe to close this Terminal window."
-      echo "Tail the log with: tail -f ${MERLOT_LAUNCH_LOG}"
+      echo "Tail the log with: tail -f ${COSMOS_LAUNCH_LOG}"
       ;;
     *)
-      die "MERLOT_DETACH must be 0 or 1."
+      die "COSMOS_DETACH must be 0 or 1."
       ;;
   esac
 }
@@ -433,33 +542,44 @@ launch_profile() {
     profile_cmd+=("${PROFILE_ARGS[@]}")
   fi
 
-  case "${MERLOT_DETACH}" in
+  case "${COSMOS_DETACH}" in
     0)
       "${profile_cmd[@]}"
       ;;
     1)
-      log "Detaching profile launch from this Terminal (log: ${MERLOT_LAUNCH_LOG})"
-      : >"${MERLOT_LAUNCH_LOG}" || die "Cannot write to ${MERLOT_LAUNCH_LOG}"
-      nohup "${profile_cmd[@]}" </dev/null >>"${MERLOT_LAUNCH_LOG}" 2>&1 &
+      log "Detaching profile launch from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
+      : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
+      nohup "${profile_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
       local pid="$!"
       disown
       echo "Profile is running in the background (PID ${pid}). Safe to close this Terminal window."
-      echo "Tail the log with: tail -f ${MERLOT_LAUNCH_LOG}"
+      echo "Tail the log with: tail -f ${COSMOS_LAUNCH_LOG}"
       ;;
     *)
-      die "MERLOT_DETACH must be 0 or 1."
+      die "COSMOS_DETACH must be 0 or 1."
       ;;
   esac
 }
 
 main() {
   parse_arguments "$@"
-  if [[ "${MERLOT_LAUNCH_MODE}" == "profiles" ]]; then
-    open_profiles_folder
-    return
-  fi
+  case "${COSMOS_LAUNCH_MODE}" in
+    profiles)
+      open_profiles_folder
+      return
+      ;;
+    logs)
+      open_logs
+      return
+      ;;
+    reset-bottle)
+      reset_bottle
+      return
+      ;;
+  esac
 
   require_macos_arm64
+  require_macos_version
   ensure_rosetta
   ensure_wine_installed
   setup_wine_env
@@ -477,7 +597,7 @@ main() {
     enable_dxmt_env
   fi
 
-  if [[ "${MERLOT_LAUNCH_MODE}" == "profile" ]]; then
+  if [[ "${COSMOS_LAUNCH_MODE}" == "profile" ]]; then
     launch_profile
   else
     launch_steam
