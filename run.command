@@ -61,7 +61,7 @@ parse_arguments() {
         MERLOT_LAUNCH_MODE="steam"
         ;;
       --game|--profile)
-        shift || die "${1} requires a profile executable path."
+        shift || die "The --game/--profile flag requires a profile executable path."
         PROFILE_EXECUTABLE="$1"
         MERLOT_LAUNCH_MODE="profile"
         ;;
@@ -404,7 +404,7 @@ launch_steam() {
 
 launch_profile() {
   log "Launching saved profile"
-  [[ -n "${PROFILE_EXECUTABLE}" ]] || die "CIDER_PROFILE_PATH is required for --game."
+  [[ -n "${PROFILE_EXECUTABLE}" ]] || die "The --game/--profile flag requires a profile executable path."
 
   local profile_executable="${PROFILE_EXECUTABLE}"
   if [[ ! -f "${profile_executable}" && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then

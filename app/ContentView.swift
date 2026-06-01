@@ -119,7 +119,7 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--steam"])
             }
 
-            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile == nil || selectedProfile?.path.isEmpty == true) {
+            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile?.path.isEmpty != false) {
                 guard let selectedProfile else { return }
                 runCommand(
                     script: "run.command",
