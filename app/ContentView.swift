@@ -18,7 +18,6 @@ struct ContentView: View {
     @State private var steamInstalled = false
     @State private var isRunning = false
 
-    private let outputQueue = DispatchQueue(label: "com.cider.output")
 
     private var selectedProfile: SavedProfile? {
         profiles.first { $0.id == selectedProfileID }
@@ -240,7 +239,7 @@ struct ContentView: View {
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
 
-        if profiles.contains(where: { $0.id == selectedProfileID }) == false {
+        if !profiles.contains(where: { $0.id == selectedProfileID }) {
             self.selectedProfileID = profiles.first?.id
         }
 
@@ -269,8 +268,8 @@ struct ContentView: View {
 
         for line in contents.split(whereSeparator: \.isNewline) {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmed.isEmpty == false,
-                  trimmed.hasPrefix("[") == false,
+            guard !trimmed.isEmpty,
+                  !trimmed.hasPrefix("["),
                   let separatorIndex = trimmed.firstIndex(of: "=") else {
                 continue
             }
@@ -281,7 +280,7 @@ struct ContentView: View {
 
             switch key {
             case "name":
-                if value.isEmpty == false {
+                if !value.isEmpty {
                     name = value
                 }
             case "path":
@@ -312,7 +311,7 @@ struct ContentView: View {
 
         pipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
-            guard let text = String(data: data, encoding: .utf8), text.isEmpty == false else {
+            guard let text = String(data: data, encoding: .utf8), !text.isEmpty else {
                 return
             }
 
@@ -358,7 +357,7 @@ struct ContentView: View {
     }
 
     private func shellEscape(_ value: String) -> String {
-        guard value.isEmpty == false else { return "''" }
+        guard !value.isEmpty else { return "''" }
         return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }
