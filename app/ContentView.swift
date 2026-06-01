@@ -240,9 +240,7 @@ struct ContentView: View {
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
 
-        if let selectedProfileID, profiles.contains(where: { $0.id == selectedProfileID }) == false {
-            self.selectedProfileID = profiles.first?.id
-        } else if selectedProfileID == nil {
+        if selectedProfileID == nil || profiles.contains(where: { $0.id == selectedProfileID }) == false {
             self.selectedProfileID = profiles.first?.id
         }
 
