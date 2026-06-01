@@ -7,7 +7,7 @@ APP_BUNDLE="$(cd -- "${SCRIPT_PATH}/../.." && pwd)"
 APP_PARENT="$(dirname "${APP_BUNDLE}")"
 
 RUN_SCRIPT="${RESOURCES_DIR}/run.command"
-MERLOT_ENV="${RESOURCES_DIR}/merlot.env"
+COSMOS_ENV="${RESOURCES_DIR}/cosmos.env"
 
 display_alert() {
   local title="$1"
@@ -25,24 +25,24 @@ shell_escape() {
 }
 
 if [[ ! -f "${RUN_SCRIPT}" ]]; then
-  display_alert "Merlot Launcher" "run.command not found inside the app bundle."
+  display_alert "Cosmos Launcher" "run.command not found inside the app bundle."
   exit 1
 fi
 
-if [[ ! -f "${MERLOT_ENV}" ]]; then
-  display_alert "Merlot Launcher" "merlot.env not found inside the app bundle."
+if [[ ! -f "${COSMOS_ENV}" ]]; then
+  display_alert "Cosmos Launcher" "cosmos.env not found inside the app bundle."
   exit 1
 fi
 
 set -a
 # shellcheck disable=SC1090
-source "${MERLOT_ENV}"
+source "${COSMOS_ENV}"
 set +a
 
-: "${APP_NAME:?Missing APP_NAME in merlot.env}"
+: "${APP_NAME:?Missing APP_NAME in cosmos.env}"
 
 if ! declare -p RUN_ENV_NAMES >/dev/null 2>&1; then
-  display_alert "${APP_NAME}" "RUN_ENV_NAMES is missing from merlot.env."
+  display_alert "${APP_NAME}" "RUN_ENV_NAMES is missing from cosmos.env."
   exit 1
 fi
 
@@ -51,12 +51,12 @@ command_string="export SCRIPT_DIR=$(shell_escape "${APP_PARENT}"); "
 if (( ${#RUN_ENV_NAMES[@]} > 0 )); then
   for env_name in "${RUN_ENV_NAMES[@]}"; do
     if [[ ! "${env_name}" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
-      display_alert "${APP_NAME}" "Invalid environment variable name in merlot.env: ${env_name}"
+      display_alert "${APP_NAME}" "Invalid environment variable name in cosmos.env: ${env_name}"
       exit 1
     fi
 
     if [[ "${!env_name+x}" != "x" ]]; then
-      display_alert "${APP_NAME}" "Missing ${env_name} in merlot.env."
+      display_alert "${APP_NAME}" "Missing ${env_name} in cosmos.env."
       exit 1
     fi
 

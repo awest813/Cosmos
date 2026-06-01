@@ -76,13 +76,13 @@ Matches the CosmosDB rating scale:
 - `broken` — does not work
 - `blocked` — anti-cheat / DRM / AVX / etc.
 
-## Relationship to today's `merlot_configs/*.conf`
+## Relationship to today's `cosmos_configs/*.conf`
 
 The current per-game configs are flat shell files that declare env-var presets:
 
 ```sh
-APP_NAME="Binding of Isaac (Merlot)"
-BUNDLE_ID="com.merlot.binding-of-isaac"
+APP_NAME="Binding of Isaac (Cosmos)"
+BUNDLE_ID="com.cosmos.binding-of-isaac"
 RUN_ENV_NAMES=( STEAM_GAME_ID DXMT_CONFIG )
 STEAM_GAME_ID="250900"
 DXMT_CONFIG="d3d11.preferredMaxFrameRate=60;"

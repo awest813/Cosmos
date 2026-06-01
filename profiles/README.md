@@ -21,6 +21,6 @@ profiles/
    `recipes/fixes/`.
 4. Add `notes` for any manual steps a player needs to know.
 
-The current `merlot_configs/*.conf` files are the predecessor of these profiles;
+The current `cosmos_configs/*.conf` files are the predecessor of these profiles;
 migrating them is a 0.4 roadmap task.
 </content>

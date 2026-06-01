@@ -5,16 +5,15 @@ struct ContentView: View {
     private let fileManager = FileManager.default
     private let repositoryRootURL = Self.findRepositoryRoot()
     private let profileDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/Cider/Profiles", isDirectory: true)
-    private let merlotDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Applications/Merlot", isDirectory: true)
+        .appendingPathComponent("Library/Application Support/Cosmos/Profiles", isDirectory: true)
+    private let cosmosAppsURL = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
     private let steamExecutableURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".cider/drive_c/Program Files (x86)/Steam/Steam.exe")
+        .appendingPathComponent(".wine-steam-11/drive_c/Program Files (x86)/Steam/steam.exe")
 
-    @State private var output = "Welcome to Cider\n\nSelect a saved profile or use the quick actions to manage your setup."
+    @State private var output = "Welcome to Cosmos\n\nSelect a saved profile or use the quick actions to manage your setup."
     @State private var profiles: [SavedProfile] = []
     @State private var selectedProfileID: String?
-    @State private var merlotInstalled = false
+    @State private var cosmosInstalled = false
     @State private var steamInstalled = false
     @State private var isRunning = false
 
@@ -27,7 +26,7 @@ struct ContentView: View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Cider")
+                    Text("Cosmos")
                         .font(.largeTitle.weight(.bold))
                     Text("Apple Silicon game launcher dashboard")
                         .font(.subheadline)
@@ -82,8 +81,8 @@ struct ContentView: View {
 
     private var statusSummary: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(merlotInstalled ? "Merlot installed" : "Merlot required", systemImage: merlotInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
-                .foregroundStyle(merlotInstalled ? Color.green : Color.orange)
+            Label(cosmosInstalled ? "Cosmos installed" : "Cosmos required", systemImage: cosmosInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
+                .foregroundStyle(cosmosInstalled ? Color.green : Color.orange)
             Label(steamInstalled ? "Steam prefix ready" : "Steam not installed yet", systemImage: steamInstalled ? "shippingbox.fill" : "shippingbox")
                 .foregroundStyle(steamInstalled ? Color.blue : Color.secondary)
             Label("\(profiles.count) saved profile\(profiles.count == 1 ? "" : "s")", systemImage: "gamecontroller")
@@ -100,14 +99,14 @@ struct ContentView: View {
             Text(selectedProfile?.name ?? "Launcher Dashboard")
                 .font(.system(size: 30, weight: .bold))
             Text(selectedProfile == nil
-                 ? "Manage Merlot, launch Steam, and quickly jump into saved game profiles from one place."
+                 ? "Manage Cosmos, launch Steam, and quickly jump into saved game profiles from one place."
                  : "Ready to launch this saved profile through the existing Wine-based shell flow.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 12) {
                 metricCard(title: "Profiles", value: "\(profiles.count)", icon: "list.bullet.rectangle")
-                metricCard(title: "Merlot", value: merlotInstalled ? "Installed" : "Needed", icon: merlotInstalled ? "checkmark.circle" : "arrow.down.circle")
+                metricCard(title: "Cosmos", value: cosmosInstalled ? "Installed" : "Needed", icon: cosmosInstalled ? "checkmark.circle" : "arrow.down.circle")
                 metricCard(title: "Steam", value: steamInstalled ? "Ready" : "Setup", icon: steamInstalled ? "shippingbox.fill" : "shippingbox")
             }
         }
@@ -127,8 +126,8 @@ struct ContentView: View {
                 )
             }
 
-            actionButton(title: "Install Merlot", subtitle: "Install dependencies and Wine tooling", systemImage: "arrow.down.circle") {
-                runCommand(script: "install_merlot.command")
+            actionButton(title: "Install Cosmos", subtitle: "Install dependencies and Wine tooling", systemImage: "arrow.down.circle") {
+                runCommand(script: "install_cosmos.command")
             }
 
             actionButton(title: "Open Profiles Folder", subtitle: "Reveal saved .conf profiles in Finder", systemImage: "folder") {
@@ -139,7 +138,7 @@ struct ContentView: View {
                 refreshStatus(message: "Status refreshed.")
             }
 
-            actionButton(title: "Uninstall", subtitle: "Remove the Cider prefix and app bundle", systemImage: "trash") {
+            actionButton(title: "Uninstall", subtitle: "Remove the Cosmos prefix and app bundle", systemImage: "trash") {
                 runCommand(script: "uninstall.command")
             }
         }
@@ -250,7 +249,7 @@ struct ContentView: View {
     }
 
     private func refreshStatus(message: String? = nil) {
-        merlotInstalled = fileManager.fileExists(atPath: merlotDirectoryURL.path)
+        cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
 

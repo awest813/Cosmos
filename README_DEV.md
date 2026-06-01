@@ -1,6 +1,6 @@
 # Developer README
 
-This file documents implementation details for `run.command`, `uninstall.command`, and the Merlot `.app` bundles.
+This file documents implementation details for `run.command`, `uninstall.command`, and the Cosmos `.app` bundles.
 
 ## Source
 
@@ -38,11 +38,12 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
     - GPTK is **not** downloaded by this script -- Apple's EULA forbids redistribution, so you must obtain it from developer.apple.com yourself
     - a dedicated prefix (e.g. `WINEPREFIX=~/.wine-steam-gptk`) is recommended so GPTK and DXMT DLLs do not accumulate in the same prefix
 - Launch mode:
-  - Default (`MERLOT_DETACH=1`) runs Steam with `nohup ... & disown`, redirecting stdout/stderr to `${MERLOT_STEAM_LOG}` (defaults to `${TMPDIR:-/tmp}/merlot-steam.log`). The Terminal window can be closed immediately after launch without killing Steam.
-  - `MERLOT_DETACH=0` preserves the pre-patch foreground behavior (Terminal window must stay open).
+  - Default (`COSMOS_DETACH=1`) runs Steam with `nohup ... & disown`, redirecting stdout/stderr to `${COSMOS_LAUNCH_LOG}` (defaults to `${TMPDIR:-/tmp}/cosmos-steam.log`). The Terminal window can be closed immediately after launch without killing Steam.
+  - `COSMOS_DETACH=0` preserves the pre-patch foreground behavior (Terminal window must stay open).
+  - The legacy `MERLOT_DETACH` / `MERLOT_LAUNCH_LOG` / `MERLOT_STEAM_LOG` names are still honored as fallbacks; the `COSMOS_*` names take precedence.
 - App/dashboard actions:
   - `run.command --steam` launches Steam explicitly.
-  - `run.command --profiles` opens `~/Library/Application Support/Cider/Profiles/` in Finder and exits.
+  - `run.command --profiles` opens `~/Library/Application Support/Cosmos/Profiles/` in Finder and exits (falling back to the legacy `~/Library/Application Support/Cider/Profiles/` if only that exists).
   - `run.command --game <path> [args...]` launches a saved profile executable directly.
 - Wine logging:
   - defaults `WINEDEBUG` to `-all,err+all` unless already set by the caller
@@ -78,11 +79,15 @@ Defaults are the values in `run.command`.
 - `GPTK_PATH`
   - Empty (default) uses DXMT. When set, switches the D3D backend to Apple's Game Porting Toolkit (D3DMetal) and skips the DXMT download.
   - Point at either the GPTK root directory or the folder containing its DLLs.
-- `MERLOT_DETACH`
+- `COSMOS_DETACH` (legacy alias: `MERLOT_DETACH`)
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
-- `MERLOT_LAUNCH_LOG`
-  - Path to the detached-mode launch log (default: `${TMPDIR:-/tmp}/merlot-steam.log`).
+- `COSMOS_LAUNCH_LOG` (legacy aliases: `MERLOT_LAUNCH_LOG`, `MERLOT_STEAM_LOG`, `COSMOS_STEAM_LOG`)
+  - Path to the detached-mode launch log (default: `${TMPDIR:-/tmp}/cosmos-steam.log`).
+- `COSMOS_SUPPORT_DIR`
+  - Cosmos Application Support directory (default: `~/Library/Application Support/Cosmos`). `PROFILE_DIRECTORY` defaults to `${COSMOS_SUPPORT_DIR}/Profiles`.
+- `COSMOS_MIN_MACOS_MAJOR`
+  - Minimum macOS major version enforced at startup (default: `11`).
 
 Example overrides (environment variables):
 
@@ -111,12 +116,12 @@ Targets derived from environment variables (defaults are the values in `uninstal
 
 Additional hardcoded target:
 
-- `/Applications/Merlot Apps`
+- `/Applications/Cosmos Apps`
 
 Notes:
 
 - `uninstall.command` asks for confirmation per item and shows progress as `[X/N]`.
-- `uninstall.command` uses `sudo` to remove `/Applications/Merlot Apps`.
+- `uninstall.command` uses `sudo` to remove `/Applications/Cosmos Apps`.
 - `uninstall.command` does not remove Rosetta 2.
 - Use the same `WINE_VERSION`/`WINE_ROOT`/`WINEPREFIX` values you used with `run.command` to uninstall the correct locations.
 
@@ -124,61 +129,61 @@ Notes:
 
 - If Wine/DXMT/Steam are already present in the expected locations, `run.command` skips those steps.
 - The scripts do not change macOS system settings (pointer acceleration, polling rate, etc.).
-- `SCRIPT_DIR` can be overridden via environment variable. When run inside the `.app` bundle, the launcher sets it to the directory containing the `.app` so the `WINEPREFIX` alias symlink lands next to the app bundle inside `Merlot Apps/`.
-  - Alias creation is best-effort only. If `SCRIPT_DIR` is not writable (for example, `/Applications/Merlot Apps` after a sudo install), `run.command` skips the symlink and continues.
+- `SCRIPT_DIR` can be overridden via environment variable. When run inside the `.app` bundle, the launcher sets it to the directory containing the `.app` so the `WINEPREFIX` alias symlink lands next to the app bundle inside `Cosmos Apps/`.
+  - Alias creation is best-effort only. If `SCRIPT_DIR` is not writable (for example, `/Applications/Cosmos Apps` after a sudo install), `run.command` skips the symlink and continues.
 - Tested on:
   - Apple M1 Max (32GB), macOS Sequoia 15.7.4
   - Apple M2 Pro (16GB), macOS Sequoia 15.7.4
 
-## Merlot App Bundles
+## Cosmos App Bundles
 
-`install_merlot.command` assembles `Merlot Apps/` in a temporary directory, then installs it into `/Applications/Merlot Apps`.
+`install_cosmos.command` assembles `Cosmos Apps/` in a temporary directory, then installs it into `/Applications/Cosmos Apps`.
 
 ### Structure
 
 ```
-Merlot Apps/
+Cosmos Apps/
   <APP_NAME>.app/
     Contents/
       Info.plist               # App metadata (Spotlight, Finder, Dock)
       MacOS/
-        MerlotLauncher         # Shared launcher for all generated apps
+        CosmosLauncher         # Shared launcher for all generated apps
       Resources/
-        merlot.env             # Runtime env generated from merlot_configs/*.conf
+        cosmos.env             # Runtime env generated from cosmos_configs/*.conf
         run.command            # Copied from repo root at install time
         AppIcon.icns           # Icon for that app
 ```
 
 ### How it works
 
-1. `install_merlot.command` reads each `merlot_configs/*.conf` file and generates one `.app` bundle per config inside `Merlot Apps/` in a temporary directory.
-2. It asks for `sudo`, replaces `/Applications/Merlot Apps`, and copies the freshly generated folder there.
-3. Each bundle uses the shared `app/merlot/MerlotLauncher`, generated `Info.plist`, copied `run.command`, and an app-local `merlot.env`.
-4. `MerlotLauncher` opens Terminal and runs the embedded `run.command` with the environment overrides listed in that app's `merlot.env`.
-5. The launcher exports `SCRIPT_DIR` pointing to the directory containing the `.app`, so the shared `WINEPREFIX` alias symlink lands in `/Applications/Merlot Apps/`.
+1. `install_cosmos.command` reads each `cosmos_configs/*.conf` file and generates one `.app` bundle per config inside `Cosmos Apps/` in a temporary directory.
+2. It asks for `sudo`, replaces `/Applications/Cosmos Apps`, and copies the freshly generated folder there.
+3. Each bundle uses the shared `app/cosmos/CosmosLauncher`, generated `Info.plist`, copied `run.command`, and an app-local `cosmos.env`.
+4. `CosmosLauncher` opens Terminal and runs the embedded `run.command` with the environment overrides listed in that app's `cosmos.env`.
+5. The launcher exports `SCRIPT_DIR` pointing to the directory containing the `.app`, so the shared `WINEPREFIX` alias symlink lands in `/Applications/Cosmos Apps/`.
 
 ### Install
 
 ```bash
-./install_merlot.command
+./install_cosmos.command
 ```
 
 To install only one config:
 
 ```bash
-./install_merlot.command binding-of-isaac
+./install_cosmos.command binding-of-isaac
 ```
 
 To create a new config, copy the template:
 
 ```bash
-cp merlot_configs/template.conf.example merlot_configs/my-game.conf
+cp cosmos_configs/template.conf.example cosmos_configs/my-game.conf
 ```
 
 ### Source files
 
-- `app/merlot/MerlotLauncher` - shared launcher script for generated apps
-- `app/merlot/AppIcon.icns` - app icon
-- `merlot_configs/*.conf` - per-game launcher metadata and `run.command` environment overrides
-- `merlot_configs/template.conf.example` - starting point for new game configs; not built by the script
-- `install_merlot.command` - assembles and installs the `Merlot Apps/` folder
+- `app/cosmos/CosmosLauncher` - shared launcher script for generated apps
+- `app/cosmos/AppIcon.icns` - app icon
+- `cosmos_configs/*.conf` - per-game launcher metadata and `run.command` environment overrides
+- `cosmos_configs/template.conf.example` - starting point for new game configs; not built by the script
+- `install_cosmos.command` - assembles and installs the `Cosmos Apps/` folder

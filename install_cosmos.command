@@ -2,13 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATE_DIR="${SCRIPT_DIR}/app/merlot"
-CONFIGS_DIR="${SCRIPT_DIR}/merlot_configs"
+TEMPLATE_DIR="${SCRIPT_DIR}/app/cosmos"
+CONFIGS_DIR="${SCRIPT_DIR}/cosmos_configs"
 INSTALL_ROOT="/Applications"
-INSTALL_DIR="${INSTALL_ROOT}/Merlot Apps"
-DEFAULT_ICON_PATH="${SCRIPT_DIR}/app/merlot/AppIcon.icns"
-LAUNCHER_TEMPLATE="${TEMPLATE_DIR}/MerlotLauncher"
-LAUNCHER_NAME="MerlotLauncher"
+INSTALL_DIR="${INSTALL_ROOT}/Cosmos Apps"
+DEFAULT_ICON_PATH="${SCRIPT_DIR}/app/cosmos/AppIcon.icns"
+LAUNCHER_TEMPLATE="${TEMPLATE_DIR}/CosmosLauncher"
+LAUNCHER_NAME="CosmosLauncher"
 
 log() {
   printf "==> %s\n" "$1"
@@ -190,7 +190,7 @@ build_from_config() (
   cp "${SCRIPT_DIR}/run.command" "${build_dir}/Contents/Resources/run.command"
   chmod +x "${build_dir}/Contents/Resources/run.command"
 
-  write_runtime_env "${build_dir}/Contents/Resources/merlot.env"
+  write_runtime_env "${build_dir}/Contents/Resources/cosmos.env"
 )
 
 main() {
@@ -206,8 +206,8 @@ main() {
   (( ${#config_paths[@]} > 0 )) || die "No configs selected"
 
   ensure_sudo_ready
-  temp_root="$(mktemp -d /tmp/merlot-apps.XXXXXX)"
-  output_dir="${temp_root}/Merlot Apps"
+  temp_root="$(mktemp -d /tmp/cosmos-apps.XXXXXX)"
+  output_dir="${temp_root}/Cosmos Apps"
   mkdir -p "${output_dir}"
 
   trap 'if [[ -n "${temp_root:-}" ]]; then rm -rf "${temp_root}"; fi' EXIT
@@ -223,6 +223,6 @@ main() {
 
   log "Installed app folder: ${INSTALL_DIR}"
   echo ""
-  echo "Launch any app inside '/Applications/Merlot Apps' from Finder, Launchpad, or Spotlight."
+  echo "Launch any app inside '/Applications/Cosmos Apps' from Finder, Launchpad, or Spotlight."
 }
 main "$@"

@@ -70,25 +70,25 @@ drives controller/console mode.
 
 ## How today's code maps onto the layers
 
-The current Merlot scripts already implement vertical slices of several layers.
+The current scripts already implement vertical slices of several layers.
 Nothing here is greenfield — Cosmos is a refactor-and-grow, not a rewrite.
 
 | Cosmos layer | Implemented today by | Status |
 | --- | --- | --- |
-| UI | *(none — Terminal + generated `.app` only)* | **Missing** — the big 0.1+ build |
-| Profile | `merlot_configs/*.conf` (env-var presets per game) | **Partial** — flat shell configs, no schema/ratings/recipes yet |
-| Runtime | `run.command` (Wine download, prefix init, Steam install, Rosetta check) | **Partial** — single hardcoded Steam bottle |
+| UI | `app/ContentView.swift` (SwiftUI dashboard stub, not wired to a build) + generated `.app`s | **Partial** — no shipping app shell yet |
+| Profile | `cosmos_configs/*.conf` (env-var presets per game) | **Partial** — flat shell configs, no schema/ratings/recipes yet |
+| Runtime | `run.command` (Wine download, prefix init, Steam install, Rosetta + macOS checks) | **Partial** — single hardcoded Steam bottle |
 | Graphics | `run.command` DXMT default + opt-in `GPTK_PATH` (D3DMetal) | **Partial** — two backends, env-driven, no per-game switch UI |
-| Launcher | `install_merlot.command` + `app/merlot/MerlotLauncher` (`.app` generator) | **Partial** — generates `.app`s from configs |
+| Launcher | `install_cosmos.command` + `app/cosmos/CosmosLauncher` (`.app` generator) | **Partial** — generates `.app`s from configs |
 
 Key existing primitives worth preserving as Cosmos grows:
 
 - **`run.command`** — the runtime engine. Flags `--steam`, `--profiles`,
   `--game <path> [args...]` already hint at the Launcher↔Runtime boundary.
-- **`MerlotLauncher` + `merlot.env`** — proof that one shared launcher binary can
+- **`CosmosLauncher` + `cosmos.env`** — proof that one shared launcher binary can
   drive many generated apps via per-app env. The Cosmos `.app` generator
   generalizes this.
-- **`merlot_configs/*.conf`** — the proto-profile. The v0 profile schema replaces
+- **`cosmos_configs/*.conf`** — the proto-profile. The v0 profile schema replaces
   these flat `RUN_ENV_NAMES` shell files with structured YAML/JSON.
 - **Backend selection via `GPTK_PATH` / DXMT install** — becomes a first-class
   per-bottle / per-game `backend` enum.
@@ -107,10 +107,9 @@ Key existing primitives worth preserving as Cosmos grows:
 └── logs/               # app-level logs
 ```
 
-> Note: today's scripts use `~/.wine-steam-11` (prefix) and an
-> `~/Library/Application Support/Cider/Profiles/` path referenced by
-> `run.command --profiles`. Consolidating everything under
-> `~/Library/Application Support/Cosmos/` is part of the 0.1 rename.
+> Note: today's scripts use `~/.wine-steam-11` (prefix) and store saved profiles
+> under `~/Library/Application Support/Cosmos/Profiles/` (with a fallback to the
+> legacy `Cider/Profiles/` location). The per-bottle layout above is the 0.3 target.
 
 ## Proposed repo structure
 
@@ -119,7 +118,7 @@ added when there's real content to put in them, not pre-emptively.
 
 ```
 Cosmos/
-├── app/                # frontend + backend (today: app/merlot/ launcher)
+├── app/                # frontend + backend (today: app/cosmos/ launcher)
 │   ├── frontend/
 │   └── backend/
 ├── runtimes/           # runtime integration helpers (wine, dxmt, moltenvk)
@@ -130,7 +129,7 @@ Cosmos/
 │   ├── dependencies/   # winetricks-style dependency recipes
 │   └── fixes/          # one-click fix recipes
 ├── scripts/            # bootstrap-steam.sh, create-bottle.sh, launch-game.sh, generate-app.sh
-│                       #   (today: run.command, install_merlot.command, uninstall.command)
+│                       #   (today: run.command, install_cosmos.command, uninstall.command)
 ├── docs/               # ROADMAP.md, ARCHITECTURE.md, PROFILE_FORMAT.md, BACKENDS.md
 └── cosmos-db/          # community compatibility database (0.7+)
 ```

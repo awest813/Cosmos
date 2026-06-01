@@ -9,9 +9,10 @@ WINEPREFIX="${WINEPREFIX:-$HOME/.wine-steam-11}"
 DXMT_ROOT="${DXMT_ROOT:-$HOME/DXMT}"
 STEAM_SETUP="${STEAM_SETUP:-/tmp/SteamSetup.exe}"
 WINEPREFIX_ALIAS_NAME="${WINEPREFIX_ALIAS_NAME:-WINEPREFIX}"
-MERLOT_APPS_DIR_NAME="Merlot Apps"
+COSMOS_APPS_DIR_NAME="Cosmos Apps"
+LEGACY_APPS_DIR_NAME="Merlot Apps"
 SYSTEM_APPLICATIONS_DIR="/Applications"
-TOTAL_STEPS=6
+TOTAL_STEPS=7
 CURRENT_STEP=0
 
 log() {
@@ -19,7 +20,7 @@ log() {
 }
 
 ensure_sudo_ready() {
-  log "Preparing sudo session (needed to remove /Applications/Merlot Apps)"
+  log "Preparing sudo session (needed to remove /Applications/Cosmos Apps)"
   sudo -v
 }
 
@@ -124,15 +125,17 @@ main() {
   log "Uninstall targets detected"
   echo "1. STEAM_SETUP: ${STEAM_SETUP}"
   echo "2. WINEPREFIX alias: ${SCRIPT_DIR}/${WINEPREFIX_ALIAS_NAME}"
-  echo "3. Installed Merlot app folder: ${SYSTEM_APPLICATIONS_DIR}/${MERLOT_APPS_DIR_NAME}"
-  echo "4. WINEPREFIX: ${WINEPREFIX}"
-  echo "5. DXMT_ROOT: ${DXMT_ROOT}"
-  echo "6. WINE_ROOT: ${WINE_ROOT}"
+  echo "3. Installed Cosmos app folder: ${SYSTEM_APPLICATIONS_DIR}/${COSMOS_APPS_DIR_NAME}"
+  echo "4. Legacy Merlot app folder: ${SYSTEM_APPLICATIONS_DIR}/${LEGACY_APPS_DIR_NAME}"
+  echo "5. WINEPREFIX: ${WINEPREFIX}"
+  echo "6. DXMT_ROOT: ${DXMT_ROOT}"
+  echo "7. WINE_ROOT: ${WINE_ROOT}"
 
-  log "Removing artifacts from run.command and Merlot app folders"
+  log "Removing artifacts from run.command and Cosmos app folders"
   remove_file "${STEAM_SETUP}" "Steam installer file"
   remove_alias_path "${SCRIPT_DIR}/${WINEPREFIX_ALIAS_NAME}"
-  remove_dir_sudo "${SYSTEM_APPLICATIONS_DIR}/${MERLOT_APPS_DIR_NAME}" "Installed Merlot app folder"
+  remove_dir_sudo "${SYSTEM_APPLICATIONS_DIR}/${COSMOS_APPS_DIR_NAME}" "Installed Cosmos app folder"
+  remove_dir_sudo "${SYSTEM_APPLICATIONS_DIR}/${LEGACY_APPS_DIR_NAME}" "Legacy Merlot app folder"
   remove_dir "${WINEPREFIX}" "Wine prefix directory"
   remove_dir "${DXMT_ROOT}" "DXMT directory"
   remove_dir "${WINE_ROOT}" "Wine root directory"

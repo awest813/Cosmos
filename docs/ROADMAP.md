@@ -10,16 +10,21 @@ Metal-based D3D translation backend, per-game profiles, store integration
 
 ## Where we are today
 
-This repository currently ships as **Merlot**: a set of `.command` bash scripts
-plus a shared Swift/`.app` launcher that downloads Wine (Gcenx builds), creates a
-Steam Wine prefix, installs Steam, enables DXMT (or an opt-in Apple GPTK /
-D3DMetal path), and generates per-game `.app` bundles from `merlot_configs/*.conf`.
+This repository is at milestone **0.1 (Bootstrap)**. It ships a set of `.command`
+bash scripts plus a shared Swift/`.app` launcher that downloads Wine (Gcenx
+builds), creates a Steam Wine prefix, installs Steam, enables DXMT (or an opt-in
+Apple GPTK / D3DMetal path), and generates per-game `.app` bundles from
+`cosmos_configs/*.conf`.
 
 In Cosmos terms, the existing code already covers slices of the **Runtime**,
 **Graphics**, **Profile**, and **Launcher** layers (see
 [ARCHITECTURE.md](ARCHITECTURE.md)). The roadmap below describes how those slices
-grow into a coherent product. The Merlot → Cosmos rename itself is tracked as the
-first roadmap item (0.1) rather than a one-shot churn.
+grow into a coherent product.
+
+> **Heritage:** the codebase passed through earlier names (`Cider`, then
+> `Merlot`) before Cosmos. The 0.1 rename keeps `MERLOT_*` env vars working as
+> aliases and still cleans up the legacy `Merlot Apps` folder on uninstall, so
+> existing installs keep working.
 
 ## Guiding principles
 
@@ -41,14 +46,19 @@ first roadmap item (0.1) rather than a one-shot churn.
 The version line below is what gets pinned and tracked. Each release has a single
 success criterion — if that sentence isn't true, the release isn't done.
 
-### 0.1 — Bootstrap *(largely exists today as Merlot)*
-- macOS app shell + Application Support directory (`~/Library/Application Support/Cosmos/`)
-- Apple Silicon / Intel detection + Rosetta check + macOS version check
-- Wine runtime download/selection
-- Default Steam bottle creation
-- Steam install + "Launch Steam" + "Open logs" + "Reset bottle"
-- **Rename Merlot → Cosmos** (README, app bundle names, env-var prefixes with
-  back-compat aliases, Application Support path)
+### 0.1 — Bootstrap *(in progress)*
+- [x] **Rename Merlot → Cosmos** — scripts (`install_cosmos.command`,
+  `app/cosmos/CosmosLauncher`, `cosmos_configs/`, `cosmos.env`), app bundle names
+  (`Cosmos Apps`, `Steam (Cosmos).app`), bundle IDs (`com.cosmos.*`), and
+  `COSMOS_*` env vars with `MERLOT_*` back-compat aliases
+- [x] Apple Silicon / Intel detection + Rosetta check
+- [x] macOS version check (`require_macos_version`, min major via `COSMOS_MIN_MACOS_MAJOR`)
+- [x] Wine runtime download/selection (`WINE_VERSION`)
+- [x] Default Steam bottle creation + Steam install + "Launch Steam"
+- [x] Application Support path consolidated to `~/Library/Application Support/Cosmos/`
+  (with fallback to the legacy `Cider/Profiles` location)
+- [ ] macOS **app shell** UI (the SwiftUI dashboard is a stub, not yet wired to a build)
+- [ ] First-class "Open logs" and "Reset bottle" actions in the UI
 - **Success:** A user installs Cosmos and opens Windows Steam on macOS without Terminal.
 
 ### 0.2 — Game launchers
