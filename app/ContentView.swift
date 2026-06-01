@@ -119,7 +119,7 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--steam"])
             }
 
-            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile?.path.isEmpty ?? true) {
+            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile.map(\.path.isEmpty) ?? true) {
                 guard let selectedProfile else { return }
                 runCommand(
                     script: "run.command",
@@ -341,6 +341,7 @@ struct ContentView: View {
         }
 
         if escaped {
+            // Preserve a trailing backslash so copied Windows-style paths remain intact.
             current.append("\\")
         }
 

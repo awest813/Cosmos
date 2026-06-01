@@ -61,10 +61,12 @@ parse_arguments() {
         MERLOT_LAUNCH_MODE="steam"
         ;;
       --game|--profile)
-        shift || die "The --game/--profile flag requires a profile executable path."
-        PROFILE_EXECUTABLE="$1"
+        if (($# < 2)); then
+          die "Missing required argument for --game/--profile flag."
+        fi
+        PROFILE_EXECUTABLE="$2"
         MERLOT_LAUNCH_MODE="profile"
-        shift
+        shift 2
         PROFILE_ARGS=("$@")
         return 0
         ;;
