@@ -116,20 +116,20 @@ struct ContentView: View {
     private var actionGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
             actionButton(title: "Launch Steam", subtitle: "Open Steam through the launcher", systemImage: "play.fill", prominent: true) {
-                runCommand("./run.command --steam")
+                runCommand(script: "run.command", arguments: ["--steam"])
             }
 
             actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile == nil) {
                 guard let selectedProfile else { return }
-                runCommand("./run.command --game \(shellEscape(selectedProfile.name))")
+                runCommand(script: "run.command", arguments: ["--game", selectedProfile.name])
             }
 
             actionButton(title: "Install Merlot", subtitle: "Install dependencies and Wine tooling", systemImage: "arrow.down.circle") {
-                runCommand("./install_merlot.command")
+                runCommand(script: "install_merlot.command")
             }
 
             actionButton(title: "Open Profiles Folder", subtitle: "Reveal saved .conf profiles in Finder", systemImage: "folder") {
-                runCommand("./run.command --profiles")
+                runCommand(script: "run.command", arguments: ["--profiles"])
             }
 
             actionButton(title: "Refresh Status", subtitle: "Reload profile and install state", systemImage: "arrow.clockwise") {
@@ -137,7 +137,7 @@ struct ContentView: View {
             }
 
             actionButton(title: "Uninstall", subtitle: "Remove the Cider prefix and app bundle", systemImage: "trash") {
-                runCommand("./uninstall.command")
+                runCommand(script: "uninstall.command")
             }
         }
     }
@@ -295,13 +295,25 @@ struct ContentView: View {
         return SavedProfile(id: fileURL.lastPathComponent, name: name, path: path, args: args, fileURL: fileURL)
     }
 
-    private func runCommand(_ command: String) {
-        output = "Running: \(command)\n\n"
+    private func runCommand(script: String, arguments: [String] = []) {
+        guard let repositoryRootURL else {
+            output = "Failed to locate the repository scripts directory."
+            return
+        }
+
+        let scriptURL = repositoryRootURL.appendingPathComponent(script)
+        guard fileManager.isExecutableFile(atPath: scriptURL.path) else {
+            output = "Script not found or not executable: \(scriptURL.lastPathComponent)"
+            return
+        }
+
+        let displayedCommand = ([script] + arguments).joined(separator: " ")
+        output = "Running: \(displayedCommand)\n\n"
         isRunning = true
 
         let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        task.arguments = ["-lc", command]
+        task.executableURL = scriptURL
+        task.arguments = arguments
         task.currentDirectoryURL = repositoryRootURL
         task.environment = ProcessInfo.processInfo.environment
 
@@ -337,7 +349,7 @@ struct ContentView: View {
         }
     }
 
-    private static func findRepositoryRoot() -> URL {
+    private static func findRepositoryRoot() -> URL? {
         let fileManager = FileManager.default
         var candidate = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 
@@ -353,13 +365,9 @@ struct ContentView: View {
             return currentDirectory
         }
 
-        return URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        return nil
     }
 
-    private func shellEscape(_ value: String) -> String {
-        guard !value.isEmpty else { return "''" }
-        return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
 }
 
 private struct SavedProfile: Identifiable, Hashable {
