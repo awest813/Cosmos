@@ -75,7 +75,7 @@ Nothing here is greenfield — Cosmos is a refactor-and-grow, not a rewrite.
 
 | Cosmos layer | Implemented today by | Status |
 | --- | --- | --- |
-| UI | `app/ContentView.swift` (SwiftUI dashboard stub, not wired to a build) + generated `.app`s | **Partial** — no shipping app shell yet |
+| UI | `app/CosmosApp.swift` + `app/ContentView.swift` (SwiftUI dashboard, built via `Package.swift` / `scripts/build_cosmos_app.command`) + generated `.app`s | **Partial** — early dashboard shell; library/bottle/repair views still to come |
 | Profile | `cosmos_configs/*.conf` (env-var presets per game) | **Partial** — flat shell configs, no schema/ratings/recipes yet |
 | Runtime | `run.command` (Wine download, prefix init, Steam install, Rosetta + macOS checks) | **Partial** — single hardcoded Steam bottle |
 | Graphics | `run.command` DXMT default + opt-in `GPTK_PATH` (D3DMetal) | **Partial** — two backends, env-driven, no per-game switch UI |

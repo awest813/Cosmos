@@ -45,6 +45,8 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - `run.command --steam` launches Steam explicitly.
   - `run.command --profiles` opens `~/Library/Application Support/Cosmos/Profiles/` in Finder and exits (falling back to the legacy `~/Library/Application Support/Cider/Profiles/` if only that exists).
   - `run.command --game <path> [args...]` launches a saved profile executable directly.
+  - `run.command --logs` opens the latest launch log (`COSMOS_LAUNCH_LOG`), or reveals its folder if no log exists yet, and exits.
+  - `run.command --reset-bottle [--force]` deletes the Wine prefix (and its alias symlink) so the next launch recreates it and reinstalls Steam. Without `--force` it prompts for confirmation when run interactively, and refuses (rather than guessing) when stdin is not a TTY. Wine and DXMT downloads are preserved.
 - Wine logging:
   - defaults `WINEDEBUG` to `-all,err+all` unless already set by the caller
 - Writes registry values inside the prefix:
@@ -88,6 +90,8 @@ Defaults are the values in `run.command`.
   - Cosmos Application Support directory (default: `~/Library/Application Support/Cosmos`). `PROFILE_DIRECTORY` defaults to `${COSMOS_SUPPORT_DIR}/Profiles`.
 - `COSMOS_MIN_MACOS_MAJOR`
   - Minimum macOS major version enforced at startup (default: `11`).
+- `COSMOS_FORCE`
+  - `1` skips the interactive confirmation for destructive actions such as `--reset-bottle`. The desktop app sets this after its own confirmation dialog. Default: `0`.
 
 Example overrides (environment variables):
 
@@ -134,6 +138,35 @@ Notes:
 - Tested on:
   - Apple M1 Max (32GB), macOS Sequoia 15.7.4
   - Apple M2 Pro (16GB), macOS Sequoia 15.7.4
+
+## Cosmos Desktop App (app shell)
+
+Milestone 0.1 includes a SwiftUI dashboard that wraps the shell flow so common
+actions (launch Steam, launch a saved profile, open the profiles folder, open
+logs, reset the bottle, install/uninstall) are available without Terminal.
+
+### Sources
+
+- `app/CosmosApp.swift` - `@main` entry point / window scene.
+- `app/ContentView.swift` - the dashboard UI. It shells out to `run.command`,
+  `install_cosmos.command`, and `uninstall.command`, resolving each script from
+  the app bundle's `Resources/` first and falling back to the repository checkout
+  during development.
+- `Package.swift` - SwiftPM manifest. The app shell requires macOS 13+
+  (`NavigationSplitView`); the shell scripts themselves still target macOS 11.
+
+### Build
+
+```bash
+swift build -c release            # compile the Cosmos executable
+scripts/build_cosmos_app.command  # build ./build/Cosmos.app (bundles the scripts)
+INSTALL=1 scripts/build_cosmos_app.command  # also copy it into /Applications
+```
+
+`build_cosmos_app.command` compiles via SwiftPM, then assembles a
+double-clickable `Cosmos.app` with `run.command`, `install_cosmos.command`, and
+`uninstall.command` copied into `Contents/Resources/` so the app is
+self-contained. Requires Xcode or the Command Line Tools (`swift`).
 
 ## Cosmos App Bundles
 

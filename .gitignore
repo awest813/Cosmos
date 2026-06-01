@@ -3,3 +3,9 @@
 WINEPREFIX
 Cosmos Apps/
 Merlot Apps/
+
+# SwiftPM / app build artifacts
+.build/
+.swiftpm/
+/build/
+Package.resolved

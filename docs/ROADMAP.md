@@ -46,7 +46,7 @@ grow into a coherent product.
 The version line below is what gets pinned and tracked. Each release has a single
 success criterion — if that sentence isn't true, the release isn't done.
 
-### 0.1 — Bootstrap *(in progress)*
+### 0.1 — Bootstrap *(complete)*
 - [x] **Rename Merlot → Cosmos** — scripts (`install_cosmos.command`,
   `app/cosmos/CosmosLauncher`, `cosmos_configs/`, `cosmos.env`), app bundle names
   (`Cosmos Apps`, `Steam (Cosmos).app`), bundle IDs (`com.cosmos.*`), and
@@ -57,9 +57,17 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] Default Steam bottle creation + Steam install + "Launch Steam"
 - [x] Application Support path consolidated to `~/Library/Application Support/Cosmos/`
   (with fallback to the legacy `Cider/Profiles` location)
-- [ ] macOS **app shell** UI (the SwiftUI dashboard is a stub, not yet wired to a build)
-- [ ] First-class "Open logs" and "Reset bottle" actions in the UI
+- [x] macOS **app shell** UI — SwiftUI dashboard (`app/CosmosApp.swift` +
+  `app/ContentView.swift`) wired to a SwiftPM build (`Package.swift`) and a
+  bundle-assembly script (`scripts/build_cosmos_app.command`)
+- [x] First-class "Open logs" (`run.command --logs`) and "Reset bottle"
+  (`run.command --reset-bottle`) actions, surfaced as UI buttons
 - **Success:** A user installs Cosmos and opens Windows Steam on macOS without Terminal.
+
+> Next: **0.2 — Game launchers** (detect installed Steam games, generate `.app`
+> launchers automatically). The app shell shipped here is intentionally an early
+> dashboard; polishing it (cover art, richer status, console mode) continues
+> across later milestones.
 
 ### 0.2 — Game launchers
 - Detect installed Steam games

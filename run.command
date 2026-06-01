@@ -43,6 +43,8 @@ COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
 COSMOS_LAUNCH_MODE="${COSMOS_LAUNCH_MODE:-${MERLOT_LAUNCH_MODE:-steam}}"
+# Skip the interactive confirmation for destructive actions (e.g. --reset-bottle).
+COSMOS_FORCE="${COSMOS_FORCE:-0}"
 PROFILE_EXECUTABLE=""
 PROFILE_ARGS=()
 
@@ -61,7 +63,14 @@ die() {
 
 usage() {
   cat <<'EOF'
-Usage: run.command [--steam|--game <path>|--profiles]
+Usage: run.command [ACTION]
+
+Actions:
+  (none) | --steam        Set up the bottle if needed and launch Steam (default).
+  --game <path> [args...]  Launch a saved profile executable directly.
+  --profiles               Open the saved profiles folder in Finder and exit.
+  --logs                   Open the latest launch log and exit.
+  --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
 
@@ -93,6 +102,24 @@ parse_arguments() {
       PROFILE_ARGS=("${@:3}")
       return 0
       ;;
+    --logs)
+      if (($# > 1)); then
+        die "The --logs flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="logs"
+      return 0
+      ;;
+    --reset-bottle)
+      if (($# > 1)); then
+        [[ "$2" == "--force" ]] || die "Unknown argument for --reset-bottle: $2"
+        COSMOS_FORCE=1
+        if (($# > 2)); then
+          die "The --reset-bottle flag accepts only an optional --force argument."
+        fi
+      fi
+      COSMOS_LAUNCH_MODE="reset-bottle"
+      return 0
+      ;;
     --help|-h)
       usage
       exit 0
@@ -107,6 +134,54 @@ open_profiles_folder() {
   log "Opening saved profiles folder"
   mkdir -p "${PROFILE_DIRECTORY}"
   open "${PROFILE_DIRECTORY}"
+}
+
+confirm() {
+  local prompt="$1"
+  local reply=""
+  read -r -p "${prompt} [y/N]: " reply
+  [[ "${reply}" == "y" || "${reply}" == "Y" ]]
+}
+
+open_logs() {
+  log "Opening Cosmos launch log"
+  if [[ -f "${COSMOS_LAUNCH_LOG}" ]]; then
+    echo "Log file: ${COSMOS_LAUNCH_LOG}"
+    open "${COSMOS_LAUNCH_LOG}"
+    return
+  fi
+  echo "No log file yet at ${COSMOS_LAUNCH_LOG}."
+  echo "It is created the first time Steam or a game launches in detached mode."
+  open "$(dirname "${COSMOS_LAUNCH_LOG}")"
+}
+
+reset_bottle() {
+  log "Resetting the Steam bottle"
+  echo "This deletes the Wine prefix and everything installed inside it"
+  echo "(Steam and any games). Wine and DXMT downloads are kept."
+  echo "Prefix: ${WINEPREFIX}"
+
+  if [[ "${COSMOS_FORCE}" != "1" ]]; then
+    if [[ -t 0 ]]; then
+      confirm "Delete this prefix?" || { echo "Aborted. Nothing was removed."; return; }
+    else
+      die "Refusing to reset non-interactively. Re-run with --force (or COSMOS_FORCE=1) to proceed."
+    fi
+  fi
+
+  if [[ -d "${WINEPREFIX}" ]]; then
+    rm -rf "${WINEPREFIX}"
+    echo "Removed ${WINEPREFIX}."
+  else
+    echo "No prefix found at ${WINEPREFIX}. Nothing to remove."
+  fi
+
+  local alias_path="${SCRIPT_DIR}/${WINEPREFIX_ALIAS_NAME}"
+  if [[ -L "${alias_path}" ]]; then
+    rm -f "${alias_path}" && echo "Removed stale alias ${alias_path}."
+  fi
+
+  echo "Bottle reset. The next launch will recreate the prefix and reinstall Steam."
 }
 
 require_macos_arm64() {
@@ -488,10 +563,20 @@ launch_profile() {
 
 main() {
   parse_arguments "$@"
-  if [[ "${COSMOS_LAUNCH_MODE}" == "profiles" ]]; then
-    open_profiles_folder
-    return
-  fi
+  case "${COSMOS_LAUNCH_MODE}" in
+    profiles)
+      open_profiles_folder
+      return
+      ;;
+    logs)
+      open_logs
+      return
+      ;;
+    reset-bottle)
+      reset_bottle
+      return
+      ;;
+  esac
 
   require_macos_arm64
   require_macos_version

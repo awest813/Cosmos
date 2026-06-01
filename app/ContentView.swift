@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var cosmosInstalled = false
     @State private var steamInstalled = false
     @State private var isRunning = false
+    @State private var showResetConfirmation = false
 
 
     private var selectedProfile: SavedProfile? {
@@ -134,6 +135,14 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--profiles"])
             }
 
+            actionButton(title: "Open Logs", subtitle: "Reveal the latest launch log", systemImage: "doc.text.magnifyingglass") {
+                runCommand(script: "run.command", arguments: ["--logs"])
+            }
+
+            actionButton(title: "Reset Bottle", subtitle: "Delete the Steam prefix and start fresh", systemImage: "arrow.counterclockwise") {
+                showResetConfirmation = true
+            }
+
             actionButton(title: "Refresh Status", subtitle: "Reload profile and install state", systemImage: "arrow.clockwise") {
                 refreshStatus(message: "Status refreshed.")
             }
@@ -141,6 +150,14 @@ struct ContentView: View {
             actionButton(title: "Uninstall", subtitle: "Remove the Cosmos prefix and app bundle", systemImage: "trash") {
                 runCommand(script: "uninstall.command")
             }
+        }
+        .confirmationDialog("Reset the Steam bottle?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
+            Button("Reset Bottle", role: .destructive) {
+                runCommand(script: "run.command", arguments: ["--reset-bottle", "--force"])
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes the Wine prefix and everything installed inside it (including Steam and games). Wine and DXMT downloads are kept.")
         }
     }
 
@@ -354,15 +371,28 @@ struct ContentView: View {
         return result
     }
 
-    private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
-        guard let repositoryRootURL else {
-            output = "Failed to locate the repository scripts directory."
-            return
+    // Locate a helper script, preferring a copy bundled into the app's
+    // Resources (installed Cosmos.app) and falling back to the repository
+    // checkout (running from a development build).
+    private func resolveScript(_ script: String) -> URL? {
+        if let resourceURL = Bundle.main.resourceURL {
+            let bundled = resourceURL.appendingPathComponent(script)
+            if fileManager.isExecutableFile(atPath: bundled.path) {
+                return bundled
+            }
         }
+        if let repositoryRootURL {
+            let dev = repositoryRootURL.appendingPathComponent(script)
+            if fileManager.isExecutableFile(atPath: dev.path) {
+                return dev
+            }
+        }
+        return nil
+    }
 
-        let scriptURL = repositoryRootURL.appendingPathComponent(script)
-        guard fileManager.isExecutableFile(atPath: scriptURL.path) else {
-            output = "Script not found or not executable: \(scriptURL.lastPathComponent)"
+    private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
+        guard let scriptURL = resolveScript(script) else {
+            output = "Script not found or not executable: \(script)"
             return
         }
 
@@ -373,7 +403,7 @@ struct ContentView: View {
         let task = Process()
         task.executableURL = scriptURL
         task.arguments = arguments
-        task.currentDirectoryURL = repositoryRootURL
+        task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
         var mergedEnvironment = ProcessInfo.processInfo.environment
         for (key, value) in environment {
             mergedEnvironment[key] = value
@@ -441,6 +471,8 @@ private struct SavedProfile: Identifiable, Hashable {
     let fileURL: URL
 }
 
+#if DEBUG
 #Preview {
     ContentView()
 }
+#endif
