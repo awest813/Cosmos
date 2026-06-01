@@ -119,15 +119,11 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--steam"])
             }
 
-            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile?.path.isEmpty != false) {
+            actionButton(title: "Launch Selected Profile", subtitle: selectedProfile?.name ?? "Choose a saved profile first", systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile?.path.isEmpty ?? true) {
                 guard let selectedProfile else { return }
                 runCommand(
                     script: "run.command",
-                    arguments: ["--game"],
-                    environment: [
-                        "CIDER_PROFILE_PATH": selectedProfile.path,
-                        "CIDER_PROFILE_ARGS": selectedProfile.args
-                    ]
+                    arguments: ["--game", selectedProfile.path] + shellArguments(from: selectedProfile.args)
                 )
             }
 
@@ -300,6 +296,59 @@ struct ContentView: View {
         }
 
         return SavedProfile(id: fileURL.lastPathComponent, name: name, path: path, args: args, fileURL: fileURL)
+    }
+
+    private func shellArguments(from text: String) -> [String] {
+        guard !text.isEmpty else { return [] }
+
+        enum QuoteState {
+            case none
+            case single
+            case double
+        }
+
+        var state: QuoteState = .none
+        var escaped = false
+        var current = ""
+        var result: [String] = []
+
+        for character in text {
+            if escaped {
+                current.append(character)
+                escaped = false
+                continue
+            }
+
+            switch character {
+            case "\\" where state != .single:
+                escaped = true
+            case "'" where state == .none:
+                state = .single
+            case "'" where state == .single:
+                state = .none
+            case "\"" where state == .none:
+                state = .double
+            case "\"" where state == .double:
+                state = .none
+            case " ", "\t", "\n" where state == .none:
+                if !current.isEmpty {
+                    result.append(current)
+                    current = ""
+                }
+            default:
+                current.append(character)
+            }
+        }
+
+        if escaped {
+            current.append("\\")
+        }
+
+        if !current.isEmpty {
+            result.append(current)
+        }
+
+        return result
     }
 
     private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {

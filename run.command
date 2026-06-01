@@ -31,9 +31,9 @@ MERLOT_STEAM_LOG="${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/merlot-steam.log}"
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
-MERLOT_LAUNCH_MODE="steam"
-PROFILE_EXECUTABLE="${CIDER_PROFILE_PATH:-}"
-PROFILE_ARGS="${CIDER_PROFILE_ARGS:-}"
+MERLOT_LAUNCH_MODE="${MERLOT_LAUNCH_MODE:-steam}"
+PROFILE_EXECUTABLE=""
+PROFILE_ARGS=()
 
 WINE_URL="https://github.com/Gcenx/macOS_Wine_builds/releases/download/${WINE_VERSION}/wine-devel-${WINE_VERSION}-osx64.tar.xz"
 STEAM_URL="https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe"
@@ -64,9 +64,13 @@ parse_arguments() {
         shift || die "The --game/--profile flag requires a profile executable path."
         PROFILE_EXECUTABLE="$1"
         MERLOT_LAUNCH_MODE="profile"
+        shift
+        PROFILE_ARGS=("$@")
+        return 0
         ;;
       --profiles)
         MERLOT_LAUNCH_MODE="profiles"
+        return 0
         ;;
       --help|-h)
         usage
@@ -392,8 +396,9 @@ launch_steam() {
       log "Detaching Steam from this Terminal (log: ${MERLOT_STEAM_LOG})"
       : >"${MERLOT_STEAM_LOG}" || die "Cannot write to ${MERLOT_STEAM_LOG}"
       nohup "${steam_cmd[@]}" </dev/null >>"${MERLOT_STEAM_LOG}" 2>&1 &
+      local pid="$!"
       disown
-      echo "Steam is running in the background (PID $!). Safe to close this Terminal window."
+      echo "Steam is running in the background (PID ${pid}). Safe to close this Terminal window."
       echo "Tail the log with: tail -f ${MERLOT_STEAM_LOG}"
       ;;
     *)
@@ -414,10 +419,8 @@ launch_profile() {
   [[ -f "${profile_executable}" ]] || die "Profile executable not found: ${PROFILE_EXECUTABLE}"
 
   local -a profile_cmd=("${WINE_BIN}" "${profile_executable}")
-  if [[ -n "${PROFILE_ARGS}" ]]; then
-    local -a profile_args=()
-    read -r -a profile_args <<< "${PROFILE_ARGS}"
-    profile_cmd+=("${profile_args[@]}")
+  if (( ${#PROFILE_ARGS[@]} > 0 )); then
+    profile_cmd+=("${PROFILE_ARGS[@]}")
   fi
 
   case "${MERLOT_DETACH}" in
@@ -428,8 +431,9 @@ launch_profile() {
       log "Detaching profile launch from this Terminal (log: ${MERLOT_STEAM_LOG})"
       : >"${MERLOT_STEAM_LOG}" || die "Cannot write to ${MERLOT_STEAM_LOG}"
       nohup "${profile_cmd[@]}" </dev/null >>"${MERLOT_STEAM_LOG}" 2>&1 &
+      local pid="$!"
       disown
-      echo "Profile is running in the background (PID $!). Safe to close this Terminal window."
+      echo "Profile is running in the background (PID ${pid}). Safe to close this Terminal window."
       echo "Tail the log with: tail -f ${MERLOT_STEAM_LOG}"
       ;;
     *)
