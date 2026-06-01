@@ -119,7 +119,7 @@ struct ContentView: View {
                 runCommand(script: "run.command", arguments: ["--steam"])
             }
 
-            actionButton(title: "Launch Selected Profile", subtitle: selectedProfileLaunchSubtitle, systemImage: "gamecontroller.fill", prominent: true, disabled: selectedProfile.map(\.path.isEmpty) ?? true) {
+            actionButton(title: "Launch Selected Profile", subtitle: selectedProfileLaunchSubtitle, systemImage: "gamecontroller.fill", prominent: true, disabled: isSelectedProfileLaunchDisabled) {
                 guard let selectedProfile else { return }
                 runCommand(
                     script: "run.command",
@@ -167,6 +167,10 @@ struct ContentView: View {
         }
 
         return selectedProfile.path.isEmpty ? "Selected profile has no executable path" : selectedProfile.name
+    }
+
+    private var isSelectedProfileLaunchDisabled: Bool {
+        selectedProfile?.path.isEmpty ?? true
     }
 
     private var consoleSection: some View {
@@ -349,7 +353,7 @@ struct ContentView: View {
         }
 
         if escaped {
-            // Preserve a trailing backslash so this light shell-style splitter does not drop copied paths.
+            // Preserve a trailing backslash so copied paths like C:\Games\ or escaped-space fragments do not lose the final character.
             current.append("\\")
         }
 

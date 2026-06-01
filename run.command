@@ -397,8 +397,9 @@ launch_steam() {
     1)
       log "Detaching Steam from this Terminal (log: ${MERLOT_LAUNCH_LOG})"
       : >"${MERLOT_LAUNCH_LOG}" || die "Cannot write to ${MERLOT_LAUNCH_LOG}"
+      local pid
       nohup "${steam_cmd[@]}" </dev/null >>"${MERLOT_LAUNCH_LOG}" 2>&1 &
-      local pid="$!"
+      pid="$!"
       disown
       echo "Steam is running in the background (PID ${pid}). Safe to close this Terminal window."
       echo "Tail the log with: tail -f ${MERLOT_LAUNCH_LOG}"
@@ -432,8 +433,9 @@ launch_profile() {
     1)
       log "Detaching profile launch from this Terminal (log: ${MERLOT_LAUNCH_LOG})"
       : >"${MERLOT_LAUNCH_LOG}" || die "Cannot write to ${MERLOT_LAUNCH_LOG}"
+      local pid
       nohup "${profile_cmd[@]}" </dev/null >>"${MERLOT_LAUNCH_LOG}" 2>&1 &
-      local pid="$!"
+      pid="$!"
       disown
       echo "Profile is running in the background (PID ${pid}). Safe to close this Terminal window."
       echo "Tail the log with: tail -f ${MERLOT_LAUNCH_LOG}"
