@@ -21,7 +21,7 @@ MIN_MACOS="13.0"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
 ICON_SRC="${REPO_ROOT}/app/cosmos/AppIcon.icns"
-SCRIPTS_TO_BUNDLE=(run.command install_cosmos.command uninstall.command)
+SCRIPTS_TO_BUNDLE=(run.command install_cosmos.command uninstall.command detect_steam_games.command)
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
@@ -90,6 +90,16 @@ for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
   cp "${src}" "${APP_BUNDLE}/Contents/Resources/${script}"
   chmod +x "${APP_BUNDLE}/Contents/Resources/${script}"
 done
+
+# Ad-hoc sign the bundle so it launches without Gatekeeper complaints, especially
+# on Apple Silicon. This is not a Developer ID signature (no notarization); for
+# distribution, re-sign with a real identity.
+if command -v codesign >/dev/null 2>&1; then
+  log "Ad-hoc signing the bundle"
+  codesign --force --deep --sign - "${APP_BUNDLE}" || echo "Warning: ad-hoc codesign failed; the app may be blocked by Gatekeeper."
+else
+  echo "Warning: codesign not found; skipping ad-hoc signature."
+fi
 
 log "Built ${APP_BUNDLE}"
 

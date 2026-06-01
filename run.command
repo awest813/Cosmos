@@ -563,6 +563,11 @@ launch_profile() {
 
 main() {
   parse_arguments "$@"
+
+  # Every action (including the lightweight maintenance ones below) uses
+  # macOS-only tools such as `open`, so guard the platform up front.
+  require_macos_arm64
+
   case "${COSMOS_LAUNCH_MODE}" in
     profiles)
       open_profiles_folder
@@ -578,7 +583,6 @@ main() {
       ;;
   esac
 
-  require_macos_arm64
   require_macos_version
   ensure_rosetta
   ensure_wine_installed

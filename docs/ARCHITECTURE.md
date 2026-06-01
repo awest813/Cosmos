@@ -65,7 +65,7 @@ Swappable D3D→Metal translation backends, selected per game. See
 
 ### Launcher Layer
 Turns a configured game into something launchable: generates `.app` bundles into
-`/Applications/Cosmos Games/`, launches by Steam App ID or EXE path, and (later)
+`/Applications/Cosmos Apps/`, launches by Steam App ID or EXE path, and (later)
 drives controller/console mode.
 
 ## How today's code maps onto the layers
@@ -79,7 +79,7 @@ Nothing here is greenfield — Cosmos is a refactor-and-grow, not a rewrite.
 | Profile | `cosmos_configs/*.conf` (env-var presets per game) | **Partial** — flat shell configs, no schema/ratings/recipes yet |
 | Runtime | `run.command` (Wine download, prefix init, Steam install, Rosetta + macOS checks) | **Partial** — single hardcoded Steam bottle |
 | Graphics | `run.command` DXMT default + opt-in `GPTK_PATH` (D3DMetal) | **Partial** — two backends, env-driven, no per-game switch UI |
-| Launcher | `install_cosmos.command` + `app/cosmos/CosmosLauncher` (`.app` generator) | **Partial** — generates `.app`s from configs |
+| Launcher | `detect_steam_games.command` (auto-detect) + `install_cosmos.command` + `app/cosmos/CosmosLauncher` (`.app` generator) | **Partial** — auto-detects Steam games and generates `.app`s; no artwork yet |
 
 Key existing primitives worth preserving as Cosmos grows:
 

@@ -69,12 +69,17 @@ success criterion — if that sentence isn't true, the release isn't done.
 > dashboard; polishing it (cover art, richer status, console mode) continues
 > across later milestones.
 
-### 0.2 — Game launchers
-- Detect installed Steam games
-- Generate `.app` launchers into `/Applications/Cosmos Games/`
-- Per-game launch config (bottle path, Steam App ID / EXE path, backend, args, env)
-- Game icons / artwork
-- Dock / Launchpad support
+### 0.2 — Game launchers *(in progress)*
+- [x] Detect installed Steam games — `detect_steam_games.command` scans the
+  prefix's Steam libraries (`libraryfolders.vdf` + `appmanifest_*.acf`)
+- [x] Generate `.app` launchers — detection emits `cosmos_configs/steam-*.conf`
+  that `install_cosmos.command` builds into `/Applications/Cosmos Apps/`
+- [x] Per-game launch config via Steam App ID (curated configs override auto ones)
+- [x] Dock / Launchpad support (generated `.app` bundles, already supported)
+- [x] "Detect Steam Games" surfaced in the dashboard (read-only list)
+- [ ] Game icons / artwork (currently the default Cosmos icon)
+- [ ] Richer per-game config in generated launchers (backend, env, args)
+- [ ] One-click "detect → build" from the dashboard (currently Terminal/`--install`)
 - **Success:** A user can put a Windows Steam game in the Dock and launch it like a Mac app.
 
 ### 0.3 — Bottles & backends

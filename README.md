@@ -3,10 +3,11 @@
 For developer details, see the [Developer README](README_DEV.md).
 
 > **Cosmos** is a macOS game compatibility layer and launcher (Wine + Metal
-> translation + game profiles + one-click fixes). This repository is currently at
-> roadmap milestone **0.1 (Bootstrap)** — the scripts below set up Wine, a Steam
-> bottle, DXMT, and generate `.app` launchers. See
-> [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+> translation + game profiles + one-click fixes). Milestone **0.1 (Bootstrap)** is
+> complete and **0.2 (Game launchers)** is in progress — the scripts below set up
+> Wine, a Steam bottle, and DXMT, auto-detect installed Steam games, and generate
+> `.app` launchers. See [docs/ROADMAP.md](docs/ROADMAP.md) and
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 >
 > Upgrading from the old "Merlot" builds? Your existing Wine prefix and saved
 > profiles are reused. The `MERLOT_*` environment variables still work as
