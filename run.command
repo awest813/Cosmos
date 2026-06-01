@@ -60,10 +60,16 @@ parse_arguments() {
       return 0
       ;;
     --steam)
+      if (($# > 1)); then
+        die "The --steam flag does not accept additional arguments."
+      fi
       MERLOT_LAUNCH_MODE="steam"
       return 0
       ;;
     --profiles)
+      if (($# > 1)); then
+        die "The --profiles flag does not accept additional arguments."
+      fi
       MERLOT_LAUNCH_MODE="profiles"
       return 0
       ;;
@@ -412,6 +418,7 @@ launch_steam() {
 launch_profile() {
   log "Launching profile: ${PROFILE_EXECUTABLE}"
   [[ -n "${PROFILE_EXECUTABLE}" ]] || die "The --game/--profile flag requires a profile executable path."
+  [[ -d "${PROFILE_DIRECTORY}" ]] || die "Profile directory is not available: ${PROFILE_DIRECTORY}"
 
   local profile_executable="${PROFILE_EXECUTABLE}"
   if [[ "${profile_executable}" != /* && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then

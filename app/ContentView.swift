@@ -310,7 +310,7 @@ struct ContentView: View {
         return SavedProfile(id: fileURL.lastPathComponent, name: name, path: path, args: args, fileURL: fileURL)
     }
 
-    // Pure helper for splitting the profile args field; edge cases can be unit-tested independently of the launcher.
+    // Pure helper for splitting the profile args field; edge cases can be unit-tested independently of the launcher and this only targets trusted local profile text.
     private func shellArguments(from text: String) -> [String] {
         guard !text.isEmpty else { return [] }
 
@@ -321,6 +321,7 @@ struct ContentView: View {
             case double
         }
 
+        let whitespaceCharacters = CharacterSet.whitespacesAndNewlines
         var state: QuoteState = .none
         var current = ""
         var result: [String] = []
@@ -335,13 +336,15 @@ struct ContentView: View {
                 state = .double
             case "\"" where state == .double:
                 state = .none
-            case " ", "\t", "\n" where state == .none:
-                if !current.isEmpty {
-                    result.append(current)
-                    current = ""
-                }
             default:
-                current.append(character)
+                if state == .none, character.unicodeScalars.allSatisfy({ whitespaceCharacters.contains($0) }) {
+                    if !current.isEmpty {
+                        result.append(current)
+                        current = ""
+                    }
+                } else {
+                    current.append(character)
+                }
             }
         }
 
