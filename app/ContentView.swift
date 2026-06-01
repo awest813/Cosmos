@@ -240,7 +240,7 @@ struct ContentView: View {
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
 
-        if selectedProfileID == nil || profiles.contains(where: { $0.id == selectedProfileID }) == false {
+        if profiles.contains(where: { $0.id == selectedProfileID }) == false {
             self.selectedProfileID = profiles.first?.id
         }
 
@@ -349,9 +349,12 @@ struct ContentView: View {
             candidate.deleteLastPathComponent()
         }
 
-        return URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // app/
-            .deletingLastPathComponent() // repository root
+        let currentDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+        if fileManager.fileExists(atPath: currentDirectory.appendingPathComponent("run.command").path) {
+            return currentDirectory
+        }
+
+        return URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     }
 
     private func shellEscape(_ value: String) -> String {
