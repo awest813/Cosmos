@@ -190,7 +190,18 @@ main() {
     shopt -u nullglob
   done < <(collect_steamapps_dirs "${steam_dir}")
 
-  (( ${#appids[@]} > 0 )) || die "No installed Steam games found under ${steam_dir}."
+  if (( ${#appids[@]} == 0 )); then
+    if [[ "${MODE}" == "list" ]]; then
+      die "No installed Steam games found under ${steam_dir}."
+    fi
+    # Still prune previously generated configs so launchers for games that have
+    # since been uninstalled do not linger.
+    log "No installed Steam games found under ${steam_dir}."
+    mkdir -p "${CONFIGS_DIR}"
+    remove_stale_generated
+    echo "Removed any previously generated launcher configs."
+    return
+  fi
 
   log "Detected ${#appids[@]} installed Steam game(s) in ${WINEPREFIX}"
 

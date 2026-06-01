@@ -91,6 +91,16 @@ for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
   chmod +x "${APP_BUNDLE}/Contents/Resources/${script}"
 done
 
+# Ad-hoc sign the bundle so it launches without Gatekeeper complaints, especially
+# on Apple Silicon. This is not a Developer ID signature (no notarization); for
+# distribution, re-sign with a real identity.
+if command -v codesign >/dev/null 2>&1; then
+  log "Ad-hoc signing the bundle"
+  codesign --force --deep --sign - "${APP_BUNDLE}" || echo "Warning: ad-hoc codesign failed; the app may be blocked by Gatekeeper."
+else
+  echo "Warning: codesign not found; skipping ad-hoc signature."
+fi
+
 log "Built ${APP_BUNDLE}"
 
 if [[ "${INSTALL:-0}" == "1" ]]; then
