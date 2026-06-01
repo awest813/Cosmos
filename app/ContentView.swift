@@ -3,9 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     private let fileManager = FileManager.default
-    private let repositoryRootURL = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
+    private let repositoryRootURL = Self.findRepositoryRoot()
     private let profileDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/Cider/Profiles", isDirectory: true)
     private let merlotDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
@@ -240,11 +238,9 @@ struct ContentView: View {
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
 
-        if let selectedProfileID, profiles.contains(where: { $0.id == selectedProfileID }) == false {
-            self.selectedProfileID = profiles.first?.id
-        }
-
-        if self.selectedProfileID == nil {
+        if let selectedProfileID, profiles.contains(where: { $0.id == selectedProfileID }) {
+            self.selectedProfileID = selectedProfileID
+        } else {
             self.selectedProfileID = profiles.first?.id
         }
 
@@ -297,7 +293,7 @@ struct ContentView: View {
             }
         }
 
-        return SavedProfile(id: fileURL.path, name: name, path: path, args: args, fileURL: fileURL)
+        return SavedProfile(id: fileURL.lastPathComponent, name: name, path: path, args: args, fileURL: fileURL)
     }
 
     private func runCommand(_ command: String) {
@@ -340,6 +336,22 @@ struct ContentView: View {
             isRunning = false
             output = "Failed to run command: \(error.localizedDescription)"
         }
+    }
+
+    private static func findRepositoryRoot() -> URL {
+        let fileManager = FileManager.default
+        var candidate = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+
+        while candidate.path != "/" {
+            if fileManager.fileExists(atPath: candidate.appendingPathComponent("run.command").path) {
+                return candidate
+            }
+            candidate.deleteLastPathComponent()
+        }
+
+        return URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
     }
 
     private func shellEscape(_ value: String) -> String {
