@@ -65,7 +65,7 @@ Swappable D3D→Metal translation backends, selected per game. See
 
 ### Launcher Layer
 Turns a configured game into something launchable: generates `.app` bundles into
-`/Applications/Cosmos Games/`, launches by Steam App ID or EXE path, and (later)
+`/Applications/Cosmos Apps/`, launches by Steam App ID or EXE path, and (later)
 drives controller/console mode.
 
 ## How today's code maps onto the layers

@@ -164,9 +164,10 @@ INSTALL=1 scripts/build_cosmos_app.command  # also copy it into /Applications
 ```
 
 `build_cosmos_app.command` compiles via SwiftPM, then assembles a
-double-clickable `Cosmos.app` with `run.command`, `install_cosmos.command`, and
-`uninstall.command` copied into `Contents/Resources/` so the app is
-self-contained. Requires Xcode or the Command Line Tools (`swift`).
+double-clickable `Cosmos.app` with `run.command`, `install_cosmos.command`,
+`uninstall.command`, and `detect_steam_games.command` copied into
+`Contents/Resources/` so the app is self-contained. Requires Xcode or the
+Command Line Tools (`swift`).
 
 ## Auto-Detecting Steam Games
 
@@ -189,7 +190,8 @@ Modes:
 
 ```bash
 ./detect_steam_games.command --list      # print detected games, write nothing
-./detect_steam_games.command            # (default) refresh generated configs
+./detect_steam_games.command --write      # refresh generated configs (this is the default)
+./detect_steam_games.command            # same as --write
 ./detect_steam_games.command --install   # refresh configs, then build all launchers
 ```
 
