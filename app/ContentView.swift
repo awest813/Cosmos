@@ -18,6 +18,8 @@ struct ContentView: View {
     @State private var steamInstalled = false
     @State private var isRunning = false
 
+    private let outputQueue = DispatchQueue(label: "com.cider.output")
+
     private var selectedProfile: SavedProfile? {
         profiles.first { $0.id == selectedProfileID }
     }
@@ -238,9 +240,9 @@ struct ContentView: View {
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
 
-        if let selectedProfileID, profiles.contains(where: { $0.id == selectedProfileID }) {
-            self.selectedProfileID = selectedProfileID
-        } else {
+        if let selectedProfileID, profiles.contains(where: { $0.id == selectedProfileID }) == false {
+            self.selectedProfileID = profiles.first?.id
+        } else if selectedProfileID == nil {
             self.selectedProfileID = profiles.first?.id
         }
 
@@ -350,8 +352,8 @@ struct ContentView: View {
         }
 
         return URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+            .deletingLastPathComponent() // app/
+            .deletingLastPathComponent() // repository root
     }
 
     private func shellEscape(_ value: String) -> String {
