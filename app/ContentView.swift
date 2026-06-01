@@ -431,7 +431,14 @@ struct ContentView: View {
 
         task.terminationHandler = { process in
             pipe.fileHandleForReading.readabilityHandler = nil
+            // Drain anything written between the last readability callback and exit
+            // so a script's final lines are not truncated from the output pane.
+            let tail = pipe.fileHandleForReading.readDataToEndOfFile()
+            let tailText = String(data: tail, encoding: .utf8) ?? ""
             DispatchQueue.main.async {
+                if !tailText.isEmpty {
+                    output += tailText
+                }
                 isRunning = false
                 output += process.terminationStatus == 0 ? "\nDone." : "\nExited with status \(process.terminationStatus)."
                 refreshStatus()
