@@ -503,6 +503,16 @@ launch_steam() {
   if [[ -n "${STEAM_GAME_ID:-}" ]]; then
     echo "Launching Steam game ${STEAM_GAME_ID}..."
     steam_cmd+=(-applaunch "${STEAM_GAME_ID}")
+    # Optional extra arguments handed to the game itself (Steam forwards anything
+    # after the App ID). Split on whitespace; quoting is intentionally simple.
+    if [[ -n "${STEAM_GAME_ARGS:-}" ]]; then
+      local -a extra_args=()
+      read -r -a extra_args <<< "${STEAM_GAME_ARGS}"
+      if (( ${#extra_args[@]} > 0 )); then
+        echo "Passing game arguments: ${STEAM_GAME_ARGS}"
+        steam_cmd+=("${extra_args[@]}")
+      fi
+    fi
   fi
 
   case "${COSMOS_DETACH}" in

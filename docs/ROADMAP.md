@@ -78,7 +78,10 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] Dock / Launchpad support (generated `.app` bundles, already supported)
 - [x] "Detect Steam Games" surfaced in the dashboard (read-only list)
 - [ ] Game icons / artwork (currently the default Cosmos icon)
-- [ ] Richer per-game config in generated launchers (backend, env, args)
+- [x] Richer per-game config in generated launchers (backend, env, args) —
+  persistent per-game `cosmos_configs/overrides/<appid>.env` files are merged
+  into the auto-generated launchers (and survive refresh), and `run.command`
+  honors `STEAM_GAME_ARGS` to forward launch arguments to the game
 - [ ] One-click "detect → build" from the dashboard (currently Terminal/`--install`)
 - **Success:** A user can put a Windows Steam game in the Dock and launch it like a Mac app.
 

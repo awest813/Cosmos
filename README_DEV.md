@@ -92,6 +92,10 @@ Defaults are the values in `run.command`.
   - Minimum macOS major version enforced at startup (default: `11`).
 - `COSMOS_FORCE`
   - `1` skips the interactive confirmation for destructive actions such as `--reset-bottle`. The desktop app sets this after its own confirmation dialog. Default: `0`.
+- `STEAM_GAME_ID`
+  - When set (usually by a per-game `.conf`), Steam launches straight into that App ID via `-applaunch`.
+- `STEAM_GAME_ARGS`
+  - Extra arguments forwarded to the game (Steam passes anything after `-applaunch <id>`). Split on whitespace. Only used when `STEAM_GAME_ID` is set.
 
 Example overrides (environment variables):
 
@@ -200,12 +204,34 @@ removed). After `--write`, run `./install_cosmos.command` to build the `.app`
 launchers. The Cosmos dashboard's "Detect Steam Games" button runs `--list`
 (read-only) so it works even from the installed app.
 
-Notes / current limitations (0.2 kickoff):
+### Per-game overrides
+
+Because `--write` overwrites the generated `steam-*.conf` files, edits made to
+them directly are lost on the next refresh. To attach **persistent** per-game
+settings (graphics backend, extra env, launch args) to an auto-detected game,
+drop a `cosmos_configs/overrides/<appid>.env` file with simple `KEY=VALUE` lines:
+
+```sh
+# cosmos_configs/overrides/250900.env
+DXMT_CONFIG="d3d11.preferredMaxFrameRate=60;"
+STEAM_GAME_ARGS="-windowed -novid"
+# GPTK_PATH="/Users/you/GPTK"   # switch this game to the D3DMetal backend
+```
+
+On the next detect, those keys are merged into the generated launcher's
+`RUN_ENV_NAMES` and assignments (and ride along into the built `.app`). Only
+upper-snake-case keys are accepted, and `STEAM_GAME_ID` is reserved, so an
+override file cannot inject arbitrary shell into the sourced config. Override
+files are git-ignored; see `cosmos_configs/overrides/README.md`.
+
+`run.command` forwards `STEAM_GAME_ARGS` to the game (anything after
+`-applaunch <id>`), so launch arguments work for both curated and auto-detected
+launchers.
+
+Notes / current limitations (0.2):
 
 - Generated launchers use the default Cosmos icon; per-game artwork extraction is
   a follow-up.
-- Generated configs set only `STEAM_GAME_ID`; richer per-game settings (backend,
-  `DXMT_CONFIG`, etc.) are added by promoting a game to a curated config.
 
 ## Cosmos App Bundles
 
