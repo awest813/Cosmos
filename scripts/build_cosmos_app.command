@@ -91,6 +91,14 @@ for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
   chmod +x "${APP_BUNDLE}/Contents/Resources/${script}"
 done
 
+# The icon converter lives under scripts/; flatten it into Resources so the
+# bundled detect_steam_games.command can find it (see its ICON_TOOL resolution).
+icon_tool_src="${REPO_ROOT}/scripts/make_app_icon.command"
+if [[ -f "${icon_tool_src}" ]]; then
+  cp "${icon_tool_src}" "${APP_BUNDLE}/Contents/Resources/make_app_icon.command"
+  chmod +x "${APP_BUNDLE}/Contents/Resources/make_app_icon.command"
+fi
+
 # Ad-hoc sign the bundle so it launches without Gatekeeper complaints, especially
 # on Apple Silicon. This is not a Developer ID signature (no notarization); for
 # distribution, re-sign with a real identity.

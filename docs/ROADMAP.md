@@ -77,7 +77,11 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] Per-game launch config via Steam App ID (curated configs override auto ones)
 - [x] Dock / Launchpad support (generated `.app` bundles, already supported)
 - [x] "Detect Steam Games" surfaced in the dashboard (read-only list)
-- [ ] Game icons / artwork (currently the default Cosmos icon)
+- [x] Game icons / artwork — `detect_steam_games.command` converts Steam's
+  locally-cached art (`appcache/librarycache`) into per-game `.icns` via
+  `scripts/make_app_icon.command` (sips + iconutil) and wires it into each
+  generated launcher's `ICON_PATH`; falls back to the default icon when art or
+  the macOS tools are unavailable
 - [x] Richer per-game config in generated launchers (backend, env, args) —
   persistent per-game `cosmos_configs/overrides/<appid>.env` files are merged
   into the auto-generated launchers (and survive refresh), and `run.command`

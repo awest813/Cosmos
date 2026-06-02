@@ -15,3 +15,6 @@ cosmos_configs/steam-*.conf
 
 # Local per-game override files (keep the README and *.example, ignore the rest)
 cosmos_configs/overrides/*.env
+
+# Per-game icons generated from Steam artwork (detect_steam_games.command)
+cosmos_configs/icons/

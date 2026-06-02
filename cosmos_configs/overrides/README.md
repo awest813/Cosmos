@@ -25,6 +25,9 @@ STEAM_GAME_ARGS="-windowed -novid"
 # Switch this game to Apple's D3DMetal backend instead of DXMT by pointing at a
 # Game Porting Toolkit install (not redistributed by Cosmos).
 # GPTK_PATH="/Users/you/GPTK"
+
+# Use your own icon instead of the one auto-extracted from Steam artwork.
+# ICON_PATH="/Users/you/Pictures/my-game.icns"
 ```
 
 Rules:
@@ -32,7 +35,11 @@ Rules:
 - The key must be upper-snake-case (`^[A-Z][A-Z0-9_]*$`); other lines, comments
   (`#`), and blanks are ignored, so an override file cannot inject arbitrary shell
   into the sourced config.
-- `STEAM_GAME_ID` is reserved — it is always set from the detected App ID.
+- `STEAM_GAME_ID`, `APP_NAME`, and `BUNDLE_ID` are reserved (managed by Cosmos)
+  and ignored if you set them.
+- `ICON_PATH`, `APP_VERSION`, and `LS_MINIMUM_SYSTEM_VERSION` are build-time
+  settings: they are applied when the `.app` is built but not exported to the
+  game at runtime. Everything else is treated as a runtime env var.
 - Overrides only apply to **auto-generated** launchers. A hand-curated config for
   the same App ID wins outright and is never touched.
 

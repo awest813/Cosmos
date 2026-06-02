@@ -228,10 +228,26 @@ files are git-ignored; see `cosmos_configs/overrides/README.md`.
 `-applaunch <id>`), so launch arguments work for both curated and auto-detected
 launchers.
 
-Notes / current limitations (0.2):
+### Per-game icons
 
-- Generated launchers use the default Cosmos icon; per-game artwork extraction is
-  a follow-up.
+During `--write`/`--install`, detection looks for the game's locally-cached Steam
+artwork under `appcache/librarycache` (the square clienticon first, then the
+portrait/landscape capsules, probing both the historical flat naming and the
+newer per-appid subfolders). The first match is handed to
+`scripts/make_app_icon.command`, which uses macOS `sips` + `iconutil` to
+centre-crop it to square and assemble a multi-resolution `.icns` into
+`cosmos_configs/icons/steam-<appid>.icns`. That path is written into the
+generated config's `ICON_PATH`, so `install_cosmos.command` bakes it into the
+`.app` bundle.
+
+- Icons are cached and only rebuilt when the source artwork is newer; icons for
+  uninstalled games are pruned so the cache mirrors the launcher set.
+- A custom icon wins: set `ICON_PATH="…"` in the game's `overrides/<appid>.env`
+  and it suppresses the auto-extracted one.
+- On a fresh prefix Steam may not have downloaded library art yet, so some games
+  fall back to the default Cosmos icon until art is cached. Set
+  `COSMOS_SKIP_ICONS=1` to skip icon generation entirely.
+- The icons directory is git-ignored.
 
 ## Cosmos App Bundles
 
