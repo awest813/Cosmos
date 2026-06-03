@@ -5,7 +5,7 @@ struct CosmosApp: App {
     var body: some Scene {
         WindowGroup("Cosmos") {
             ContentView()
-                .frame(minWidth: 900, minHeight: 600)
+                .frame(minWidth: 960, minHeight: 640)
         }
         .windowStyle(.titleBar)
         .commands {
