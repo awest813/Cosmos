@@ -201,7 +201,7 @@ Modes:
 
 Re-running refreshes the generated set (stale configs for uninstalled games are
 removed). After `--write`, run `./install_cosmos.command` to build the `.app`
-launchers. The Cosmos dashboard's "Detect Steam Games" button runs `--list`
+launchers. The Cosmos dashboard's "Detect Games" button runs `--list`
 (read-only) so it works even from the installed app.
 
 ### Per-game overrides
