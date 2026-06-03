@@ -3,12 +3,37 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="${SCRIPT_DIR}/app/cosmos"
-CONFIGS_DIR="${SCRIPT_DIR}/cosmos_configs"
 INSTALL_ROOT="/Applications"
 INSTALL_DIR="${INSTALL_ROOT}/Cosmos Apps"
 DEFAULT_ICON_PATH="${SCRIPT_DIR}/app/cosmos/AppIcon.icns"
 LAUNCHER_TEMPLATE="${TEMPLATE_DIR}/CosmosLauncher"
 LAUNCHER_NAME="CosmosLauncher"
+
+# Writable user-data root, matching run.command / detect_steam_games.command.
+COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
+
+# Resolve the configs directory the same way detect_steam_games.command does, so
+# launchers built from an installed app bundle read the generated configs from
+# Application Support (the bundle's Resources are read-only). See that script for
+# the full rationale.
+resolve_configs_dir() {
+  if [[ -n "${COSMOS_CONFIGS_DIR:-}" ]]; then
+    printf '%s' "${COSMOS_CONFIGS_DIR}"
+    return
+  fi
+  local bundled="${SCRIPT_DIR}/cosmos_configs"
+  if [[ "${SCRIPT_DIR}" == *.app/Contents/Resources ]]; then
+    local data="${COSMOS_SUPPORT_DIR}/cosmos_configs"
+    mkdir -p "${data}"
+    if [[ -d "${bundled}" ]]; then
+      cp -Rn "${bundled}/." "${data}/" 2>/dev/null || true
+    fi
+    printf '%s' "${data}"
+    return
+  fi
+  printf '%s' "${bundled}"
+}
+CONFIGS_DIR="$(resolve_configs_dir)"
 
 log() {
   printf "==> %s\n" "$1"

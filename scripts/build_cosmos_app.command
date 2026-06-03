@@ -99,6 +99,24 @@ if [[ -f "${icon_tool_src}" ]]; then
   chmod +x "${APP_BUNDLE}/Contents/Resources/make_app_icon.command"
 fi
 
+# Bundle the launcher template (app/cosmos: CosmosLauncher + AppIcon.icns) so
+# install_cosmos.command can build game .app bundles from the installed app,
+# without needing the repository checkout.
+log "Bundling launcher template (app/cosmos)"
+mkdir -p "${APP_BUNDLE}/Contents/Resources/app"
+cp -R "${REPO_ROOT}/app/cosmos" "${APP_BUNDLE}/Contents/Resources/app/cosmos"
+chmod +x "${APP_BUNDLE}/Contents/Resources/app/cosmos/CosmosLauncher"
+
+# Bundle curated configs so the installed app ships with known-good presets. They
+# are seeded into ~/Library/Application Support/Cosmos/cosmos_configs on first use
+# (the bundle's Resources are read-only); generated configs/icons never live in
+# the bundle, so strip any that exist in the working tree.
+log "Bundling curated configs (cosmos_configs)"
+cp -R "${REPO_ROOT}/cosmos_configs" "${APP_BUNDLE}/Contents/Resources/cosmos_configs"
+rm -f "${APP_BUNDLE}/Contents/Resources/cosmos_configs/steam-"*.conf
+rm -rf "${APP_BUNDLE}/Contents/Resources/cosmos_configs/icons"
+rm -f "${APP_BUNDLE}/Contents/Resources/cosmos_configs/overrides/"*.env
+
 # Ad-hoc sign the bundle so it launches without Gatekeeper complaints, especially
 # on Apple Silicon. This is not a Developer ID signature (no notarization); for
 # distribution, re-sign with a real identity.

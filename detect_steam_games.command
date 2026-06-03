@@ -26,7 +26,35 @@ set -euo pipefail
 #   detect_steam_games.command --install   # write configs, then build all launchers
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
-CONFIGS_DIR="${COSMOS_CONFIGS_DIR:-${SCRIPT_DIR}/cosmos_configs}"
+# Writable user-data root, matching run.command. Generated configs/icons live
+# under here when Cosmos runs from an installed app bundle.
+COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
+
+# Choose where generated configs/icons/overrides live:
+#   1. an explicit COSMOS_CONFIGS_DIR wins;
+#   2. from an installed .app bundle (read-only Resources), use Application
+#      Support and seed it once with the curated configs shipped in the bundle;
+#   3. otherwise (a dev checkout) use the cosmos_configs/ next to this script.
+resolve_configs_dir() {
+  if [[ -n "${COSMOS_CONFIGS_DIR:-}" ]]; then
+    printf '%s' "${COSMOS_CONFIGS_DIR}"
+    return
+  fi
+  local bundled="${SCRIPT_DIR}/cosmos_configs"
+  if [[ "${SCRIPT_DIR}" == *.app/Contents/Resources ]]; then
+    local data="${COSMOS_SUPPORT_DIR}/cosmos_configs"
+    mkdir -p "${data}"
+    if [[ -d "${bundled}" ]]; then
+      # Copy curated configs without clobbering the user's existing edits.
+      cp -Rn "${bundled}/." "${data}/" 2>/dev/null || true
+    fi
+    printf '%s' "${data}"
+    return
+  fi
+  printf '%s' "${bundled}"
+}
+
+CONFIGS_DIR="$(resolve_configs_dir)"
 # User-authored per-game overrides keyed by Steam App ID (overrides/<appid>.env).
 # These are merged into the generated config so extra env / backend / launch args
 # survive a refresh (which otherwise overwrites the auto-generated configs).

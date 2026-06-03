@@ -176,11 +176,22 @@ Two execution paths, picked per action:
   launches Terminal and returns; the user completes any password/confirmation
   prompts there, then taps **Refresh**.
 
-> Note: the Terminal-routed setup/build actions assume the repository layout is
-> reachable (running from a dev checkout, or a bundle whose scripts can see
-> `app/cosmos/` and a writable `cosmos_configs/`). A fully self-contained
-> installed-app build path — generated configs in a writable Application Support
-> location — is future work.
+### Where configs live (dev vs installed app)
+
+`detect_steam_games.command` and `install_cosmos.command` resolve their configs
+directory the same way, so the dashboard can build launchers whether it runs from
+a checkout or an installed bundle:
+
+1. an explicit `COSMOS_CONFIGS_DIR` always wins;
+2. when the script sits inside an installed app bundle (its directory ends in
+   `.app/Contents/Resources`, which is read-only), generated configs/icons go to
+   `~/Library/Application Support/Cosmos/cosmos_configs`, seeded once (no-clobber)
+   with the curated configs shipped in the bundle;
+3. otherwise (a dev checkout) the `cosmos_configs/` next to the script is used,
+   exactly as before.
+
+So generated `steam-*.conf` and icons never get written into the app bundle, and
+an installed `Cosmos.app` can detect → build launchers without the repository.
 
 ### Build
 
@@ -191,10 +202,14 @@ INSTALL=1 scripts/build_cosmos_app.command  # also copy it into /Applications
 ```
 
 `build_cosmos_app.command` compiles via SwiftPM, then assembles a
-double-clickable `Cosmos.app` with `run.command`, `install_cosmos.command`,
-`uninstall.command`, and `detect_steam_games.command` copied into
-`Contents/Resources/` so the app is self-contained. Requires Xcode or the
-Command Line Tools (`swift`).
+double-clickable `Cosmos.app`. Into `Contents/Resources/` it copies the helper
+scripts (`run.command`, `install_cosmos.command`, `uninstall.command`,
+`detect_steam_games.command`, `make_app_icon.command`), the launcher template
+(`app/cosmos/` — `CosmosLauncher` + `AppIcon.icns`), and the curated configs
+(`cosmos_configs/`, minus any generated `steam-*.conf`/`icons/` and local
+`overrides/*.env`). That makes the installed app self-contained: it can build
+game launchers without the repository. Requires Xcode or the Command Line
+Tools (`swift`).
 
 ## Auto-Detecting Steam Games
 
