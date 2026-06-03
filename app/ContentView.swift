@@ -18,141 +18,180 @@ struct ContentView: View {
     @State private var isRunning = false
     @State private var showResetConfirmation = false
 
-
     private var selectedProfile: SavedProfile? {
         profiles.first { $0.id == selectedProfileID }
     }
 
     var body: some View {
         NavigationSplitView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Cosmos")
-                        .font(.largeTitle.weight(.bold))
-                    Text("Apple Silicon game launcher dashboard")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                statusSummary
-
-                List(selection: $selectedProfileID) {
-                    Section("Saved Profiles") {
-                        if profiles.isEmpty {
-                            Text("No profiles saved yet")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            ForEach(profiles) { profile in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(profile.name)
-                                        .font(.headline)
-                                    Text(profile.args.isEmpty ? profile.path : profile.args)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                .tag(profile.id)
-                            }
-                        }
-                    }
-                }
-                .listStyle(.sidebar)
-            }
-            .padding(20)
-            .frame(minWidth: 260)
+            sidebarContent
+                .frame(minWidth: 270)
         } detail: {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    heroSection
-                    actionGrid
-                    if let selectedProfile {
-                        selectedProfileSection(selectedProfile)
-                    }
-                    consoleSection
-                }
-                .padding(28)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .background(Color(nsColor: .windowBackgroundColor))
+            detailContent
         }
+        .tint(Color.cosmosPrimary)
         .task {
             refreshStatus()
         }
     }
 
-    private var statusSummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(cosmosInstalled ? "Cosmos installed" : "Cosmos required", systemImage: cosmosInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
-                .foregroundStyle(cosmosInstalled ? Color.green : Color.orange)
-            Label(steamInstalled ? "Steam prefix ready" : "Steam not installed yet", systemImage: steamInstalled ? "shippingbox.fill" : "shippingbox")
-                .foregroundStyle(steamInstalled ? Color.blue : Color.secondary)
-            Label("\(profiles.count) saved profile\(profiles.count == 1 ? "" : "s")", systemImage: "gamecontroller")
-                .foregroundStyle(.secondary)
+    // MARK: - Sidebar
+
+    private var sidebarContent: some View {
+        VStack(alignment: .center, spacing: 0) {
+            // Logo header
+            VStack(spacing: 10) {
+                CosmosLogoMark(size: 64)
+                Text("Cosmos")
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.cosmosPrimary)
+                Text("Apple Silicon Launcher")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+            .padding(.horizontal, 16)
+
+            Divider()
+
+            // Status summary
+            statusSummary
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+
+            Divider()
+                .padding(.top, 14)
+
+            // Profile list
+            List(selection: $selectedProfileID) {
+                Section("Saved Profiles") {
+                    if profiles.isEmpty {
+                        Label("No profiles yet", systemImage: "tray")
+                            .foregroundStyle(.secondary)
+                            .font(.subheadline)
+                            .accessibilityLabel("No saved game profiles available")
+                    } else {
+                        ForEach(profiles) { profile in
+                            profileRow(profile)
+                                .tag(profile.id)
+                        }
+                    }
+                }
+            }
+            .listStyle(.sidebar)
         }
-        .font(.subheadline)
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func profileRow(_ profile: SavedProfile) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(profile.name)
+                .font(.headline)
+            Text(profile.args.isEmpty ? profile.path : profile.args)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Detail
+
+    private var detailContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                heroSection
+                launchSection
+                managementGrid
+                if let selectedProfile {
+                    selectedProfileSection(selectedProfile)
+                }
+                consoleSection
+            }
+            .padding(28)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(selectedProfile?.name ?? "Launcher Dashboard")
-                .font(.system(size: 30, weight: .bold))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.cosmosPrimary)
             Text(selectedProfile == nil
-                 ? "Manage Cosmos, launch Steam, and quickly jump into saved game profiles from one place."
-                 : "Ready to launch this saved profile through the existing Wine-based shell flow.")
+                 ? "Manage Cosmos, launch Steam, and jump into saved game profiles from one place."
+                 : "Ready to launch this saved profile through the Wine-based shell flow.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
+        }
+    }
 
-            HStack(spacing: 12) {
-                metricCard(title: "Profiles", value: "\(profiles.count)", icon: "list.bullet.rectangle")
-                metricCard(title: "Cosmos", value: cosmosInstalled ? "Installed" : "Needed", icon: cosmosInstalled ? "checkmark.circle" : "arrow.down.circle")
-                metricCard(title: "Steam", value: steamInstalled ? "Ready" : "Setup", icon: steamInstalled ? "shippingbox.fill" : "shippingbox")
+    // MARK: - Quick launch
+
+    private var launchSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Quick Launch", systemImage: "bolt.fill")
+
+            HStack(spacing: 14) {
+                prominentButton(
+                    title: "Launch Steam",
+                    subtitle: "Open Steam in the bottle",
+                    systemImage: "play.fill"
+                ) {
+                    runCommand(script: "run.command", arguments: ["--steam"])
+                }
+
+                prominentButton(
+                    title: "Launch Profile",
+                    subtitle: selectedProfileLaunchSubtitle,
+                    systemImage: "gamecontroller.fill",
+                    disabled: !selectedProfileHasExecutablePath
+                ) {
+                    guard let selectedProfile else { return }
+                    runCommand(
+                        script: "run.command",
+                        arguments: ["--game", selectedProfile.path] + shellArguments(from: selectedProfile.args)
+                    )
+                }
             }
         }
     }
 
-    private var actionGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-            actionButton(title: "Launch Steam", subtitle: "Open Steam through the launcher", systemImage: "play.fill", prominent: true) {
-                runCommand(script: "run.command", arguments: ["--steam"])
-            }
+    // MARK: - Management grid
 
-            actionButton(title: "Launch Selected Profile", subtitle: selectedProfileLaunchSubtitle, systemImage: "gamecontroller.fill", prominent: true, disabled: !selectedProfileHasExecutablePath) {
-                guard let selectedProfile else { return }
-                runCommand(
-                    script: "run.command",
-                    arguments: ["--game", selectedProfile.path] + shellArguments(from: selectedProfile.args)
-                )
-            }
+    private var managementGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Setup & Maintenance", systemImage: "wrench.and.screwdriver.fill")
 
-            actionButton(title: "Install Cosmos", subtitle: "Install dependencies and Wine tooling", systemImage: "arrow.down.circle") {
-                runCommand(script: "install_cosmos.command")
-            }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                secondaryButton(title: "Install Cosmos", subtitle: "Dependencies & Wine", systemImage: "arrow.down.circle.fill") {
+                    runCommand(script: "install_cosmos.command")
+                }
 
-            actionButton(title: "Open Profiles Folder", subtitle: "Reveal saved .conf profiles in Finder", systemImage: "folder") {
-                runCommand(script: "run.command", arguments: ["--profiles"])
-            }
+                secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill") {
+                    runCommand(script: "run.command", arguments: ["--profiles"])
+                }
 
-            actionButton(title: "Detect Steam Games", subtitle: "List installed Steam games in the bottle", systemImage: "magnifyingglass.circle") {
-                runCommand(script: "detect_steam_games.command", arguments: ["--list"])
-            }
+                secondaryButton(title: "Detect Games", subtitle: "List Steam games", systemImage: "magnifyingglass") {
+                    runCommand(script: "detect_steam_games.command", arguments: ["--list"])
+                }
 
-            actionButton(title: "Open Logs", subtitle: "Reveal the latest launch log", systemImage: "doc.text.magnifyingglass") {
-                runCommand(script: "run.command", arguments: ["--logs"])
-            }
+                secondaryButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass") {
+                    runCommand(script: "run.command", arguments: ["--logs"])
+                }
 
-            actionButton(title: "Reset Bottle", subtitle: "Delete the Steam prefix and start fresh", systemImage: "arrow.counterclockwise") {
-                showResetConfirmation = true
-            }
+                secondaryButton(title: "Refresh", subtitle: "Reload status", systemImage: "arrow.clockwise") {
+                    refreshStatus(message: "Status refreshed.")
+                }
 
-            actionButton(title: "Refresh Status", subtitle: "Reload profile and install state", systemImage: "arrow.clockwise") {
-                refreshStatus(message: "Status refreshed.")
-            }
+                secondaryButton(title: "Reset Bottle", subtitle: "Delete prefix", systemImage: "arrow.counterclockwise", destructive: true) {
+                    showResetConfirmation = true
+                }
 
-            actionButton(title: "Uninstall", subtitle: "Remove the Cosmos prefix and app bundle", systemImage: "trash") {
-                runCommand(script: "uninstall.command")
+                secondaryButton(title: "Uninstall", subtitle: "Remove app & prefix", systemImage: "trash.fill", destructive: true) {
+                    runCommand(script: "uninstall.command")
+                }
             }
         }
         .confirmationDialog("Reset the Steam bottle?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
@@ -166,42 +205,51 @@ struct ContentView: View {
     }
 
     private func selectedProfileSection(_ profile: SavedProfile) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Selected Profile")
-                .font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Selected Profile", systemImage: "gamecontroller.fill")
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 detailRow(title: "Executable", value: profile.path)
+                Divider()
                 detailRow(title: "Arguments", value: profile.args.isEmpty ? "None" : profile.args)
+                Divider()
                 detailRow(title: "Config file", value: profile.fileURL.lastPathComponent)
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18))
+            .background(Color.cosmosPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
+            )
         }
     }
 
     private var selectedProfileLaunchSubtitle: String {
-        guard let selectedProfile else {
-            return "Choose a saved profile first"
-        }
-
-        return selectedProfileHasExecutablePath ? "Ready to launch" : "Please set an executable path for this profile"
+        guard let selectedProfile else { return "Select a profile first" }
+        return selectedProfileHasExecutablePath ? "Ready to launch" : "Set an executable path"
     }
 
     private var selectedProfileHasExecutablePath: Bool {
         selectedProfile?.path.isEmpty == false
     }
 
+    // MARK: - Console
+
     private var consoleSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Launcher Output")
-                    .font(.title2.weight(.semibold))
+                sectionHeader("Launcher Output", systemImage: "terminal.fill")
                 Spacer()
                 if isRunning {
-                    ProgressView()
-                        .controlSize(.small)
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(Color.cosmosPrimary)
+                        Text("Running…")
+                            .font(.caption)
+                            .foregroundStyle(Color.cosmosPrimary)
+                    }
                 }
             }
 
@@ -211,58 +259,131 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
                     .padding(16)
+                    .foregroundStyle(Color(red: 0.85, green: 0.80, blue: 1.0))
             }
             .frame(minHeight: 220)
-            .background(Color.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 18))
+            .background(Color(red: 0.07, green: 0.03, blue: 0.16), in: RoundedRectangle(cornerRadius: 16))
         }
     }
 
-    private func metricCard(title: String, value: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: icon)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title2.weight(.semibold))
+    // MARK: - Reusable components
+
+    private var statusSummary: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            statusRow(
+                label: cosmosInstalled ? "Cosmos installed" : "Cosmos required",
+                icon: cosmosInstalled ? "checkmark.circle.fill" : "arrow.down.circle",
+                color: cosmosInstalled ? Color.green : Color.orange
+            )
+            statusRow(
+                label: steamInstalled ? "Steam ready" : "Steam not installed",
+                icon: steamInstalled ? "shippingbox.fill" : "shippingbox",
+                color: steamInstalled ? Color.cosmosBright : Color.secondary
+            )
+            statusRow(
+                label: "\(profiles.count) profile\(profiles.count == 1 ? "" : "s") saved",
+                icon: "gamecontroller.fill",
+                color: Color.cosmosPrimary.opacity(0.8)
+            )
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+        .font(.subheadline)
     }
 
-    private func actionButton(
+    private func statusRow(label: String, icon: String, color: Color) -> some View {
+        Label(label, systemImage: icon)
+            .foregroundStyle(color)
+    }
+
+    private func sectionHeader(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(Color.cosmosPrimary)
+    }
+
+    private func prominentButton(
         title: String,
         subtitle: String,
         systemImage: String,
-        prominent: Bool = false,
         disabled: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
-                Label(title, systemImage: systemImage)
-                    .font(.headline)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(prominent ? Color.white.opacity(0.85) : Color.secondary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: systemImage)
+                    .font(.title2.weight(.semibold))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .opacity(0.85)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
-            .background(prominent ? Color.accentColor : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18))
-            .foregroundStyle(prominent ? Color.white : Color.primary)
+            .foregroundStyle(.white)
+            .padding(20)
+            .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [Color.cosmosBright, Color.cosmosPrimary],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18)
+            )
+            .shadow(color: Color.cosmosPrimary.opacity(0.4), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
         .disabled(disabled || isRunning)
-        .opacity((disabled || isRunning) ? 0.6 : 1)
+        .opacity((disabled || isRunning) ? 0.55 : 1)
+    }
+
+    private func secondaryButton(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        destructive: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(destructive ? Color.red.opacity(0.8) : Color.cosmosPrimary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(
+                        destructive ? Color.red.opacity(0.2) : Color.cosmosPrimary.opacity(0.12),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isRunning)
+        .opacity(isRunning ? 0.55 : 1)
     }
 
     private func detailRow(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                .textCase(.uppercase)
             Text(value)
                 .font(.body)
                 .textSelection(.enabled)
