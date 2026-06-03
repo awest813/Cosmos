@@ -167,16 +167,20 @@ struct ContentView: View {
             sectionHeader("Setup & Maintenance", systemImage: "wrench.and.screwdriver.fill")
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                secondaryButton(title: "Install Cosmos", subtitle: "Dependencies & Wine", systemImage: "arrow.down.circle.fill") {
-                    runCommand(script: "install_cosmos.command")
-                }
-
-                secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill") {
-                    runCommand(script: "run.command", arguments: ["--profiles"])
+                secondaryButton(title: "Install Cosmos", subtitle: "Wine & deps · Terminal", systemImage: "arrow.down.circle.fill") {
+                    runInTerminal(script: "install_cosmos.command")
                 }
 
                 secondaryButton(title: "Detect Games", subtitle: "List Steam games", systemImage: "magnifyingglass") {
                     runCommand(script: "detect_steam_games.command", arguments: ["--list"])
+                }
+
+                secondaryButton(title: "Build Launchers", subtitle: "Detect → build apps · Terminal", systemImage: "square.grid.2x2.fill") {
+                    runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+                }
+
+                secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill") {
+                    runCommand(script: "run.command", arguments: ["--profiles"])
                 }
 
                 secondaryButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass") {
@@ -191,7 +195,7 @@ struct ContentView: View {
                     showResetConfirmation = true
                 }
 
-                secondaryButton(title: "Uninstall", subtitle: "Remove app & prefix", systemImage: "trash.fill", destructive: true) {
+                secondaryButton(title: "Uninstall", subtitle: "Remove everything · Terminal", systemImage: "trash.fill", destructive: true) {
                     showUninstallConfirmation = true
                 }
             }
@@ -205,12 +209,12 @@ struct ContentView: View {
             Text("This deletes the Wine prefix and everything installed inside it (including Steam and games). Wine and DXMT downloads are kept.")
         }
         .confirmationDialog("Uninstall Cosmos?", isPresented: $showUninstallConfirmation, titleVisibility: .visible) {
-            Button("Uninstall", role: .destructive) {
-                runCommand(script: "uninstall.command")
+            Button("Uninstall in Terminal", role: .destructive) {
+                runInTerminal(script: "uninstall.command")
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This removes the installed Cosmos apps, the Wine prefix, and the downloaded Wine and DXMT runtimes. This cannot be undone.")
+            Text("Opens Terminal to remove the installed Cosmos apps, the Wine prefix, and the downloaded Wine and DXMT runtimes. The uninstaller asks before deleting each item.")
         }
     }
 
@@ -549,6 +553,57 @@ struct ContentView: View {
             }
         }
         return nil
+    }
+
+    // Run a helper in Terminal.app instead of the embedded console. Use this for
+    // actions that need a real TTY — `sudo` password entry and interactive
+    // confirmations — which the piped Process runner cannot provide. We launch it
+    // and return; completion happens in Terminal, so the user taps Refresh after.
+    private func runInTerminal(script: String, arguments: [String] = []) {
+        guard let scriptURL = resolveScript(script) else {
+            output = "Script not found or not executable: \(script)"
+            return
+        }
+
+        let shellCommand = ([scriptURL.path] + arguments)
+            .map(Self.shellQuote)
+            .joined(separator: " ")
+
+        let appleScript = """
+        tell application "Terminal"
+            activate
+            do script "\(Self.appleScriptEscape(shellCommand))"
+        end tell
+        """
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        task.arguments = ["-e", appleScript]
+
+        do {
+            try task.run()
+            let displayed = ([script] + arguments).joined(separator: " ")
+            output = """
+            Opened Terminal to run: \(displayed)
+
+            Complete any password or confirmation prompts in the Terminal window, \
+            then press Refresh here to update the status.
+            """
+        } catch {
+            output = "Failed to open Terminal: \(error.localizedDescription)"
+        }
+    }
+
+    // Wrap a value in single quotes for safe use as one shell word.
+    private static func shellQuote(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    // Escape a value for embedding inside an AppleScript double-quoted string.
+    private static func appleScriptEscape(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
     private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {

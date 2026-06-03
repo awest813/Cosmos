@@ -10,11 +10,13 @@ Metal-based D3D translation backend, per-game profiles, store integration
 
 ## Where we are today
 
-This repository is at milestone **0.1 (Bootstrap)**. It ships a set of `.command`
-bash scripts plus a shared Swift/`.app` launcher that downloads Wine (Gcenx
-builds), creates a Steam Wine prefix, installs Steam, enables DXMT (or an opt-in
-Apple GPTK / D3DMetal path), and generates per-game `.app` bundles from
-`cosmos_configs/*.conf`.
+This repository has completed milestone **0.2 (Game launchers)**. It ships a set
+of `.command` bash scripts plus a SwiftUI `.app` dashboard that downloads Wine
+(Gcenx builds), creates a Steam Wine prefix, installs Steam, enables DXMT (or an
+opt-in Apple GPTK / D3DMetal path), auto-detects installed Steam games, and
+generates per-game `.app` bundles (with icons from Steam artwork) from
+`cosmos_configs/*.conf`. The dashboard can detect and build those launchers in
+one click, routing privileged steps through Terminal.
 
 In Cosmos terms, the existing code already covers slices of the **Runtime**,
 **Graphics**, **Profile**, and **Launcher** layers (see
@@ -64,12 +66,11 @@ success criterion — if that sentence isn't true, the release isn't done.
   (`run.command --reset-bottle`) actions, surfaced as UI buttons
 - **Success:** A user installs Cosmos and opens Windows Steam on macOS without Terminal.
 
-> Next: **0.2 — Game launchers** (detect installed Steam games, generate `.app`
-> launchers automatically). The app shell shipped here is intentionally an early
-> dashboard; polishing it (cover art, richer status, console mode) continues
-> across later milestones.
+> Next: **0.3 — Bottles & backends**. The app shell shipped at 0.1 stays an
+> evolving dashboard; polishing it (richer status, console mode) continues across
+> later milestones.
 
-### 0.2 — Game launchers *(in progress)*
+### 0.2 — Game launchers *(complete)*
 - [x] Detect installed Steam games — `detect_steam_games.command` scans the
   prefix's Steam libraries (`libraryfolders.vdf` + `appmanifest_*.acf`)
 - [x] Generate `.app` launchers — detection emits `cosmos_configs/steam-*.conf`
@@ -86,7 +87,10 @@ success criterion — if that sentence isn't true, the release isn't done.
   persistent per-game `cosmos_configs/overrides/<appid>.env` files are merged
   into the auto-generated launchers (and survive refresh), and `run.command`
   honors `STEAM_GAME_ARGS` to forward launch arguments to the game
-- [ ] One-click "detect → build" from the dashboard (currently Terminal/`--install`)
+- [x] One-click "detect → build" from the dashboard — the "Build Launchers"
+  button runs `detect_steam_games.command --install` in Terminal.app (via
+  `osascript`) so the build step's `sudo` prompt works; "Install Cosmos" and
+  "Uninstall" route through Terminal the same way
 - **Success:** A user can put a Windows Steam game in the Dock and launch it like a Mac app.
 
 ### 0.3 — Bottles & backends

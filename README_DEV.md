@@ -145,19 +145,42 @@ Notes:
 
 ## Cosmos Desktop App (app shell)
 
-Milestone 0.1 includes a SwiftUI dashboard that wraps the shell flow so common
-actions (launch Steam, launch a saved profile, open the profiles folder, open
-logs, reset the bottle, install/uninstall) are available without Terminal.
+A SwiftUI dashboard wraps the shell flow so common actions (launch Steam, launch
+a saved profile, detect and build game launchers, open the profiles folder, open
+logs, reset the bottle, install/uninstall) are available from one window.
 
 ### Sources
 
 - `app/CosmosApp.swift` - `@main` entry point / window scene.
 - `app/ContentView.swift` - the dashboard UI. It shells out to `run.command`,
-  `install_cosmos.command`, and `uninstall.command`, resolving each script from
-  the app bundle's `Resources/` first and falling back to the repository checkout
-  during development.
+  `install_cosmos.command`, `uninstall.command`, and `detect_steam_games.command`,
+  resolving each script from the app bundle's `Resources/` first and falling back
+  to the repository checkout during development.
+- `app/CosmosLogoView.swift` - the drawn Cosmos logo mark and brand colors.
 - `Package.swift` - SwiftPM manifest. The app shell requires macOS 13+
   (`NavigationSplitView`); the shell scripts themselves still target macOS 11.
+
+### How actions run
+
+Two execution paths, picked per action:
+
+- **Embedded** (`runCommand`): runs the script with `Process`, streaming stdout
+  /stderr into the in-app console. Used for read-only or non-privileged actions
+  that don't need a TTY — Launch Steam (`--steam`, detaches), Launch Profile,
+  Detect Games (`--list`), Open Logs, Profiles Folder, Reset Bottle
+  (`--reset-bottle --force`), Refresh.
+- **Terminal** (`runInTerminal`): asks Terminal.app (via `osascript … do script`)
+  to run the script. Used for actions that need `sudo` or interactive prompts the
+  piped runner can't provide — **Install Cosmos**, **Build Launchers**
+  (`detect_steam_games.command --install`), and **Uninstall**. The dashboard
+  launches Terminal and returns; the user completes any password/confirmation
+  prompts there, then taps **Refresh**.
+
+> Note: the Terminal-routed setup/build actions assume the repository layout is
+> reachable (running from a dev checkout, or a bundle whose scripts can see
+> `app/cosmos/` and a writable `cosmos_configs/`). A fully self-contained
+> installed-app build path — generated configs in a writable Application Support
+> location — is future work.
 
 ### Build
 
