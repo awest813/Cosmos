@@ -15,6 +15,12 @@ run the embedded scripts.
 
 ## Quick setup (recommended)
 
+**Easiest:** open Cosmos.app and use the **First-time setup** guide (one button per step), or run the all-in-one script:
+
+```bash
+./setup.command
+```
+
 From the repository checkout (or the scripts inside `Cosmos.app` → Show Package
 Contents → Resources):
 

@@ -52,6 +52,7 @@ graphical interface.
 
 1. Open `Cosmos.app` from `/Applications`, or find it in Spotlight as "Cosmos".
 2. Use the app to:
+   - **First-time setup** — guided checklist with one button per step
    - **Prepare Bottle** — download Wine, create the prefix, and install Steam (no launch)
    - **Launch Steam** — start Steam in a default Wine environment
    - **Detect Games** — auto-detect installed Steam games and build launchers

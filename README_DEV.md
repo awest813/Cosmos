@@ -43,6 +43,7 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - The legacy `MERLOT_DETACH` / `MERLOT_LAUNCH_LOG` / `MERLOT_STEAM_LOG` names are still honored as fallbacks; the `COSMOS_*` names take precedence.
 - App/dashboard actions:
   - `run.command --steam` launches Steam explicitly.
+  - `setup.command` — guided first-time setup in Terminal (install + `--setup-steam`)
   - `run.command --setup-steam` prepares Wine, the prefix, backend DLLs, and Steam without launching (see [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md)).
   - `run.command --profiles` opens `~/Library/Application Support/Cosmos/Profiles/` in Finder and exits (falling back to the legacy `~/Library/Application Support/Cider/Profiles/` if only that exists).
   - `run.command --game <path> [args...]` launches a saved profile executable directly.
@@ -269,7 +270,7 @@ Two execution paths, picked per action:
   environment for detection, repair, and profile commands.
 - **Terminal** (`runInTerminal`): asks Terminal.app (via `osascript … do script`)
   to run the script. Used for actions that need `sudo` or interactive prompts the
-  piped runner can't provide — **Install Cosmos**, **Prepare Bottle** (`run.command --setup-steam`), **Build Launchers**
+  piped runner can't provide — **Install Cosmos**, **First-time setup** (in-app guide), **Full guided setup** (`setup.command`), **Prepare Bottle** (`run.command --setup-steam`), **Build Launchers**
   (`detect_steam_games.command --install`), and **Uninstall**. The dashboard
   launches Terminal and returns; the user completes any password/confirmation
   prompts there, then taps **Refresh**.
