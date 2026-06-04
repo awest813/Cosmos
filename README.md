@@ -178,7 +178,7 @@ If Steam is running, follow the steps in "Stop" first.
 
 - **Apple Silicon Macs only** (M1, M2, M3, etc.). Intel Macs are not supported.
 - **macOS 11 (Big Sur) or later** for the core shell scripts.
-- **macOS 13 (Ventura) or later** for the Cosmos desktop app (though Sequoia is recommended and officially tested).
+- **macOS 13 (Ventura) or later** for the Cosmos desktop app (macOS 15.7.4 Sequoia officially tested and recommended).
 - **Rosetta 2** — installed automatically if missing.
 
 ### Tested Configurations
@@ -199,7 +199,7 @@ If Steam is running, follow the steps in "Stop" first.
 
 The default installation uses roughly:
 
-- Wine build: ~2 GB (installed to `~/wine-*`)
+- Wine build: ~2 GB (installed to `~/wine-*` where `*` is the version, e.g., `~/wine-11.8`)
 - DXMT: ~500 MB (installed to `~/DXMT`)
 - Steam and games: depends on your library (usually 100 GB+, in the Wine prefix)
 - Cosmos files and bottles: `~/Library/Application Support/Cosmos/Bottles/` (per-bottle prefixes and logs)
