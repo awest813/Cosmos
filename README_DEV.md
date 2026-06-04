@@ -51,6 +51,7 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - defaults `WINEDEBUG` to `-all,err+all` unless already set by the caller
 - Writes registry values inside the prefix:
   - `HKCU\\Software\\Wine\\Mac Driver\\RetinaMode` controlled by `WINE_RETINA_MODE` (`0`/`1`)
+  - `HKCU\\Software\\Wine\\Version` controlled by `WINDOWS_VERSION` (`winxp|win7|win8|win10|win11`; empty removes the override and restores Wine's default)
   - Disables Windows mouse acceleration (Enhanced Pointer Precision):
     - `HKCU\\Control Panel\\Mouse\\MouseSpeed = 0`
     - `HKCU\\Control Panel\\Mouse\\MouseThreshold1 = 0`
@@ -75,12 +76,18 @@ Defaults are the values in `run.command`.
   - Name of the symlink created next to `run.command` (default: `WINEPREFIX`)
 - `WINE_RETINA_MODE`
   - `1` enables, `0` disables (default: `0`)
+- `WINDOWS_VERSION`
+  - Reported Windows version inside the prefix: `winxp|win7|win8|win10|win11`. Empty (default) keeps Wine's default and removes any prior override. Usually set per bottle via `bottle.conf`.
 - `WINE_MOUSE_WARP_OVERRIDE`
   - Empty keeps Wine default (and removes the key if it was set before)
   - Allowed values: `force`, `enable`, `disable`
+- `COSMOS_BACKEND`
+  - Graphics backend selector: `recommended` (default) | `dxmt` | `d3dmetal` | `dxvk` | `wined3d`. See [docs/BACKENDS.md](docs/BACKENDS.md).
+  - `recommended` resolves to `d3dmetal` if `GPTK_PATH` is set, else `dxmt`. Settable per game via a `.conf` or `overrides/<appid>.env`.
 - `GPTK_PATH`
-  - Empty (default) uses DXMT. When set, switches the D3D backend to Apple's Game Porting Toolkit (D3DMetal) and skips the DXMT download.
-  - Point at either the GPTK root directory or the folder containing its DLLs.
+  - Path to a user-supplied Game Porting Toolkit install, used by the `d3dmetal` backend (and by `recommended` when set). Point at the GPTK root or the folder containing its DLLs. Cosmos never downloads GPTK (Apple EULA).
+- `DXVK_PATH`
+  - Path to a folder of DXVK DLLs (`d3d11.dll`, `dxgi.dll`, …), used by the experimental `dxvk` backend. DXVK on macOS needs MoltenVK.
 - `COSMOS_DETACH` (legacy alias: `MERLOT_DETACH`)
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
@@ -92,6 +99,12 @@ Defaults are the values in `run.command`.
   - Minimum macOS major version enforced at startup (default: `11`).
 - `COSMOS_FORCE`
   - `1` skips the interactive confirmation for destructive actions such as `--reset-bottle`. The desktop app sets this after its own confirmation dialog. Default: `0`.
+- `STEAM_GAME_ID`
+  - When set (usually by a per-game `.conf`), Steam launches straight into that App ID via `-applaunch`.
+- `STEAM_GAME_ARGS`
+  - Extra arguments forwarded to the game (Steam passes anything after `-applaunch <id>`). Split on whitespace. Only used when `STEAM_GAME_ID` is set.
+- `COSMOS_BOTTLE`
+  - Name of a bottle to launch into (see [Bottles](#bottles)). Its prefix and `bottle.conf` settings are loaded with precedence *explicit env > bottle.conf > defaults*. Unset = the legacy single-prefix behavior.
 
 Example overrides (environment variables):
 
@@ -139,21 +152,109 @@ Notes:
   - Apple M1 Max (32GB), macOS Sequoia 15.7.4
   - Apple M2 Pro (16GB), macOS Sequoia 15.7.4
 
+## Bottles
+
+A **bottle** is a named, isolated Wine prefix plus its settings, managed by
+`bottle.command`. Bottles let you keep, say, a `steam` bottle on DXMT and a
+`oldgames` bottle on WineD3D without their prefixes (or DLLs) colliding.
+
+Layout — `~/Library/Application Support/Cosmos/Bottles/<name>/`:
+
+```
+<name>/
+  bottle.conf   # KEY="value" settings, loaded by run.command as defaults
+  prefix/       # the WINEPREFIX (created on first launch)
+  logs/         # per-bottle launch logs
+```
+
+CLI:
+
+```bash
+./bottle.command create steam --wine 11.8 --windows win10 --backend dxmt --retina 0
+./bottle.command list
+./bottle.command set steam COSMOS_BACKEND d3dmetal     # any UPPER_SNAKE_CASE env
+./bottle.command set steam GPTK_PATH "$HOME/GPTK"
+./bottle.command info steam
+./bottle.command launch steam                          # runs run.command in the bottle
+./bottle.command launch steam --game "drive_c/.../Game.exe"
+./bottle.command logs steam
+./bottle.command reset steam   [--force]               # delete the prefix, keep settings
+./bottle.command delete steam  [--force]               # delete the whole bottle
+```
+
+`run.command` activates a bottle when `COSMOS_BOTTLE=<name>` is set (this is what
+`bottle.command launch` does). It loads the bottle's `prefix` as `WINEPREFIX`,
+points the launch log at the bottle's `logs/`, and applies `bottle.conf` settings
+(`WINE_VERSION`, `COSMOS_BACKEND`, `WINE_RETINA_MODE`, `GPTK_PATH`, …) with
+precedence **explicit env > bottle.conf > built-in defaults**. With no
+`COSMOS_BOTTLE`, behavior is exactly as before (the `~/.wine-steam-11` prefix).
+
+Known settings validated on `create`/`set`: `WINDOWS_VERSION`
+(`winxp|win7|win8|win10|win11`), `COSMOS_BACKEND`
+(`recommended|dxmt|d3dmetal|dxvk|wined3d`), `WINE_RETINA_MODE` (`0|1`). Any other
+`UPPER_SNAKE_CASE` key is stored as a plain env default. `WINEPREFIX` and
+`COSMOS_BOTTLE` are reserved (Cosmos manages them). `WINDOWS_VERSION` is applied
+to the prefix on launch via `HKCU\Software\Wine\Version`.
+
+To auto-detect games inside a bottle, point detection at its prefix:
+
+```bash
+WINEPREFIX="$(./bottle.command path steam)" ./detect_steam_games.command --list
+```
+
 ## Cosmos Desktop App (app shell)
 
-Milestone 0.1 includes a SwiftUI dashboard that wraps the shell flow so common
-actions (launch Steam, launch a saved profile, open the profiles folder, open
-logs, reset the bottle, install/uninstall) are available without Terminal.
+A SwiftUI dashboard wraps the shell flow so common actions (launch Steam, launch
+a saved profile, detect and build game launchers, open the profiles folder, open
+logs, reset the bottle, install/uninstall) are available from one window.
 
 ### Sources
 
 - `app/CosmosApp.swift` - `@main` entry point / window scene.
 - `app/ContentView.swift` - the dashboard UI. It shells out to `run.command`,
-  `install_cosmos.command`, and `uninstall.command`, resolving each script from
-  the app bundle's `Resources/` first and falling back to the repository checkout
-  during development.
+  `install_cosmos.command`, `uninstall.command`, `detect_steam_games.command`,
+  and `bottle.command`, resolving each script from the app bundle's `Resources/`
+  first and falling back to the repository checkout during development.
+- `app/Bottle.swift` - the `Bottle` model and `BottleStore` (reads the bottles
+  directory + `bottle.conf` for the dashboard's Bottles section).
+- `app/CosmosLogoView.swift` - the drawn Cosmos logo mark and brand colors.
 - `Package.swift` - SwiftPM manifest. The app shell requires macOS 13+
   (`NavigationSplitView`); the shell scripts themselves still target macOS 11.
+
+### How actions run
+
+Two execution paths, picked per action:
+
+- **Embedded** (`runCommand`): runs the script with `Process`, streaming stdout
+  /stderr into the in-app console. Used for read-only or non-privileged actions
+  that don't need a TTY — Launch Steam (`--steam`, detaches), Launch Profile,
+  Detect Games (`--list`), Open Logs, Profiles Folder, Reset Bottle
+  (`--reset-bottle --force`), Refresh, and all **bottle** actions
+  (`bottle.command create/set/launch/logs/reset/delete`; reset/delete pass
+  `--force` after the dashboard's own confirmation).
+- **Terminal** (`runInTerminal`): asks Terminal.app (via `osascript … do script`)
+  to run the script. Used for actions that need `sudo` or interactive prompts the
+  piped runner can't provide — **Install Cosmos**, **Build Launchers**
+  (`detect_steam_games.command --install`), and **Uninstall**. The dashboard
+  launches Terminal and returns; the user completes any password/confirmation
+  prompts there, then taps **Refresh**.
+
+### Where configs live (dev vs installed app)
+
+`detect_steam_games.command` and `install_cosmos.command` resolve their configs
+directory the same way, so the dashboard can build launchers whether it runs from
+a checkout or an installed bundle:
+
+1. an explicit `COSMOS_CONFIGS_DIR` always wins;
+2. when the script sits inside an installed app bundle (its directory ends in
+   `.app/Contents/Resources`, which is read-only), generated configs/icons go to
+   `~/Library/Application Support/Cosmos/cosmos_configs`, seeded once (no-clobber)
+   with the curated configs shipped in the bundle;
+3. otherwise (a dev checkout) the `cosmos_configs/` next to the script is used,
+   exactly as before.
+
+So generated `steam-*.conf` and icons never get written into the app bundle, and
+an installed `Cosmos.app` can detect → build launchers without the repository.
 
 ### Build
 
@@ -164,10 +265,14 @@ INSTALL=1 scripts/build_cosmos_app.command  # also copy it into /Applications
 ```
 
 `build_cosmos_app.command` compiles via SwiftPM, then assembles a
-double-clickable `Cosmos.app` with `run.command`, `install_cosmos.command`,
-`uninstall.command`, and `detect_steam_games.command` copied into
-`Contents/Resources/` so the app is self-contained. Requires Xcode or the
-Command Line Tools (`swift`).
+double-clickable `Cosmos.app`. Into `Contents/Resources/` it copies the helper
+scripts (`run.command`, `install_cosmos.command`, `uninstall.command`,
+`detect_steam_games.command`, `make_app_icon.command`), the launcher template
+(`app/cosmos/` — `CosmosLauncher` + `AppIcon.icns`), and the curated configs
+(`cosmos_configs/`, minus any generated `steam-*.conf`/`icons/` and local
+`overrides/*.env`). That makes the installed app self-contained: it can build
+game launchers without the repository. Requires Xcode or the Command Line
+Tools (`swift`).
 
 ## Auto-Detecting Steam Games
 
@@ -197,15 +302,53 @@ Modes:
 
 Re-running refreshes the generated set (stale configs for uninstalled games are
 removed). After `--write`, run `./install_cosmos.command` to build the `.app`
-launchers. The Cosmos dashboard's "Detect Steam Games" button runs `--list`
+launchers. The Cosmos dashboard's "Detect Games" button runs `--list`
 (read-only) so it works even from the installed app.
 
-Notes / current limitations (0.2 kickoff):
+### Per-game overrides
 
-- Generated launchers use the default Cosmos icon; per-game artwork extraction is
-  a follow-up.
-- Generated configs set only `STEAM_GAME_ID`; richer per-game settings (backend,
-  `DXMT_CONFIG`, etc.) are added by promoting a game to a curated config.
+Because `--write` overwrites the generated `steam-*.conf` files, edits made to
+them directly are lost on the next refresh. To attach **persistent** per-game
+settings (graphics backend, extra env, launch args) to an auto-detected game,
+drop a `cosmos_configs/overrides/<appid>.env` file with simple `KEY=VALUE` lines:
+
+```sh
+# cosmos_configs/overrides/250900.env
+DXMT_CONFIG="d3d11.preferredMaxFrameRate=60;"
+STEAM_GAME_ARGS="-windowed -novid"
+# GPTK_PATH="/Users/you/GPTK"   # switch this game to the D3DMetal backend
+```
+
+On the next detect, those keys are merged into the generated launcher's
+`RUN_ENV_NAMES` and assignments (and ride along into the built `.app`). Only
+upper-snake-case keys are accepted, and `STEAM_GAME_ID` is reserved, so an
+override file cannot inject arbitrary shell into the sourced config. Override
+files are git-ignored; see `cosmos_configs/overrides/README.md`.
+
+`run.command` forwards `STEAM_GAME_ARGS` to the game (anything after
+`-applaunch <id>`), so launch arguments work for both curated and auto-detected
+launchers.
+
+### Per-game icons
+
+During `--write`/`--install`, detection looks for the game's locally-cached Steam
+artwork under `appcache/librarycache` (the square clienticon first, then the
+portrait/landscape capsules, probing both the historical flat naming and the
+newer per-appid subfolders). The first match is handed to
+`scripts/make_app_icon.command`, which uses macOS `sips` + `iconutil` to
+centre-crop it to square and assemble a multi-resolution `.icns` into
+`cosmos_configs/icons/steam-<appid>.icns`. That path is written into the
+generated config's `ICON_PATH`, so `install_cosmos.command` bakes it into the
+`.app` bundle.
+
+- Icons are cached and only rebuilt when the source artwork is newer; icons for
+  uninstalled games are pruned so the cache mirrors the launcher set.
+- A custom icon wins: set `ICON_PATH="…"` in the game's `overrides/<appid>.env`
+  and it suppresses the auto-extracted one.
+- On a fresh prefix Steam may not have downloaded library art yet, so some games
+  fall back to the default Cosmos icon until art is cached. Set
+  `COSMOS_SKIP_ICONS=1` to skip icon generation entirely.
+- The icons directory is git-ignored.
 
 ## Cosmos App Bundles
 

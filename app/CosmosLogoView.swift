@@ -115,6 +115,7 @@ struct CosmosLogoMark: View {
         }
         .frame(width: size * 1.52, height: size)
         .clipShape(Ellipse())
+        .accessibilityHidden(true) // Decorative; the "Cosmos" wordmark conveys identity.
     }
 
     // Fixed positions and opacities so sparkles are stable across redraws.

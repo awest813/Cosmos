@@ -12,7 +12,15 @@ BUNDLE_ID="com.cosmos.example-game"
 RUN_ENV_NAMES=(
   STEAM_GAME_ID
   DXMT_CONFIG
+  # COSMOS_BACKEND    # recommended | dxmt | d3dmetal | dxvk | wined3d (see docs/BACKENDS.md)
+  # STEAM_GAME_ARGS   # extra arguments forwarded to the game after -applaunch
 )
 
 STEAM_GAME_ID="123456"
 DXMT_CONFIG="d3d11.preferredMaxFrameRate=60;"
+# COSMOS_BACKEND="dxmt"
+# STEAM_GAME_ARGS="-windowed -novid"
+
+# For games auto-detected by detect_steam_games.command, don't edit the generated
+# steam-*.conf directly (it is overwritten on refresh). Instead drop persistent
+# per-game env in cosmos_configs/overrides/<appid>.env — see overrides/README.md.

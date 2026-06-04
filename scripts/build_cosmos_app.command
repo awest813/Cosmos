@@ -21,7 +21,7 @@ MIN_MACOS="13.0"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
 ICON_SRC="${REPO_ROOT}/app/cosmos/AppIcon.icns"
-SCRIPTS_TO_BUNDLE=(run.command install_cosmos.command uninstall.command detect_steam_games.command)
+SCRIPTS_TO_BUNDLE=(run.command install_cosmos.command uninstall.command detect_steam_games.command bottle.command)
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
@@ -90,6 +90,32 @@ for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
   cp "${src}" "${APP_BUNDLE}/Contents/Resources/${script}"
   chmod +x "${APP_BUNDLE}/Contents/Resources/${script}"
 done
+
+# The icon converter lives under scripts/; flatten it into Resources so the
+# bundled detect_steam_games.command can find it (see its ICON_TOOL resolution).
+icon_tool_src="${REPO_ROOT}/scripts/make_app_icon.command"
+if [[ -f "${icon_tool_src}" ]]; then
+  cp "${icon_tool_src}" "${APP_BUNDLE}/Contents/Resources/make_app_icon.command"
+  chmod +x "${APP_BUNDLE}/Contents/Resources/make_app_icon.command"
+fi
+
+# Bundle the launcher template (app/cosmos: CosmosLauncher + AppIcon.icns) so
+# install_cosmos.command can build game .app bundles from the installed app,
+# without needing the repository checkout.
+log "Bundling launcher template (app/cosmos)"
+mkdir -p "${APP_BUNDLE}/Contents/Resources/app"
+cp -R "${REPO_ROOT}/app/cosmos" "${APP_BUNDLE}/Contents/Resources/app/cosmos"
+chmod +x "${APP_BUNDLE}/Contents/Resources/app/cosmos/CosmosLauncher"
+
+# Bundle curated configs so the installed app ships with known-good presets. They
+# are seeded into ~/Library/Application Support/Cosmos/cosmos_configs on first use
+# (the bundle's Resources are read-only); generated configs/icons never live in
+# the bundle, so strip any that exist in the working tree.
+log "Bundling curated configs (cosmos_configs)"
+cp -R "${REPO_ROOT}/cosmos_configs" "${APP_BUNDLE}/Contents/Resources/cosmos_configs"
+rm -f "${APP_BUNDLE}/Contents/Resources/cosmos_configs/steam-"*.conf
+rm -rf "${APP_BUNDLE}/Contents/Resources/cosmos_configs/icons"
+rm -f "${APP_BUNDLE}/Contents/Resources/cosmos_configs/overrides/"*.env
 
 # Ad-hoc sign the bundle so it launches without Gatekeeper complaints, especially
 # on Apple Silicon. This is not a Developer ID signature (no notarization); for

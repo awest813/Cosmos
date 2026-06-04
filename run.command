@@ -3,6 +3,52 @@ set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
+# --- Bottle pre-load (roadmap 0.3) -------------------------------------------
+# A named bottle (COSMOS_BOTTLE) supplies an isolated Wine prefix plus default
+# settings from its bottle.conf. Load them *before* the per-setting defaults
+# below, so precedence is: explicit environment > bottle.conf > built-in default.
+# When no bottle is named, nothing here changes and behavior is unchanged.
+COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
+COSMOS_BOTTLE="${COSMOS_BOTTLE:-}"
+BOTTLES_DIR="${COSMOS_BOTTLES_DIR:-${COSMOS_SUPPORT_DIR}/Bottles}"
+
+_bottle_die() { printf "Error: %s\n" "$1" >&2; exit 1; }
+
+load_bottle() {
+  [[ -n "${COSMOS_BOTTLE}" ]] || return 0
+  [[ "${COSMOS_BOTTLE}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "${COSMOS_BOTTLE}" != *..* ]] \
+    || _bottle_die "Invalid COSMOS_BOTTLE name: ${COSMOS_BOTTLE}"
+  local dir="${BOTTLES_DIR}/${COSMOS_BOTTLE}"
+  [[ -d "${dir}" ]] \
+    || _bottle_die "Bottle not found: ${COSMOS_BOTTLE} (${dir}). Create it with: bottle.command create ${COSMOS_BOTTLE}"
+
+  local conf="${dir}/bottle.conf"
+  if [[ -f "${conf}" ]]; then
+    local line key val
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      line="${line%$'\r'}"
+      [[ "${line}" =~ ^[[:space:]]*(#|$) ]] && continue
+      [[ "${line}" == *=* ]] || continue
+      key="${line%%=*}"; key="${key//[[:space:]]/}"
+      [[ "${key}" =~ ^[A-Z][A-Z0-9_]*$ ]] || continue
+      case "${key}" in WINEPREFIX|COSMOS_BOTTLE) continue ;; esac
+      [[ -n "${!key:-}" ]] && continue            # explicit environment wins
+      val="${line#*=}"; val="${val%\"}"; val="${val#\"}"
+      printf -v "${key}" '%s' "${val}"
+      export "${key?}"
+    done < "${conf}"
+  fi
+
+  # The bottle owns its prefix and (unless overridden) its launch log.
+  WINEPREFIX="${dir}/prefix"
+  mkdir -p "${dir}/logs"
+  if [[ -z "${COSMOS_LAUNCH_LOG:-}${MERLOT_LAUNCH_LOG:-}${COSMOS_STEAM_LOG:-}${MERLOT_STEAM_LOG:-}" ]]; then
+    COSMOS_LAUNCH_LOG="${dir}/logs/launch.log"
+  fi
+}
+load_bottle
+# -----------------------------------------------------------------------------
+
 WINE_VERSION="${WINE_VERSION:-11.8}"
 DXMT_VERSION="${DXMT_VERSION:-0.74}"
 
@@ -32,6 +78,16 @@ fi
 # developer.apple.com themselves. DXMT is the default precisely because it
 # has no such constraint.
 GPTK_PATH="${GPTK_PATH:-}"
+# Graphics backend selector (roadmap 0.3): recommended | dxmt | d3dmetal | dxvk | wined3d.
+# 'recommended' resolves to d3dmetal when GPTK_PATH is set, otherwise dxmt, which
+# preserves the historical GPTK_PATH-driven behavior. d3dmetal needs a
+# user-supplied GPTK_PATH; dxvk needs a user-supplied DXVK_PATH (experimental on
+# macOS via MoltenVK); wined3d uses Wine's built-in D3D->OpenGL with no extra
+# downloads. DXMT stays the no-setup default. See docs/BACKENDS.md.
+COSMOS_BACKEND="${COSMOS_BACKEND:-recommended}"
+# Folder of DXVK DLLs (d3d11.dll, dxgi.dll, ...) used by the dxvk backend.
+DXVK_PATH="${DXVK_PATH:-}"
+RESOLVED_BACKEND=""
 WINEPREFIX_ALIAS_NAME="${WINEPREFIX_ALIAS_NAME:-WINEPREFIX}"
 WINE_RETINA_MODE="${WINE_RETINA_MODE:-0}" # 1=enable RetinaMode, 0=disable RetinaMode (Default)
 # 1=detach Steam from the Terminal after launch so closing the window doesn't kill it (Default).
@@ -42,6 +98,11 @@ COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
+# Reported Windows version inside the prefix. Empty = Wine's built-in default.
+# Recognized: winxp | win7 | win8 | win10 | win11 (Wine's own version tokens,
+# written to HKCU\Software\Wine\Version — the per-prefix override winecfg's
+# "Windows Version" dropdown uses). Usually set per bottle via bottle.conf.
+WINDOWS_VERSION="${WINDOWS_VERSION:-}"
 COSMOS_LAUNCH_MODE="${COSMOS_LAUNCH_MODE:-${MERLOT_LAUNCH_MODE:-steam}}"
 # Skip the interactive confirmation for destructive actions (e.g. --reset-bottle).
 COSMOS_FORCE="${COSMOS_FORCE:-0}"
@@ -347,6 +408,39 @@ ensure_wine_retina_mode() {
   echo "Set RetinaMode=${desired_value}."
 }
 
+ensure_wine_windows_version() {
+  local version="${WINDOWS_VERSION}"
+
+  # Empty => leave Wine's built-in default; remove any prior override so the
+  # bottle reverts cleanly (mirrors how the mouse-warp override behaves).
+  if [[ -z "${version}" ]]; then
+    log "Using Wine's default Windows version"
+    if "${WINE_BIN}" reg query "HKCU\\Software\\Wine" /v Version >/dev/null 2>&1; then
+      "${WINE_BIN}" reg delete "HKCU\\Software\\Wine" /v Version /f >/dev/null 2>&1 || true
+      echo "Removed Windows-version override (Wine default)."
+    else
+      echo "No Windows-version override set. Skipping."
+    fi
+    return
+  fi
+
+  case "${version}" in
+    winxp|win7|win8|win10|win11) ;;
+    *) die "WINDOWS_VERSION must be one of: winxp | win7 | win8 | win10 | win11 (or empty for default)." ;;
+  esac
+
+  log "Configuring Windows version=${version}"
+  local query_out
+  query_out="$("${WINE_BIN}" reg query "HKCU\\Software\\Wine" /v Version 2>/dev/null || true)"
+  if printf "%s" "${query_out}" | grep -Eiq "Version[[:space:]]+REG_SZ[[:space:]]+${version}([[:space:]]|$)"; then
+    echo "Windows version is already set to ${version}. Skipping."
+    return
+  fi
+
+  "${WINE_BIN}" reg add "HKCU\\Software\\Wine" /v Version /t REG_SZ /d "${version}" /f >/dev/null
+  echo "Set Windows version=${version}."
+}
+
 ensure_wine_windows_mouse_accel_disabled() {
   log "Disabling Windows mouse acceleration in Wine"
 
@@ -440,8 +534,29 @@ enable_dxmt_env() {
   export WINEDEBUG="${WINEDEBUG:--all,err+all}"
 }
 
-use_gptk() {
-  [[ -n "${GPTK_PATH}" ]]
+# Validate COSMOS_BACKEND and resolve 'recommended' to a concrete backend,
+# storing the result in RESOLVED_BACKEND. Fails fast on an unknown value.
+resolve_backend() {
+  local requested
+  requested="$(printf '%s' "${COSMOS_BACKEND}" | tr '[:upper:]' '[:lower:]')"
+  case "${requested}" in
+    recommended)
+      if [[ -n "${GPTK_PATH}" ]]; then
+        RESOLVED_BACKEND="d3dmetal"
+      else
+        RESOLVED_BACKEND="dxmt"
+      fi
+      ;;
+    gptk)
+      RESOLVED_BACKEND="d3dmetal"
+      ;;
+    dxmt|d3dmetal|dxvk|wined3d)
+      RESOLVED_BACKEND="${requested}"
+      ;;
+    *)
+      die "COSMOS_BACKEND must be one of: recommended | dxmt | d3dmetal | dxvk | wined3d (got '${COSMOS_BACKEND}')."
+      ;;
+  esac
 }
 
 find_gptk_dll_dir() {
@@ -493,6 +608,67 @@ enable_gptk_env() {
   echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
 }
 
+find_dxvk_dll_dir() {
+  local root="$1"
+  local candidates=(
+    "${root}"
+    "${root}/x64"
+    "${root}/x32"
+    "${root}/bin"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    if [[ -f "${c}/dxgi.dll" || -f "${c}/d3d11.dll" ]]; then
+      printf '%s\n' "${c}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+ensure_dxvk_installed() {
+  log "Installing DXVK DLLs into the Wine prefix (experimental)"
+  [[ -n "${DXVK_PATH}" ]] || die "The dxvk backend needs DXVK_PATH set to a folder of DXVK DLLs (d3d11.dll, dxgi.dll, ...). DXVK on macOS routes through MoltenVK and is experimental; use dxmt or d3dmetal for a supported path."
+  [[ -d "${DXVK_PATH}" ]] || die "DXVK_PATH is not a directory: ${DXVK_PATH}"
+
+  local src
+  if ! src="$(find_dxvk_dll_dir "${DXVK_PATH}")"; then
+    die "Could not find DXVK DLLs (dxgi.dll / d3d11.dll) under DXVK_PATH=${DXVK_PATH}."
+  fi
+
+  local target="${WINEPREFIX}/drive_c/windows/system32"
+  [[ -d "${target}" ]] || die "Prefix system32 not found (is the prefix initialized?): ${target}"
+
+  echo "Copying DXVK DLLs from ${src} to ${target}"
+  local f copied=0
+  for f in d3d9 d3d10core d3d11 dxgi; do
+    [[ -f "${src}/${f}.dll" ]] || continue
+    cp -f "${src}/${f}.dll" "${target}/"
+    copied=$((copied + 1))
+  done
+  [[ "${copied}" -gt 0 ]] || die "No DXVK DLLs found in ${src}"
+  echo "Copied ${copied} DXVK DLL(s)."
+}
+
+enable_dxvk_env() {
+  log "Enabling DXVK via WINEDLLOVERRIDES (experimental)"
+  export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,dxgi=n}"
+  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
+  echo "Note: DXVK needs a Vulkan driver (MoltenVK) on macOS. If games fail to"
+  echo "start, install MoltenVK or switch to the dxmt / d3dmetal backend."
+}
+
+enable_wined3d_env() {
+  log "Using Wine's built-in WineD3D (no translation layer)"
+  # Force builtin d3d so any previously-installed DXMT/GPTK/DXVK native DLLs in the
+  # prefix are ignored. WineD3D maps Direct3D to OpenGL: broadest compatibility,
+  # slowest performance. Best used in a dedicated bottle.
+  export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,d3d12,d3d12core,dxgi=b}"
+  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
+}
+
 launch_steam() {
   log "Launching Steam"
   local steam_exe
@@ -503,6 +679,16 @@ launch_steam() {
   if [[ -n "${STEAM_GAME_ID:-}" ]]; then
     echo "Launching Steam game ${STEAM_GAME_ID}..."
     steam_cmd+=(-applaunch "${STEAM_GAME_ID}")
+    # Optional extra arguments handed to the game itself (Steam forwards anything
+    # after the App ID). Split on whitespace; quoting is intentionally simple.
+    if [[ -n "${STEAM_GAME_ARGS:-}" ]]; then
+      local -a extra_args=()
+      read -r -a extra_args <<< "${STEAM_GAME_ARGS}"
+      if (( ${#extra_args[@]} > 0 )); then
+        echo "Passing game arguments: ${STEAM_GAME_ARGS}"
+        steam_cmd+=("${extra_args[@]}")
+      fi
+    fi
   fi
 
   case "${COSMOS_DETACH}" in
@@ -568,6 +754,8 @@ main() {
   # macOS-only tools such as `open`, so guard the platform up front.
   require_macos_arm64
 
+  [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"
+
   case "${COSMOS_LAUNCH_MODE}" in
     profiles)
       open_profiles_folder
@@ -583,6 +771,9 @@ main() {
       ;;
   esac
 
+  # Validate the backend choice before any heavy lifting (downloads, prefix).
+  resolve_backend
+
   require_macos_version
   ensure_rosetta
   ensure_wine_installed
@@ -591,15 +782,32 @@ main() {
   ensure_wineprefix_alias
   ensure_wine_mouse_warp_override
   ensure_wine_retina_mode "${WINE_RETINA_MODE}"
+  ensure_wine_windows_version
   ensure_wine_windows_mouse_accel_disabled
   ensure_steam_installed
-  if use_gptk; then
-    ensure_gptk_installed
-    enable_gptk_env
-  else
-    ensure_dxmt_installed
-    enable_dxmt_env
-  fi
+
+  log "Graphics backend: ${RESOLVED_BACKEND} (requested: ${COSMOS_BACKEND})"
+  case "${RESOLVED_BACKEND}" in
+    dxmt)
+      ensure_dxmt_installed
+      enable_dxmt_env
+      ;;
+    d3dmetal)
+      [[ -n "${GPTK_PATH}" ]] || die "The d3dmetal backend needs GPTK_PATH set to your Game Porting Toolkit install (Apple does not permit Cosmos to bundle it). Use the dxmt backend for a no-setup default."
+      ensure_gptk_installed
+      enable_gptk_env
+      ;;
+    dxvk)
+      ensure_dxvk_installed
+      enable_dxvk_env
+      ;;
+    wined3d)
+      enable_wined3d_env
+      ;;
+    *)
+      die "Unhandled backend: ${RESOLVED_BACKEND}"
+      ;;
+  esac
 
   if [[ "${COSMOS_LAUNCH_MODE}" == "profile" ]]; then
     launch_profile

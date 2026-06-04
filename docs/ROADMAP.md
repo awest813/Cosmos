@@ -10,11 +10,13 @@ Metal-based D3D translation backend, per-game profiles, store integration
 
 ## Where we are today
 
-This repository is at milestone **0.1 (Bootstrap)**. It ships a set of `.command`
-bash scripts plus a shared Swift/`.app` launcher that downloads Wine (Gcenx
-builds), creates a Steam Wine prefix, installs Steam, enables DXMT (or an opt-in
-Apple GPTK / D3DMetal path), and generates per-game `.app` bundles from
-`cosmos_configs/*.conf`.
+This repository has completed milestone **0.2 (Game launchers)**. It ships a set
+of `.command` bash scripts plus a SwiftUI `.app` dashboard that downloads Wine
+(Gcenx builds), creates a Steam Wine prefix, installs Steam, enables DXMT (or an
+opt-in Apple GPTK / D3DMetal path), auto-detects installed Steam games, and
+generates per-game `.app` bundles (with icons from Steam artwork) from
+`cosmos_configs/*.conf`. The dashboard can detect and build those launchers in
+one click, routing privileged steps through Terminal.
 
 In Cosmos terms, the existing code already covers slices of the **Runtime**,
 **Graphics**, **Profile**, and **Launcher** layers (see
@@ -64,12 +66,11 @@ success criterion — if that sentence isn't true, the release isn't done.
   (`run.command --reset-bottle`) actions, surfaced as UI buttons
 - **Success:** A user installs Cosmos and opens Windows Steam on macOS without Terminal.
 
-> Next: **0.2 — Game launchers** (detect installed Steam games, generate `.app`
-> launchers automatically). The app shell shipped here is intentionally an early
-> dashboard; polishing it (cover art, richer status, console mode) continues
-> across later milestones.
+> Next: **0.3 — Bottles & backends**. The app shell shipped at 0.1 stays an
+> evolving dashboard; polishing it (richer status, console mode) continues across
+> later milestones.
 
-### 0.2 — Game launchers *(in progress)*
+### 0.2 — Game launchers *(complete)*
 - [x] Detect installed Steam games — `detect_steam_games.command` scans the
   prefix's Steam libraries (`libraryfolders.vdf` + `appmanifest_*.acf`)
 - [x] Generate `.app` launchers — detection emits `cosmos_configs/steam-*.conf`
@@ -77,17 +78,41 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] Per-game launch config via Steam App ID (curated configs override auto ones)
 - [x] Dock / Launchpad support (generated `.app` bundles, already supported)
 - [x] "Detect Steam Games" surfaced in the dashboard (read-only list)
-- [ ] Game icons / artwork (currently the default Cosmos icon)
-- [ ] Richer per-game config in generated launchers (backend, env, args)
-- [ ] One-click "detect → build" from the dashboard (currently Terminal/`--install`)
+- [x] Game icons / artwork — `detect_steam_games.command` converts Steam's
+  locally-cached art (`appcache/librarycache`) into per-game `.icns` via
+  `scripts/make_app_icon.command` (sips + iconutil) and wires it into each
+  generated launcher's `ICON_PATH`; falls back to the default icon when art or
+  the macOS tools are unavailable
+- [x] Richer per-game config in generated launchers (backend, env, args) —
+  persistent per-game `cosmos_configs/overrides/<appid>.env` files are merged
+  into the auto-generated launchers (and survive refresh), and `run.command`
+  honors `STEAM_GAME_ARGS` to forward launch arguments to the game
+- [x] One-click "detect → build" from the dashboard — the "Build Launchers"
+  button runs `detect_steam_games.command --install` in Terminal.app (via
+  `osascript`) so the build step's `sudo` prompt works; "Install Cosmos" and
+  "Uninstall" route through Terminal the same way
 - **Success:** A user can put a Windows Steam game in the Dock and launch it like a Mac app.
 
-### 0.3 — Bottles & backends
-- Bottle manager (Steam, GOG, Old Games, Test, …) — each with Wine version,
-  Windows version, graphics backend, Retina mode, env vars, installed deps, logs,
-  repair/reset
-- Backend selector: `recommended | d3dmetal | dxmt | dxvk | wined3d`
-- **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI.
+### 0.3 — Bottles & backends *(complete)*
+- [x] Backend selector `recommended | dxmt | d3dmetal | dxvk | wined3d` —
+  `run.command` validates `COSMOS_BACKEND` and resolves `recommended`
+  (→ `d3dmetal` when `GPTK_PATH` is set, else `dxmt`, preserving prior behavior);
+  dxmt/d3dmetal/wined3d work, dxvk is experimental (needs `DXVK_PATH` + MoltenVK).
+  Settable per game via `.conf` / `overrides/<appid>.env`. See [BACKENDS.md](BACKENDS.md).
+- [x] Bottle manager engine — `bottle.command` (list/create/info/set/path/launch/
+  logs/reset/delete) manages named, isolated bottles under
+  `~/Library/Application Support/Cosmos/Bottles/<name>/` (prefix + `bottle.conf` +
+  logs). `run.command` honors `COSMOS_BOTTLE`, loading the bottle's prefix and
+  settings (Wine version, backend, Retina, env) with precedence
+  *explicit env > bottle.conf > defaults*. No bottle named → unchanged behavior.
+- [x] UI: bottle manager + backend picker in the dashboard — the Bottles section
+  lists bottles, creates them (name/backend/Windows/Retina sheet), switches a
+  bottle's backend via a Picker, and launches/opens-logs/resets/deletes — all
+  driven by `bottle.command`.
+- [x] Per-bottle Windows-version application — `run.command` applies
+  `WINDOWS_VERSION` (`winxp|win7|win8|win10|win11`) to the prefix via
+  `HKCU\Software\Wine\Version`, and clears the override when empty.
+- **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI. ✅
 
 ### 0.4 — Profiles
 - v0 profile schema (YAML/JSON) — see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)

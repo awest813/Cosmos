@@ -9,6 +9,7 @@ struct ContentView: View {
     private let cosmosAppsURL = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
     private let steamExecutableURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".wine-steam-11/drive_c/Program Files (x86)/Steam/steam.exe")
+    private let consoleBottomID = "console-bottom"
 
     @State private var output = "Welcome to Cosmos\n\nSelect a saved profile or use the quick actions to manage your setup."
     @State private var profiles: [SavedProfile] = []
@@ -17,9 +18,24 @@ struct ContentView: View {
     @State private var steamInstalled = false
     @State private var isRunning = false
     @State private var showResetConfirmation = false
+    @State private var showUninstallConfirmation = false
+
+    @State private var bottles: [Bottle] = []
+    @State private var selectedBottleID: String?
+    @State private var showNewBottleSheet = false
+    @State private var showBottleResetConfirmation = false
+    @State private var showBottleDeleteConfirmation = false
+    @State private var newBottleName = ""
+    @State private var newBottleBackend = "recommended"
+    @State private var newBottleWindows = "win10"
+    @State private var newBottleRetina = false
 
     private var selectedProfile: SavedProfile? {
         profiles.first { $0.id == selectedProfileID }
+    }
+
+    private var selectedBottle: Bottle? {
+        bottles.first { $0.id == selectedBottleID }
     }
 
     var body: some View {
@@ -103,6 +119,7 @@ struct ContentView: View {
                 heroSection
                 launchSection
                 managementGrid
+                bottlesSection
                 if let selectedProfile {
                     selectedProfileSection(selectedProfile)
                 }
@@ -165,16 +182,20 @@ struct ContentView: View {
             sectionHeader("Setup & Maintenance", systemImage: "wrench.and.screwdriver.fill")
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                secondaryButton(title: "Install Cosmos", subtitle: "Dependencies & Wine", systemImage: "arrow.down.circle.fill") {
-                    runCommand(script: "install_cosmos.command")
-                }
-
-                secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill") {
-                    runCommand(script: "run.command", arguments: ["--profiles"])
+                secondaryButton(title: "Install Cosmos", subtitle: "Wine & deps · Terminal", systemImage: "arrow.down.circle.fill") {
+                    runInTerminal(script: "install_cosmos.command")
                 }
 
                 secondaryButton(title: "Detect Games", subtitle: "List Steam games", systemImage: "magnifyingglass") {
                     runCommand(script: "detect_steam_games.command", arguments: ["--list"])
+                }
+
+                secondaryButton(title: "Build Launchers", subtitle: "Detect → build apps · Terminal", systemImage: "square.grid.2x2.fill") {
+                    runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+                }
+
+                secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill") {
+                    runCommand(script: "run.command", arguments: ["--profiles"])
                 }
 
                 secondaryButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass") {
@@ -189,8 +210,8 @@ struct ContentView: View {
                     showResetConfirmation = true
                 }
 
-                secondaryButton(title: "Uninstall", subtitle: "Remove app & prefix", systemImage: "trash.fill", destructive: true) {
-                    runCommand(script: "uninstall.command")
+                secondaryButton(title: "Uninstall", subtitle: "Remove everything · Terminal", systemImage: "trash.fill", destructive: true) {
+                    showUninstallConfirmation = true
                 }
             }
         }
@@ -202,6 +223,247 @@ struct ContentView: View {
         } message: {
             Text("This deletes the Wine prefix and everything installed inside it (including Steam and games). Wine and DXMT downloads are kept.")
         }
+        .confirmationDialog("Uninstall Cosmos?", isPresented: $showUninstallConfirmation, titleVisibility: .visible) {
+            Button("Uninstall in Terminal", role: .destructive) {
+                runInTerminal(script: "uninstall.command")
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Opens Terminal to remove the installed Cosmos apps, the Wine prefix, and the downloaded Wine and DXMT runtimes. The uninstaller asks before deleting each item.")
+        }
+    }
+
+    // MARK: - Bottles
+
+    private var bottlesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                sectionHeader("Bottles", systemImage: "cylinder.split.1x2.fill")
+                Spacer()
+                Button {
+                    newBottleName = ""
+                    newBottleBackend = "recommended"
+                    newBottleWindows = "win10"
+                    newBottleRetina = false
+                    showNewBottleSheet = true
+                } label: {
+                    Label("New Bottle", systemImage: "plus.circle.fill")
+                        .font(.subheadline.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.cosmosPrimary)
+                .disabled(isRunning)
+            }
+
+            if bottles.isEmpty {
+                Text("No bottles yet. Create one to keep an isolated Wine prefix with its own graphics backend, Wine version, and settings.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
+                    ForEach(bottles) { bottle in
+                        bottleCard(bottle)
+                    }
+                }
+            }
+
+            if let bottle = selectedBottle {
+                bottleControls(bottle)
+            }
+        }
+        .sheet(isPresented: $showNewBottleSheet) { newBottleSheet }
+        .confirmationDialog("Reset this bottle?", isPresented: $showBottleResetConfirmation, titleVisibility: .visible) {
+            Button("Reset Prefix", role: .destructive) {
+                if let bottle = selectedBottle {
+                    runCommand(script: "bottle.command", arguments: ["reset", bottle.name, "--force"])
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Deletes the bottle's Wine prefix (Steam and games inside it). Its settings and logs are kept; the next launch recreates the prefix.")
+        }
+        .confirmationDialog("Delete this bottle?", isPresented: $showBottleDeleteConfirmation, titleVisibility: .visible) {
+            Button("Delete Bottle", role: .destructive) {
+                if let bottle = selectedBottle {
+                    runCommand(script: "bottle.command", arguments: ["delete", bottle.name, "--force"])
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Removes the bottle entirely — its prefix, settings, and logs. This cannot be undone.")
+        }
+    }
+
+    private func bottleCard(_ bottle: Bottle) -> some View {
+        let isSelected = bottle.id == selectedBottleID
+        return Button {
+            selectedBottleID = isSelected ? nil : bottle.id
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "cylinder.split.1x2.fill")
+                        .foregroundStyle(Color.cosmosPrimary)
+                    Text(bottle.name)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                Text(bottle.backend)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.cosmosBright)
+                Text(bottle.statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 86, alignment: .leading)
+            .background(
+                (isSelected ? Color.cosmosPrimary.opacity(0.10) : Color.primary.opacity(0.04)),
+                in: RoundedRectangle(cornerRadius: 14)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(
+                        isSelected ? Color.cosmosPrimary.opacity(0.55) : Color.cosmosPrimary.opacity(0.12),
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            )
+            .hoverBrighten()
+        }
+        .buttonStyle(CosmosButtonStyle())
+        .disabled(isRunning)
+    }
+
+    private func bottleControls(_ bottle: Bottle) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(bottle.name)
+                    .font(.title3.weight(.semibold))
+                Spacer()
+                Picker("Backend", selection: backendBinding(for: bottle)) {
+                    ForEach(BottleStore.backendOptions, id: \.self) { option in
+                        Text(option).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 200)
+                .disabled(isRunning)
+            }
+
+            HStack(alignment: .top, spacing: 24) {
+                detailRow(title: "Backend", value: bottle.backend)
+                detailRow(title: "Wine", value: bottle.wineVersion)
+                detailRow(title: "Windows", value: bottle.windowsVersion)
+                detailRow(title: "Retina", value: bottle.retinaEnabled ? "On" : "Off")
+                detailRow(title: "Status", value: bottle.statusText)
+            }
+
+            detailRow(title: "Prefix", value: bottle.prefixURL.path)
+
+            HStack(spacing: 12) {
+                bottleActionButton("Launch", systemImage: "play.fill", prominent: true) {
+                    runCommand(script: "bottle.command", arguments: ["launch", bottle.name, "--steam"])
+                }
+                bottleActionButton("Open Logs", systemImage: "doc.text.magnifyingglass") {
+                    runCommand(script: "bottle.command", arguments: ["logs", bottle.name])
+                }
+                bottleActionButton("Reset", systemImage: "arrow.counterclockwise", destructive: true) {
+                    showBottleResetConfirmation = true
+                }
+                bottleActionButton("Delete", systemImage: "trash.fill", destructive: true) {
+                    showBottleDeleteConfirmation = true
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.cosmosPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
+        )
+    }
+
+    private func bottleActionButton(
+        _ title: String,
+        systemImage: String,
+        prominent: Bool = false,
+        destructive: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        let tint: Color = destructive ? Color.red : Color.cosmosPrimary
+        return Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline.weight(.medium))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .background(tint.opacity(prominent ? 0.18 : 0.10), in: RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(tint)
+        }
+        .buttonStyle(.plain)
+        .disabled(isRunning)
+    }
+
+    private var newBottleSheet: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("New Bottle")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(Color.cosmosPrimary)
+
+            Form {
+                TextField("Name", text: $newBottleName)
+                    .textFieldStyle(.roundedBorder)
+                Picker("Backend", selection: $newBottleBackend) {
+                    ForEach(BottleStore.backendOptions, id: \.self) { Text($0).tag($0) }
+                }
+                Picker("Windows version", selection: $newBottleWindows) {
+                    ForEach(BottleStore.windowsOptions, id: \.self) { Text($0).tag($0) }
+                }
+                Toggle("Enable Retina mode", isOn: $newBottleRetina)
+            }
+
+            if !newBottleName.isEmpty && !BottleStore.isValidName(newBottleName) {
+                Text("Use letters, digits, '.', '_' or '-' (not starting with '.', '_' or '-').")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { showNewBottleSheet = false }
+                Button("Create") { createBottle() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!BottleStore.isValidName(newBottleName))
+            }
+        }
+        .padding(20)
+        .frame(width: 400)
+    }
+
+    private func backendBinding(for bottle: Bottle) -> Binding<String> {
+        Binding(
+            get: { selectedBottle?.backend ?? bottle.backend },
+            set: { newValue in
+                guard newValue != bottle.backend else { return }
+                runCommand(script: "bottle.command", arguments: ["set", bottle.name, "COSMOS_BACKEND", newValue])
+            }
+        )
+    }
+
+    private func createBottle() {
+        let name = newBottleName.trimmingCharacters(in: .whitespaces)
+        guard BottleStore.isValidName(name) else { return }
+        showNewBottleSheet = false
+        let args = [
+            "create", name,
+            "--backend", newBottleBackend,
+            "--windows", newBottleWindows,
+            "--retina", newBottleRetina ? "1" : "0",
+        ]
+        selectedBottleID = name
+        runCommand(script: "bottle.command", arguments: args)
     }
 
     private func selectedProfileSection(_ profile: SavedProfile) -> some View {
@@ -238,9 +500,8 @@ struct ContentView: View {
 
     private var consoleSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 12) {
                 sectionHeader("Launcher Output", systemImage: "terminal.fill")
-                Spacer()
                 if isRunning {
                     HStack(spacing: 6) {
                         ProgressView()
@@ -251,18 +512,43 @@ struct ContentView: View {
                             .foregroundStyle(Color.cosmosPrimary)
                     }
                 }
+                Spacer()
+                Button {
+                    output = ""
+                } label: {
+                    Label("Clear", systemImage: "xmark.circle")
+                        .font(.caption.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .disabled(output.isEmpty || isRunning)
+                .help("Clear the output")
             }
 
-            ScrollView {
-                Text(output)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(output)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                            .foregroundStyle(Color(red: 0.85, green: 0.80, blue: 1.0))
+                        // Anchor the auto-scroll to the end of the output so the
+                        // newest lines stay visible while a command streams.
+                        Color.clear
+                            .frame(height: 1)
+                            .id(consoleBottomID)
+                    }
                     .padding(16)
-                    .foregroundStyle(Color(red: 0.85, green: 0.80, blue: 1.0))
+                }
+                .frame(minHeight: 220)
+                .background(Color(red: 0.07, green: 0.03, blue: 0.16), in: RoundedRectangle(cornerRadius: 16))
+                .onChange(of: output) { _ in
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        proxy.scrollTo(consoleBottomID, anchor: .bottom)
+                    }
+                }
             }
-            .frame(minHeight: 220)
-            .background(Color(red: 0.07, green: 0.03, blue: 0.16), in: RoundedRectangle(cornerRadius: 16))
         }
     }
 
@@ -333,8 +619,9 @@ struct ContentView: View {
                 in: RoundedRectangle(cornerRadius: 18)
             )
             .shadow(color: Color.cosmosPrimary.opacity(0.4), radius: 8, y: 4)
+            .hoverBrighten()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CosmosButtonStyle())
         .disabled(disabled || isRunning)
         .opacity((disabled || isRunning) ? 0.55 : 1)
     }
@@ -372,8 +659,9 @@ struct ContentView: View {
                         lineWidth: 1
                     )
             )
+            .hoverBrighten()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
         .opacity(isRunning ? 0.55 : 1)
     }
@@ -394,9 +682,13 @@ struct ContentView: View {
         cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
+        bottles = BottleStore.load()
 
         if !profiles.contains(where: { $0.id == selectedProfileID }) {
             self.selectedProfileID = profiles.first?.id
+        }
+        if let id = selectedBottleID, !bottles.contains(where: { $0.id == id }) {
+            self.selectedBottleID = nil
         }
 
         if let message {
@@ -515,6 +807,57 @@ struct ContentView: View {
         return nil
     }
 
+    // Run a helper in Terminal.app instead of the embedded console. Use this for
+    // actions that need a real TTY — `sudo` password entry and interactive
+    // confirmations — which the piped Process runner cannot provide. We launch it
+    // and return; completion happens in Terminal, so the user taps Refresh after.
+    private func runInTerminal(script: String, arguments: [String] = []) {
+        guard let scriptURL = resolveScript(script) else {
+            output = "Script not found or not executable: \(script)"
+            return
+        }
+
+        let shellCommand = ([scriptURL.path] + arguments)
+            .map(Self.shellQuote)
+            .joined(separator: " ")
+
+        let appleScript = """
+        tell application "Terminal"
+            activate
+            do script "\(Self.appleScriptEscape(shellCommand))"
+        end tell
+        """
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        task.arguments = ["-e", appleScript]
+
+        do {
+            try task.run()
+            let displayed = ([script] + arguments).joined(separator: " ")
+            output = """
+            Opened Terminal to run: \(displayed)
+
+            Complete any password or confirmation prompts in the Terminal window, \
+            then press Refresh here to update the status.
+            """
+        } catch {
+            output = "Failed to open Terminal: \(error.localizedDescription)"
+        }
+    }
+
+    // Wrap a value in single quotes for safe use as one shell word.
+    private static func shellQuote(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    // Escape a value for embedding inside an AppleScript double-quoted string.
+    private static func appleScriptEscape(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+
     private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
         guard let scriptURL = resolveScript(script) else {
             output = "Script not found or not executable: \(script)"
@@ -547,6 +890,12 @@ struct ContentView: View {
 
             DispatchQueue.main.async {
                 output += text
+                // Keep the buffer bounded: detached launches (e.g. Steam) can
+                // stream logs indefinitely, which would otherwise grow memory and
+                // stall the text view.
+                if output.count > 120_000 {
+                    output = "…(earlier output trimmed)…\n" + String(output.suffix(100_000))
+                }
             }
         }
 
@@ -601,6 +950,34 @@ private struct SavedProfile: Identifiable, Hashable {
     let path: String
     let args: String
     let fileURL: URL
+}
+
+// MARK: - Interaction styling
+
+/// Press feedback for the dashboard's custom buttons, which would otherwise be
+/// inert under `.buttonStyle(.plain)`.
+private struct CosmosButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+/// Subtle brighten-on-hover for pointer feedback on macOS.
+private struct HoverBrighten: ViewModifier {
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .brightness(isHovering ? 0.06 : 0)
+            .animation(.easeOut(duration: 0.12), value: isHovering)
+            .onHover { isHovering = $0 }
+    }
+}
+
+private extension View {
+    func hoverBrighten() -> some View { modifier(HoverBrighten()) }
 }
 
 #if DEBUG
