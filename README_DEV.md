@@ -38,7 +38,7 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
     - GPTK is **not** downloaded by this script -- Apple's EULA forbids redistribution, so you must obtain it from developer.apple.com yourself
     - a dedicated prefix (e.g. `WINEPREFIX=~/.wine-steam-gptk`) is recommended so GPTK and DXMT DLLs do not accumulate in the same prefix
 - Launch mode:
-  - Default (`COSMOS_DETACH=1`) runs Steam with `nohup ... & disown`, redirecting stdout/stderr to `${COSMOS_LAUNCH_LOG}` (defaults to `${TMPDIR:-/tmp}/cosmos-steam.log`). The Terminal window can be closed immediately after launch without killing Steam.
+  - Default (`COSMOS_DETACH=1`) runs Steam with `nohup ... & disown`, redirecting stdout/stderr to `${COSMOS_LAUNCH_LOG}` (default: `~/Library/Application Support/Cosmos/logs/steam-launch.log`). The Terminal window can be closed immediately after launch without killing Steam.
   - `COSMOS_DETACH=0` preserves the pre-patch foreground behavior (Terminal window must stay open).
   - The legacy `MERLOT_DETACH` / `MERLOT_LAUNCH_LOG` / `MERLOT_STEAM_LOG` names are still honored as fallbacks; the `COSMOS_*` names take precedence.
 - App/dashboard actions:
@@ -93,7 +93,7 @@ Defaults are the values in `run.command`.
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
 - `COSMOS_LAUNCH_LOG` (legacy aliases: `MERLOT_LAUNCH_LOG`, `MERLOT_STEAM_LOG`, `COSMOS_STEAM_LOG`)
-  - Path to the detached-mode launch log (default: `${TMPDIR:-/tmp}/cosmos-steam.log`).
+  - Path to the detached-mode launch log (default: `~/Library/Application Support/Cosmos/logs/steam-launch.log`).
 - `COSMOS_SUPPORT_DIR`
   - Cosmos Application Support directory (default: `~/Library/Application Support/Cosmos`). `PROFILE_DIRECTORY` defaults to `${COSMOS_SUPPORT_DIR}/Profiles`.
 - `COSMOS_MIN_MACOS_MAJOR`
@@ -269,7 +269,7 @@ Two execution paths, picked per action:
   environment for detection, repair, and profile commands.
 - **Terminal** (`runInTerminal`): asks Terminal.app (via `osascript … do script`)
   to run the script. Used for actions that need `sudo` or interactive prompts the
-  piped runner can't provide — **Install Cosmos**, **Build Launchers**
+  piped runner can't provide — **Install Cosmos**, **Prepare Bottle** (`run.command --setup-steam`), **Build Launchers**
   (`detect_steam_games.command --install`), and **Uninstall**. The dashboard
   launches Terminal and returns; the user completes any password/confirmation
   prompts there, then taps **Refresh**.
