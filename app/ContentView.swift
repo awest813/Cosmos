@@ -7,15 +7,13 @@ struct ContentView: View {
     private let profileDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/Cosmos/Profiles", isDirectory: true)
     private let cosmosAppsURL = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
-    private let steamExecutableURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".wine-steam-11/drive_c/Program Files (x86)/Steam/steam.exe")
     private let consoleBottomID = "console-bottom"
 
-    @State private var output = "Welcome to Cosmos\n\nSelect a saved profile or use the quick actions to manage your setup."
+    @State private var output = "Welcome to Cosmos\n\nInstall Cosmos, tune Steam Wine settings below, then detect games to build launchers."
     @State private var profiles: [SavedProfile] = []
     @State private var selectedProfileID: String?
     @State private var cosmosInstalled = false
-    @State private var steamInstalled = false
+    @State private var steamSettings = SteamSettings.defaults
     @State private var isRunning = false
     @State private var showResetConfirmation = false
     @State private var showUninstallConfirmation = false
@@ -134,7 +132,9 @@ struct ContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 heroSection
+                setupStepsBanner
                 launchSection
+                steamWineSettingsSection
                 managementGrid
                 bottlesSection
                 if let selectedProfile {
@@ -177,9 +177,74 @@ struct ContentView: View {
             return "Bottle selected — adjust backend and launch Steam from the controls below."
         }
         if !cosmosInstalled {
-            return "Install Cosmos first, then launch Steam and detect games to populate profiles."
+            return "Install Cosmos first, then tune Steam Wine settings and detect games."
+        }
+        if !steamSettings.isSteamInstalled {
+            return "Launch Steam once to install it into the Wine prefix, then detect games."
+        }
+        if profiles.isEmpty {
+            return "Steam is ready — run Detect Games to populate saved profiles."
         }
         return "Manage Cosmos, launch Steam, and jump into saved game profiles from one place."
+    }
+
+    private var setupStepsBanner: some View {
+        Group {
+            if cosmosInstalled && steamSettings.isSteamInstalled && !profiles.isEmpty {
+                EmptyView()
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Getting started")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary)
+                    setupStep(
+                        done: cosmosInstalled,
+                        title: "Install Cosmos",
+                        detail: cosmosInstalled ? "Wine runtime and launchers are in place" : "Opens Terminal — may ask for your password"
+                    )
+                    setupStep(
+                        done: steamSettings.isSteamInstalled,
+                        title: "Install Steam in Wine",
+                        detail: steamSettings.isSteamInstalled
+                            ? "Steam is in the default prefix"
+                            : "Use Launch Steam — first run downloads the Steam installer"
+                    )
+                    setupStep(
+                        done: !profiles.isEmpty,
+                        title: "Detect & build game launchers",
+                        detail: profiles.isEmpty
+                            ? "Detect Games lists titles; Build Launchers creates Dock apps"
+                            : "\(profiles.count) profile\(profiles.count == 1 ? "" : "s") saved"
+                    )
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.cosmosPrimary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.cosmosPrimary.opacity(0.12), lineWidth: 1)
+                )
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Getting started checklist")
+            }
+        }
+    }
+
+    private func setupStep(done: Bool, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(done ? Color.green : Color.secondary)
+                .font(.body.weight(.semibold))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     // MARK: - Quick launch
@@ -224,6 +289,129 @@ struct ContentView: View {
                     quickLaunchButtons
                 }
             }
+        }
+    }
+
+    // MARK: - Steam Wine settings
+
+    private var steamWineSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Steam Wine Settings", systemImage: "gearshape.2.fill")
+
+            Text("These apply to the default Steam prefix on the next launch. Use Bottles below for extra isolated prefixes.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Graphics backend")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                            .textCase(.uppercase)
+                        Picker("Backend", selection: steamBackendBinding) {
+                            ForEach(SteamSettingsStore.backendOptions, id: \.self) { Text($0).tag($0) }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(maxWidth: 220, alignment: .leading)
+                        .disabled(isRunning)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Windows version")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                            .textCase(.uppercase)
+                        Picker("Windows", selection: steamWindowsBinding) {
+                            Text("Wine default").tag("")
+                            ForEach(SteamSettingsStore.windowsOptions.filter { !$0.isEmpty }, id: \.self) {
+                                Text($0).tag($0)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(maxWidth: 200, alignment: .leading)
+                        .disabled(isRunning)
+                    }
+                }
+
+                Toggle(isOn: steamRetinaBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Retina mode")
+                            .font(.subheadline.weight(.medium))
+                        Text("Higher UI resolution in Wine — can help sharpness or hurt performance.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isRunning)
+
+                Toggle(isOn: steamDetachBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Detach Steam from Terminal")
+                            .font(.subheadline.weight(.medium))
+                        Text("When on, you can close Terminal after launch without quitting Steam.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isRunning)
+
+                Divider()
+
+                HStack(alignment: .top, spacing: 24) {
+                    detailRow(title: "Wine", value: steamSettings.wineVersion)
+                    detailRow(title: "Prefix status", value: steamSettings.statusText)
+                }
+                detailRow(title: "Prefix path", value: steamSettings.prefixURL.path)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.cosmosPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
+            )
+        }
+    }
+
+    private var steamBackendBinding: Binding<String> {
+        Binding(
+            get: { steamSettings.backend },
+            set: { applySteamSetting(key: "COSMOS_BACKEND", value: $0) }
+        )
+    }
+
+    private var steamWindowsBinding: Binding<String> {
+        Binding(
+            get: { steamSettings.windowsVersion },
+            set: { applySteamSetting(key: "WINDOWS_VERSION", value: $0) }
+        )
+    }
+
+    private var steamRetinaBinding: Binding<Bool> {
+        Binding(
+            get: { steamSettings.retinaEnabled },
+            set: { applySteamSetting(key: "WINE_RETINA_MODE", value: $0 ? "1" : "0") }
+        )
+    }
+
+    private var steamDetachBinding: Binding<Bool> {
+        Binding(
+            get: { steamSettings.detachEnabled },
+            set: { applySteamSetting(key: "COSMOS_DETACH", value: $0 ? "1" : "0") }
+        )
+    }
+
+    private func applySteamSetting(key: String, value: String) {
+        do {
+            try SteamSettingsStore.set(key: key, value: value)
+            steamSettings = SteamSettingsStore.load()
+            output = "Saved \(key). Changes apply on the next Steam or game launch.\n\n" + output
+        } catch {
+            output = "Could not save \(key): \(error.localizedDescription)\n\n" + output
         }
     }
 
@@ -410,24 +598,48 @@ struct ContentView: View {
 
     private func bottleControls(_ bottle: Bottle) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(bottle.name)
-                    .font(.title3.weight(.semibold))
-                Spacer()
-                Picker("Backend", selection: backendBinding(for: bottle)) {
-                    ForEach(BottleStore.backendOptions, id: \.self) { option in
-                        Text(option).tag(option)
+            Text(bottle.name)
+                .font(.title3.weight(.semibold))
+
+            HStack(alignment: .top, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Graphics backend")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                        .textCase(.uppercase)
+                    Picker("Backend", selection: backendBinding(for: bottle)) {
+                        ForEach(BottleStore.backendOptions, id: \.self) { Text($0).tag($0) }
                     }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(maxWidth: 200, alignment: .leading)
+                    .disabled(isRunning)
                 }
-                .pickerStyle(.menu)
-                .frame(maxWidth: 200)
-                .disabled(isRunning)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Windows version")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                        .textCase(.uppercase)
+                    Picker("Windows", selection: windowsBinding(for: bottle)) {
+                        Text("Wine default").tag("")
+                        ForEach(BottleStore.windowsOptions, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(maxWidth: 160, alignment: .leading)
+                    .disabled(isRunning)
+                }
             }
+
+            Toggle(isOn: retinaBinding(for: bottle)) {
+                Text("Retina mode")
+                    .font(.subheadline.weight(.medium))
+            }
+            .disabled(isRunning)
 
             HStack(alignment: .top, spacing: 24) {
                 detailRow(title: "Wine", value: bottle.wineVersion)
-                detailRow(title: "Windows", value: bottle.windowsVersion)
-                detailRow(title: "Retina", value: bottle.retinaEnabled ? "On" : "Off")
                 detailRow(title: "Status", value: bottle.statusText)
             }
 
@@ -532,6 +744,28 @@ struct ContentView: View {
             set: { newValue in
                 guard newValue != bottle.backend else { return }
                 runCommand(script: "bottle.command", arguments: ["set", bottle.name, "COSMOS_BACKEND", newValue])
+            }
+        )
+    }
+
+    private func windowsBinding(for bottle: Bottle) -> Binding<String> {
+        Binding(
+            get: { selectedBottle?.windowsVersion ?? bottle.windowsVersion },
+            set: { newValue in
+                guard newValue != bottle.windowsVersion else { return }
+                runCommand(script: "bottle.command", arguments: ["set", bottle.name, "WINDOWS_VERSION", newValue])
+            }
+        )
+    }
+
+    private func retinaBinding(for bottle: Bottle) -> Binding<Bool> {
+        Binding(
+            get: { selectedBottle?.retinaEnabled ?? bottle.retinaEnabled },
+            set: { newValue in
+                let flag = newValue ? "1" : "0"
+                let current = bottle.retinaEnabled ? "1" : "0"
+                guard flag != current else { return }
+                runCommand(script: "bottle.command", arguments: ["set", bottle.name, "WINE_RETINA_MODE", flag])
             }
         )
     }
@@ -651,9 +885,9 @@ struct ContentView: View {
                 color: cosmosInstalled ? Color.green : Color.orange
             )
             statusRow(
-                label: steamInstalled ? "Steam ready" : "Steam not installed",
-                icon: steamInstalled ? "shippingbox.fill" : "shippingbox",
-                color: steamInstalled ? Color.cosmosBright : Color.secondary
+                label: steamSettings.isSteamInstalled ? "Steam ready" : "Steam not installed",
+                icon: steamSettings.isSteamInstalled ? "shippingbox.fill" : "shippingbox",
+                color: steamSettings.isSteamInstalled ? Color.cosmosBright : Color.secondary
             )
             statusRow(
                 label: "\(profiles.count) profile\(profiles.count == 1 ? "" : "s") saved",
@@ -785,7 +1019,7 @@ struct ContentView: View {
 
     private func refreshStatus(message: String? = nil) {
         cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
-        steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
+        steamSettings = SteamSettingsStore.load()
         profiles = loadProfiles()
         bottles = BottleStore.load()
 

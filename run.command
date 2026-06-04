@@ -46,7 +46,31 @@ load_bottle() {
     COSMOS_LAUNCH_LOG="${dir}/logs/launch.log"
   fi
 }
+
+# Default Steam prefix settings (when no named bottle is active). Persisted in
+# ~/Library/Application Support/Cosmos/steam.conf — same KEY="value" format as
+# bottle.conf. Precedence: explicit environment > steam.conf > built-in defaults.
+load_steam_conf() {
+  [[ -z "${COSMOS_BOTTLE}" ]] || return 0
+  local conf="${COSMOS_SUPPORT_DIR}/steam.conf"
+  [[ -f "${conf}" ]] || return 0
+  local line key val
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    [[ "${line}" =~ ^[[:space:]]*(#|$) ]] && continue
+    [[ "${line}" == *=* ]] || continue
+    key="${line%%=*}"; key="${key//[[:space:]]/}"
+    [[ "${key}" =~ ^[A-Z][A-Z0-9_]*$ ]] || continue
+    case "${key}" in WINEPREFIX|COSMOS_BOTTLE) continue ;; esac
+    [[ -n "${!key:-}" ]] && continue
+    val="${line#*=}"; val="${val%\"}"; val="${val#\"}"
+    printf -v "${key}" '%s' "${val}"
+    export "${key?}"
+  done < "${conf}"
+}
+
 load_bottle
+load_steam_conf
 # -----------------------------------------------------------------------------
 
 WINE_VERSION="${WINE_VERSION:-11.8}"

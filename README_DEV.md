@@ -188,6 +188,10 @@ points the launch log at the bottle's `logs/`, and applies `bottle.conf` setting
 (`WINE_VERSION`, `COSMOS_BACKEND`, `WINE_RETINA_MODE`, `GPTK_PATH`, …) with
 precedence **explicit env > bottle.conf > built-in defaults**. With no
 `COSMOS_BOTTLE`, behavior is exactly as before (the `~/.wine-steam-11` prefix).
+Persistent settings for that default prefix live in
+`~/Library/Application Support/Cosmos/steam.conf` (same `KEY="value"` format as
+`bottle.conf`) and can be edited from the dashboard's **Steam Wine Settings**
+section or by hand. Precedence: **explicit env > steam.conf > built-in defaults**.
 
 Known settings validated on `create`/`set`: `WINDOWS_VERSION`
 (`winxp|win7|win8|win10|win11`), `COSMOS_BACKEND`
