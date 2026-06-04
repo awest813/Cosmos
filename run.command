@@ -98,6 +98,11 @@ COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
+# Reported Windows version inside the prefix. Empty = Wine's built-in default.
+# Recognized: winxp | win7 | win8 | win10 | win11 (Wine's own version tokens,
+# written to HKCU\Software\Wine\Version — the per-prefix override winecfg's
+# "Windows Version" dropdown uses). Usually set per bottle via bottle.conf.
+WINDOWS_VERSION="${WINDOWS_VERSION:-}"
 COSMOS_LAUNCH_MODE="${COSMOS_LAUNCH_MODE:-${MERLOT_LAUNCH_MODE:-steam}}"
 # Skip the interactive confirmation for destructive actions (e.g. --reset-bottle).
 COSMOS_FORCE="${COSMOS_FORCE:-0}"
@@ -401,6 +406,39 @@ ensure_wine_retina_mode() {
 
   "${WINE_BIN}" reg add "HKCU\\Software\\Wine\\Mac Driver" /v RetinaMode /t REG_SZ /d "${desired_value}" /f >/dev/null
   echo "Set RetinaMode=${desired_value}."
+}
+
+ensure_wine_windows_version() {
+  local version="${WINDOWS_VERSION}"
+
+  # Empty => leave Wine's built-in default; remove any prior override so the
+  # bottle reverts cleanly (mirrors how the mouse-warp override behaves).
+  if [[ -z "${version}" ]]; then
+    log "Using Wine's default Windows version"
+    if "${WINE_BIN}" reg query "HKCU\\Software\\Wine" /v Version >/dev/null 2>&1; then
+      "${WINE_BIN}" reg delete "HKCU\\Software\\Wine" /v Version /f >/dev/null 2>&1 || true
+      echo "Removed Windows-version override (Wine default)."
+    else
+      echo "No Windows-version override set. Skipping."
+    fi
+    return
+  fi
+
+  case "${version}" in
+    winxp|win7|win8|win10|win11) ;;
+    *) die "WINDOWS_VERSION must be one of: winxp | win7 | win8 | win10 | win11 (or empty for default)." ;;
+  esac
+
+  log "Configuring Windows version=${version}"
+  local query_out
+  query_out="$("${WINE_BIN}" reg query "HKCU\\Software\\Wine" /v Version 2>/dev/null || true)"
+  if printf "%s" "${query_out}" | grep -Eiq "Version[[:space:]]+REG_SZ[[:space:]]+${version}([[:space:]]|$)"; then
+    echo "Windows version is already set to ${version}. Skipping."
+    return
+  fi
+
+  "${WINE_BIN}" reg add "HKCU\\Software\\Wine" /v Version /t REG_SZ /d "${version}" /f >/dev/null
+  echo "Set Windows version=${version}."
 }
 
 ensure_wine_windows_mouse_accel_disabled() {
@@ -744,6 +782,7 @@ main() {
   ensure_wineprefix_alias
   ensure_wine_mouse_warp_override
   ensure_wine_retina_mode "${WINE_RETINA_MODE}"
+  ensure_wine_windows_version
   ensure_wine_windows_mouse_accel_disabled
   ensure_steam_installed
 

@@ -51,6 +51,7 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - defaults `WINEDEBUG` to `-all,err+all` unless already set by the caller
 - Writes registry values inside the prefix:
   - `HKCU\\Software\\Wine\\Mac Driver\\RetinaMode` controlled by `WINE_RETINA_MODE` (`0`/`1`)
+  - `HKCU\\Software\\Wine\\Version` controlled by `WINDOWS_VERSION` (`winxp|win7|win8|win10|win11`; empty removes the override and restores Wine's default)
   - Disables Windows mouse acceleration (Enhanced Pointer Precision):
     - `HKCU\\Control Panel\\Mouse\\MouseSpeed = 0`
     - `HKCU\\Control Panel\\Mouse\\MouseThreshold1 = 0`
@@ -75,6 +76,8 @@ Defaults are the values in `run.command`.
   - Name of the symlink created next to `run.command` (default: `WINEPREFIX`)
 - `WINE_RETINA_MODE`
   - `1` enables, `0` disables (default: `0`)
+- `WINDOWS_VERSION`
+  - Reported Windows version inside the prefix: `winxp|win7|win8|win10|win11`. Empty (default) keeps Wine's default and removes any prior override. Usually set per bottle via `bottle.conf`.
 - `WINE_MOUSE_WARP_OVERRIDE`
   - Empty keeps Wine default (and removes the key if it was set before)
   - Allowed values: `force`, `enable`, `disable`
@@ -190,8 +193,8 @@ Known settings validated on `create`/`set`: `WINDOWS_VERSION`
 (`winxp|win7|win8|win10|win11`), `COSMOS_BACKEND`
 (`recommended|dxmt|d3dmetal|dxvk|wined3d`), `WINE_RETINA_MODE` (`0|1`). Any other
 `UPPER_SNAKE_CASE` key is stored as a plain env default. `WINEPREFIX` and
-`COSMOS_BOTTLE` are reserved (Cosmos manages them). `WINDOWS_VERSION` is stored
-and surfaced today; applying it to the prefix's registry is a follow-up.
+`COSMOS_BOTTLE` are reserved (Cosmos manages them). `WINDOWS_VERSION` is applied
+to the prefix on launch via `HKCU\Software\Wine\Version`.
 
 To auto-detect games inside a bottle, point detection at its prefix:
 

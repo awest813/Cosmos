@@ -109,9 +109,10 @@ success criterion — if that sentence isn't true, the release isn't done.
   lists bottles, creates them (name/backend/Windows/Retina sheet), switches a
   bottle's backend via a Picker, and launches/opens-logs/resets/deletes — all
   driven by `bottle.command`.
+- [x] Per-bottle Windows-version application — `run.command` applies
+  `WINDOWS_VERSION` (`winxp|win7|win8|win10|win11`) to the prefix via
+  `HKCU\Software\Wine\Version`, and clears the override when empty.
 - **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI. ✅
-- [ ] *(deferred)* Per-bottle Windows-version application — stored & shown today;
-  applying it to the prefix registry is a follow-up.
 
 ### 0.4 — Profiles
 - v0 profile schema (YAML/JSON) — see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)
