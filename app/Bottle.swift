@@ -14,7 +14,11 @@ struct Bottle: Identifiable, Hashable {
     var name: String { id }
     var backend: String { settings["COSMOS_BACKEND"] ?? "recommended" }
     var wineVersion: String { settings["WINE_VERSION"] ?? "default" }
-    var windowsVersion: String { settings["WINDOWS_VERSION"] ?? "default" }
+    var windowsVersion: String { settings["WINDOWS_VERSION"] ?? "" }
+
+    var windowsDisplay: String {
+        windowsVersion.isEmpty ? "Wine default" : windowsVersion
+    }
     var retinaEnabled: Bool { settings["WINE_RETINA_MODE"] == "1" }
 
     var statusText: String {

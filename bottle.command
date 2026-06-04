@@ -47,7 +47,7 @@ Commands:
   delete <name> [--force]       Delete the whole bottle.
 
 Known settings: WINE_VERSION, WINDOWS_VERSION, COSMOS_BACKEND, WINE_RETINA_MODE,
-GPTK_PATH, DXVK_PATH, plus any UPPER_SNAKE_CASE env var run.command honors.
+COSMOS_DETACH, GPTK_PATH, DXVK_PATH, plus any UPPER_SNAKE_CASE env var run.command honors.
 EOF
 }
 
@@ -85,8 +85,8 @@ validate_setting() {
     WINDOWS_VERSION)
       [[ "${VALID_WINDOWS}" == *" ${val} "* ]] || die "WINDOWS_VERSION must be one of:${VALID_WINDOWS}"
       ;;
-    WINE_RETINA_MODE)
-      [[ "${val}" == "0" || "${val}" == "1" ]] || die "WINE_RETINA_MODE must be 0 or 1."
+    WINE_RETINA_MODE|COSMOS_DETACH)
+      [[ "${val}" == "0" || "${val}" == "1" ]] || die "${key} must be 0 or 1."
       ;;
     WINEPREFIX|COSMOS_BOTTLE)
       die "${key} is managed by Cosmos and cannot be set on a bottle."
