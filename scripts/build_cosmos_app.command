@@ -88,6 +88,11 @@ else
   echo "Warning: icon not found at ${ICON_SRC}; building without one."
 fi
 
+mkdir -p "${APP_BUNDLE}/Contents/Resources/docs"
+if [[ -f "${REPO_ROOT}/docs/STEAM_SETUP.md" ]]; then
+  cp "${REPO_ROOT}/docs/STEAM_SETUP.md" "${APP_BUNDLE}/Contents/Resources/docs/STEAM_SETUP.md"
+fi
+
 for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
   src="${REPO_ROOT}/${script}"
   [[ -f "${src}" ]] || die "Missing helper script: ${src}"

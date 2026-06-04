@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
@@ -18,6 +19,8 @@ struct ContentView: View {
     @State private var showResetConfirmation = false
     @State private var showUninstallConfirmation = false
     @State private var showAdvancedSetupOptions = false
+    @State private var consoleExpanded = false
+    @State private var showSetupCompleteBanner = false
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -72,6 +75,50 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRefreshStatus)) { _ in
             refreshStatus(message: "Status refreshed.")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosContinueSetup)) { _ in
+            performNextSetupStep()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenSetupHelp)) { _ in
+            openSetupHelp()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshStatus()
+        }
+        .onChange(of: isSetupComplete) { complete in
+            if complete && !showSetupCompleteBanner {
+                showSetupCompleteBanner = true
+                consoleExpanded = true
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if !isSetupComplete {
+                    Button {
+                        performNextSetupStep()
+                    } label: {
+                        Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
+                    }
+                    .help(setupPrimarySubtitle)
+                    .disabled(isRunning)
+                }
+                Button {
+                    refreshStatus(message: "Status refreshed.")
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .help("Reload installation status (⌘R)")
+                .keyboardShortcut("r", modifiers: .command)
+                .disabled(isRunning)
+            }
+            ToolbarItemGroup(placement: .automatic) {
+                Button {
+                    openSetupHelp()
+                } label: {
+                    Label("Setup Help", systemImage: "questionmark.circle")
+                }
+                .help("Open the Steam setup guide")
+            }
+        }
     }
 
     // MARK: - Sidebar
@@ -98,6 +145,22 @@ struct ContentView: View {
             statusSummary
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
+
+            if !isSetupComplete {
+                Button {
+                    performNextSetupStep()
+                } label: {
+                    Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.cosmosPrimary)
+                .disabled(isRunning)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .help(setupPrimarySubtitle)
+            }
 
             Divider()
                 .padding(.top, 14)
@@ -150,6 +213,9 @@ struct ContentView: View {
     private var detailContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                if showSetupCompleteBanner && isSetupComplete {
+                    setupCompleteBanner
+                }
                 heroSection
                 setupAssistantSection
                 if isSetupComplete {
@@ -355,15 +421,22 @@ struct ContentView: View {
                         Button {
                             runInTerminal(script: "setup.command")
                         } label: {
-                            Label("Full guided setup", systemImage: "terminal.fill")
+                            Label("All-in-one setup", systemImage: "terminal.fill")
                         }
                         .buttonStyle(.bordered)
                         .disabled(isRunning)
 
                         Button {
-                            refreshStatus(message: "Status refreshed.")
+                            openSetupHelp()
                         } label: {
-                            Label("Refresh", systemImage: "arrow.clockwise")
+                            Label("Help", systemImage: "questionmark.circle")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            runCommand(script: "run.command", arguments: ["--logs"])
+                        } label: {
+                            Label("Logs", systemImage: "doc.text")
                         }
                         .buttonStyle(.bordered)
                         .disabled(isRunning)
@@ -421,6 +494,7 @@ struct ContentView: View {
     }
 
     private func performNextSetupStep() {
+        consoleExpanded = true
         if !cosmosInstalled {
             runInTerminal(script: "install_cosmos.command")
             return
@@ -1288,9 +1362,27 @@ struct ContentView: View {
     // MARK: - Console
 
     private var consoleSection: some View {
+        Group {
+            if isSetupComplete {
+                consoleOutputPanel
+            } else {
+                DisclosureGroup(isExpanded: $consoleExpanded) {
+                    consoleOutputPanel
+                } label: {
+                    Label("Technical output", systemImage: "terminal.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary)
+                }
+            }
+        }
+    }
+
+    private var consoleOutputPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                sectionHeader("Launcher Output", systemImage: "terminal.fill")
+                if isSetupComplete {
+                    sectionHeader("Launcher Output", systemImage: "terminal.fill")
+                }
                 if isRunning {
                     HStack(spacing: 6) {
                         ProgressView()
@@ -1323,15 +1415,13 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
                             .foregroundStyle(Color(red: 0.85, green: 0.80, blue: 1.0))
-                        // Anchor the auto-scroll to the end of the output so the
-                        // newest lines stay visible while a command streams.
                         Color.clear
                             .frame(height: 1)
                             .id(consoleBottomID)
                     }
                     .padding(16)
                 }
-                .frame(minHeight: 220)
+                .frame(minHeight: isSetupComplete ? 220 : 140)
                 .background(Color(red: 0.07, green: 0.03, blue: 0.16), in: RoundedRectangle(cornerRadius: 16))
                 .onChange(of: output) { _ in
                     if reduceMotion {
@@ -1346,13 +1436,54 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Reusable components
-
-    private var steamPrefixStatusLabel: String {
-        if steamSettings.isSteamInstalled { return "Steam ready" }
-        if steamSettings.isPrefixInitialized { return "Prefix ready — install Steam" }
-        return "Steam bottle not prepared"
+    private var setupCompleteBanner: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: "party.popper.fill")
+                .font(.title2)
+                .foregroundStyle(Color.green)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Setup complete")
+                    .font(.headline)
+                Text("Launch Steam or pick a saved profile in the sidebar. Game launchers are in /Applications/Cosmos Apps.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Button {
+                showSetupCompleteBanner = false
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+        }
+        .padding(16)
+        .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.green.opacity(0.2), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
     }
+
+    private func openSetupHelp() {
+        let candidates: [URL] = [
+            repositoryRootURL?.appendingPathComponent("docs/STEAM_SETUP.md"),
+            Bundle.main.resourceURL?.appendingPathComponent("docs/STEAM_SETUP.md"),
+            Bundle.main.resourceURL?.appendingPathComponent("STEAM_SETUP.md"),
+        ].compactMap { $0 }
+
+        for url in candidates where fileManager.fileExists(atPath: url.path) {
+            NSWorkspace.shared.open(url)
+            output = "Opened setup guide: \(url.path)\n\n" + output
+            return
+        }
+        output = "Setup guide not found. See docs/STEAM_SETUP.md in the Cosmos repository.\n\n" + output
+    }
+
+    // MARK: - Reusable components
 
     private var steamPrefixStatusLabel: String {
         if steamSettings.isSteamInstalled { return "Steam ready" }
@@ -1684,7 +1815,7 @@ struct ContentView: View {
             Opened Terminal to run: \(displayed)
 
             Complete any password or confirmation prompts in the Terminal window, \
-            then press Refresh here to update the status.
+            then click Refresh in the toolbar (⌘R) or switch back to this window — status updates automatically.
             """
         } catch {
             output = "Failed to open Terminal: \(error.localizedDescription)"
