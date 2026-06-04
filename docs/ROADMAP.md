@@ -93,11 +93,16 @@ success criterion — if that sentence isn't true, the release isn't done.
   "Uninstall" route through Terminal the same way
 - **Success:** A user can put a Windows Steam game in the Dock and launch it like a Mac app.
 
-### 0.3 — Bottles & backends
-- Bottle manager (Steam, GOG, Old Games, Test, …) — each with Wine version,
+### 0.3 — Bottles & backends *(in progress)*
+- [x] Backend selector `recommended | dxmt | d3dmetal | dxvk | wined3d` —
+  `run.command` validates `COSMOS_BACKEND` and resolves `recommended`
+  (→ `d3dmetal` when `GPTK_PATH` is set, else `dxmt`, preserving prior behavior);
+  dxmt/d3dmetal/wined3d work, dxvk is experimental (needs `DXVK_PATH` + MoltenVK).
+  Settable per game via `.conf` / `overrides/<appid>.env`. See [BACKENDS.md](BACKENDS.md).
+- [ ] UI backend picker — choose a game's backend from the dashboard
+- [ ] Bottle manager (Steam, GOG, Old Games, Test, …) — each with Wine version,
   Windows version, graphics backend, Retina mode, env vars, installed deps, logs,
   repair/reset
-- Backend selector: `recommended | d3dmetal | dxmt | dxvk | wined3d`
 - **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI.
 
 ### 0.4 — Profiles

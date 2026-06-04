@@ -32,6 +32,16 @@ fi
 # developer.apple.com themselves. DXMT is the default precisely because it
 # has no such constraint.
 GPTK_PATH="${GPTK_PATH:-}"
+# Graphics backend selector (roadmap 0.3): recommended | dxmt | d3dmetal | dxvk | wined3d.
+# 'recommended' resolves to d3dmetal when GPTK_PATH is set, otherwise dxmt, which
+# preserves the historical GPTK_PATH-driven behavior. d3dmetal needs a
+# user-supplied GPTK_PATH; dxvk needs a user-supplied DXVK_PATH (experimental on
+# macOS via MoltenVK); wined3d uses Wine's built-in D3D->OpenGL with no extra
+# downloads. DXMT stays the no-setup default. See docs/BACKENDS.md.
+COSMOS_BACKEND="${COSMOS_BACKEND:-recommended}"
+# Folder of DXVK DLLs (d3d11.dll, dxgi.dll, ...) used by the dxvk backend.
+DXVK_PATH="${DXVK_PATH:-}"
+RESOLVED_BACKEND=""
 WINEPREFIX_ALIAS_NAME="${WINEPREFIX_ALIAS_NAME:-WINEPREFIX}"
 WINE_RETINA_MODE="${WINE_RETINA_MODE:-0}" # 1=enable RetinaMode, 0=disable RetinaMode (Default)
 # 1=detach Steam from the Terminal after launch so closing the window doesn't kill it (Default).
@@ -440,8 +450,29 @@ enable_dxmt_env() {
   export WINEDEBUG="${WINEDEBUG:--all,err+all}"
 }
 
-use_gptk() {
-  [[ -n "${GPTK_PATH}" ]]
+# Validate COSMOS_BACKEND and resolve 'recommended' to a concrete backend,
+# storing the result in RESOLVED_BACKEND. Fails fast on an unknown value.
+resolve_backend() {
+  local requested
+  requested="$(printf '%s' "${COSMOS_BACKEND}" | tr '[:upper:]' '[:lower:]')"
+  case "${requested}" in
+    recommended)
+      if [[ -n "${GPTK_PATH}" ]]; then
+        RESOLVED_BACKEND="d3dmetal"
+      else
+        RESOLVED_BACKEND="dxmt"
+      fi
+      ;;
+    gptk)
+      RESOLVED_BACKEND="d3dmetal"
+      ;;
+    dxmt|d3dmetal|dxvk|wined3d)
+      RESOLVED_BACKEND="${requested}"
+      ;;
+    *)
+      die "COSMOS_BACKEND must be one of: recommended | dxmt | d3dmetal | dxvk | wined3d (got '${COSMOS_BACKEND}')."
+      ;;
+  esac
 }
 
 find_gptk_dll_dir() {
@@ -489,6 +520,67 @@ ensure_gptk_installed() {
 enable_gptk_env() {
   log "Enabling GPTK via WINEDLLOVERRIDES"
   export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,d3d12,d3d12core,dxgi=n}"
+  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
+}
+
+find_dxvk_dll_dir() {
+  local root="$1"
+  local candidates=(
+    "${root}"
+    "${root}/x64"
+    "${root}/x32"
+    "${root}/bin"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    if [[ -f "${c}/dxgi.dll" || -f "${c}/d3d11.dll" ]]; then
+      printf '%s\n' "${c}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+ensure_dxvk_installed() {
+  log "Installing DXVK DLLs into the Wine prefix (experimental)"
+  [[ -n "${DXVK_PATH}" ]] || die "The dxvk backend needs DXVK_PATH set to a folder of DXVK DLLs (d3d11.dll, dxgi.dll, ...). DXVK on macOS routes through MoltenVK and is experimental; use dxmt or d3dmetal for a supported path."
+  [[ -d "${DXVK_PATH}" ]] || die "DXVK_PATH is not a directory: ${DXVK_PATH}"
+
+  local src
+  if ! src="$(find_dxvk_dll_dir "${DXVK_PATH}")"; then
+    die "Could not find DXVK DLLs (dxgi.dll / d3d11.dll) under DXVK_PATH=${DXVK_PATH}."
+  fi
+
+  local target="${WINEPREFIX}/drive_c/windows/system32"
+  [[ -d "${target}" ]] || die "Prefix system32 not found (is the prefix initialized?): ${target}"
+
+  echo "Copying DXVK DLLs from ${src} to ${target}"
+  local f copied=0
+  for f in d3d9 d3d10core d3d11 dxgi; do
+    [[ -f "${src}/${f}.dll" ]] || continue
+    cp -f "${src}/${f}.dll" "${target}/"
+    copied=$((copied + 1))
+  done
+  [[ "${copied}" -gt 0 ]] || die "No DXVK DLLs found in ${src}"
+  echo "Copied ${copied} DXVK DLL(s)."
+}
+
+enable_dxvk_env() {
+  log "Enabling DXVK via WINEDLLOVERRIDES (experimental)"
+  export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,dxgi=n}"
+  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
+  echo "Note: DXVK needs a Vulkan driver (MoltenVK) on macOS. If games fail to"
+  echo "start, install MoltenVK or switch to the dxmt / d3dmetal backend."
+}
+
+enable_wined3d_env() {
+  log "Using Wine's built-in WineD3D (no translation layer)"
+  # Force builtin d3d so any previously-installed DXMT/GPTK/DXVK native DLLs in the
+  # prefix are ignored. WineD3D maps Direct3D to OpenGL: broadest compatibility,
+  # slowest performance. Best used in a dedicated bottle.
+  export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,d3d12,d3d12core,dxgi=b}"
   export WINEDEBUG="${WINEDEBUG:--all,err+all}"
   echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
 }
@@ -593,6 +685,9 @@ main() {
       ;;
   esac
 
+  # Validate the backend choice before any heavy lifting (downloads, prefix).
+  resolve_backend
+
   require_macos_version
   ensure_rosetta
   ensure_wine_installed
@@ -603,13 +698,29 @@ main() {
   ensure_wine_retina_mode "${WINE_RETINA_MODE}"
   ensure_wine_windows_mouse_accel_disabled
   ensure_steam_installed
-  if use_gptk; then
-    ensure_gptk_installed
-    enable_gptk_env
-  else
-    ensure_dxmt_installed
-    enable_dxmt_env
-  fi
+
+  log "Graphics backend: ${RESOLVED_BACKEND} (requested: ${COSMOS_BACKEND})"
+  case "${RESOLVED_BACKEND}" in
+    dxmt)
+      ensure_dxmt_installed
+      enable_dxmt_env
+      ;;
+    d3dmetal)
+      [[ -n "${GPTK_PATH}" ]] || die "The d3dmetal backend needs GPTK_PATH set to your Game Porting Toolkit install (Apple does not permit Cosmos to bundle it). Use the dxmt backend for a no-setup default."
+      ensure_gptk_installed
+      enable_gptk_env
+      ;;
+    dxvk)
+      ensure_dxvk_installed
+      enable_dxvk_env
+      ;;
+    wined3d)
+      enable_wined3d_env
+      ;;
+    *)
+      die "Unhandled backend: ${RESOLVED_BACKEND}"
+      ;;
+  esac
 
   if [[ "${COSMOS_LAUNCH_MODE}" == "profile" ]]; then
     launch_profile

@@ -78,9 +78,13 @@ Defaults are the values in `run.command`.
 - `WINE_MOUSE_WARP_OVERRIDE`
   - Empty keeps Wine default (and removes the key if it was set before)
   - Allowed values: `force`, `enable`, `disable`
+- `COSMOS_BACKEND`
+  - Graphics backend selector: `recommended` (default) | `dxmt` | `d3dmetal` | `dxvk` | `wined3d`. See [docs/BACKENDS.md](docs/BACKENDS.md).
+  - `recommended` resolves to `d3dmetal` if `GPTK_PATH` is set, else `dxmt`. Settable per game via a `.conf` or `overrides/<appid>.env`.
 - `GPTK_PATH`
-  - Empty (default) uses DXMT. When set, switches the D3D backend to Apple's Game Porting Toolkit (D3DMetal) and skips the DXMT download.
-  - Point at either the GPTK root directory or the folder containing its DLLs.
+  - Path to a user-supplied Game Porting Toolkit install, used by the `d3dmetal` backend (and by `recommended` when set). Point at the GPTK root or the folder containing its DLLs. Cosmos never downloads GPTK (Apple EULA).
+- `DXVK_PATH`
+  - Path to a folder of DXVK DLLs (`d3d11.dll`, `dxgi.dll`, …), used by the experimental `dxvk` backend. DXVK on macOS needs MoltenVK.
 - `COSMOS_DETACH` (legacy alias: `MERLOT_DETACH`)
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
