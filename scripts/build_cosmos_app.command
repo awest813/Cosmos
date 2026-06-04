@@ -22,7 +22,7 @@ OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
 ICON_SRC="${REPO_ROOT}/app/cosmos/AppIcon.icns"
 SCRIPTS_TO_BUNDLE=(
-  run.command install_cosmos.command uninstall.command
+  run.command setup.command install_cosmos.command uninstall.command
   detect_steam_games.command bottle.command
   repair.command profile.command cosmosdb.command
 )
@@ -86,6 +86,11 @@ if [[ -f "${ICON_SRC}" ]]; then
   cp "${ICON_SRC}" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 else
   echo "Warning: icon not found at ${ICON_SRC}; building without one."
+fi
+
+mkdir -p "${APP_BUNDLE}/Contents/Resources/docs"
+if [[ -f "${REPO_ROOT}/docs/STEAM_SETUP.md" ]]; then
+  cp "${REPO_ROOT}/docs/STEAM_SETUP.md" "${APP_BUNDLE}/Contents/Resources/docs/STEAM_SETUP.md"
 fi
 
 for script in "${SCRIPTS_TO_BUNDLE[@]}"; do

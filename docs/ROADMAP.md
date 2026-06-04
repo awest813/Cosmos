@@ -196,7 +196,7 @@ Statuses: **Platinum** (works out of box) · **Gold** (small fixes) ·
 - `[Games]` Add Steam App ID launcher support
 - `[Graphics]` Add backend enum: d3dmetal, dxmt, dxvk, wined3d
 - `[Repair]` Add "kill Wine processes" action
-- `[Docs]` Write manual Steam setup fallback
+- [x] `[Docs]` Write manual Steam setup fallback — [STEAM_SETUP.md](STEAM_SETUP.md)
 
 ## Licensing note
 

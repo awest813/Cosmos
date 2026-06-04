@@ -52,6 +52,8 @@ graphical interface.
 
 1. Open `Cosmos.app` from `/Applications`, or find it in Spotlight as "Cosmos".
 2. Use the app to:
+   - **First-time setup** — guided checklist with one button per step
+   - **Prepare Bottle** — download Wine, create the prefix, and install Steam (no launch)
    - **Launch Steam** — start Steam in a default Wine environment
    - **Detect Games** — auto-detect installed Steam games and build launchers
    - **Manage Bottles** — create isolated Wine prefixes with different backends
@@ -206,7 +208,7 @@ The default installation uses roughly:
 
 ## Troubleshooting
 
-**Steam won't launch?** Check the launch log in the Cosmos app (click "View Logs") or look at `/tmp/cosmos-steam.log`.
+**Steam won't launch?** Check the launch log in the Cosmos app (click "View Logs") or see `~/Library/Application Support/Cosmos/logs/steam-launch.log`. Full manual steps: [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md).
 
 **Game crashes?** Try switching graphics backends via the Bottles section or the command line.
 
@@ -250,6 +252,6 @@ The default installation uses roughly:
 
 ### Desktop App (Cosmos.app)
 
-- Graphical interface to common operations: Launch Steam, Detect Games, Manage Bottles, View Logs, Profiles, Install/Uninstall.
+- Graphical interface to common operations: Prepare Bottle, Launch Steam, Detect Games, Manage Bottles, View Logs, Profiles, Install/Uninstall. Manual setup: [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md).
 - Automatically discovers and launches embedded scripts from the app bundle.
 - Bottles section shows all created bottles with their current settings.

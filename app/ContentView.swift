@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
@@ -9,7 +10,7 @@ struct ContentView: View {
     private let cosmosAppsURL = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
     private let consoleBottomID = "console-bottom"
 
-    @State private var output = "Welcome to Cosmos\n\nInstall Cosmos, tune Steam Wine settings below, then detect games to build launchers."
+    @State private var output = "Welcome to Cosmos\n\nNew here? Follow the setup guide below — one button per step.\nFirst-time setup takes about 10–15 minutes (downloads + Steam installer).\n\nWhen finished, launch Steam, install a Windows game, then tap Build Game Launchers."
     @State private var profiles: [SavedProfile] = []
     @State private var selectedProfileID: String?
     @State private var cosmosInstalled = false
@@ -17,6 +18,9 @@ struct ContentView: View {
     @State private var isRunning = false
     @State private var showResetConfirmation = false
     @State private var showUninstallConfirmation = false
+    @State private var showAdvancedSetupOptions = false
+    @State private var consoleExpanded = false
+    @State private var showSetupCompleteBanner = false
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -71,6 +75,50 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRefreshStatus)) { _ in
             refreshStatus(message: "Status refreshed.")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosContinueSetup)) { _ in
+            performNextSetupStep()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenSetupHelp)) { _ in
+            openSetupHelp()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshStatus()
+        }
+        .onChange(of: isSetupComplete) { complete in
+            if complete && !showSetupCompleteBanner {
+                showSetupCompleteBanner = true
+                consoleExpanded = true
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if !isSetupComplete {
+                    Button {
+                        performNextSetupStep()
+                    } label: {
+                        Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
+                    }
+                    .help(setupPrimarySubtitle)
+                    .disabled(isRunning)
+                }
+                Button {
+                    refreshStatus(message: "Status refreshed.")
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .help("Reload installation status (⌘R)")
+                .keyboardShortcut("r", modifiers: .command)
+                .disabled(isRunning)
+            }
+            ToolbarItemGroup(placement: .automatic) {
+                Button {
+                    openSetupHelp()
+                } label: {
+                    Label("Setup Help", systemImage: "questionmark.circle")
+                }
+                .help("Open the Steam setup guide")
+            }
+        }
     }
 
     // MARK: - Sidebar
@@ -98,6 +146,22 @@ struct ContentView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
 
+            if !isSetupComplete {
+                Button {
+                    performNextSetupStep()
+                } label: {
+                    Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.cosmosPrimary)
+                .disabled(isRunning)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .help(setupPrimarySubtitle)
+            }
+
             Divider()
                 .padding(.top, 14)
 
@@ -109,7 +173,7 @@ struct ContentView: View {
                             Label("No profiles yet", systemImage: "tray")
                                 .foregroundStyle(.secondary)
                                 .font(.subheadline)
-                            Text("Run Detect Games after installing Steam to discover titles.")
+                            Text(isSetupComplete ? "Run Detect Games after installing Steam to discover titles." : "Complete setup above, then build launchers to see games here.")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -149,15 +213,26 @@ struct ContentView: View {
     private var detailContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                if showSetupCompleteBanner && isSetupComplete {
+                    setupCompleteBanner
+                }
                 heroSection
-                setupStepsBanner
-                launchSection
-                steamWineSettingsSection
-                managementGrid
-                curatedProfilesSection
-                repairSection
-                compatibilitySection
-                bottlesSection
+                setupAssistantSection
+                if isSetupComplete {
+                    launchSection
+                } else {
+                    setupLaunchHintSection
+                }
+                if isSetupComplete || showAdvancedSetupOptions {
+                    steamWineSettingsSection
+                    managementGrid
+                    curatedProfilesSection
+                    repairSection
+                    compatibilitySection
+                    bottlesSection
+                } else {
+                    newUserMaintenanceSection
+                }
                 if let selectedProfile {
                     selectedProfileSection(selectedProfile)
                 }
@@ -185,10 +260,70 @@ struct ContentView: View {
     private var heroTitle: String {
         if let selectedProfile { return selectedProfile.name }
         if let selectedBottle { return selectedBottle.name }
+        if !isSetupComplete { return "Welcome to Cosmos" }
         return "Launcher Dashboard"
     }
 
+    private var isSetupComplete: Bool {
+        cosmosInstalled
+            && steamSettings.isPrefixInitialized
+            && steamSettings.isSteamInstalled
+            && !profiles.isEmpty
+    }
+
+    private var setupProgress: Double {
+        var completed = 0.0
+        if cosmosInstalled { completed += 1 }
+        if steamSettings.isPrefixInitialized { completed += 1 }
+        if steamSettings.isSteamInstalled { completed += 1 }
+        if !profiles.isEmpty { completed += 1 }
+        return completed / 4.0
+    }
+
+    private var setupStepNumber: Int {
+        if !cosmosInstalled { return 1 }
+        if !steamSettings.isPrefixInitialized { return 2 }
+        if !steamSettings.isSteamInstalled { return 3 }
+        if profiles.isEmpty { return 4 }
+        return 4
+    }
+
+    private var setupPrimaryTitle: String {
+        if !cosmosInstalled { return "Install Cosmos" }
+        if !steamSettings.isPrefixInitialized { return "Prepare Steam Bottle" }
+        if !steamSettings.isSteamInstalled { return "Install Steam" }
+        if profiles.isEmpty { return "Build Game Launchers" }
+        return "Refresh Status"
+    }
+
+    private var setupPrimarySubtitle: String {
+        if !cosmosInstalled {
+            return "Installs launchers into /Applications/Cosmos Apps · opens Terminal"
+        }
+        if !steamSettings.isPrefixInitialized {
+            return "Downloads Wine, creates the prefix, and runs the Steam installer"
+        }
+        if !steamSettings.isSteamInstalled {
+            return "Finish the Steam wizard, or launch Steam to complete installation"
+        }
+        if profiles.isEmpty {
+            return "Detect installed games and create Dock-friendly .app launchers"
+        }
+        return "Update the checklist and sidebar"
+    }
+
+    private var setupPrimarySystemImage: String {
+        if !cosmosInstalled { return "arrow.down.circle.fill" }
+        if !steamSettings.isPrefixInitialized { return "externaldrive.fill.badge.checkmark" }
+        if !steamSettings.isSteamInstalled { return "shippingbox.fill" }
+        if profiles.isEmpty { return "square.grid.2x2.fill" }
+        return "arrow.clockwise"
+    }
+
     private var heroSubtitle: String {
+        if !isSetupComplete, selectedProfile == nil, selectedBottle == nil {
+            return "Follow the setup guide below — one button per step. First-time setup takes about 10–15 minutes."
+        }
         if let selectedProfile {
             return selectedProfileHasExecutablePath
                 ? "Ready to launch this saved profile through the Wine-based shell flow."
@@ -198,10 +333,13 @@ struct ContentView: View {
             return "Bottle selected — adjust backend and launch Steam from the controls below."
         }
         if !cosmosInstalled {
-            return "Install Cosmos first, then tune Steam Wine settings and detect games."
+            return "Install Cosmos first, then prepare the Steam bottle and detect games."
+        }
+        if !steamSettings.isPrefixInitialized {
+            return "Prepare the Steam bottle to download Wine and create the prefix, then install Steam."
         }
         if !steamSettings.isSteamInstalled {
-            return "Launch Steam once to install it into the Wine prefix, then detect games."
+            return "Run Prepare Bottle or Launch Steam to finish the Steam installer wizard, then detect games."
         }
         if profiles.isEmpty {
             return "Steam is ready — run Detect Games to populate saved profiles."
@@ -209,63 +347,167 @@ struct ContentView: View {
         return "Manage Cosmos, launch Steam, and jump into saved game profiles from one place."
     }
 
-    private var setupStepsBanner: some View {
+    private var setupAssistantSection: some View {
         Group {
-            if cosmosInstalled && steamSettings.isSteamInstalled && !profiles.isEmpty {
+            if isSetupComplete {
                 EmptyView()
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Getting started")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.cosmosPrimary)
-                    setupStep(
-                        done: cosmosInstalled,
-                        title: "Install Cosmos",
-                        detail: cosmosInstalled ? "Wine runtime and launchers are in place" : "Opens Terminal — may ask for your password"
-                    )
-                    setupStep(
-                        done: steamSettings.isSteamInstalled,
-                        title: "Install Steam in Wine",
-                        detail: steamSettings.isSteamInstalled
-                            ? "Steam is in the default prefix"
-                            : "Use Launch Steam — first run downloads the Steam installer"
-                    )
-                    setupStep(
-                        done: !profiles.isEmpty,
-                        title: "Detect & build game launchers",
-                        detail: profiles.isEmpty
-                            ? "Detect Games lists titles; Build Launchers creates Dock apps"
-                            : "\(profiles.count) profile\(profiles.count == 1 ? "" : "s") saved"
-                    )
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("First-time setup")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Color.cosmosPrimary)
+                        Text("About 10–15 minutes the first time. Each step opens Terminal when needed — complete any prompts there, then press Refresh here.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Step \(setupStepNumber) of 4")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.cosmosPrimary)
+                            Spacer()
+                            Text("\(Int(setupProgress * 100))%")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        ProgressView(value: setupProgress)
+                            .tint(Color.cosmosPrimary)
+                    }
+
+                    prominentButton(
+                        title: setupPrimaryTitle,
+                        subtitle: setupPrimarySubtitle,
+                        systemImage: setupPrimarySystemImage,
+                        help: "Run the next recommended setup step"
+                    ) {
+                        performNextSetupStep()
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        setupStep(
+                            done: cosmosInstalled,
+                            title: "Install Cosmos",
+                            detail: cosmosInstalled
+                                ? "Launchers are in /Applications/Cosmos Apps"
+                                : "Wine runtime and Spotlight-friendly launchers"
+                        )
+                        setupStep(
+                            done: steamSettings.isPrefixInitialized,
+                            title: "Prepare Steam bottle",
+                            detail: steamSettings.isPrefixInitialized
+                                ? "Prefix at \(steamSettings.prefixURL.lastPathComponent)"
+                                : "Wine + graphics backend (DXMT by default)"
+                        )
+                        setupStep(
+                            done: steamSettings.isSteamInstalled,
+                            title: "Install Steam",
+                            detail: steamSettings.isSteamInstalled
+                                ? "Steam is in the Wine prefix"
+                                : "Complete the graphical Steam installer wizard"
+                        )
+                        setupStep(
+                            done: !profiles.isEmpty,
+                            title: "Build game launchers",
+                            detail: profiles.isEmpty
+                                ? "After you install a Windows game in Steam"
+                                : "\(profiles.count) profile\(profiles.count == 1 ? "" : "s") ready"
+                        )
+                    }
+
+                    HStack(spacing: 12) {
+                        Button {
+                            runInTerminal(script: "setup.command")
+                        } label: {
+                            Label("All-in-one setup", systemImage: "terminal.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isRunning)
+
+                        Button {
+                            openSetupHelp()
+                        } label: {
+                            Label("Help", systemImage: "questionmark.circle")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            runCommand(script: "run.command", arguments: ["--logs"])
+                        } label: {
+                            Label("Logs", systemImage: "doc.text")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isRunning)
+                    }
+                    .font(.subheadline)
                 }
-                .padding(16)
+                .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.cosmosPrimary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+                .background(Color.cosmosPrimary.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(Color.cosmosPrimary.opacity(0.12), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
                 )
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Getting started checklist")
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("First-time setup guide, step \(setupStepNumber) of 4")
             }
         }
     }
 
-    private func setupStep(done: Bool, title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(done ? Color.green : Color.secondary)
-                .font(.body.weight(.semibold))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+    private var setupLaunchHintSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader("After setup", systemImage: "play.circle")
+            Text(steamSettings.isSteamInstalled
+                ? "Launch Steam to sign in and download a Windows game, then continue with Build Game Launchers above."
+                : "Quick Launch unlocks once Steam is installed. Use the setup guide above for the next step.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if steamSettings.isSteamInstalled {
+                prominentButton(
+                    title: "Launch Steam",
+                    subtitle: "Sign in and install a Windows game",
+                    systemImage: "play.fill",
+                    help: "Open Steam in the Wine prefix"
+                ) {
+                    runCommand(script: "run.command", arguments: ["--steam"])
+                }
             }
         }
+    }
+
+    private var newUserMaintenanceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            DisclosureGroup(isExpanded: $showAdvancedSetupOptions) {
+                managementGrid
+            } label: {
+                Label("More options", systemImage: "ellipsis.circle")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.cosmosPrimary)
+            }
+            Text("Optional: reset bottle, open logs, or run individual tools. Recommended defaults work for most games.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private func performNextSetupStep() {
+        consoleExpanded = true
+        if !cosmosInstalled {
+            runInTerminal(script: "install_cosmos.command")
+            return
+        }
+        if !steamSettings.isPrefixInitialized || !steamSettings.isSteamInstalled {
+            runInTerminal(script: "run.command", arguments: ["--setup-steam"])
+            return
+        }
+        if profiles.isEmpty {
+            runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+            return
+        }
+        refreshStatus(message: "Setup looks complete.")
     }
 
     // MARK: - Quick launch
@@ -445,6 +687,10 @@ struct ContentView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 168), spacing: 12)], spacing: 12) {
                 secondaryButton(title: "Install Cosmos", subtitle: "Wine & deps · Terminal", systemImage: "arrow.down.circle.fill", help: "Opens Terminal to install Wine and dependencies (may ask for your password)") {
                     runInTerminal(script: "install_cosmos.command")
+                }
+
+                secondaryButton(title: "Prepare Bottle", subtitle: "Wine prefix & Steam · Terminal", systemImage: "externaldrive.fill.badge.checkmark", help: "Opens Terminal to download Wine, create the prefix, install Steam, and configure the graphics backend without launching Steam") {
+                    runInTerminal(script: "run.command", arguments: ["--setup-steam"])
                 }
 
                 secondaryButton(title: "Detect Games", subtitle: "List Steam games", systemImage: "magnifyingglass", help: "Scan the Steam library and list installable titles in the output pane") {
@@ -1116,9 +1362,27 @@ struct ContentView: View {
     // MARK: - Console
 
     private var consoleSection: some View {
+        Group {
+            if isSetupComplete {
+                consoleOutputPanel
+            } else {
+                DisclosureGroup(isExpanded: $consoleExpanded) {
+                    consoleOutputPanel
+                } label: {
+                    Label("Technical output", systemImage: "terminal.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary)
+                }
+            }
+        }
+    }
+
+    private var consoleOutputPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                sectionHeader("Launcher Output", systemImage: "terminal.fill")
+                if isSetupComplete {
+                    sectionHeader("Launcher Output", systemImage: "terminal.fill")
+                }
                 if isRunning {
                     HStack(spacing: 6) {
                         ProgressView()
@@ -1151,15 +1415,13 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
                             .foregroundStyle(Color(red: 0.85, green: 0.80, blue: 1.0))
-                        // Anchor the auto-scroll to the end of the output so the
-                        // newest lines stay visible while a command streams.
                         Color.clear
                             .frame(height: 1)
                             .id(consoleBottomID)
                     }
                     .padding(16)
                 }
-                .frame(minHeight: 220)
+                .frame(minHeight: isSetupComplete ? 220 : 140)
                 .background(Color(red: 0.07, green: 0.03, blue: 0.16), in: RoundedRectangle(cornerRadius: 16))
                 .onChange(of: output) { _ in
                     if reduceMotion {
@@ -1174,7 +1436,60 @@ struct ContentView: View {
         }
     }
 
+    private var setupCompleteBanner: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: "party.popper.fill")
+                .font(.title2)
+                .foregroundStyle(Color.green)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Setup complete")
+                    .font(.headline)
+                Text("Launch Steam or pick a saved profile in the sidebar. Game launchers are in /Applications/Cosmos Apps.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Button {
+                showSetupCompleteBanner = false
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+        }
+        .padding(16)
+        .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.green.opacity(0.2), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+    }
+
+    private func openSetupHelp() {
+        let candidates: [URL] = [
+            repositoryRootURL?.appendingPathComponent("docs/STEAM_SETUP.md"),
+            Bundle.main.resourceURL?.appendingPathComponent("docs/STEAM_SETUP.md"),
+            Bundle.main.resourceURL?.appendingPathComponent("STEAM_SETUP.md"),
+        ].compactMap { $0 }
+
+        for url in candidates where fileManager.fileExists(atPath: url.path) {
+            NSWorkspace.shared.open(url)
+            output = "Opened setup guide: \(url.path)\n\n" + output
+            return
+        }
+        output = "Setup guide not found. See docs/STEAM_SETUP.md in the Cosmos repository.\n\n" + output
+    }
+
     // MARK: - Reusable components
+
+    private var steamPrefixStatusLabel: String {
+        if steamSettings.isSteamInstalled { return "Steam ready" }
+        if steamSettings.isPrefixInitialized { return "Prefix ready — install Steam" }
+        return "Steam bottle not prepared"
+    }
 
     private var statusSummary: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1184,7 +1499,7 @@ struct ContentView: View {
                 color: cosmosInstalled ? Color.green : Color.orange
             )
             statusRow(
-                label: steamSettings.isSteamInstalled ? "Steam ready" : "Steam not installed",
+                label: steamPrefixStatusLabel,
                 icon: steamSettings.isSteamInstalled ? "shippingbox.fill" : "shippingbox",
                 color: steamSettings.isSteamInstalled ? Color.cosmosBright : Color.secondary
             )
@@ -1500,7 +1815,7 @@ struct ContentView: View {
             Opened Terminal to run: \(displayed)
 
             Complete any password or confirmation prompts in the Terminal window, \
-            then press Refresh here to update the status.
+            then click Refresh in the toolbar (⌘R) or switch back to this window — status updates automatically.
             """
         } catch {
             output = "Failed to open Terminal: \(error.localizedDescription)"
