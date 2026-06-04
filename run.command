@@ -3,6 +3,52 @@ set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
+# --- Bottle pre-load (roadmap 0.3) -------------------------------------------
+# A named bottle (COSMOS_BOTTLE) supplies an isolated Wine prefix plus default
+# settings from its bottle.conf. Load them *before* the per-setting defaults
+# below, so precedence is: explicit environment > bottle.conf > built-in default.
+# When no bottle is named, nothing here changes and behavior is unchanged.
+COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
+COSMOS_BOTTLE="${COSMOS_BOTTLE:-}"
+BOTTLES_DIR="${COSMOS_BOTTLES_DIR:-${COSMOS_SUPPORT_DIR}/Bottles}"
+
+_bottle_die() { printf "Error: %s\n" "$1" >&2; exit 1; }
+
+load_bottle() {
+  [[ -n "${COSMOS_BOTTLE}" ]] || return 0
+  [[ "${COSMOS_BOTTLE}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "${COSMOS_BOTTLE}" != *..* ]] \
+    || _bottle_die "Invalid COSMOS_BOTTLE name: ${COSMOS_BOTTLE}"
+  local dir="${BOTTLES_DIR}/${COSMOS_BOTTLE}"
+  [[ -d "${dir}" ]] \
+    || _bottle_die "Bottle not found: ${COSMOS_BOTTLE} (${dir}). Create it with: bottle.command create ${COSMOS_BOTTLE}"
+
+  local conf="${dir}/bottle.conf"
+  if [[ -f "${conf}" ]]; then
+    local line key val
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      line="${line%$'\r'}"
+      [[ "${line}" =~ ^[[:space:]]*(#|$) ]] && continue
+      [[ "${line}" == *=* ]] || continue
+      key="${line%%=*}"; key="${key//[[:space:]]/}"
+      [[ "${key}" =~ ^[A-Z][A-Z0-9_]*$ ]] || continue
+      case "${key}" in WINEPREFIX|COSMOS_BOTTLE) continue ;; esac
+      [[ -n "${!key:-}" ]] && continue            # explicit environment wins
+      val="${line#*=}"; val="${val%\"}"; val="${val#\"}"
+      printf -v "${key}" '%s' "${val}"
+      export "${key?}"
+    done < "${conf}"
+  fi
+
+  # The bottle owns its prefix and (unless overridden) its launch log.
+  WINEPREFIX="${dir}/prefix"
+  mkdir -p "${dir}/logs"
+  if [[ -z "${COSMOS_LAUNCH_LOG:-}${MERLOT_LAUNCH_LOG:-}${COSMOS_STEAM_LOG:-}${MERLOT_STEAM_LOG:-}" ]]; then
+    COSMOS_LAUNCH_LOG="${dir}/logs/launch.log"
+  fi
+}
+load_bottle
+# -----------------------------------------------------------------------------
+
 WINE_VERSION="${WINE_VERSION:-11.8}"
 DXMT_VERSION="${DXMT_VERSION:-0.74}"
 
@@ -669,6 +715,8 @@ main() {
   # Every action (including the lightweight maintenance ones below) uses
   # macOS-only tools such as `open`, so guard the platform up front.
   require_macos_arm64
+
+  [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"
 
   case "${COSMOS_LAUNCH_MODE}" in
     profiles)

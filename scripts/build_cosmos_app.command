@@ -21,7 +21,7 @@ MIN_MACOS="13.0"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
 ICON_SRC="${REPO_ROOT}/app/cosmos/AppIcon.icns"
-SCRIPTS_TO_BUNDLE=(run.command install_cosmos.command uninstall.command detect_steam_games.command)
+SCRIPTS_TO_BUNDLE=(run.command install_cosmos.command uninstall.command detect_steam_games.command bottle.command)
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }

@@ -99,10 +99,14 @@ success criterion — if that sentence isn't true, the release isn't done.
   (→ `d3dmetal` when `GPTK_PATH` is set, else `dxmt`, preserving prior behavior);
   dxmt/d3dmetal/wined3d work, dxvk is experimental (needs `DXVK_PATH` + MoltenVK).
   Settable per game via `.conf` / `overrides/<appid>.env`. See [BACKENDS.md](BACKENDS.md).
-- [ ] UI backend picker — choose a game's backend from the dashboard
-- [ ] Bottle manager (Steam, GOG, Old Games, Test, …) — each with Wine version,
-  Windows version, graphics backend, Retina mode, env vars, installed deps, logs,
-  repair/reset
+- [x] Bottle manager engine — `bottle.command` (list/create/info/set/path/launch/
+  logs/reset/delete) manages named, isolated bottles under
+  `~/Library/Application Support/Cosmos/Bottles/<name>/` (prefix + `bottle.conf` +
+  logs). `run.command` honors `COSMOS_BOTTLE`, loading the bottle's prefix and
+  settings (Wine version, backend, Retina, env) with precedence
+  *explicit env > bottle.conf > defaults*. No bottle named → unchanged behavior.
+- [ ] Per-bottle Windows-version application (stored today; needs registry writes)
+- [ ] UI: bottle manager + backend picker in the dashboard
 - **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI.
 
 ### 0.4 — Profiles

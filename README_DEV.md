@@ -100,6 +100,8 @@ Defaults are the values in `run.command`.
   - When set (usually by a per-game `.conf`), Steam launches straight into that App ID via `-applaunch`.
 - `STEAM_GAME_ARGS`
   - Extra arguments forwarded to the game (Steam passes anything after `-applaunch <id>`). Split on whitespace. Only used when `STEAM_GAME_ID` is set.
+- `COSMOS_BOTTLE`
+  - Name of a bottle to launch into (see [Bottles](#bottles)). Its prefix and `bottle.conf` settings are loaded with precedence *explicit env > bottle.conf > defaults*. Unset = the legacy single-prefix behavior.
 
 Example overrides (environment variables):
 
@@ -146,6 +148,56 @@ Notes:
 - Tested on:
   - Apple M1 Max (32GB), macOS Sequoia 15.7.4
   - Apple M2 Pro (16GB), macOS Sequoia 15.7.4
+
+## Bottles
+
+A **bottle** is a named, isolated Wine prefix plus its settings, managed by
+`bottle.command`. Bottles let you keep, say, a `steam` bottle on DXMT and a
+`oldgames` bottle on WineD3D without their prefixes (or DLLs) colliding.
+
+Layout — `~/Library/Application Support/Cosmos/Bottles/<name>/`:
+
+```
+<name>/
+  bottle.conf   # KEY="value" settings, loaded by run.command as defaults
+  prefix/       # the WINEPREFIX (created on first launch)
+  logs/         # per-bottle launch logs
+```
+
+CLI:
+
+```bash
+./bottle.command create steam --wine 11.8 --windows win10 --backend dxmt --retina 0
+./bottle.command list
+./bottle.command set steam COSMOS_BACKEND d3dmetal     # any UPPER_SNAKE_CASE env
+./bottle.command set steam GPTK_PATH "$HOME/GPTK"
+./bottle.command info steam
+./bottle.command launch steam                          # runs run.command in the bottle
+./bottle.command launch steam --game "drive_c/.../Game.exe"
+./bottle.command logs steam
+./bottle.command reset steam   [--force]               # delete the prefix, keep settings
+./bottle.command delete steam  [--force]               # delete the whole bottle
+```
+
+`run.command` activates a bottle when `COSMOS_BOTTLE=<name>` is set (this is what
+`bottle.command launch` does). It loads the bottle's `prefix` as `WINEPREFIX`,
+points the launch log at the bottle's `logs/`, and applies `bottle.conf` settings
+(`WINE_VERSION`, `COSMOS_BACKEND`, `WINE_RETINA_MODE`, `GPTK_PATH`, …) with
+precedence **explicit env > bottle.conf > built-in defaults**. With no
+`COSMOS_BOTTLE`, behavior is exactly as before (the `~/.wine-steam-11` prefix).
+
+Known settings validated on `create`/`set`: `WINDOWS_VERSION`
+(`winxp|win7|win8|win10|win11`), `COSMOS_BACKEND`
+(`recommended|dxmt|d3dmetal|dxvk|wined3d`), `WINE_RETINA_MODE` (`0|1`). Any other
+`UPPER_SNAKE_CASE` key is stored as a plain env default. `WINEPREFIX` and
+`COSMOS_BOTTLE` are reserved (Cosmos manages them). `WINDOWS_VERSION` is stored
+and surfaced today; applying it to the prefix's registry is a follow-up.
+
+To auto-detect games inside a bottle, point detection at its prefix:
+
+```bash
+WINEPREFIX="$(./bottle.command path steam)" ./detect_steam_games.command --list
+```
 
 ## Cosmos Desktop App (app shell)
 
