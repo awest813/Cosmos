@@ -1,0 +1,5 @@
+TYPE=fix
+ID=kill_wine
+DESCRIPTION=Terminate stuck wineserver and Wine processes for this prefix
+ACTION=script
+SCRIPT=kill_wine

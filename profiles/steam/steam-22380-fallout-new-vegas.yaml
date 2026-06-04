@@ -15,7 +15,6 @@ dependencies:
   - vcrun2010
   - d3dx9
 fixes:
-  - disable_intro_video
-  - force_borderless
-notes: "Use the in-game launcher first to set resolution, then launch the game."
+  - clear_steam_caches
+notes: "Use the in-game launcher first to set resolution. Apply with: ./profile.command apply profiles/steam/steam-22380-fallout-new-vegas.yaml"
 </content>

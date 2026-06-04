@@ -209,6 +209,27 @@ To auto-detect games inside a bottle, point detection at its prefix:
 WINEPREFIX="$(./bottle.command path steam)" ./detect_steam_games.command --list
 ```
 
+## Integration tooling (0.4–0.7 preview)
+
+See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md) and
+[docs/LICENSING.md](docs/LICENSING.md).
+
+| Script | Purpose |
+| --- | --- |
+| `detect_steam_games.command --verify` | List games + verify `installdir` on disk |
+| `scripts/verify_steam_detection.command` | Standalone detection cross-check |
+| `repair.command` | Winetricks deps + fix recipes (`recipes/`) |
+| `profile.command` | Apply YAML profiles → overrides + repair |
+| `cosmosdb.command` | ProtonDB lookup (hint) + local macOS reports |
+
+```bash
+./detect_steam_games.command --verify
+./repair.command install-dep vcrun2015
+./profile.command apply profiles/steam/steam-250900-binding-of-isaac.yaml
+./cosmosdb.command lookup 250900
+./cosmosdb.command report 250900 gold "DXMT, win10, stable on M2"
+```
+
 ## Cosmos Desktop App (app shell)
 
 A SwiftUI dashboard wraps the shell flow so common actions (launch Steam, launch
@@ -224,6 +245,8 @@ logs, reset the bottle, install/uninstall) are available from one window.
   first and falling back to the repository checkout during development.
 - `app/Bottle.swift` - the `Bottle` model and `BottleStore` (reads the bottles
   directory + `bottle.conf` for the dashboard's Bottles section).
+- `app/GameProfile.swift` / `app/Recipe.swift` / `app/CosmosPaths.swift` -
+  curated YAML profiles and repair recipes for the dashboard UI.
 - `app/CosmosLogoView.swift` - the drawn Cosmos logo mark and brand colors.
 - `Package.swift` - SwiftPM manifest. The app shell requires macOS 13+
   (`NavigationSplitView`); the shell scripts themselves still target macOS 11.
@@ -235,10 +258,14 @@ Two execution paths, picked per action:
 - **Embedded** (`runCommand`): runs the script with `Process`, streaming stdout
   /stderr into the in-app console. Used for read-only or non-privileged actions
   that don't need a TTY — Launch Steam (`--steam`, detaches), Launch Profile,
-  Detect Games (`--list`), Open Logs, Profiles Folder, Reset Bottle
-  (`--reset-bottle --force`), Refresh, and all **bottle** actions
-  (`bottle.command create/set/launch/logs/reset/delete`; reset/delete pass
-  `--force` after the dashboard's own confirmation).
+  Detect Games (`--list`), **Verify Detection** (`--verify`), Open Logs, Profiles
+  Folder, Reset Bottle (`--reset-bottle --force`), Refresh, **repair** actions
+  (`repair.command install-dep` / `apply-fix`), **profile** actions
+  (`profile.command show` / `apply`), **CosmosDB** (`cosmosdb.command lookup` /
+  `report`), and all **bottle** actions (`bottle.command create/set/launch/logs/
+  reset/delete`; reset/delete pass `--force` after the dashboard's own
+  confirmation). When a bottle is selected, `COSMOS_BOTTLE` is passed in the
+  environment for detection, repair, and profile commands.
 - **Terminal** (`runInTerminal`): asks Terminal.app (via `osascript … do script`)
   to run the script. Used for actions that need `sudo` or interactive prompts the
   piped runner can't provide — **Install Cosmos**, **Build Launchers**

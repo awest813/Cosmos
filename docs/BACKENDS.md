@@ -71,5 +71,6 @@ COSMOS_BACKEND = recommended | dxmt | d3dmetal | dxvk | wined3d
   Cosmos must **not** bundle or download it — users point Cosmos at their own
   install obtained from developer.apple.com.
 - **DXMT, DXVK, MoltenVK, WineD3D** are open source and may be bundled where their
-  licenses allow.
+  licenses allow. Cosmos pins **DXMT 0.74** by default; newer DXMT releases use
+  **LGPL** — see [LICENSING.md](LICENSING.md).
 </content>

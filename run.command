@@ -107,6 +107,7 @@ sanitize_steam_settings
 # -----------------------------------------------------------------------------
 
 WINE_VERSION="${WINE_VERSION:-11.8}"
+# Pinned for MIT license on release artifacts; see docs/LICENSING.md before upgrading.
 DXMT_VERSION="${DXMT_VERSION:-0.74}"
 
 WINE_ROOT="${WINE_ROOT:-$HOME/wine-${WINE_VERSION}}"

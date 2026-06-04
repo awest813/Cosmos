@@ -21,7 +21,11 @@ MIN_MACOS="13.0"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
 ICON_SRC="${REPO_ROOT}/app/cosmos/AppIcon.icns"
-SCRIPTS_TO_BUNDLE=(run.command install_cosmos.command uninstall.command detect_steam_games.command bottle.command)
+SCRIPTS_TO_BUNDLE=(
+  run.command install_cosmos.command uninstall.command
+  detect_steam_games.command bottle.command
+  repair.command profile.command cosmosdb.command
+)
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
@@ -97,6 +101,27 @@ icon_tool_src="${REPO_ROOT}/scripts/make_app_icon.command"
 if [[ -f "${icon_tool_src}" ]]; then
   cp "${icon_tool_src}" "${APP_BUNDLE}/Contents/Resources/make_app_icon.command"
   chmod +x "${APP_BUNDLE}/Contents/Resources/make_app_icon.command"
+fi
+
+verify_src="${REPO_ROOT}/scripts/verify_steam_detection.command"
+if [[ -f "${verify_src}" ]]; then
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts"
+  cp "${verify_src}" "${APP_BUNDLE}/Contents/Resources/scripts/verify_steam_detection.command"
+  chmod +x "${APP_BUNDLE}/Contents/Resources/scripts/verify_steam_detection.command"
+fi
+if [[ -d "${REPO_ROOT}/scripts/lib" ]]; then
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts/lib"
+  cp -R "${REPO_ROOT}/scripts/lib/." "${APP_BUNDLE}/Contents/Resources/scripts/lib/"
+fi
+if [[ -f "${REPO_ROOT}/scripts/repair_fixes.sh" ]]; then
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts"
+  cp "${REPO_ROOT}/scripts/repair_fixes.sh" "${APP_BUNDLE}/Contents/Resources/scripts/repair_fixes.sh"
+fi
+if [[ -d "${REPO_ROOT}/recipes" ]]; then
+  cp -R "${REPO_ROOT}/recipes" "${APP_BUNDLE}/Contents/Resources/recipes"
+fi
+if [[ -d "${REPO_ROOT}/profiles" ]]; then
+  cp -R "${REPO_ROOT}/profiles" "${APP_BUNDLE}/Contents/Resources/profiles"
 fi
 
 # Bundle the launcher template (app/cosmos: CosmosLauncher + AppIcon.icns) so

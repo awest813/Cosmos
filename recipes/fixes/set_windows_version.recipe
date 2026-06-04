@@ -1,0 +1,5 @@
+TYPE=fix
+ID=set_windows_version
+DESCRIPTION=Apply WINDOWS_VERSION to the prefix registry (requires WINDOWS_VERSION env)
+ACTION=script
+SCRIPT=set_windows_version
