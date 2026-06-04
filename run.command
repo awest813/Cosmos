@@ -186,6 +186,7 @@ Usage: run.command [ACTION]
 
 Actions:
   (none) | --steam        Set up the bottle if needed and launch Steam (default).
+  --setup-steam           Prepare Wine, DXMT/backend, and Steam (no launch).
   --game <path> [args...]  Launch a saved profile executable directly.
   --profiles               Open the saved profiles folder in Finder and exit.
   --logs                   Open the latest launch log and exit.
@@ -203,6 +204,13 @@ parse_arguments() {
         die "The --steam flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="steam"
+      return 0
+      ;;
+    --setup-steam)
+      if (($# > 1)); then
+        die "The --setup-steam flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="setup-steam"
       return 0
       ;;
     --profiles)
@@ -813,31 +821,7 @@ launch_profile() {
   esac
 }
 
-main() {
-  parse_arguments "$@"
-
-  # Every action (including the lightweight maintenance ones below) uses
-  # macOS-only tools such as `open`, so guard the platform up front.
-  require_macos_arm64
-
-  [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"
-
-  case "${COSMOS_LAUNCH_MODE}" in
-    profiles)
-      open_profiles_folder
-      return
-      ;;
-    logs)
-      open_logs
-      return
-      ;;
-    reset-bottle)
-      reset_bottle
-      return
-      ;;
-  esac
-
-  # Validate the backend choice before any heavy lifting (downloads, prefix).
+prepare_steam_bottle() {
   resolve_backend
 
   require_macos_version
@@ -874,7 +858,80 @@ main() {
       die "Unhandled backend: ${RESOLVED_BACKEND}"
       ;;
   esac
+}
 
+finish_steam_setup() {
+  local steam_exe
+  steam_exe="$(find_steam_exe || true)"
+  echo ""
+  echo "Steam bottle is ready at ${WINEPREFIX}."
+  if [[ -n "${steam_exe}" ]]; then
+    echo "Steam: ${steam_exe}"
+    echo "Launch with: ./run.command --steam"
+    echo "Or use Launch Steam in the Cosmos dashboard."
+  else
+    echo "Steam installer did not finish — re-run ./run.command --setup-steam and complete the wizard."
+  fi
+  echo "Launch log (detached mode): ${COSMOS_LAUNCH_LOG}"
+  echo "Manual setup guide: docs/STEAM_SETUP.md"
+}
+
+prepare_steam_bottle() {
+  resolve_backend
+  require_macos_version
+  ensure_rosetta
+  ensure_wine_installed
+  setup_wine_env
+  ensure_wine_prefix
+  ensure_wineprefix_alias
+  ensure_wine_mouse_warp_override
+  ensure_wine_retina_mode "${WINE_RETINA_MODE}"
+  ensure_wine_windows_version
+  ensure_wine_windows_mouse_accel_disabled
+  ensure_steam_installed
+  log "Graphics backend: ${RESOLVED_BACKEND} (requested: ${COSMOS_BACKEND})"
+  case "${RESOLVED_BACKEND}" in
+    dxmt) ensure_dxmt_installed; enable_dxmt_env ;;
+    d3dmetal)
+      [[ -n "${GPTK_PATH}" ]] || die "The d3dmetal backend needs GPTK_PATH set to your Game Porting Toolkit install (Apple does not permit Cosmos to bundle it). Use the dxmt backend for a no-setup default."
+      ensure_gptk_installed; enable_gptk_env ;;
+    dxvk) ensure_dxvk_installed; enable_dxvk_env ;;
+    wined3d) enable_wined3d_env ;;
+    *) die "Unhandled backend: ${RESOLVED_BACKEND}" ;;
+  esac
+}
+
+finish_steam_setup() {
+  local steam_exe
+  steam_exe="$(find_steam_exe || true)"
+  echo ""
+  echo "Steam bottle is ready at ${WINEPREFIX}."
+  if [[ -n "${steam_exe}" ]]; then
+    echo "Steam: ${steam_exe}"
+    echo "Launch with: ./run.command --steam"
+    echo "Or use Launch Steam in the Cosmos dashboard."
+  else
+    echo "Steam installer did not finish — re-run ./run.command --setup-steam and complete the wizard."
+  fi
+  echo "Launch log (detached mode): ${COSMOS_LAUNCH_LOG}"
+  echo "Manual setup guide: docs/STEAM_SETUP.md"
+}
+
+main() {
+  parse_arguments "$@"
+  require_macos_arm64
+  [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"
+  case "${COSMOS_LAUNCH_MODE}" in
+    profiles) open_profiles_folder; return ;;
+    logs) open_logs; return ;;
+    reset-bottle) reset_bottle; return ;;
+    setup-steam)
+      log "Preparing Steam bottle (no launch)"
+      prepare_steam_bottle
+      finish_steam_setup
+      return ;;
+  esac
+  prepare_steam_bottle
   if [[ "${COSMOS_LAUNCH_MODE}" == "profile" ]]; then
     launch_profile
   else

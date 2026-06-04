@@ -250,6 +250,6 @@ The default installation uses roughly:
 
 ### Desktop App (Cosmos.app)
 
-- Graphical interface to common operations: Launch Steam, Detect Games, Manage Bottles, View Logs, Profiles, Install/Uninstall.
+- Graphical interface to common operations: Prepare Bottle, Launch Steam, Detect Games, Manage Bottles, View Logs, Profiles, Install/Uninstall. Manual setup: [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md).
 - Automatically discovers and launches embedded scripts from the app bundle.
 - Bottles section shows all created bottles with their current settings.

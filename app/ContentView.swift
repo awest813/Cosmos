@@ -198,10 +198,13 @@ struct ContentView: View {
             return "Bottle selected — adjust backend and launch Steam from the controls below."
         }
         if !cosmosInstalled {
-            return "Install Cosmos first, then tune Steam Wine settings and detect games."
+            return "Install Cosmos first, then prepare the Steam bottle and detect games."
+        }
+        if !steamSettings.isPrefixInitialized {
+            return "Prepare the Steam bottle to download Wine and create the prefix, then install Steam."
         }
         if !steamSettings.isSteamInstalled {
-            return "Launch Steam once to install it into the Wine prefix, then detect games."
+            return "Run Prepare Bottle or Launch Steam to finish the Steam installer wizard, then detect games."
         }
         if profiles.isEmpty {
             return "Steam is ready — run Detect Games to populate saved profiles."
@@ -211,7 +214,7 @@ struct ContentView: View {
 
     private var setupStepsBanner: some View {
         Group {
-            if cosmosInstalled && steamSettings.isSteamInstalled && !profiles.isEmpty {
+            if cosmosInstalled && steamSettings.isPrefixInitialized && steamSettings.isSteamInstalled && !profiles.isEmpty {
                 EmptyView()
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -224,11 +227,18 @@ struct ContentView: View {
                         detail: cosmosInstalled ? "Wine runtime and launchers are in place" : "Opens Terminal — may ask for your password"
                     )
                     setupStep(
+                        done: steamSettings.isPrefixInitialized,
+                        title: "Prepare Steam bottle",
+                        detail: steamSettings.isPrefixInitialized
+                            ? "Wine prefix exists at \(steamSettings.prefixURL.lastPathComponent)"
+                            : "Downloads Wine, DXMT, and creates the prefix — use Prepare Bottle"
+                    )
+                    setupStep(
                         done: steamSettings.isSteamInstalled,
                         title: "Install Steam in Wine",
                         detail: steamSettings.isSteamInstalled
                             ? "Steam is in the default prefix"
-                            : "Use Launch Steam — first run downloads the Steam installer"
+                            : "Complete the Steam installer wizard when prompted"
                     )
                     setupStep(
                         done: !profiles.isEmpty,
@@ -445,6 +455,10 @@ struct ContentView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 168), spacing: 12)], spacing: 12) {
                 secondaryButton(title: "Install Cosmos", subtitle: "Wine & deps · Terminal", systemImage: "arrow.down.circle.fill", help: "Opens Terminal to install Wine and dependencies (may ask for your password)") {
                     runInTerminal(script: "install_cosmos.command")
+                }
+
+                secondaryButton(title: "Prepare Bottle", subtitle: "Wine prefix & Steam · Terminal", systemImage: "externaldrive.fill.badge.checkmark", help: "Opens Terminal to download Wine, create the prefix, install Steam, and configure the graphics backend without launching Steam") {
+                    runInTerminal(script: "run.command", arguments: ["--setup-steam"])
                 }
 
                 secondaryButton(title: "Detect Games", subtitle: "List Steam games", systemImage: "magnifyingglass", help: "Scan the Steam library and list installable titles in the output pane") {
@@ -1176,6 +1190,18 @@ struct ContentView: View {
 
     // MARK: - Reusable components
 
+    private var steamPrefixStatusLabel: String {
+        if steamSettings.isSteamInstalled { return "Steam ready" }
+        if steamSettings.isPrefixInitialized { return "Prefix ready — install Steam" }
+        return "Steam bottle not prepared"
+    }
+
+    private var steamPrefixStatusLabel: String {
+        if steamSettings.isSteamInstalled { return "Steam ready" }
+        if steamSettings.isPrefixInitialized { return "Prefix ready — install Steam" }
+        return "Steam bottle not prepared"
+    }
+
     private var statusSummary: some View {
         VStack(alignment: .leading, spacing: 10) {
             statusRow(
@@ -1184,7 +1210,7 @@ struct ContentView: View {
                 color: cosmosInstalled ? Color.green : Color.orange
             )
             statusRow(
-                label: steamSettings.isSteamInstalled ? "Steam ready" : "Steam not installed",
+                label: steamPrefixStatusLabel,
                 icon: steamSettings.isSteamInstalled ? "shippingbox.fill" : "shippingbox",
                 color: steamSettings.isSteamInstalled ? Color.cosmosBright : Color.secondary
             )
