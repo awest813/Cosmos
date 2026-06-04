@@ -9,6 +9,7 @@ SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 # below, so precedence is: explicit environment > bottle.conf > built-in default.
 # When no bottle is named, nothing here changes and behavior is unchanged.
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
+STEAM_LAUNCH_LOG_DEFAULT="${COSMOS_SUPPORT_DIR}/logs/steam-launch.log"
 COSMOS_BOTTLE="${COSMOS_BOTTLE:-}"
 BOTTLES_DIR="${COSMOS_BOTTLES_DIR:-${COSMOS_SUPPORT_DIR}/Bottles}"
 
@@ -50,6 +51,22 @@ load_bottle() {
 # Default Steam prefix settings (when no named bottle is active). Persisted in
 # ~/Library/Application Support/Cosmos/steam.conf — same KEY="value" format as
 # bottle.conf. Precedence: explicit environment > steam.conf > built-in defaults.
+ensure_steam_conf() {
+  [[ -z "${COSMOS_BOTTLE}" ]] || return 0
+  local conf="${COSMOS_SUPPORT_DIR}/steam.conf"
+  [[ -f "${conf}" ]] && return 0
+  mkdir -p "${COSMOS_SUPPORT_DIR}/logs"
+  cat >"${conf}" <<EOF
+# Cosmos default Steam bottle settings. Applied on each launch.
+COSMOS_BACKEND="recommended"
+COSMOS_DETACH="1"
+WINE_RETINA_MODE="0"
+WINDOWS_VERSION=""
+WINE_VERSION="11.8"
+COSMOS_LAUNCH_LOG="${STEAM_LAUNCH_LOG_DEFAULT}"
+EOF
+}
+
 load_steam_conf() {
   [[ -z "${COSMOS_BOTTLE}" ]] || return 0
   local conf="${COSMOS_SUPPORT_DIR}/steam.conf"
@@ -69,8 +86,24 @@ load_steam_conf() {
   done < "${conf}"
 }
 
+sanitize_steam_settings() {
+  [[ -z "${COSMOS_BOTTLE}" ]] || return 0
+  case "${COSMOS_BACKEND}" in
+    recommended|dxmt|d3dmetal|dxvk|wined3d) ;;
+    *) COSMOS_BACKEND="recommended" ;;
+  esac
+  case "${COSMOS_DETACH}" in 0|1) ;; *) COSMOS_DETACH=1 ;; esac
+  case "${WINE_RETINA_MODE}" in 0|1) ;; *) WINE_RETINA_MODE=0 ;; esac
+  case "${WINDOWS_VERSION}" in
+    ""|winxp|win7|win8|win10|win11) ;;
+    *) WINDOWS_VERSION="" ;;
+  esac
+}
+
 load_bottle
+ensure_steam_conf
 load_steam_conf
+sanitize_steam_settings
 # -----------------------------------------------------------------------------
 
 WINE_VERSION="${WINE_VERSION:-11.8}"
@@ -118,7 +151,7 @@ WINE_RETINA_MODE="${WINE_RETINA_MODE:-0}" # 1=enable RetinaMode, 0=disable Retin
 # 0=keep the original foreground behavior (Terminal window must stay open).
 # COSMOS_DETACH is the current name; MERLOT_DETACH is honored for back-compat.
 COSMOS_DETACH="${COSMOS_DETACH:-${MERLOT_DETACH:-1}}"
-COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:-${MERLOT_STEAM_LOG:-${TMPDIR:-/tmp}/cosmos-steam.log}}}}"
+COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:-${MERLOT_STEAM_LOG:-${STEAM_LAUNCH_LOG_DEFAULT}}}}}"
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
@@ -699,6 +732,12 @@ launch_steam() {
   steam_exe="$(find_steam_exe || true)"
   [[ -n "${steam_exe}" ]] || die "steam.exe not found."
 
+  local wineserver_bin
+  wineserver_bin="$(dirname "${WINE_BIN}")/wineserver"
+  if [[ -x "${wineserver_bin}" ]] && ! WINEPREFIX="${WINEPREFIX}" "${wineserver_bin}" -w0 2>/dev/null; then
+    echo "Note: Wine is already using this prefix. Quit Steam before launching again to avoid prefix corruption."
+  fi
+
   local -a steam_cmd=("${WINE_BIN}" "${steam_exe}")
   if [[ -n "${STEAM_GAME_ID:-}" ]]; then
     echo "Launching Steam game ${STEAM_GAME_ID}..."
@@ -721,6 +760,7 @@ launch_steam() {
       ;;
     1)
       log "Detaching Steam from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
+      mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
       : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
       nohup "${steam_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
       local pid="$!"
@@ -758,6 +798,7 @@ launch_profile() {
       ;;
     1)
       log "Detaching profile launch from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
+      mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
       : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
       nohup "${profile_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
       local pid="$!"

@@ -192,6 +192,9 @@ Persistent settings for that default prefix live in
 `~/Library/Application Support/Cosmos/steam.conf` (same `KEY="value"` format as
 `bottle.conf`) and can be edited from the dashboard's **Steam Wine Settings**
 section or by hand. Precedence: **explicit env > steam.conf > built-in defaults**.
+On first launch, Cosmos seeds `steam.conf` with recommended defaults (including
+`COSMOS_LAUNCH_LOG` under `~/Library/Application Support/Cosmos/logs/steam-launch.log`).
+Invalid values in `steam.conf` are clamped on launch so a typo cannot brick Steam.
 
 Known settings validated on `create`/`set`: `WINDOWS_VERSION`
 (`winxp|win7|win8|win10|win11`), `COSMOS_BACKEND`

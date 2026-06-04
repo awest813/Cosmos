@@ -58,14 +58,40 @@ enum SteamSettingsStore {
             .appendingPathComponent("Library/Application Support/Cosmos", isDirectory: true)
     }
 
+    static var logsDirectoryURL: URL {
+        supportDirectoryURL.appendingPathComponent("logs", isDirectory: true)
+    }
+
+    static var defaultLaunchLogURL: URL {
+        logsDirectoryURL.appendingPathComponent("steam-launch.log")
+    }
+
     static var confURL: URL {
         supportDirectoryURL.appendingPathComponent("steam.conf")
+    }
+
+    static func ensureOnDisk() {
+        let fileManager = FileManager.default
+        guard !fileManager.fileExists(atPath: confURL.path) else { return }
+        try? fileManager.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
+        let lines = [
+            "# Cosmos default Steam bottle settings. Applied on each launch.",
+            "COSMOS_BACKEND=\"recommended\"",
+            "COSMOS_DETACH=\"1\"",
+            "WINE_RETINA_MODE=\"0\"",
+            "WINDOWS_VERSION=\"\"",
+            "WINE_VERSION=\"11.8\"",
+            "COSMOS_LAUNCH_LOG=\"\(defaultLaunchLogURL.path)\"",
+        ]
+        let body = lines.joined(separator: "\n") + "\n"
+        try? body.write(to: confURL, atomically: true, encoding: .utf8)
     }
 
     static let backendOptions = BottleStore.backendOptions
     static let windowsOptions = ["", "winxp", "win7", "win8", "win10", "win11"]
 
     static func load() -> SteamSettings {
+        ensureOnDisk()
         let stored = BottleStore.parseConf(confURL)
         var settings = SteamSettings.defaults
         if let backend = stored["COSMOS_BACKEND"], !backend.isEmpty {

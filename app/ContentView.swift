@@ -1018,6 +1018,7 @@ struct ContentView: View {
     }
 
     private func refreshStatus(message: String? = nil) {
+        SteamSettingsStore.ensureOnDisk()
         cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
         steamSettings = SteamSettingsStore.load()
         profiles = loadProfiles()
@@ -1212,6 +1213,7 @@ struct ContentView: View {
         task.arguments = arguments
         task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
         var mergedEnvironment = ProcessInfo.processInfo.environment
+        mergedEnvironment.removeValue(forKey: "COSMOS_BOTTLE")
         for (key, value) in environment {
             mergedEnvironment[key] = value
         }
