@@ -30,6 +30,17 @@ COSMOS_VERIFY_NODE=1 ./scripts/verify_steam_detection.command
 | [steamutils](https://github.com/bomkz/steamutils) | Unlicense | Go parser reference |
 | [Gameloop.Vdf](https://github.com/shravan2x/Gameloop.Vdf) | MIT | VDF grammar reference |
 
+## Dashboard UI
+
+The SwiftUI app surfaces these tools in the main detail view:
+
+- **Verify Detection** — Setup grid button → `detect_steam_games.command --verify`
+- **Curated Game Profiles** — YAML cards → `profile.command show` / `apply`
+- **Repair & Dependencies** — recipe buttons → `repair.command`
+- **Compatibility** — ProtonDB lookup + local macOS report → `cosmosdb.command`
+
+When a bottle is selected, `COSMOS_BOTTLE` is passed to CLI commands automatically.
+
 ## 2. Repair engine (0.5)
 
 **In Cosmos today**

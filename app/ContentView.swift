@@ -20,6 +20,13 @@ struct ContentView: View {
     @State private var showResetConfirmation = false
     @State private var showUninstallConfirmation = false
 
+    @State private var gameProfiles: [GameProfile] = []
+    @State private var selectedGameProfileID: String?
+    @State private var dependencyRecipes: [RepairRecipe] = []
+    @State private var fixRecipes: [RepairRecipe] = []
+    @State private var cosmosReportStatus = "playable"
+    @State private var cosmosReportNote = ""
+
     @State private var bottles: [Bottle] = []
     @State private var selectedBottleID: String?
     @State private var showNewBottleSheet = false
@@ -39,6 +46,17 @@ struct ContentView: View {
 
     private var selectedBottle: Bottle? {
         bottles.first { $0.id == selectedBottleID }
+    }
+
+    private var selectedGameProfile: GameProfile? {
+        gameProfiles.first { $0.id == selectedGameProfileID }
+    }
+
+    /// Active Steam App ID from the launcher config or curated YAML profile selection.
+    private var activeSteamAppID: String? {
+        if let id = selectedProfile?.steamAppID, !id.isEmpty { return id }
+        if let id = selectedGameProfile?.steamAppID, !id.isEmpty { return id }
+        return nil
     }
 
     var body: some View {
@@ -136,6 +154,9 @@ struct ContentView: View {
                 heroSection
                 launchSection
                 managementGrid
+                curatedProfilesSection
+                repairSection
+                compatibilitySection
                 bottlesSection
                 if let selectedProfile {
                     selectedProfileSection(selectedProfile)
@@ -239,7 +260,11 @@ struct ContentView: View {
                 }
 
                 secondaryButton(title: "Detect Games", subtitle: "List Steam games", systemImage: "magnifyingglass", help: "Scan the Steam library and list installable titles in the output pane") {
-                    runCommand(script: "detect_steam_games.command", arguments: ["--list"])
+                    runCommand(script: "detect_steam_games.command", arguments: ["--list"], environment: bottleEnvironment())
+                }
+
+                secondaryButton(title: "Verify Detection", subtitle: "Check install folders", systemImage: "checkmark.shield.fill", help: "List games and verify each installdir exists on disk") {
+                    runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: bottleEnvironment())
                 }
 
                 secondaryButton(title: "Build Launchers", subtitle: "Detect → build apps · Terminal", systemImage: "square.grid.2x2.fill", help: "Opens Terminal to detect games and install Spotlight launchers into Cosmos Apps") {
@@ -284,6 +309,258 @@ struct ContentView: View {
             Text("Opens Terminal to remove the installed Cosmos apps, the Wine prefix, and the downloaded Wine and DXMT runtimes. The uninstaller asks before deleting each item.")
         }
     }
+
+    // MARK: - Curated profiles (YAML)
+
+    private var curatedProfilesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Curated Game Profiles", systemImage: "doc.text.fill")
+
+            Text("Known-good YAML recipes (roadmap 0.4). Apply writes overrides and runs winetricks/fixes.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if gameProfiles.isEmpty {
+                Text("No profiles found in profiles/. Rebuild the app bundle or run from the repository checkout.")
+                    .font(.subheadline)
+                    .foregroundStyle(.tertiary)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
+                    ForEach(gameProfiles) { profile in
+                        curatedProfileCard(profile)
+                    }
+                }
+            }
+
+            if let profile = selectedGameProfile {
+                curatedProfileControls(profile)
+            }
+        }
+    }
+
+    private func curatedProfileCard(_ profile: GameProfile) -> some View {
+        let isSelected = profile.id == selectedGameProfileID
+        return Button {
+            selectedGameProfileID = isSelected ? nil : profile.id
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(profile.name)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                HStack {
+                    Text(profile.recommendedBackend)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosBright)
+                    Spacer()
+                    Text(profile.statusLabel)
+                        .font(.caption2.weight(.medium))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.cosmosPrimary.opacity(0.12), in: Capsule())
+                }
+                if !profile.steamAppID.isEmpty {
+                    Text("App ID \(profile.steamAppID)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+            .background(
+                isSelected ? Color.cosmosPrimary.opacity(0.10) : Color.primary.opacity(0.04),
+                in: RoundedRectangle(cornerRadius: 12)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        isSelected ? Color.cosmosPrimary.opacity(0.5) : Color.clear,
+                        lineWidth: 1.5
+                    )
+            )
+        }
+        .buttonStyle(CosmosButtonStyle())
+        .disabled(isRunning)
+    }
+
+    private func curatedProfileControls(_ profile: GameProfile) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(profile.name)
+                    .font(.headline)
+                Spacer()
+                Text(profile.statusLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.cosmosPrimary)
+            }
+            detailRow(title: "Apply path", value: profile.commandRelativePath)
+
+            HStack(spacing: 12) {
+                Button {
+                    runCommand(
+                        script: "profile.command",
+                        arguments: ["show", profile.commandRelativePath],
+                        environment: bottleEnvironment()
+                    )
+                } label: {
+                    Label("Preview", systemImage: "eye")
+                }
+                .disabled(isRunning)
+
+                Button {
+                    runCommand(
+                        script: "profile.command",
+                        arguments: ["apply", profile.commandRelativePath],
+                        environment: bottleEnvironment()
+                    )
+                } label: {
+                    Label("Apply Profile", systemImage: "arrow.down.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.cosmosPrimary)
+                .disabled(isRunning)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.cosmosPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    // MARK: - Repair
+
+    private var repairSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Repair & Dependencies", systemImage: "bandage.fill")
+
+            Text("Winetricks installs may take several minutes. Requires brew install winetricks.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !dependencyRecipes.isEmpty {
+                Text("Dependencies")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.cosmosPrimary.opacity(0.8))
+                recipeButtonGrid(dependencyRecipes, prefix: "install-dep")
+            }
+
+            if !fixRecipes.isEmpty {
+                Text("Fixes")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.cosmosPrimary.opacity(0.8))
+                    .padding(.top, 4)
+                recipeButtonGrid(fixRecipes, prefix: "apply-fix")
+            }
+        }
+    }
+
+    private func recipeButtonGrid(_ recipes: [RepairRecipe], prefix: String) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+            ForEach(recipes) { recipe in
+                Button {
+                    runCommand(
+                        script: "repair.command",
+                        arguments: [prefix, recipe.id],
+                        environment: bottleEnvironment()
+                    )
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recipe.id)
+                            .font(.caption.weight(.semibold))
+                        Text(recipe.description)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunning)
+                .help(recipe.description)
+            }
+        }
+    }
+
+    // MARK: - CosmosDB
+
+    private var compatibilitySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Compatibility", systemImage: "chart.bar.doc.horizontal")
+
+            Text("ProtonDB hints are Linux-focused. Local reports capture macOS results.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let appid = activeSteamAppID {
+                detailRow(title: "Steam App ID", value: appid)
+
+                HStack(spacing: 12) {
+                    Button {
+                        runCommand(script: "cosmosdb.command", arguments: ["lookup", appid])
+                    } label: {
+                        Label("ProtonDB Lookup", systemImage: "globe")
+                    }
+                    .disabled(isRunning)
+
+                    if selectedGameProfile != nil {
+                        Button {
+                            runCommand(
+                                script: "profile.command",
+                                arguments: ["for-appid", appid, "apply"],
+                                environment: bottleEnvironment()
+                            )
+                        } label: {
+                            Label("Apply YAML Profile", systemImage: "doc.text.fill")
+                        }
+                        .disabled(isRunning)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Report macOS result")
+                        .font(.subheadline.weight(.medium))
+                    Picker("Status", selection: $cosmosReportStatus) {
+                        ForEach(Self.cosmosStatusOptions, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
+                    TextField("Optional note", text: $cosmosReportNote)
+                        .textFieldStyle(.roundedBorder)
+                    Button {
+                        var args = ["report", appid, cosmosReportStatus]
+                        let note = cosmosReportNote.trimmingCharacters(in: .whitespaces)
+                        if !note.isEmpty { args.append(note) }
+                        runCommand(
+                            script: "cosmosdb.command",
+                            arguments: args,
+                            environment: bottleEnvironment()
+                        )
+                    } label: {
+                        Label("Save Local Report", systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(isRunning)
+                }
+                .padding(.top, 4)
+            } else {
+                Text("Select a saved launcher profile or curated YAML profile with a Steam App ID to look up or report compatibility.")
+                    .font(.subheadline)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.cosmosPrimary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private static let cosmosStatusOptions = [
+        "platinum", "gold", "silver", "playable", "bronze", "broken", "blocked",
+    ]
 
     // MARK: - Bottles
 
@@ -552,12 +829,16 @@ struct ContentView: View {
 
     private func selectedProfileSection(_ profile: SavedProfile) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Selected Profile", systemImage: "gamecontroller.fill")
+            sectionHeader("Selected Launcher", systemImage: "gamecontroller.fill")
 
             VStack(alignment: .leading, spacing: 14) {
                 detailRow(title: "Executable", value: profile.path)
                 Divider()
                 detailRow(title: "Arguments", value: profile.args.isEmpty ? "None" : profile.args)
+                if let appid = profile.steamAppID, !appid.isEmpty {
+                    Divider()
+                    detailRow(title: "Steam App ID", value: appid)
+                }
                 Divider()
                 detailRow(title: "Config file", value: profile.fileURL.lastPathComponent)
             }
@@ -568,6 +849,24 @@ struct ContentView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
             )
+
+            if let appid = profile.steamAppID, !appid.isEmpty,
+               let yaml = GameProfileStore.find(steamAppID: appid) {
+                HStack {
+                    Text("Curated preset available: \(yaml.name)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Apply") {
+                        runCommand(
+                            script: "profile.command",
+                            arguments: ["apply", yaml.commandRelativePath],
+                            environment: bottleEnvironment()
+                        )
+                    }
+                    .disabled(isRunning)
+                }
+            }
         }
     }
 
@@ -788,9 +1087,15 @@ struct ContentView: View {
         steamInstalled = fileManager.fileExists(atPath: steamExecutableURL.path)
         profiles = loadProfiles()
         bottles = BottleStore.load()
+        gameProfiles = GameProfileStore.load()
+        dependencyRecipes = RecipeStore.loadDependencies()
+        fixRecipes = RecipeStore.loadFixes()
 
         if !profiles.contains(where: { $0.id == selectedProfileID }) {
             self.selectedProfileID = profiles.first?.id
+        }
+        if let id = selectedGameProfileID, !gameProfiles.contains(where: { $0.id == id }) {
+            self.selectedGameProfileID = nil
         }
         if let id = selectedBottleID, !bottles.contains(where: { $0.id == id }) {
             self.selectedBottleID = nil
@@ -818,6 +1123,7 @@ struct ContentView: View {
         var name = fileURL.deletingPathExtension().lastPathComponent
         var path = ""
         var args = ""
+        var steamAppID: String?
 
         for line in contents.split(whereSeparator: \.isNewline) {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -840,12 +1146,27 @@ struct ContentView: View {
                 path = value
             case "args":
                 args = value
+            case "STEAM_GAME_ID":
+                steamAppID = value
             default:
                 break
             }
         }
 
-        return SavedProfile(id: fileURL.lastPathComponent, name: name, path: path, args: args, fileURL: fileURL)
+        return SavedProfile(
+            id: fileURL.lastPathComponent,
+            name: name,
+            path: path,
+            args: args,
+            steamAppID: steamAppID,
+            fileURL: fileURL
+        )
+    }
+
+    /// Pass the selected bottle into CLI tools that honor COSMOS_BOTTLE.
+    private func bottleEnvironment() -> [String: String] {
+        guard let bottle = selectedBottle else { return [:] }
+        return ["COSMOS_BOTTLE": bottle.name]
     }
 
     // Pure helper for splitting the profile args field; edge cases can be unit-tested independently of the launcher and this only targets trusted local profile text.
@@ -1054,6 +1375,7 @@ private struct SavedProfile: Identifiable, Hashable {
     let name: String
     let path: String
     let args: String
+    let steamAppID: String?
     let fileURL: URL
 }
 

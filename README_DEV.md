@@ -238,6 +238,8 @@ logs, reset the bottle, install/uninstall) are available from one window.
   first and falling back to the repository checkout during development.
 - `app/Bottle.swift` - the `Bottle` model and `BottleStore` (reads the bottles
   directory + `bottle.conf` for the dashboard's Bottles section).
+- `app/GameProfile.swift` / `app/Recipe.swift` / `app/CosmosPaths.swift` -
+  curated YAML profiles and repair recipes for the dashboard UI.
 - `app/CosmosLogoView.swift` - the drawn Cosmos logo mark and brand colors.
 - `Package.swift` - SwiftPM manifest. The app shell requires macOS 13+
   (`NavigationSplitView`); the shell scripts themselves still target macOS 11.
@@ -249,10 +251,14 @@ Two execution paths, picked per action:
 - **Embedded** (`runCommand`): runs the script with `Process`, streaming stdout
   /stderr into the in-app console. Used for read-only or non-privileged actions
   that don't need a TTY — Launch Steam (`--steam`, detaches), Launch Profile,
-  Detect Games (`--list`), Open Logs, Profiles Folder, Reset Bottle
-  (`--reset-bottle --force`), Refresh, and all **bottle** actions
-  (`bottle.command create/set/launch/logs/reset/delete`; reset/delete pass
-  `--force` after the dashboard's own confirmation).
+  Detect Games (`--list`), **Verify Detection** (`--verify`), Open Logs, Profiles
+  Folder, Reset Bottle (`--reset-bottle --force`), Refresh, **repair** actions
+  (`repair.command install-dep` / `apply-fix`), **profile** actions
+  (`profile.command show` / `apply`), **CosmosDB** (`cosmosdb.command lookup` /
+  `report`), and all **bottle** actions (`bottle.command create/set/launch/logs/
+  reset/delete`; reset/delete pass `--force` after the dashboard's own
+  confirmation). When a bottle is selected, `COSMOS_BOTTLE` is passed in the
+  environment for detection, repair, and profile commands.
 - **Terminal** (`runInTerminal`): asks Terminal.app (via `osascript … do script`)
   to run the script. Used for actions that need `sudo` or interactive prompts the
   piped runner can't provide — **Install Cosmos**, **Build Launchers**
