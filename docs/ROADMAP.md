@@ -70,6 +70,11 @@ success criterion — if that sentence isn't true, the release isn't done.
 > evolving dashboard; polishing it (richer status, console mode) continues across
 > later milestones.
 
+### Detection hardening *(in progress)*
+- [x] `detect_steam_games.command --verify` + `scripts/verify_steam_detection.command`
+- [x] Expanded tool/runtime App ID filter; optional MIT `find-steam-app` cross-check
+- See [OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md)
+
 ### 0.2 — Game launchers *(complete)*
 - [x] Detect installed Steam games — `detect_steam_games.command` scans the
   prefix's Steam libraries (`libraryfolders.vdf` + `appmanifest_*.acf`)
@@ -114,18 +119,20 @@ success criterion — if that sentence isn't true, the release isn't done.
   `HKCU\Software\Wine\Version`, and clears the override when empty.
 - **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI. ✅
 
-### 0.4 — Profiles
-- v0 profile schema (YAML/JSON) — see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)
-- Recommended backend + dependency recipes + local compatibility notes
-- First 20 hand-tested game profiles
+### 0.4 — Profiles *(in progress)*
+- [x] v0 profile schema (YAML/JSON) — see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)
+- [x] `profile.command` — list/show/apply profiles; export `overrides/<appid>.env`
+- [x] Lutris field mapping — [LUTRIS_MAPPING.md](LUTRIS_MAPPING.md)
+- [ ] Recommended backend + dependency recipes + local compatibility notes
+- [ ] First 20 hand-tested game profiles
 - **Success:** Cosmos automatically applies known-good settings for specific games.
 
-### 0.5 — Repair engine
-- Crash/log detection + missing-runtime detection
-- One-click fixes (install VC++/DirectX redists, set Windows version, toggle
-  Retina, change backend, kill stuck Wine processes, rebuild prefix, clear Steam
-  shader/config caches, apply DLL overrides, controller mapping, force borderless)
-- Bottle health check
+### 0.5 — Repair engine *(in progress)*
+- [x] `repair.command` + `recipes/*/*.recipe` (winetricks deps, kill Wine, clear Steam caches)
+- [x] Winetricks as external LGPL tool — [LICENSING.md](LICENSING.md)
+- [ ] Crash/log detection + missing-runtime detection
+- [ ] One-click fixes (Retina, backend, rebuild prefix, DLL overrides, borderless, …)
+- [ ] Bottle health check + dashboard repair UI
 - **Success:** When a game fails, Cosmos suggests useful fixes instead of dumping the user into logs.
 
 ### 0.6 — Store expansion
@@ -135,9 +142,11 @@ success criterion — if that sentence isn't true, the release isn't done.
 - Epic via Legendary (experiment)
 - **Success:** Users can add non-Steam Windows games and get the same launcher/profile experience.
 
-### 0.7 — CosmosDB
-- GitHub-hosted community compatibility database (see schema below)
-- User reports, status badges, one-click profile updates
+### 0.7 — CosmosDB *(in progress)*
+- [x] `cosmosdb.command` — ProtonDB Community API lookup + local macOS JSON reports
+- [x] Report schema — [COSMOSDB.md](COSMOSDB.md)
+- [ ] GitHub-hosted community compatibility database (see schema below)
+- [ ] User reports, status badges, one-click profile updates in the dashboard
 - **Success:** Cosmos has its own "ProtonDB for Mac" that feeds back into profiles.
 
 ### 1.0 — Cosmos Runtime

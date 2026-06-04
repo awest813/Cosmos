@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=d3dx9
+DESCRIPTION=DirectX 9 June 2010 runtime (winetricks)
+WINETRICKS=d3dx9

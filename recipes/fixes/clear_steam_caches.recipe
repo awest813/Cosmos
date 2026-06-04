@@ -1,0 +1,5 @@
+TYPE=fix
+ID=clear_steam_caches
+DESCRIPTION=Remove Steam shader and HTTP caches inside the prefix (safe; Steam re-downloads)
+ACTION=script
+SCRIPT=clear_steam_caches

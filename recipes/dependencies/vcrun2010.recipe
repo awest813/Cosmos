@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=vcrun2010
+DESCRIPTION=Microsoft Visual C++ 2010 Redistributable (winetricks)
+WINETRICKS=vcrun2010

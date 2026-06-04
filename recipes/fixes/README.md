@@ -1,22 +1,36 @@
 # Fix Recipes
 
-One-click fixes applied by the repair engine (0.5). Profiles reference these by
-ID in their `fixes:` list, and the repair UI can suggest them when it detects a
-known failure pattern.
+One-click fixes applied by `repair.command` (roadmap 0.5). Profiles reference
+these by ID in their `fixes:` list.
 
-Planned fix IDs:
+## Format (`*.recipe`)
 
-- `disable_intro_video` — skip intro/splash videos that hang under Wine
-- `force_borderless` — force borderless/windowed mode
-- `force_windowed` — force windowed mode
-- `kill_wine` — kill stuck Wine processes
-- `rebuild_prefix` — recreate the bottle's Wine prefix
-- `clear_steam_caches` — clear Steam shader/config caches
-- `fix_controller_mapping` — apply controller mapping fixes
-- `set_windows_version` — set the reported Windows version
-- `dll_override` — apply specific Wine DLL overrides
+```
+TYPE=fix
+ID=clear_steam_caches
+DESCRIPTION=Remove Steam shader and HTTP caches inside the prefix
+ACTION=script
+SCRIPT=clear_steam_caches
+```
 
-Each fix will be a declarative recipe describing the registry edits, file
-operations, env changes, or process actions it performs. The format lands with
-the 0.5 repair engine.
+Implementations live in `scripts/repair_fixes.sh`.
+
+## Apply
+
+```bash
+./repair.command list-fixes
+./repair.command apply-fix kill_wine
+```
+
+## Shipped fixes
+
+| ID | Action |
+| --- | --- |
+| `kill_wine` | Terminate wineserver / Wine for `WINEPREFIX` |
+| `clear_steam_caches` | Delete Steam httpcache/shadercache under prefix |
+| `set_windows_version` | Documents `WINDOWS_VERSION`; set via bottle/steam.conf |
+
+## Planned
+
+- `disable_intro_video`, `force_borderless`, `dll_override`, `rebuild_prefix`
 </content>

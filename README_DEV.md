@@ -202,6 +202,27 @@ To auto-detect games inside a bottle, point detection at its prefix:
 WINEPREFIX="$(./bottle.command path steam)" ./detect_steam_games.command --list
 ```
 
+## Integration tooling (0.4–0.7 preview)
+
+See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md) and
+[docs/LICENSING.md](docs/LICENSING.md).
+
+| Script | Purpose |
+| --- | --- |
+| `detect_steam_games.command --verify` | List games + verify `installdir` on disk |
+| `scripts/verify_steam_detection.command` | Standalone detection cross-check |
+| `repair.command` | Winetricks deps + fix recipes (`recipes/`) |
+| `profile.command` | Apply YAML profiles → overrides + repair |
+| `cosmosdb.command` | ProtonDB lookup (hint) + local macOS reports |
+
+```bash
+./detect_steam_games.command --verify
+./repair.command install-dep vcrun2015
+./profile.command apply profiles/steam/steam-250900-binding-of-isaac.yaml
+./cosmosdb.command lookup 250900
+./cosmosdb.command report 250900 gold "DXMT, win10, stable on M2"
+```
+
 ## Cosmos Desktop App (app shell)
 
 A SwiftUI dashboard wraps the shell flow so common actions (launch Steam, launch
