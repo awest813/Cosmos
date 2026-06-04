@@ -93,7 +93,7 @@ success criterion — if that sentence isn't true, the release isn't done.
   "Uninstall" route through Terminal the same way
 - **Success:** A user can put a Windows Steam game in the Dock and launch it like a Mac app.
 
-### 0.3 — Bottles & backends *(in progress)*
+### 0.3 — Bottles & backends *(complete)*
 - [x] Backend selector `recommended | dxmt | d3dmetal | dxvk | wined3d` —
   `run.command` validates `COSMOS_BACKEND` and resolves `recommended`
   (→ `d3dmetal` when `GPTK_PATH` is set, else `dxmt`, preserving prior behavior);
@@ -105,9 +105,13 @@ success criterion — if that sentence isn't true, the release isn't done.
   logs). `run.command` honors `COSMOS_BOTTLE`, loading the bottle's prefix and
   settings (Wine version, backend, Retina, env) with precedence
   *explicit env > bottle.conf > defaults*. No bottle named → unchanged behavior.
-- [ ] Per-bottle Windows-version application (stored today; needs registry writes)
-- [ ] UI: bottle manager + backend picker in the dashboard
-- **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI.
+- [x] UI: bottle manager + backend picker in the dashboard — the Bottles section
+  lists bottles, creates them (name/backend/Windows/Retina sheet), switches a
+  bottle's backend via a Picker, and launches/opens-logs/resets/deletes — all
+  driven by `bottle.command`.
+- **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI. ✅
+- [ ] *(deferred)* Per-bottle Windows-version application — stored & shown today;
+  applying it to the prefix registry is a follow-up.
 
 ### 0.4 — Profiles
 - v0 profile schema (YAML/JSON) — see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)
