@@ -107,7 +107,6 @@ struct ContentView: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .help("Reload installation status (⌘R)")
-                .keyboardShortcut("r", modifiers: .command)
                 .disabled(isRunning)
             }
             ToolbarItemGroup(placement: .automatic) {
@@ -1963,6 +1962,8 @@ private extension View {
 
 extension Notification.Name {
     static let cosmosRefreshStatus = Notification.Name("com.cosmos.refreshStatus")
+    static let cosmosContinueSetup = Notification.Name("com.cosmos.continueSetup")
+    static let cosmosOpenSetupHelp = Notification.Name("com.cosmos.openSetupHelp")
 }
 
 #if DEBUG
