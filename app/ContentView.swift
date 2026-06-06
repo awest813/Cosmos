@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var showAdvancedSetupOptions = false
     @State private var consoleExpanded = false
     @State private var showSetupCompleteBanner = false
+    @State private var didCopyOutput = false
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -455,6 +456,25 @@ struct ContentView: View {
         }
     }
 
+    private func setupStep(done: Bool, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(done ? Color.green : Color.secondary)
+                .font(.body.weight(.semibold))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(done ? "done" : "not done"). \(detail)")
+    }
+
     private var setupLaunchHintSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("After setup", systemImage: "play.circle")
@@ -610,6 +630,17 @@ struct ContentView: View {
                 }
                 .disabled(isRunning)
 
+                Toggle(isOn: steamSilentBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Unattended Steam install")
+                            .font(.subheadline.weight(.medium))
+                        Text("Installs Steam automatically without the wizard. Falls back to the wizard if the silent install can't finish.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isRunning)
+
                 Toggle(isOn: steamDetachBinding) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Detach Steam from Terminal")
@@ -664,6 +695,13 @@ struct ContentView: View {
         Binding(
             get: { steamSettings.detachEnabled },
             set: { applySteamSetting(key: "COSMOS_DETACH", value: $0 ? "1" : "0") }
+        )
+    }
+
+    private var steamSilentBinding: Binding<Bool> {
+        Binding(
+            get: { steamSettings.silentInstallEnabled },
+            set: { applySteamSetting(key: "COSMOS_STEAM_SILENT", value: $0 ? "1" : "0") }
         )
     }
 
@@ -1394,6 +1432,17 @@ struct ContentView: View {
                 }
                 Spacer()
                 Button {
+                    copyOutputToClipboard()
+                } label: {
+                    Label(didCopyOutput ? "Copied" : "Copy", systemImage: didCopyOutput ? "checkmark.circle" : "doc.on.doc")
+                        .font(.caption.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(didCopyOutput ? Color.green : .secondary)
+                .disabled(output.isEmpty)
+                .help("Copy the output log to the clipboard")
+                .accessibilityLabel(didCopyOutput ? "Output copied" : "Copy output")
+                Button {
                     output = ""
                 } label: {
                     Label("Clear", systemImage: "xmark.circle")
@@ -1480,6 +1529,17 @@ struct ContentView: View {
             return
         }
         output = "Setup guide not found. See docs/STEAM_SETUP.md in the Cosmos repository.\n\n" + output
+    }
+
+    private func copyOutputToClipboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(output, forType: .string)
+        didCopyOutput = true
+        // Revert the transient "Copied" confirmation after a moment.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            didCopyOutput = false
+        }
     }
 
     // MARK: - Reusable components

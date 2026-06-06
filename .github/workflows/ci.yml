@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save runner minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-app:
+    name: Build Cosmos app (SwiftPM)
+    # Apple Silicon runner; the app target requires macOS 13+ (see Package.swift).
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build (debug)
+        run: swift build
+
+      - name: Build (release)
+        run: swift build -c release
+
+  shell-syntax:
+    name: Shell script syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n on every .command and .sh
+        run: |
+          status=0
+          while IFS= read -r -d '' file; do
+            echo "Checking ${file}"
+            if ! bash -n "${file}"; then
+              echo "::error file=${file}::bash syntax check failed"
+              status=1
+            fi
+          done < <(find . -type f \( -name '*.command' -o -name '*.sh' \) -print0)
+          exit "${status}"

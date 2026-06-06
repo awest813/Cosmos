@@ -47,6 +47,7 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - `run.command --setup-steam` prepares Wine, the prefix, backend DLLs, and Steam without launching (see [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md)).
   - `run.command --profiles` opens `~/Library/Application Support/Cosmos/Profiles/` in Finder and exits (falling back to the legacy `~/Library/Application Support/Cider/Profiles/` if only that exists).
   - `run.command --game <path> [args...]` launches a saved profile executable directly.
+  - `run.command --status` (alias `--doctor`) prints a read-only setup summary — Wine download, prefix, Steam install, and saved profile count — plus the recommended next command, then exits. It never modifies the prefix and mirrors the dashboard's setup checklist.
   - `run.command --logs` opens the latest launch log (`COSMOS_LAUNCH_LOG`), or reveals its folder if no log exists yet, and exits.
   - `run.command --reset-bottle [--force]` deletes the Wine prefix (and its alias symlink) so the next launch recreates it and reinstalls Steam. Without `--force` it prompts for confirmation when run interactively, and refuses (rather than guessing) when stdin is not a TTY. Wine and DXMT downloads are preserved.
 - Wine logging:
@@ -93,6 +94,9 @@ Defaults are the values in `run.command`.
 - `COSMOS_DETACH` (legacy alias: `MERLOT_DETACH`)
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
+- `COSMOS_STEAM_SILENT`
+  - `1` (default) installs Steam unattended via the NSIS `/S` flag — no wizard clicks. Cosmos polls for `steam.exe` (up to ~2 min) and, since a silent install can auto-start Steam, stops the prefix afterward so the explicit launch step is clean. Falls back to the interactive wizard if the silent run does not produce `steam.exe`.
+  - `0` always shows the graphical `SteamSetup.exe` wizard.
 - `COSMOS_LAUNCH_LOG` (legacy aliases: `MERLOT_LAUNCH_LOG`, `MERLOT_STEAM_LOG`, `COSMOS_STEAM_LOG`)
   - Path to the detached-mode launch log (default: `~/Library/Application Support/Cosmos/logs/steam-launch.log`).
 - `COSMOS_SUPPORT_DIR`
@@ -298,6 +302,22 @@ an installed `Cosmos.app` can detect → build launchers without the repository.
 swift build -c release            # compile the Cosmos executable
 scripts/build_cosmos_app.command  # build ./build/Cosmos.app (bundles the scripts)
 INSTALL=1 scripts/build_cosmos_app.command  # also copy it into /Applications
+```
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+
+- **Build Cosmos app (SwiftPM)** — `swift build` (debug + release) on a macOS
+  runner, so a dashboard that doesn't compile can't reach `main`.
+- **Shell script syntax** — `bash -n` over every `*.command`/`*.sh`.
+
+Run the same checks locally before pushing:
+
+```bash
+swift build                                                   # compile check
+find . -type f \( -name '*.command' -o -name '*.sh' \) -print0 \
+  | xargs -0 -n1 bash -n                                      # shell syntax
 ```
 
 `build_cosmos_app.command` compiles via SwiftPM, then assembles a

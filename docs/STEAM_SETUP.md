@@ -46,8 +46,11 @@ but **does not start `steam.exe`** afterward:
 2. Downloads the pinned Wine build to `~/wine-<version>/` (if missing).
 3. Creates the Wine prefix at `~/.wine-steam-11` (or `WINEPREFIX`).
 4. Applies registry tweaks (Retina mode, Windows version, mouse acceleration).
-5. Downloads and runs the official `SteamSetup.exe` wizard if Steam is not
-   already in the prefix.
+5. Downloads the official `SteamSetup.exe` and installs Steam if it is not
+   already in the prefix. By default this runs **unattended** (no wizard
+   clicks); if the silent install can't finish it falls back to the graphical
+   wizard. Set `COSMOS_STEAM_SILENT=0` (or turn off **Unattended Steam install**
+   in the dashboard) to always use the wizard.
 6. Installs and enables the selected graphics backend (DXMT by default).
 
 Settings come from `~/Library/Application Support/Cosmos/steam.conf` (or
@@ -77,6 +80,19 @@ If Wine and the prefix are ready but Steam is missing:
 
 Complete the graphical Steam installer when the Wine window opens.
 
+## Check your setup status
+
+Not sure where you are in setup? Run a quick, read-only diagnostic that mirrors
+the dashboard checklist and tells you the next step:
+
+```bash
+./run.command --status
+```
+
+It reports whether Wine is downloaded, the prefix is created, Steam is
+installed, and how many game launchers exist — then prints the recommended next
+command. It never modifies the prefix, so it is safe to run any time.
+
 ## Launch without setup
 
 If everything is already installed:
@@ -95,6 +111,11 @@ STEAM_GAME_ID=250900 ./run.command --steam
 ```
 
 ## Troubleshooting
+
+### Where am I in setup?
+
+Run `./run.command --status` for a read-only summary of what is done and what
+to run next.
 
 ### Steam won't start
 

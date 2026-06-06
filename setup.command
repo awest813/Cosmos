@@ -78,6 +78,7 @@ cat <<'EOF'
     2. Build Launchers — creates Dock-friendly apps in Cosmos Apps.
 
   Commands if you prefer Terminal:
+    ./run.command --status              # check progress and the next step
     ./run.command --steam
     ./detect_steam_games.command --install
 

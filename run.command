@@ -60,6 +60,7 @@ ensure_steam_conf() {
 # Cosmos default Steam bottle settings. Applied on each launch.
 COSMOS_BACKEND="recommended"
 COSMOS_DETACH="1"
+COSMOS_STEAM_SILENT="1"
 WINE_RETINA_MODE="0"
 WINDOWS_VERSION=""
 WINE_VERSION="11.8"
@@ -93,6 +94,7 @@ sanitize_steam_settings() {
     *) COSMOS_BACKEND="recommended" ;;
   esac
   case "${COSMOS_DETACH}" in 0|1) ;; *) COSMOS_DETACH=1 ;; esac
+  case "${COSMOS_STEAM_SILENT}" in 0|1) ;; *) COSMOS_STEAM_SILENT=1 ;; esac
   case "${WINE_RETINA_MODE}" in 0|1) ;; *) WINE_RETINA_MODE=0 ;; esac
   case "${WINDOWS_VERSION}" in
     ""|winxp|win7|win8|win10|win11) ;;
@@ -152,6 +154,10 @@ WINE_RETINA_MODE="${WINE_RETINA_MODE:-0}" # 1=enable RetinaMode, 0=disable Retin
 # 0=keep the original foreground behavior (Terminal window must stay open).
 # COSMOS_DETACH is the current name; MERLOT_DETACH is honored for back-compat.
 COSMOS_DETACH="${COSMOS_DETACH:-${MERLOT_DETACH:-1}}"
+# 1=install Steam unattended with the NSIS /S flag (no wizard clicks); falls back
+# to the interactive installer if the silent run does not produce steam.exe.
+# 0=always show the graphical Steam installer wizard.
+COSMOS_STEAM_SILENT="${COSMOS_STEAM_SILENT:-1}"
 COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:-${MERLOT_STEAM_LOG:-${STEAM_LAUNCH_LOG_DEFAULT}}}}}"
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
@@ -187,6 +193,7 @@ Usage: run.command [ACTION]
 Actions:
   (none) | --steam        Set up the bottle if needed and launch Steam (default).
   --setup-steam           Prepare Wine, DXMT/backend, and Steam (no launch).
+  --status                 Show setup progress and the next step, then exit.
   --game <path> [args...]  Launch a saved profile executable directly.
   --profiles               Open the saved profiles folder in Finder and exit.
   --logs                   Open the latest launch log and exit.
@@ -234,6 +241,13 @@ parse_arguments() {
         die "The --logs flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="logs"
+      return 0
+      ;;
+    --status|--doctor)
+      if (($# > 1)); then
+        die "The $1 flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="status"
       return 0
       ;;
     --reset-bottle)
@@ -537,6 +551,46 @@ cleanup_steam_setup() {
   fi
 }
 
+# Best-effort terminate everything running in the active Wine prefix. A silent
+# Steam install can auto-start Steam, so we stop it to leave a clean prefix for
+# the explicit Launch Steam step.
+stop_wine_prefix() {
+  local wineserver_bin
+  wineserver_bin="$(dirname "${WINE_BIN}")/wineserver"
+  [[ -x "${wineserver_bin}" ]] || return 0
+  WINEPREFIX="${WINEPREFIX}" "${wineserver_bin}" -k 2>/dev/null || true
+}
+
+# Attempt an unattended Steam install using the NSIS /S flag. Prints progress and
+# returns 0 once steam.exe appears, or 1 on timeout so the caller can fall back
+# to the interactive wizard.
+install_steam_silently() {
+  log "Installing Steam silently (no wizard)"
+  echo "Running the Steam installer unattended — this usually takes under a minute."
+  # NSIS installers accept /S for a silent install. Run it detached so a
+  # post-install auto-launch of Steam can't block us while we poll for steam.exe.
+  WINEPREFIX="${WINEPREFIX}" nohup "${WINE_BIN}" "${STEAM_SETUP}" /S </dev/null >/dev/null 2>&1 &
+  disown
+
+  local waited=0 steam_exe=""
+  while ((waited < 120)); do
+    steam_exe="$(find_steam_exe || true)"
+    [[ -n "${steam_exe}" ]] && break
+    sleep 3
+    waited=$((waited + 3))
+  done
+
+  if [[ -z "${steam_exe}" ]]; then
+    echo "Silent install did not finish within ${waited}s — falling back to the installer wizard."
+    stop_wine_prefix
+    return 1
+  fi
+
+  echo "Steam installed at ${steam_exe}."
+  stop_wine_prefix
+  return 0
+}
+
 ensure_steam_installed() {
   log "Ensuring Steam is installed in Wine prefix"
   local steam_exe
@@ -549,6 +603,11 @@ ensure_steam_installed() {
   if [[ ! -f "${STEAM_SETUP}" ]]; then
     echo "Downloading Steam installer..."
     curl -L --fail --retry 5 --retry-delay 1 -o "${STEAM_SETUP}" "${STEAM_URL}"
+  fi
+
+  if [[ "${COSMOS_STEAM_SILENT}" == "1" ]] && install_steam_silently; then
+    cleanup_steam_setup
+    return
   fi
 
   echo "Launching Steam installer. Complete the wizard in the Wine window."
@@ -860,22 +919,6 @@ prepare_steam_bottle() {
   esac
 }
 
-finish_steam_setup() {
-  local steam_exe
-  steam_exe="$(find_steam_exe || true)"
-  echo ""
-  echo "Steam bottle is ready at ${WINEPREFIX}."
-  if [[ -n "${steam_exe}" ]]; then
-    echo "Steam: ${steam_exe}"
-    echo "Launch with: ./run.command --steam"
-    echo "Or use Launch Steam in the Cosmos dashboard."
-  else
-    echo "Steam installer did not finish — re-run ./run.command --setup-steam and complete the wizard."
-  fi
-  echo "Launch log (detached mode): ${COSMOS_LAUNCH_LOG}"
-  echo "Manual setup guide: docs/STEAM_SETUP.md"
-}
-
 prepare_steam_bottle() {
   resolve_backend
   require_macos_version
@@ -917,6 +960,61 @@ finish_steam_setup() {
   echo "Manual setup guide: docs/STEAM_SETUP.md"
 }
 
+# Count saved game profiles (.yaml) across the profile directory tree.
+count_profiles() {
+  [[ -d "${PROFILE_DIRECTORY}" ]] || { printf "0\n"; return; }
+  find "${PROFILE_DIRECTORY}" -type f -name "*.yaml" 2>/dev/null | wc -l | tr -d ' '
+}
+
+# Print a check/cross marker line for a setup step.
+status_line() {
+  local done="$1" label="$2" detail="$3"
+  if [[ "${done}" -eq 1 ]]; then
+    printf "  [x] %s\n" "${label}"
+  else
+    printf "  [ ] %s\n" "${label}"
+  fi
+  [[ -n "${detail}" ]] && printf "        %s\n" "${detail}"
+}
+
+# Mirror the dashboard's setup checklist in Terminal: report which steps are
+# done and recommend the next one. Read-only — never modifies the prefix.
+show_status() {
+  local wine_ok=0 prefix_ok=0 steam_ok=0 profiles_count steam_exe
+  [[ -x "${WINE_BIN}" ]] && wine_ok=1
+  [[ -f "${WINEPREFIX}/system.reg" ]] && prefix_ok=1
+  steam_exe="$(find_steam_exe || true)"
+  [[ -n "${steam_exe}" ]] && steam_ok=1
+  profiles_count="$(count_profiles)"
+
+  echo ""
+  echo "  Cosmos — Steam setup status"
+  echo "  ==========================="
+  [[ -n "${COSMOS_BOTTLE}" ]] && echo "  Bottle: ${COSMOS_BOTTLE}"
+  echo ""
+  status_line "${wine_ok}" "Wine ${WINE_VERSION} downloaded" \
+    "$([[ "${wine_ok}" -eq 1 ]] && echo "${WINE_APP}" || echo "Downloads on first --setup-steam or --steam")"
+  status_line "${prefix_ok}" "Wine prefix created" \
+    "$([[ "${prefix_ok}" -eq 1 ]] && echo "${WINEPREFIX}" || echo "Created during --setup-steam")"
+  status_line "${steam_ok}" "Steam installed in prefix" \
+    "$([[ "${steam_ok}" -eq 1 ]] && echo "${steam_exe}" || echo "Complete the Steam installer wizard")"
+  status_line "$([[ "${profiles_count}" -gt 0 ]] && echo 1 || echo 0)" "Game launchers built" \
+    "$([[ "${profiles_count}" -gt 0 ]] && echo "${profiles_count} profile(s) in ${PROFILE_DIRECTORY}" || echo "Run ./detect_steam_games.command --install after installing a game")"
+
+  echo ""
+  echo "  Backend: ${COSMOS_BACKEND}   Windows: ${WINDOWS_VERSION:-Wine default}   Retina: $([[ "${WINE_RETINA_MODE}" == "1" ]] && echo on || echo off)   Install: $([[ "${COSMOS_STEAM_SILENT}" == "1" ]] && echo silent || echo wizard)"
+  echo ""
+  if [[ "${wine_ok}" -eq 0 || "${prefix_ok}" -eq 0 || "${steam_ok}" -eq 0 ]]; then
+    echo "  Next step: ./run.command --setup-steam"
+  elif [[ "${profiles_count}" -eq 0 ]]; then
+    echo "  Next step: launch Steam (./run.command --steam), install a Windows game,"
+    echo "             then ./detect_steam_games.command --install"
+  else
+    echo "  Setup complete. Launch Steam with ./run.command --steam"
+  fi
+  echo ""
+}
+
 main() {
   parse_arguments "$@"
   require_macos_arm64
@@ -924,6 +1022,7 @@ main() {
   case "${COSMOS_LAUNCH_MODE}" in
     profiles) open_profiles_folder; return ;;
     logs) open_logs; return ;;
+    status) show_status; return ;;
     reset-bottle) reset_bottle; return ;;
     setup-steam)
       log "Preparing Steam bottle (no launch)"
