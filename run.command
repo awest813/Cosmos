@@ -187,6 +187,7 @@ Usage: run.command [ACTION]
 Actions:
   (none) | --steam        Set up the bottle if needed and launch Steam (default).
   --setup-steam           Prepare Wine, DXMT/backend, and Steam (no launch).
+  --status                 Show setup progress and the next step, then exit.
   --game <path> [args...]  Launch a saved profile executable directly.
   --profiles               Open the saved profiles folder in Finder and exit.
   --logs                   Open the latest launch log and exit.
@@ -234,6 +235,13 @@ parse_arguments() {
         die "The --logs flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="logs"
+      return 0
+      ;;
+    --status|--doctor)
+      if (($# > 1)); then
+        die "The $1 flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="status"
       return 0
       ;;
     --reset-bottle)
@@ -860,22 +868,6 @@ prepare_steam_bottle() {
   esac
 }
 
-finish_steam_setup() {
-  local steam_exe
-  steam_exe="$(find_steam_exe || true)"
-  echo ""
-  echo "Steam bottle is ready at ${WINEPREFIX}."
-  if [[ -n "${steam_exe}" ]]; then
-    echo "Steam: ${steam_exe}"
-    echo "Launch with: ./run.command --steam"
-    echo "Or use Launch Steam in the Cosmos dashboard."
-  else
-    echo "Steam installer did not finish — re-run ./run.command --setup-steam and complete the wizard."
-  fi
-  echo "Launch log (detached mode): ${COSMOS_LAUNCH_LOG}"
-  echo "Manual setup guide: docs/STEAM_SETUP.md"
-}
-
 prepare_steam_bottle() {
   resolve_backend
   require_macos_version
@@ -917,6 +909,61 @@ finish_steam_setup() {
   echo "Manual setup guide: docs/STEAM_SETUP.md"
 }
 
+# Count saved game profiles (.yaml) across the profile directory tree.
+count_profiles() {
+  [[ -d "${PROFILE_DIRECTORY}" ]] || { printf "0\n"; return; }
+  find "${PROFILE_DIRECTORY}" -type f -name "*.yaml" 2>/dev/null | wc -l | tr -d ' '
+}
+
+# Print a check/cross marker line for a setup step.
+status_line() {
+  local done="$1" label="$2" detail="$3"
+  if [[ "${done}" -eq 1 ]]; then
+    printf "  [x] %s\n" "${label}"
+  else
+    printf "  [ ] %s\n" "${label}"
+  fi
+  [[ -n "${detail}" ]] && printf "        %s\n" "${detail}"
+}
+
+# Mirror the dashboard's setup checklist in Terminal: report which steps are
+# done and recommend the next one. Read-only — never modifies the prefix.
+show_status() {
+  local wine_ok=0 prefix_ok=0 steam_ok=0 profiles_count steam_exe
+  [[ -x "${WINE_BIN}" ]] && wine_ok=1
+  [[ -f "${WINEPREFIX}/system.reg" ]] && prefix_ok=1
+  steam_exe="$(find_steam_exe || true)"
+  [[ -n "${steam_exe}" ]] && steam_ok=1
+  profiles_count="$(count_profiles)"
+
+  echo ""
+  echo "  Cosmos — Steam setup status"
+  echo "  ==========================="
+  [[ -n "${COSMOS_BOTTLE}" ]] && echo "  Bottle: ${COSMOS_BOTTLE}"
+  echo ""
+  status_line "${wine_ok}" "Wine ${WINE_VERSION} downloaded" \
+    "$([[ "${wine_ok}" -eq 1 ]] && echo "${WINE_APP}" || echo "Downloads on first --setup-steam or --steam")"
+  status_line "${prefix_ok}" "Wine prefix created" \
+    "$([[ "${prefix_ok}" -eq 1 ]] && echo "${WINEPREFIX}" || echo "Created during --setup-steam")"
+  status_line "${steam_ok}" "Steam installed in prefix" \
+    "$([[ "${steam_ok}" -eq 1 ]] && echo "${steam_exe}" || echo "Complete the Steam installer wizard")"
+  status_line "$([[ "${profiles_count}" -gt 0 ]] && echo 1 || echo 0)" "Game launchers built" \
+    "$([[ "${profiles_count}" -gt 0 ]] && echo "${profiles_count} profile(s) in ${PROFILE_DIRECTORY}" || echo "Run ./detect_steam_games.command --install after installing a game")"
+
+  echo ""
+  echo "  Backend: ${COSMOS_BACKEND}   Windows: ${WINDOWS_VERSION:-Wine default}   Retina: $([[ "${WINE_RETINA_MODE}" == "1" ]] && echo on || echo off)"
+  echo ""
+  if [[ "${wine_ok}" -eq 0 || "${prefix_ok}" -eq 0 || "${steam_ok}" -eq 0 ]]; then
+    echo "  Next step: ./run.command --setup-steam"
+  elif [[ "${profiles_count}" -eq 0 ]]; then
+    echo "  Next step: launch Steam (./run.command --steam), install a Windows game,"
+    echo "             then ./detect_steam_games.command --install"
+  else
+    echo "  Setup complete. Launch Steam with ./run.command --steam"
+  fi
+  echo ""
+}
+
 main() {
   parse_arguments "$@"
   require_macos_arm64
@@ -924,6 +971,7 @@ main() {
   case "${COSMOS_LAUNCH_MODE}" in
     profiles) open_profiles_folder; return ;;
     logs) open_logs; return ;;
+    status) show_status; return ;;
     reset-bottle) reset_bottle; return ;;
     setup-steam)
       log "Preparing Steam bottle (no launch)"

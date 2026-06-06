@@ -47,6 +47,7 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - `run.command --setup-steam` prepares Wine, the prefix, backend DLLs, and Steam without launching (see [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md)).
   - `run.command --profiles` opens `~/Library/Application Support/Cosmos/Profiles/` in Finder and exits (falling back to the legacy `~/Library/Application Support/Cider/Profiles/` if only that exists).
   - `run.command --game <path> [args...]` launches a saved profile executable directly.
+  - `run.command --status` (alias `--doctor`) prints a read-only setup summary — Wine download, prefix, Steam install, and saved profile count — plus the recommended next command, then exits. It never modifies the prefix and mirrors the dashboard's setup checklist.
   - `run.command --logs` opens the latest launch log (`COSMOS_LAUNCH_LOG`), or reveals its folder if no log exists yet, and exits.
   - `run.command --reset-bottle [--force]` deletes the Wine prefix (and its alias symlink) so the next launch recreates it and reinstalls Steam. Without `--force` it prompts for confirmation when run interactively, and refuses (rather than guessing) when stdin is not a TTY. Wine and DXMT downloads are preserved.
 - Wine logging:

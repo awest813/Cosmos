@@ -77,6 +77,19 @@ If Wine and the prefix are ready but Steam is missing:
 
 Complete the graphical Steam installer when the Wine window opens.
 
+## Check your setup status
+
+Not sure where you are in setup? Run a quick, read-only diagnostic that mirrors
+the dashboard checklist and tells you the next step:
+
+```bash
+./run.command --status
+```
+
+It reports whether Wine is downloaded, the prefix is created, Steam is
+installed, and how many game launchers exist — then prints the recommended next
+command. It never modifies the prefix, so it is safe to run any time.
+
 ## Launch without setup
 
 If everything is already installed:
@@ -95,6 +108,11 @@ STEAM_GAME_ID=250900 ./run.command --steam
 ```
 
 ## Troubleshooting
+
+### Where am I in setup?
+
+Run `./run.command --status` for a read-only summary of what is done and what
+to run next.
 
 ### Steam won't start
 
