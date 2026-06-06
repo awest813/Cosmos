@@ -610,6 +610,17 @@ struct ContentView: View {
                 }
                 .disabled(isRunning)
 
+                Toggle(isOn: steamSilentBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Unattended Steam install")
+                            .font(.subheadline.weight(.medium))
+                        Text("Installs Steam automatically without the wizard. Falls back to the wizard if the silent install can't finish.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isRunning)
+
                 Toggle(isOn: steamDetachBinding) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Detach Steam from Terminal")
@@ -664,6 +675,13 @@ struct ContentView: View {
         Binding(
             get: { steamSettings.detachEnabled },
             set: { applySteamSetting(key: "COSMOS_DETACH", value: $0 ? "1" : "0") }
+        )
+    }
+
+    private var steamSilentBinding: Binding<Bool> {
+        Binding(
+            get: { steamSettings.silentInstallEnabled },
+            set: { applySteamSetting(key: "COSMOS_STEAM_SILENT", value: $0 ? "1" : "0") }
         )
     }
 

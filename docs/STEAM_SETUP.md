@@ -46,8 +46,11 @@ but **does not start `steam.exe`** afterward:
 2. Downloads the pinned Wine build to `~/wine-<version>/` (if missing).
 3. Creates the Wine prefix at `~/.wine-steam-11` (or `WINEPREFIX`).
 4. Applies registry tweaks (Retina mode, Windows version, mouse acceleration).
-5. Downloads and runs the official `SteamSetup.exe` wizard if Steam is not
-   already in the prefix.
+5. Downloads the official `SteamSetup.exe` and installs Steam if it is not
+   already in the prefix. By default this runs **unattended** (no wizard
+   clicks); if the silent install can't finish it falls back to the graphical
+   wizard. Set `COSMOS_STEAM_SILENT=0` (or turn off **Unattended Steam install**
+   in the dashboard) to always use the wizard.
 6. Installs and enables the selected graphics backend (DXMT by default).
 
 Settings come from `~/Library/Application Support/Cosmos/steam.conf` (or

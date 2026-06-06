@@ -8,6 +8,7 @@ struct SteamSettings: Equatable {
     var windowsVersion: String
     var retinaEnabled: Bool
     var detachEnabled: Bool
+    var silentInstallEnabled: Bool
     var wineVersion: String
 
     static let defaults = SteamSettings(
@@ -15,6 +16,7 @@ struct SteamSettings: Equatable {
         windowsVersion: "",
         retinaEnabled: false,
         detachEnabled: true,
+        silentInstallEnabled: true,
         wineVersion: "11.8"
     )
 
@@ -78,6 +80,7 @@ enum SteamSettingsStore {
             "# Cosmos default Steam bottle settings. Applied on each launch.",
             "COSMOS_BACKEND=\"recommended\"",
             "COSMOS_DETACH=\"1\"",
+            "COSMOS_STEAM_SILENT=\"1\"",
             "WINE_RETINA_MODE=\"0\"",
             "WINDOWS_VERSION=\"\"",
             "WINE_VERSION=\"11.8\"",
@@ -106,6 +109,9 @@ enum SteamSettingsStore {
         if let detach = stored["COSMOS_DETACH"] {
             settings.detachEnabled = detach == "1"
         }
+        if let silent = stored["COSMOS_STEAM_SILENT"] {
+            settings.silentInstallEnabled = silent == "1"
+        }
         if let wine = stored["WINE_VERSION"], !wine.isEmpty {
             settings.wineVersion = wine
         }
@@ -132,7 +138,7 @@ enum SteamSettingsStore {
             guard windowsOptions.contains(value) else {
                 throw SteamSettingsError.invalidValue("WINDOWS_VERSION must be empty or one of: winxp, win7, win8, win10, win11")
             }
-        case "WINE_RETINA_MODE", "COSMOS_DETACH":
+        case "WINE_RETINA_MODE", "COSMOS_DETACH", "COSMOS_STEAM_SILENT":
             guard value == "0" || value == "1" else {
                 throw SteamSettingsError.invalidValue("\(key) must be 0 or 1")
             }

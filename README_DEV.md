@@ -94,6 +94,9 @@ Defaults are the values in `run.command`.
 - `COSMOS_DETACH` (legacy alias: `MERLOT_DETACH`)
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
+- `COSMOS_STEAM_SILENT`
+  - `1` (default) installs Steam unattended via the NSIS `/S` flag — no wizard clicks. Cosmos polls for `steam.exe` (up to ~2 min) and, since a silent install can auto-start Steam, stops the prefix afterward so the explicit launch step is clean. Falls back to the interactive wizard if the silent run does not produce `steam.exe`.
+  - `0` always shows the graphical `SteamSetup.exe` wizard.
 - `COSMOS_LAUNCH_LOG` (legacy aliases: `MERLOT_LAUNCH_LOG`, `MERLOT_STEAM_LOG`, `COSMOS_STEAM_LOG`)
   - Path to the detached-mode launch log (default: `~/Library/Application Support/Cosmos/logs/steam-launch.log`).
 - `COSMOS_SUPPORT_DIR`
