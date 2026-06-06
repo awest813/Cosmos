@@ -304,6 +304,22 @@ scripts/build_cosmos_app.command  # build ./build/Cosmos.app (bundles the script
 INSTALL=1 scripts/build_cosmos_app.command  # also copy it into /Applications
 ```
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+
+- **Build Cosmos app (SwiftPM)** — `swift build` (debug + release) on a macOS
+  runner, so a dashboard that doesn't compile can't reach `main`.
+- **Shell script syntax** — `bash -n` over every `*.command`/`*.sh`.
+
+Run the same checks locally before pushing:
+
+```bash
+swift build                                                   # compile check
+find . -type f \( -name '*.command' -o -name '*.sh' \) -print0 \
+  | xargs -0 -n1 bash -n                                      # shell syntax
+```
+
 `build_cosmos_app.command` compiles via SwiftPM, then assembles a
 double-clickable `Cosmos.app`. Into `Contents/Resources/` it copies the helper
 scripts (`run.command`, `install_cosmos.command`, `uninstall.command`,
