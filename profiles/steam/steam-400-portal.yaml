@@ -1,0 +1,13 @@
+id: portal
+name: "Portal"
+store: steam
+steam_appid: 400
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2010
+notes: "Same Source-engine preset as Portal 2. Apply profile before first launch."

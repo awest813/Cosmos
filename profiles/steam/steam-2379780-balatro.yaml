@@ -1,0 +1,11 @@
+id: balatro
+name: "Balatro"
+store: steam
+steam_appid: 2379780
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "Lightweight indie card game. Launches cleanly on DXMT without tweaks."

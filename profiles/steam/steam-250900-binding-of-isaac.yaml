@@ -1,5 +1,3 @@
-# Migrated from merlot_configs/binding-of-isaac.conf as a worked example of the
-# .conf -> profile mapping described in docs/PROFILE_FORMAT.md.
 id: binding_of_isaac
 name: "The Binding of Isaac: Rebirth"
 store: steam
@@ -8,7 +6,9 @@ status: playable
 recommended_backend: dxmt
 wine_version: cosmos-stable
 settings:
+  retina: false
+  windows_version: win10
   env:
     DXMT_CONFIG: "d3d11.preferredMaxFrameRate=60;"
-notes: "Frame rate capped to 60 via DXMT to match the original Merlot preset."
+notes: "Frame rate capped to 60 via DXMT. Migrated from the original Merlot preset."
 </content>

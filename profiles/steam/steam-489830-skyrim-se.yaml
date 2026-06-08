@@ -1,0 +1,15 @@
+id: skyrim_se
+name: "The Elder Scrolls V: Skyrim Special Edition"
+store: steam
+steam_appid: 489830
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: "Creation Engine D3D11 game. Use the in-game launcher to set resolution. Mod-heavy installs may need extra winetricks deps."

@@ -21,6 +21,8 @@ profiles/
    `recipes/fixes/`.
 4. Add `notes` for any manual steps a player needs to know.
 
-The current `cosmos_configs/*.conf` files are the predecessor of these profiles;
-migrating them is a 0.4 roadmap task.
+During game detection, `detect_steam_games.command` auto-exports
+`cosmos_configs/overrides/<appid>.env` from a matching profile when the user has
+not authored an override yet. Apply dependencies and fixes with
+`./profile.command apply profiles/steam/<file>.yaml`.
 </content>

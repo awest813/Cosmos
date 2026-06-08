@@ -1,0 +1,13 @@
+id: portal_2
+name: "Portal 2"
+store: steam
+steam_appid: 620
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2010
+notes: "Classic Source engine title. Runs reliably on DXMT with win10 reported version."

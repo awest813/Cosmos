@@ -1,0 +1,11 @@
+id: slay_the_spire
+name: "Slay the Spire"
+store: steam
+steam_appid: 646570
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "Lightweight 2D title — works out of the box on DXMT."

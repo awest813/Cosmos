@@ -1,0 +1,16 @@
+id: fallout_4
+name: "Fallout 4"
+store: steam
+steam_appid: 377160
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+  - d3dx9
+fixes:
+  - disable_retina
+notes: "Same Creation Engine family as Skyrim SE. Disable intro videos in the launcher if startup hangs. Expect longer first-launch shader compile."

@@ -841,10 +841,17 @@ struct ContentView: View {
                         .padding(.vertical, 2)
                         .background(Color.cosmosPrimary.opacity(0.12), in: Capsule())
                 }
-                if !profile.steamAppID.isEmpty {
-                    Text("App ID \(profile.steamAppID)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    if !profile.steamAppID.isEmpty {
+                        Text("App ID \(profile.steamAppID)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if profile.dependencyCount > 0 || profile.fixCount > 0 {
+                        Text("\(profile.dependencyCount) deps · \(profile.fixCount) fixes")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
             .padding(12)
@@ -874,6 +881,24 @@ struct ContentView: View {
                 Text(profile.statusLabel)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.cosmosPrimary)
+            }
+            detailRow(title: "Backend", value: profile.recommendedBackend)
+            if profile.dependencyCount > 0 || profile.fixCount > 0 {
+                detailRow(
+                    title: "Recipes",
+                    value: "\(profile.dependencyCount) dependencies, \(profile.fixCount) fixes"
+                )
+            }
+            if profile.hasNotes {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Compatibility notes")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(profile.notes)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             detailRow(title: "Apply path", value: profile.commandRelativePath)
 

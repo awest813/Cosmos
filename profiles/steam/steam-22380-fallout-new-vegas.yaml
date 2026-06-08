@@ -1,5 +1,3 @@
-# Example profile — illustrates the v0 schema (see docs/PROFILE_FORMAT.md).
-# Settings here are illustrative, not yet hand-verified on hardware.
 id: fallout_new_vegas
 name: "Fallout: New Vegas"
 store: steam

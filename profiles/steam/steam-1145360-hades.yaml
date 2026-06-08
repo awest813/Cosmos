@@ -1,0 +1,13 @@
+id: hades
+name: "Hades"
+store: steam
+steam_appid: 1145360
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    DXMT_CONFIG: "d3d11.preferredMaxFrameRate=120;"
+notes: "DXMT handles D3D11 well. Cap frame rate if you see tearing on ProMotion displays."

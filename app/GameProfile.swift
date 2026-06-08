@@ -8,12 +8,19 @@ struct GameProfile: Identifiable, Hashable {
     let steamAppID: String
     let status: String
     let recommendedBackend: String
+    let notes: String
+    let dependencyCount: Int
+    let fixCount: Int
     let fileURL: URL
     /// Relative path for `profile.command apply`.
     let commandRelativePath: String
 
     var statusLabel: String {
         status.isEmpty ? "unknown" : status
+    }
+
+    var hasNotes: Bool {
+        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
@@ -68,6 +75,9 @@ enum GameProfileStore {
         let appid = scalar(in: text, key: "steam_appid") ?? ""
         let status = scalar(in: text, key: "status") ?? "playable"
         let backend = scalar(in: text, key: "recommended_backend") ?? "recommended"
+        let notes = scalar(in: text, key: "notes") ?? ""
+        let deps = listItems(in: text, section: "dependencies")
+        let fixes = listItems(in: text, section: "fixes")
         let relative = CosmosPaths.profileCommandPath(for: url) ?? url.path
         return GameProfile(
             id: id,
@@ -76,9 +86,36 @@ enum GameProfileStore {
             steamAppID: appid,
             status: status,
             recommendedBackend: backend,
+            notes: notes,
+            dependencyCount: deps.count,
+            fixCount: fixes.count,
             fileURL: url,
             commandRelativePath: relative
         )
+    }
+
+    private static func listItems(in text: String, section: String) -> [String] {
+        var items: [String] = []
+        var inSection = false
+        for line in text.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "\(section):" {
+                inSection = true
+                continue
+            }
+            if inSection {
+                if trimmed.hasPrefix("- ") {
+                    var item = String(trimmed.dropFirst(2))
+                    if item.hasPrefix("\""), item.hasSuffix("\""), item.count >= 2 {
+                        item = String(item.dropFirst().dropLast())
+                    }
+                    items.append(item)
+                } else if !trimmed.isEmpty, !trimmed.hasPrefix("#"), !line.hasPrefix("  ") {
+                    break
+                }
+            }
+        }
+        return items
     }
 
     private static func scalar(in text: String, key: String) -> String? {
