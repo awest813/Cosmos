@@ -235,6 +235,7 @@ See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md) and
 | --- | --- |
 | `detect_steam_games.command --verify` | List games + verify `installdir` on disk |
 | `scripts/verify_steam_detection.command` | Standalone detection cross-check |
+| `scripts/test_steam_detection.sh` | Fixture-based unit tests (CI) |
 | `repair.command` | Winetricks deps + fix recipes (`recipes/`) |
 | `profile.command` | Apply YAML profiles → overrides + repair |
 | `cosmosdb.command` | ProtonDB lookup (hint) + local macOS reports |
@@ -352,7 +353,10 @@ How it works:
 1. Finds Steam in the prefix (`Program Files (x86)/Steam` or `Program Files/Steam`).
 2. Reads every library from `steamapps/libraryfolders.vdf`, mapping Windows paths
    to the filesystem through the prefix's `dosdevices/` drive symlinks.
-3. Parses each `appmanifest_<appid>.acf` for the App ID and name.
+3. Parses each `appmanifest_<appid>.acf` for the App ID and name. Skips partial
+   downloads (via `StateFlags`) and stale manifests left after library moves
+   (`*.acf.tmp.save`). Set `COSMOS_DETECT_INCLUDE_PARTIAL=1` to include
+   in-progress installs.
 4. Writes one generated config per game into `cosmos_configs/` named
    `steam-<appid>-<slug>.conf` (these carry an `AUTO-GENERATED` header and are
    git-ignored). Games that already have a hand-curated config with the same

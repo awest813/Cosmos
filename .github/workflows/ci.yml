@@ -44,3 +44,6 @@ jobs:
             fi
           done < <(find . -type f \( -name '*.command' -o -name '*.sh' \) -print0)
           exit "${status}"
+
+      - name: Steam detection unit tests
+        run: ./scripts/test_steam_detection.sh

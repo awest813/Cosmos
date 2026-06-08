@@ -70,9 +70,12 @@ success criterion — if that sentence isn't true, the release isn't done.
 > evolving dashboard; polishing it (richer status, console mode) continues across
 > later milestones.
 
-### Detection hardening *(in progress)*
+### Detection hardening *(complete)*
 - [x] `detect_steam_games.command --verify` + `scripts/verify_steam_detection.command`
 - [x] Expanded tool/runtime App ID filter; optional MIT `find-steam-app` cross-check
+- [x] `StateFlags` / stale-manifest filtering skips partial downloads and library-move leftovers
+- [x] Multi-library manifest + installdir verification via shared `steam_lib.sh` helpers
+- [x] Fixture-based unit tests (`scripts/test_steam_detection.sh`) in CI
 - See [OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md)
 
 ### 0.2 — Game launchers *(complete)*

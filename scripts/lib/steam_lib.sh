@@ -50,6 +50,100 @@ steam_library_paths_from_vdf() {
   } | awk '!seen[$0]++'
 }
 
+# --- Installed-game detection (find-steam-app patterns) ----------------------
+
+# Convert a Windows path from libraryfolders.vdf to a path inside WINEPREFIX.
+steam_win_to_unix() {
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local p="$1"
+  p="${p//\\//}"
+  local drive rest
+  drive="$(printf '%s' "${p:0:1}" | tr '[:upper:]' '[:lower:]')"
+  rest="${p:2}"
+  rest="${rest//\/\//\/}"
+  [[ "${rest}" == /* ]] || rest="/${rest}"
+  printf '%s/dosdevices/%s:%s' "${pfx}" "${drive}" "${rest}"
+}
+
+steam_find_steam_dir() {
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local a="${pfx}/drive_c/Program Files (x86)/Steam"
+  local b="${pfx}/drive_c/Program Files/Steam"
+  if [[ -d "${a}" ]]; then printf '%s' "${a}"; elif [[ -d "${b}" ]]; then printf '%s' "${b}"; fi
+}
+
+# Print the steamapps directory for every Steam library (newline separated, deduped).
+steam_collect_steamapps_dirs() {
+  local steam_dir="$1"
+  local vdf=""
+  vdf="$(steam_find_libraryfolders_vdf "${steam_dir}" || true)"
+  {
+    printf '%s\n' "${steam_dir}/steamapps"
+    if [[ -n "${vdf}" ]]; then
+      local path
+      while IFS= read -r path; do
+        [[ -n "${path}" ]] || continue
+        printf '%s/steamapps\n' "$(steam_win_to_unix "${path}")"
+      done < <(steam_library_paths_from_vdf "${vdf}")
+    fi
+  } | awk '!seen[$0]++'
+}
+
+# Read a quoted VDF field from an appmanifest_*.acf file.
+steam_acf_read_field() {
+  local acf="$1" field="$2"
+  [[ -f "${acf}" ]] || return 1
+  awk -F'"' -v f="${field}" '$2==f {print $4; exit}' "${acf}"
+}
+
+# True when an appmanifest looks like a finished install worth turning into a launcher.
+# Skips uninstalled, in-progress downloads, and stale manifests left after library moves.
+# Set COSMOS_DETECT_INCLUDE_PARTIAL=1 to treat partial installs as detectable.
+steam_acf_is_playable() {
+  local acf="$1"
+  [[ -f "${acf}" ]] || return 1
+  [[ "${COSMOS_DETECT_INCLUDE_PARTIAL:-0}" == "1" ]] && return 0
+  [[ -f "${acf}.tmp.save" ]] && return 1
+
+  local flags
+  flags="$(steam_acf_read_field "${acf}" "StateFlags")"
+  [[ -n "${flags}" && "${flags}" =~ ^[0-9]+$ ]] || return 0
+
+  (( flags & 1 )) && return 1          # Uninstalled
+  (( flags & 256 )) && return 1        # UpdateRunning
+  (( flags & 2048 )) && return 1       # Uninstalling
+  (( flags & 1048576 )) && return 1    # Downloading
+  (( flags & 2097152 )) && return 1    # Staging
+  (( flags & 4194304 )) && return 1    # Committing
+  (( flags & 4 )) || return 1          # FullyInstalled required
+
+  return 0
+}
+
+# Locate appmanifest_<appid>.acf under any library folder (first match wins).
+steam_find_app_manifest() {
+  local steam_dir="$1" appid="$2"
+  local steamapps acf
+  while IFS= read -r steamapps; do
+    acf="${steamapps}/appmanifest_${appid}.acf"
+    [[ -f "${acf}" ]] && { printf '%s' "${acf}"; return 0; }
+  done < <(steam_collect_steamapps_dirs "${steam_dir}")
+  return 1
+}
+
+# Verify installdir exists on disk for a manifest. Echoes the common/ path on success.
+steam_verify_installdir() {
+  local acf="$1"
+  [[ -f "${acf}" ]] || return 1
+  local steamapps installdir common
+  steamapps="$(dirname "${acf}")"
+  installdir="$(steam_acf_read_field "${acf}" "installdir")"
+  [[ -n "${installdir}" ]] || return 1
+  common="${steamapps}/common/${installdir}"
+  [[ -d "${common}" ]] || return 1
+  printf '%s' "${common}"
+}
+
 # --- Prefix preparation (steam-on-m1-wine 02, 05) ---------------------------
 
 steam_wine_run() {
