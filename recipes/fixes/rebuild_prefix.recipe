@@ -1,0 +1,5 @@
+TYPE=fix
+ID=rebuild_prefix
+DESCRIPTION=Delete the Wine prefix so the next launch recreates it (destructive)
+ACTION=script
+SCRIPT=rebuild_prefix

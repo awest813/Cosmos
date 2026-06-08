@@ -1,0 +1,5 @@
+TYPE=fix
+ID=disable_retina
+DESCRIPTION=Disable Wine Retina mode in the prefix and persist WINE_RETINA_MODE=0
+ACTION=script
+SCRIPT=disable_retina

@@ -1,0 +1,5 @@
+TYPE=fix
+ID=disable_intro_video
+DESCRIPTION=Add skip-intro launch args to overrides (requires STEAM_APPID)
+ACTION=script
+SCRIPT=disable_intro_video

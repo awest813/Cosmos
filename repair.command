@@ -44,6 +44,10 @@ Environment:
   WINEPREFIX          Target prefix (default: ~/.wine-steam-11).
   COSMOS_BOTTLE       Named bottle (overrides WINEPREFIX via bottle.command).
   WINDOWS_VERSION     Required for fix set_windows_version.
+  DLL_OVERRIDE        Required for fix dll_override (e.g. ddraw=n,b).
+  STEAM_APPID         Required for fix disable_intro_video.
+  INTRO_SKIP_ARGS     Optional skip-intro args (default: -novid).
+  COSMOS_FORCE        Set to 1 for non-interactive rebuild_prefix.
 
 Winetricks must be installed (brew install winetricks). Cosmos does not bundle it.
 EOF
@@ -90,6 +94,11 @@ cmd_apply_fix() {
     kill_wine) repair_kill_wine ;;
     clear_steam_caches) repair_clear_steam_caches ;;
     set_windows_version) repair_set_windows_version ;;
+    disable_retina) repair_disable_retina ;;
+    dll_override) repair_dll_override ;;
+    rebuild_prefix) repair_rebuild_prefix ;;
+    force_borderless) repair_force_borderless ;;
+    disable_intro_video) repair_disable_intro_video ;;
     *)
       die "Unknown fix script '${RECIPE_SCRIPT}' for ${id}"
       ;;
