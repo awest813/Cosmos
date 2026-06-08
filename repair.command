@@ -107,6 +107,7 @@ cmd_apply_fix() {
     force_borderless) repair_force_borderless ;;
     disable_intro_video) repair_disable_intro_video ;;
     set_backend) repair_set_backend ;;
+    reinstall_steam) repair_reinstall_steam ;;
     *)
       die "Unknown fix script '${RECIPE_SCRIPT}' for ${id}"
       ;;

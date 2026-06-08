@@ -136,6 +136,30 @@ repair_kill_wine() {
   echo "Sent kill signals for Wine processes tied to ${pfx}."
 }
 
+repair_reinstall_steam() {
+  repair_kill_wine
+  repair_require_prefix || return 1
+  repair_find_wine_bin || return 1
+  local base removed=0
+  for base in \
+    "${WINEPREFIX}/drive_c/Program Files (x86)/Steam" \
+    "${WINEPREFIX}/drive_c/Program Files/Steam"; do
+    if [[ -d "${base}" ]]; then
+      rm -rf "${base}"
+      echo "Removed Steam at ${base}."
+      removed=1
+    fi
+  done
+  (( removed )) || echo "No existing Steam install found — running installer."
+  local runner="${SCRIPT_DIR:-}/run.command"
+  [[ -x "${runner}" ]] || {
+    echo "run.command not found at ${runner}."
+    return 1
+  }
+  echo "Re-running Steam installer via ${runner} --install-steam ..."
+  WINE_BIN="${REPAIR_WINE_BIN}" "${runner}" --install-steam
+}
+
 repair_clear_steam_caches() {
   local pfx="${WINEPREFIX:?WINEPREFIX required}"
   local removed=0 dir

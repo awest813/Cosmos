@@ -72,13 +72,22 @@ Override any of these with environment variables before running `run.command`
 
 ## Install Steam only (prefix already exists)
 
-If Wine and the prefix are ready but Steam is missing:
+If Wine and the prefix are ready but Steam is missing (or a previous install
+left a broken Steam folder without `steam.exe`):
 
 ```bash
-./run.command --setup-steam
+./run.command --install-steam
 ```
 
-Complete the graphical Steam installer when the Wine window opens.
+By default this runs unattended and falls back to the graphical wizard if
+needed. To reinstall from scratch (including when Steam is already present):
+
+```bash
+./repair.command apply-fix reinstall_steam
+```
+
+`--setup-steam` still works and performs a full bottle prep (Wine, backend, and
+Steam) when you want everything refreshed in one step.
 
 ## Check your setup status
 

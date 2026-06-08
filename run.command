@@ -193,6 +193,7 @@ Usage: run.command [ACTION]
 Actions:
   (none) | --steam        Set up the bottle if needed and launch Steam (default).
   --setup-steam           Prepare Wine, DXMT/backend, and Steam (no launch).
+  --install-steam         Install or reinstall Steam in an existing prefix only.
   --status                 Show setup progress and the next step, then exit.
   --game <path> [args...]  Launch a saved profile executable directly.
   --profiles               Open the saved profiles folder in Finder and exit.
@@ -218,6 +219,13 @@ parse_arguments() {
         die "The --setup-steam flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="setup-steam"
+      return 0
+      ;;
+    --install-steam)
+      if (($# > 1)); then
+        die "The --install-steam flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="install-steam"
       return 0
       ;;
     --profiles)
@@ -533,6 +541,8 @@ ensure_wine_windows_mouse_accel_disabled() {
   echo "Set MouseSpeed=0, MouseThreshold1=0, MouseThreshold2=0."
 }
 
+STEAM_SETUP_MIN_BYTES=1000000
+
 find_steam_exe() {
   local steam32="${WINEPREFIX}/drive_c/Program Files (x86)/Steam/steam.exe"
   local steam64="${WINEPREFIX}/drive_c/Program Files/Steam/steam.exe"
@@ -541,6 +551,56 @@ find_steam_exe() {
   elif [[ -f "${steam64}" ]]; then
     printf "%s\n" "${steam64}"
   fi
+}
+
+# True when a Steam folder exists in the prefix but steam.exe is missing (failed install).
+steam_install_incomplete() {
+  [[ -n "$(find_steam_exe || true)" ]] && return 1
+  local base
+  for base in \
+    "${WINEPREFIX}/drive_c/Program Files (x86)/Steam" \
+    "${WINEPREFIX}/drive_c/Program Files/Steam"; do
+    [[ -d "${base}" ]] && return 0
+  done
+  return 1
+}
+
+remove_steam_from_prefix() {
+  local base removed=0
+  stop_wine_prefix
+  for base in \
+    "${WINEPREFIX}/drive_c/Program Files (x86)/Steam" \
+    "${WINEPREFIX}/drive_c/Program Files/Steam"; do
+    if [[ -d "${base}" ]]; then
+      rm -rf "${base}"
+      echo "Removed incomplete Steam install at ${base}."
+      removed=1
+    fi
+  done
+  (( removed )) || echo "No Steam directories found to remove."
+}
+
+validate_steam_setup() {
+  [[ -f "${STEAM_SETUP}" ]] || return 1
+  local size magic
+  size="$(wc -c <"${STEAM_SETUP}" | tr -d ' ')"
+  (( size >= STEAM_SETUP_MIN_BYTES )) || return 1
+  magic="$(dd if="${STEAM_SETUP}" bs=1 count=2 2>/dev/null || true)"
+  [[ "${magic}" == $'MZ' ]] || return 1
+}
+
+download_steam_setup() {
+  if validate_steam_setup; then
+    echo "Using cached Steam installer at ${STEAM_SETUP}."
+    return 0
+  fi
+  [[ ! -f "${STEAM_SETUP}" ]] || {
+    echo "Removing invalid cached Steam installer at ${STEAM_SETUP}."
+    rm -f "${STEAM_SETUP}"
+  }
+  echo "Downloading Steam installer..."
+  curl -L --fail --retry 5 --retry-delay 1 -o "${STEAM_SETUP}" "${STEAM_URL}"
+  validate_steam_setup || die "Downloaded Steam installer looks invalid. Check your network and try again."
 }
 
 cleanup_steam_setup() {
@@ -573,12 +633,15 @@ install_steam_silently() {
   disown
 
   local waited=0 steam_exe=""
+  printf 'Waiting for steam.exe'
   while ((waited < 120)); do
     steam_exe="$(find_steam_exe || true)"
     [[ -n "${steam_exe}" ]] && break
+    printf '.'
     sleep 3
     waited=$((waited + 3))
   done
+  printf '\n'
 
   if [[ -z "${steam_exe}" ]]; then
     echo "Silent install did not finish within ${waited}s — falling back to the installer wizard."
@@ -591,6 +654,11 @@ install_steam_silently() {
   return 0
 }
 
+run_steam_installer_wizard() {
+  echo "Launching Steam installer. Complete the wizard in the Wine window."
+  WINEPREFIX="${WINEPREFIX}" "${WINE_BIN}" "${STEAM_SETUP}"
+}
+
 ensure_steam_installed() {
   log "Ensuring Steam is installed in Wine prefix"
   local steam_exe
@@ -600,22 +668,38 @@ ensure_steam_installed() {
     return
   fi
 
-  if [[ ! -f "${STEAM_SETUP}" ]]; then
-    echo "Downloading Steam installer..."
-    curl -L --fail --retry 5 --retry-delay 1 -o "${STEAM_SETUP}" "${STEAM_URL}"
+  if steam_install_incomplete; then
+    echo "Found an incomplete Steam install in the prefix — removing it before retrying."
+    remove_steam_from_prefix
   fi
+
+  download_steam_setup
 
   if [[ "${COSMOS_STEAM_SILENT}" == "1" ]] && install_steam_silently; then
     cleanup_steam_setup
     return
   fi
 
-  echo "Launching Steam installer. Complete the wizard in the Wine window."
-  "${WINE_BIN}" "${STEAM_SETUP}"
+  if steam_install_incomplete; then
+    echo "Clearing leftover Steam files before the installer wizard."
+    remove_steam_from_prefix
+  fi
+
+  run_steam_installer_wizard
 
   steam_exe="$(find_steam_exe || true)"
   [[ -n "${steam_exe}" ]] || die "Steam installation appears incomplete (steam.exe not found)."
+  stop_wine_prefix
   cleanup_steam_setup
+}
+
+install_steam_only() {
+  require_macos_version
+  ensure_wine_installed
+  setup_wine_env
+  [[ -f "${WINEPREFIX}/system.reg" ]] \
+    || die "Wine prefix not initialized at ${WINEPREFIX}. Run ./run.command --setup-steam first."
+  ensure_steam_installed
 }
 
 ensure_dxmt_installed() {
@@ -929,7 +1013,7 @@ finish_steam_setup() {
     echo "Launch with: ./run.command --steam"
     echo "Or use Launch Steam in the Cosmos dashboard."
   else
-    echo "Steam installer did not finish — re-run ./run.command --setup-steam and complete the wizard."
+    echo "Steam installer did not finish — re-run ./run.command --install-steam (or --setup-steam for a full bottle prep)."
   fi
   echo "Launch log (detached mode): ${COSMOS_LAUNCH_LOG}"
   echo "Manual setup guide: docs/STEAM_SETUP.md"
@@ -972,15 +1056,17 @@ show_status() {
   status_line "${prefix_ok}" "Wine prefix created" \
     "$([[ "${prefix_ok}" -eq 1 ]] && echo "${WINEPREFIX}" || echo "Created during --setup-steam")"
   status_line "${steam_ok}" "Steam installed in prefix" \
-    "$([[ "${steam_ok}" -eq 1 ]] && echo "${steam_exe}" || echo "Complete the Steam installer wizard")"
+    "$([[ "${steam_ok}" -eq 1 ]] && echo "${steam_exe}" || echo "$([[ "${COSMOS_STEAM_SILENT}" == "1" ]] && echo "Run ./run.command --install-steam (unattended, wizard fallback)" || echo "Run ./run.command --install-steam and complete the wizard")")"
   status_line "$([[ "${profiles_count}" -gt 0 ]] && echo 1 || echo 0)" "Game launchers built" \
     "$([[ "${profiles_count}" -gt 0 ]] && echo "${profiles_count} profile(s) in ${PROFILE_DIRECTORY}" || echo "Run ./detect_steam_games.command --install after installing a game")"
 
   echo ""
   echo "  Backend: ${COSMOS_BACKEND}   Windows: ${WINDOWS_VERSION:-Wine default}   Retina: $([[ "${WINE_RETINA_MODE}" == "1" ]] && echo on || echo off)   Install: $([[ "${COSMOS_STEAM_SILENT}" == "1" ]] && echo silent || echo wizard)"
   echo ""
-  if [[ "${wine_ok}" -eq 0 || "${prefix_ok}" -eq 0 || "${steam_ok}" -eq 0 ]]; then
+  if [[ "${wine_ok}" -eq 0 || "${prefix_ok}" -eq 0 ]]; then
     echo "  Next step: ./run.command --setup-steam"
+  elif [[ "${steam_ok}" -eq 0 ]]; then
+    echo "  Next step: ./run.command --install-steam"
   elif [[ "${profiles_count}" -eq 0 ]]; then
     echo "  Next step: launch Steam (./run.command --steam), install a Windows game,"
     echo "             then ./detect_steam_games.command --install"
@@ -1002,6 +1088,11 @@ main() {
     setup-steam)
       log "Preparing Steam bottle (no launch)"
       prepare_steam_bottle
+      finish_steam_setup
+      return ;;
+    install-steam)
+      log "Installing Steam in existing prefix (no launch)"
+      install_steam_only
       finish_steam_setup
       return ;;
   esac

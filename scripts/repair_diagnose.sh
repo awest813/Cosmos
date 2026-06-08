@@ -48,9 +48,14 @@ repair_diagnose_prefix_health() {
   fi
   if [[ ! -f "${pfx}/drive_c/Program Files (x86)/Steam/steam.exe" \
      && ! -f "${pfx}/drive_c/Program Files/Steam/steam.exe" ]]; then
+    local steam_hint="./run.command --install-steam"
+    if [[ -d "${pfx}/drive_c/Program Files (x86)/Steam" \
+       || -d "${pfx}/drive_c/Program Files/Steam" ]]; then
+      steam_hint="./repair.command apply-fix reinstall_steam"
+    fi
     repair_diagnose_note steam-missing \
       "[prefix] Steam is not installed in this prefix
-  Try: ./run.command --setup-steam"
+  Try: ${steam_hint}"
   fi
   if pgrep -f "wineserver.*${pfx}" >/dev/null 2>&1; then
     repair_diagnose_note wineserver-running \

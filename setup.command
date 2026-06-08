@@ -48,7 +48,7 @@ cat <<'EOF'
 
   What to expect:
     • Step 1 may ask for your password (installs /Applications/Cosmos Apps).
-    • Step 2 downloads Wine and DXMT, then opens the Steam installer in Wine.
+    • Step 2 downloads Wine and DXMT, then installs Steam (unattended by default).
     • After setup, open Cosmos.app, sign in to Steam, install a Windows game,
       then use "Build Launchers" in the app.
 

@@ -45,6 +45,7 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - `run.command --steam` launches Steam explicitly.
   - `setup.command` — guided first-time setup in Terminal (install + `--setup-steam`)
   - `run.command --setup-steam` prepares Wine, the prefix, backend DLLs, and Steam without launching (see [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md)).
+  - `run.command --install-steam` installs or reinstalls Steam in an existing prefix only (skips Wine/backend downloads). Cleans up incomplete Steam folders before retrying; validates the downloaded `SteamSetup.exe`.
   - `run.command --profiles` opens `~/Library/Application Support/Cosmos/Profiles/` in Finder and exits (falling back to the legacy `~/Library/Application Support/Cider/Profiles/` if only that exists).
   - `run.command --game <path> [args...]` launches a saved profile executable directly.
   - `run.command --status` (alias `--doctor`) prints a read-only setup summary — Wine download, prefix, Steam install, and saved profile count — plus the recommended next command, then exits. It never modifies the prefix and mirrors the dashboard's setup checklist.
