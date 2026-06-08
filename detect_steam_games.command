@@ -99,6 +99,9 @@ Usage: detect_steam_games.command [--list|--write|--install|--verify]
   --write     (default) Write/refresh generated configs in cosmos_configs/.
   --install   Write configs, then run install_cosmos.command to build launchers.
   --verify    Run scripts/verify_steam_detection.command after listing.
+
+Partial installs (downloads in progress) are skipped by default. Set
+COSMOS_DETECT_INCLUDE_PARTIAL=1 to include them.
 EOF
 }
 
@@ -145,39 +148,10 @@ safe_app_name() {
   printf '%s' "${name}"
 }
 
-# Convert a Windows path from libraryfolders.vdf to a path inside the prefix via
-# the prefix's dosdevices drive symlinks (c: -> drive_c, z: -> /, etc.).
-win_to_unix() {
-  local p="$1"
-  p="${p//\\//}"                       # backslashes -> forward slashes
-  local drive rest
-  drive="$(printf '%s' "${p:0:1}" | tr '[:upper:]' '[:lower:]')"
-  rest="${p:2}"                        # strip "X:"
-  printf '%s/dosdevices/%s:%s' "${WINEPREFIX}" "${drive}" "${rest}"
-}
-
-find_steam_dir() {
-  local a="${WINEPREFIX}/drive_c/Program Files (x86)/Steam"
-  local b="${WINEPREFIX}/drive_c/Program Files/Steam"
-  if [[ -d "${a}" ]]; then printf '%s' "${a}"; elif [[ -d "${b}" ]]; then printf '%s' "${b}"; fi
-}
-
-# Print the steamapps directory for every Steam library (newline separated, deduped).
-collect_steamapps_dirs() {
-  local steam_dir="$1"
-  local vdf=""
-  vdf="$(steam_find_libraryfolders_vdf "${steam_dir}" || true)"
-  {
-    printf '%s\n' "${steam_dir}/steamapps"
-    if [[ -n "${vdf}" ]]; then
-      local path
-      while IFS= read -r path; do
-        [[ -n "${path}" ]] || continue
-        printf '%s/steamapps\n' "$(win_to_unix "${path}")"
-      done < <(steam_library_paths_from_vdf "${vdf}")
-    fi
-  } | awk '!seen[$0]++'
-}
+# Thin wrappers — shared logic lives in scripts/lib/steam_lib.sh.
+win_to_unix() { steam_win_to_unix "$@"; }
+find_steam_dir() { steam_find_steam_dir; }
+collect_steamapps_dirs() { steam_collect_steamapps_dirs "$@"; }
 
 # Record Steam App IDs that already have a hand-curated (non auto-generated) config.
 curated_appids=""
@@ -384,7 +358,7 @@ main() {
 
   # Gather (appid, name) pairs from every library, deduped by appid.
   local -a appids=() names=()
-  local seen=""
+  local seen="" skipped_partial=0
   local steamapps acf appid name
   while IFS= read -r steamapps; do
     [[ -d "${steamapps}" ]] || continue
@@ -394,13 +368,21 @@ main() {
       [[ "${appid}" =~ ^[0-9]+$ ]] || continue
       [[ "${seen}" == *" ${appid} "* ]] && continue
       seen+=" ${appid} "
-      name="$(awk -F'"' '$2=="name"{print $4; exit}' "${acf}")"
+      name="$(steam_acf_read_field "${acf}" "name")"
       [[ -n "${name}" ]] || name="Steam App ${appid}"
       is_ignored_app "${appid}" "${name}" && continue
+      if ! steam_acf_is_playable "${acf}"; then
+        skipped_partial=$((skipped_partial + 1))
+        continue
+      fi
       appids+=("${appid}"); names+=("${name}")
     done
     shopt -u nullglob
   done < <(collect_steamapps_dirs "${steam_dir}")
+
+  if (( skipped_partial > 0 )); then
+    printf '  (skipped %s partial/in-progress install(s); set COSMOS_DETECT_INCLUDE_PARTIAL=1 to include)\n' "${skipped_partial}"
+  fi
 
   if (( ${#appids[@]} == 0 )); then
     if [[ "${MODE}" == "list" ]]; then

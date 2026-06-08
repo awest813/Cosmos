@@ -60,7 +60,15 @@ COSMOS_STEAM_WINEDLLOVERRIDES="dxgi,d3d11,d3d10core=n,b;bcrypt=b;ncrypt=b;gameov
 **Added**
 
 - `--verify` runs `scripts/verify_steam_detection.command` (installdir on disk).
+- Partial installs are skipped by default via `StateFlags` checks and
+  `appmanifest_*.acf.tmp.save` stale-manifest detection (patterns from
+  [find-steam-app](https://github.com/Ciberusps/find-steam-app) edge cases).
+  Set `COSMOS_DETECT_INCLUDE_PARTIAL=1` to include in-progress downloads.
+- Shared helpers in `scripts/lib/steam_lib.sh` locate manifests across secondary
+  Steam libraries and verify each game's `installdir` in the correct folder.
 - Optional `COSMOS_VERIFY_NODE=1` with [@ciberus/find-steam-app](https://github.com/Ciberusps/find-steam-app) (MIT).
+- Unit tests: `./scripts/test_steam_detection.sh` (runs in CI; uses fixtures under
+  `scripts/fixtures/steam_detection/`).
 
 ```bash
 ./detect_steam_games.command --verify

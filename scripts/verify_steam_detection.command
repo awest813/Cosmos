@@ -13,6 +13,9 @@ REPO_ROOT="${REPO_ROOT:-$(cd -- "${SCRIPT_DIR}/.." && pwd)}"
 WINEPREFIX="${WINEPREFIX:-$HOME/.wine-steam-11}"
 COSMOS_VERIFY_NODE="${COSMOS_VERIFY_NODE:-0}"
 
+# shellcheck source=scripts/lib/steam_lib.sh
+source "${REPO_ROOT}/scripts/lib/steam_lib.sh"
+
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
 
@@ -28,36 +31,49 @@ WINEPREFIX="${WINEPREFIX}" "${REPO_ROOT}/detect_steam_games.command" --list >"${
 issues=0
 games=0
 
-verify_installdir() {
+verify_game() {
   local steam_dir="$1" appid="$2" name="$3"
-  local steamapps="${steam_dir}/steamapps"
-  local acf="${steamapps}/appmanifest_${appid}.acf"
-  [[ -f "${acf}" ]] || { printf '  WARN %s: missing manifest %s\n' "${appid}" "${acf}"; issues=$((issues + 1)); return; }
-  local installdir
-  installdir="$(awk -F'"' '$2=="installdir"{print $4; exit}' "${acf}")"
-  [[ -n "${installdir}" ]] || { printf '  WARN %s: no installdir in manifest\n' "${appid}"; issues=$((issues + 1)); return; }
-  local common="${steamapps}/common/${installdir}"
-  if [[ ! -d "${common}" ]]; then
-    printf '  WARN %s (%s): installdir not on disk: %s\n' "${appid}" "${name}" "${common}"
+  local acf common
+  acf="$(steam_find_app_manifest "${steam_dir}" "${appid}" || true)"
+  if [[ -z "${acf}" ]]; then
+    printf '  WARN %s (%s): manifest not found in any library\n' "${appid}" "${name}"
+    issues=$((issues + 1))
+    return
+  fi
+  if [[ -f "${acf}.tmp.save" ]]; then
+    printf '  WARN %s (%s): stale manifest (%s.tmp.save present) at %s\n' \
+      "${appid}" "${name}" "${acf##*/}" "${acf}"
+    issues=$((issues + 1))
+    return
+  fi
+  if ! steam_acf_is_playable "${acf}"; then
+    local flags
+    flags="$(steam_acf_read_field "${acf}" "StateFlags")"
+    printf '  WARN %s (%s): not fully installed (StateFlags=%s)\n' \
+      "${appid}" "${name}" "${flags:-unknown}"
+    issues=$((issues + 1))
+    return
+  fi
+  common="$(steam_verify_installdir "${acf}" || true)"
+  if [[ -z "${common}" ]]; then
+    local installdir
+    installdir="$(steam_acf_read_field "${acf}" "installdir")"
+    printf '  WARN %s (%s): installdir not on disk: %s/common/%s\n' \
+      "${appid}" "${name}" "$(dirname "${acf}")" "${installdir:-?}"
     issues=$((issues + 1))
   fi
 }
 
-steam_dir=""
-for base in \
-  "${WINEPREFIX}/drive_c/Program Files (x86)/Steam" \
-  "${WINEPREFIX}/drive_c/Program Files/Steam"; do
-  [[ -d "${base}" ]] && steam_dir="${base}" && break
-done
+steam_dir="$(steam_find_steam_dir || true)"
 [[ -n "${steam_dir}" ]] || die "Steam not found under ${WINEPREFIX}"
 
-log "Verifying installdir paths for detected games"
+log "Verifying manifests and installdir paths for detected games"
 while IFS= read -r line; do
   [[ "${line}" =~ ^[[:space:]]*[0-9]+ ]] || continue
   appid="$(printf '%s' "${line}" | awk '{print $1}')"
   name="$(printf '%s' "${line}" | sed -E 's/^[[:space:]]*[0-9]+[[:space:]]+//; s/[[:space:]]+\[.*$//')"
   games=$((games + 1))
-  verify_installdir "${steam_dir}" "${appid}" "${name}"
+  verify_game "${steam_dir}" "${appid}" "${name}"
 done < "${TMP_LIST}"
 
 log "Summary: ${games} game(s) listed, ${issues} warning(s)"
