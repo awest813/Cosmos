@@ -85,7 +85,10 @@ repair_persist_setting() {
 COSMOS_BACKEND="recommended"
 COSMOS_DETACH="1"
 COSMOS_STEAM_SILENT="1"
-STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process"
+STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process -noverifyfiles"
+COSMOS_STEAM_WEBHELPER_WRAPPER="1"
+COSMOS_STEAM_SEED_FONTS="1"
+COSMOS_STEAM_CA_BUNDLE="1"
 WINE_RETINA_MODE="0"
 WINDOWS_VERSION=""
 WINE_VERSION="11.8"
@@ -141,6 +144,25 @@ repair_kill_wine() {
   pkill -f "wineserver.*${pfx}" 2>/dev/null || true
   pkill -f "wine.*${pfx}" 2>/dev/null || true
   echo "Sent kill signals for Wine processes tied to ${pfx}."
+}
+
+repair_install_steamwebhelper_wrapper() {
+  repair_find_wine_bin || return 1
+  repair_require_prefix || return 1
+  export WINE_BIN="${REPAIR_WINE_BIN}"
+  steam_install_webhelper_wrapper
+}
+
+repair_seed_japanese_fonts() {
+  repair_find_wine_bin || return 1
+  repair_require_prefix || return 1
+  export WINE_BIN="${REPAIR_WINE_BIN}"
+  steam_seed_japanese_fonts
+}
+
+repair_fix_steam_ssl() {
+  repair_require_prefix || return 1
+  steam_install_ca_bundle
 }
 
 repair_reinstall_steam() {

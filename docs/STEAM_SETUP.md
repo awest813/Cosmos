@@ -113,11 +113,22 @@ If everything is already installed:
 With `COSMOS_DETACH=1` (default), Steam keeps running after you close Terminal.
 Logs go to `COSMOS_LAUNCH_LOG` (see table above).
 
-Cosmos passes Wine-friendly Steam flags by default (`STEAM_LAUNCH_ARGS` in
-`steam.conf`, currently `-no-cef-sandbox -cef-single-process`) and clears stale
-Chromium lock files before each launch — patterns adapted from MIT
-[steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine). Set
-`STEAM_LAUNCH_ARGS=""` to opt out.
+Cosmos integrates MIT [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)
+patterns:
+
+- **Launch flags** — `STEAM_LAUNCH_ARGS` (default includes `-no-cef-sandbox`,
+  `-cef-single-process`, `-noverifyfiles`)
+- **Prefix prep** — Japanese font seeding, macOS CA bundle, DXMT `winemetal.dll`
+  staging
+- **steamwebhelper wrapper** — vendored C binary that injects
+  `--disable-gpu --single-process` into Steam's CEF helper (requires
+  `brew install mingw-w64` to build on first setup)
+- **Launch hardening** — clears Chromium singleton locks, scrubs AppCompat
+  tokens, merges Steam-specific `WINEDLLOVERRIDES`
+
+Set `COSMOS_STEAM_WEBHELPER_WRAPPER=0` to skip the wrapper, or
+`STEAM_LAUNCH_ARGS=""` to disable extra flags. See
+[OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md).
 
 Launch a specific game by App ID:
 

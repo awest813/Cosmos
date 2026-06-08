@@ -1,0 +1,5 @@
+TYPE=fix
+ID=fix_steam_ssl
+DESCRIPTION=Copy macOS CA bundle into the Wine prefix for TLS trust
+ACTION=script
+SCRIPT=fix_steam_ssl

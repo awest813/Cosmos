@@ -108,6 +108,9 @@ cmd_apply_fix() {
     disable_intro_video) repair_disable_intro_video ;;
     set_backend) repair_set_backend ;;
     reinstall_steam) repair_reinstall_steam ;;
+    install_steamwebhelper_wrapper) repair_install_steamwebhelper_wrapper ;;
+    seed_japanese_fonts) repair_seed_japanese_fonts ;;
+    fix_steam_ssl) repair_fix_steam_ssl ;;
     *)
       die "Unknown fix script '${RECIPE_SCRIPT}' for ${id}"
       ;;

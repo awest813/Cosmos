@@ -1,0 +1,5 @@
+TYPE=fix
+ID=install_steamwebhelper_wrapper
+DESCRIPTION=Build and install the MIT steamwebhelper CEF wrapper (requires mingw-w64 and Steam)
+ACTION=script
+SCRIPT=install_steamwebhelper_wrapper

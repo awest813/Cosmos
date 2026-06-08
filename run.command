@@ -63,7 +63,11 @@ ensure_steam_conf() {
 COSMOS_BACKEND="recommended"
 COSMOS_DETACH="1"
 COSMOS_STEAM_SILENT="1"
-STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process"
+STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process -noverifyfiles"
+COSMOS_STEAM_WEBHELPER_WRAPPER="1"
+COSMOS_STEAM_SEED_FONTS="1"
+COSMOS_STEAM_CA_BUNDLE="1"
+COSMOS_STEAM_WINEDLLOVERRIDES="dxgi,d3d11,d3d10core=n,b;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
 WINE_RETINA_MODE="0"
 WINDOWS_VERSION=""
 WINE_VERSION="11.8"
@@ -98,6 +102,9 @@ sanitize_steam_settings() {
   esac
   case "${COSMOS_DETACH}" in 0|1) ;; *) COSMOS_DETACH=1 ;; esac
   case "${COSMOS_STEAM_SILENT}" in 0|1) ;; *) COSMOS_STEAM_SILENT=1 ;; esac
+  case "${COSMOS_STEAM_WEBHELPER_WRAPPER}" in 0|1) ;; *) COSMOS_STEAM_WEBHELPER_WRAPPER=1 ;; esac
+  case "${COSMOS_STEAM_SEED_FONTS}" in 0|1) ;; *) COSMOS_STEAM_SEED_FONTS=1 ;; esac
+  case "${COSMOS_STEAM_CA_BUNDLE}" in 0|1) ;; *) COSMOS_STEAM_CA_BUNDLE=1 ;; esac
   case "${WINE_RETINA_MODE}" in 0|1) ;; *) WINE_RETINA_MODE=0 ;; esac
   case "${WINDOWS_VERSION}" in
     ""|winxp|win7|win8|win10|win11) ;;
@@ -442,7 +449,8 @@ setup_wine_env() {
 ensure_wine_prefix() {
   log "Ensuring Wine prefix for Steam"
   if [[ -f "${WINEPREFIX}/system.reg" ]]; then
-    echo "Wine prefix already initialized at ${WINEPREFIX}. Skipping."
+    echo "Wine prefix already initialized at ${WINEPREFIX} — aligning with current Wine."
+    "${WINE_BIN}" wineboot -u >/dev/null 2>&1 || true
     return
   fi
   "${WINE_BIN}" wineboot --init
@@ -705,7 +713,9 @@ install_steam_only() {
   setup_wine_env
   [[ -f "${WINEPREFIX}/system.reg" ]] \
     || die "Wine prefix not initialized at ${WINEPREFIX}. Run ./run.command --setup-steam first."
+  steam_prepare_prefix
   ensure_steam_installed
+  steam_ensure_webhelper_wrapper || true
 }
 
 ensure_dxmt_installed() {
@@ -898,10 +908,16 @@ launch_steam() {
 
   steam_prepare_launch
 
-  local -a steam_cmd=("${WINE_BIN}" "${steam_exe}")
-  steam_append_launch_args steam_cmd
+  local -a steam_cmd=()
+  steam_build_steam_launch_cmd steam_cmd "${steam_exe}"
   if [[ -n "${STEAM_LAUNCH_ARGS:-}" ]]; then
     echo "Steam launch flags: ${STEAM_LAUNCH_ARGS}"
+  fi
+  if [[ -n "${COSMOS_STEAM_WINEDLLOVERRIDES:-}" ]]; then
+    echo "Steam DLL overrides: ${WINEDLLOVERRIDES:-}"
+  fi
+  if [[ -n "${WINE_VIRTUAL_DESKTOP:-}" && "${WINE_VIRTUAL_DESKTOP}" != "0" ]]; then
+    echo "Virtual desktop: ${WINE_VIRTUAL_DESKTOP_NAME:-cosmos-steam} @ ${WINE_VIRTUAL_DESKTOP}"
   fi
   if [[ -n "${STEAM_GAME_ID:-}" ]]; then
     echo "Launching Steam game ${STEAM_GAME_ID}..."
@@ -989,13 +1005,16 @@ prepare_steam_bottle() {
   ensure_wine_retina_mode "${WINE_RETINA_MODE}"
   ensure_wine_windows_version
   ensure_wine_windows_mouse_accel_disabled
+  steam_prepare_prefix
   ensure_steam_installed
+  steam_ensure_webhelper_wrapper || true
 
   log "Graphics backend: ${RESOLVED_BACKEND} (requested: ${COSMOS_BACKEND})"
   case "${RESOLVED_BACKEND}" in
     dxmt)
       ensure_dxmt_installed
       enable_dxmt_env
+      steam_stage_dxmt_prefix_dlls || true
       ;;
     d3dmetal)
       [[ -n "${GPTK_PATH}" ]] || die "The d3dmetal backend needs GPTK_PATH set to your Game Porting Toolkit install (Apple does not permit Cosmos to bundle it). Use the dxmt backend for a no-setup default."

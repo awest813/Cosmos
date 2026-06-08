@@ -1,0 +1,5 @@
+TYPE=fix
+ID=seed_japanese_fonts
+DESCRIPTION=Copy macOS CJK fonts into the prefix and apply font substitution registry
+ACTION=script
+SCRIPT=seed_japanese_fonts
