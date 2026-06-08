@@ -966,6 +966,49 @@ launch_steam() {
   esac
 }
 
+find_legendary_bin() {
+  if command -v legendary >/dev/null 2>&1; then
+    command -v legendary
+    return 0
+  fi
+  local candidate
+  for candidate in \
+    "${HOME}/.local/bin/legendary" \
+    "/opt/homebrew/bin/legendary" \
+    "/usr/local/bin/legendary"; do
+    if [[ -x "${candidate}" ]]; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+launch_epic_via_legendary() {
+  local leg="$1"
+  log "Launching Epic game via Legendary: ${LEGENDARY_APP_NAME}"
+  local -a leg_cmd=("${leg}" launch "${LEGENDARY_APP_NAME}" \
+    --wine "${WINE_BIN}" --wine-prefix "${WINEPREFIX}")
+  [[ "${LEGENDARY_OFFLINE:-0}" == "1" ]] && leg_cmd+=(--offline)
+  if [[ -n "${GAME_ARGS:-}" ]]; then
+    local -a extra_args=()
+    read -r -a extra_args <<< "${GAME_ARGS}"
+    (( ${#extra_args[@]} > 0 )) && leg_cmd+=("${extra_args[@]}")
+  fi
+
+  case "${COSMOS_DETACH}" in
+    0) "${leg_cmd[@]}" ;;
+    1)
+      log "Detaching Legendary launch (log: ${COSMOS_LAUNCH_LOG})"
+      mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
+      : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
+      nohup "${leg_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
+      echo "Game is running in the background (PID $!). Safe to close this Terminal window."
+      ;;
+    *) die "COSMOS_DETACH must be 0 or 1." ;;
+  esac
+}
+
 resolve_game_exe_path() {
   local path="${GAME_EXE_PATH:-}"
   [[ -n "${path}" ]] || return 1
@@ -985,6 +1028,16 @@ resolve_game_exe_path() {
 }
 
 launch_standalone_game() {
+  if [[ -n "${LEGENDARY_APP_NAME:-}" ]]; then
+    local leg=""
+    leg="$(find_legendary_bin || true)"
+    if [[ -n "${leg}" ]]; then
+      launch_epic_via_legendary "${leg}"
+      return
+    fi
+    log "LEGENDARY_APP_NAME is set but legendary was not found; falling back to GAME_EXE_PATH"
+  fi
+
   local game_exe
   game_exe="$(resolve_game_exe_path)" || die "GAME_EXE_PATH not found: ${GAME_EXE_PATH:-}"
   [[ -f "${game_exe}" ]] || die "Standalone executable not found: ${game_exe}"

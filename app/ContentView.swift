@@ -1040,7 +1040,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader("Add Non-Steam Games", systemImage: "plus.rectangle.on.folder.fill")
 
-            Text("Import standalone Windows games from installers, GOG offline setups, or itch.io downloads.")
+            Text("Import standalone Windows games from installers, GOG offline setups, itch.io downloads, or Epic via Legendary.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1089,6 +1089,29 @@ struct ContentView: View {
                     needsPath: true,
                     pathPrompt: "Path to extracted itch.io game folder"
                 )
+                storeActionButton(
+                    title: "List Epic Games",
+                    subtitle: "Legendary library",
+                    systemImage: "list.bullet.rectangle",
+                    script: "import_game.command",
+                    arguments: ["list-epic"]
+                )
+                storeActionButton(
+                    title: "Epic Login",
+                    subtitle: "legendary auth",
+                    systemImage: "person.badge.key.fill",
+                    script: "import_game.command",
+                    arguments: ["auth-epic"],
+                    forceTerminal: true
+                )
+                storeActionButton(
+                    title: "Add Epic Game",
+                    subtitle: "Legendary install",
+                    systemImage: "gamecontroller.fill",
+                    script: "import_game.command",
+                    arguments: ["add-epic"],
+                    needsEpicAppName: true
+                )
             }
 
             Text("After importing, run Install Cosmos to build the .app launcher into /Applications/Cosmos Apps.")
@@ -1104,11 +1127,17 @@ struct ContentView: View {
         script: String,
         arguments: [String],
         needsPath: Bool = false,
-        pathPrompt: String = ""
+        pathPrompt: String = "",
+        needsEpicAppName: Bool = false,
+        forceTerminal: Bool = false
     ) -> some View {
         Button {
-            if needsPath {
+            if needsEpicAppName {
+                promptAndRunEpicImport(script: script, baseArguments: arguments)
+            } else if needsPath {
                 promptAndRunStoreImport(script: script, baseArguments: arguments, pathPrompt: pathPrompt)
+            } else if forceTerminal {
+                runInTerminal(script: script, arguments: arguments, environment: bottleEnvironment())
             } else {
                 runCommand(script: script, arguments: arguments, environment: bottleEnvironment())
             }
@@ -1126,6 +1155,30 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .disabled(isRunning)
+    }
+
+    private func promptAndRunEpicImport(script: String, baseArguments: [String]) {
+        let alert = NSAlert()
+        alert.messageText = "Legendary app name"
+        alert.informativeText = "Use the App name from list-epic (e.g. Sugar), not always the store title. Requires: brew install legendary-gl"
+        alert.addButton(withTitle: "Install in Terminal")
+        alert.addButton(withTitle: "Cancel")
+
+        let appField = NSTextField(frame: NSRect(x: 0, y: 28, width: 320, height: 24))
+        appField.placeholderString = "Legendary app name"
+        let nameField = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        nameField.placeholderString = "Display name for launcher"
+        let stack = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 56))
+        stack.addSubview(appField)
+        stack.addSubview(nameField)
+        alert.accessoryView = stack
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let appName = appField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !appName.isEmpty, !displayName.isEmpty else { return }
+        let args = baseArguments + [appName, "--name", displayName, "--install"]
+        runInTerminal(script: script, arguments: args, environment: bottleEnvironment())
     }
 
     private func promptAndRunStoreImport(script: String, baseArguments: [String], pathPrompt: String) {

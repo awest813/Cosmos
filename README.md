@@ -7,8 +7,8 @@ For developer details, see the [Developer README](README_DEV.md).
 > Toolkit, DXVK), manages isolated Wine prefixes ("bottles"), auto-detects installed
 > Steam games, and generates Spotlight-friendly `.app` launchers with per-game presets.
 >
-> Milestones **0.4 (Profiles)** and **0.5 (Repair engine)** are complete.
-> **0.6 (Store expansion)** adds non-Steam game import. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> Milestones **0.4 (Profiles)** through **0.6 (Store expansion)** are complete,
+> including Epic import via Legendary. See [docs/ROADMAP.md](docs/ROADMAP.md).
 > See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 >
 > **Upgrading from the old "Merlot" builds?** Your existing Wine prefix and saved
