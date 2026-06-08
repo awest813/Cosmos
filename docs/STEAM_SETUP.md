@@ -72,13 +72,22 @@ Override any of these with environment variables before running `run.command`
 
 ## Install Steam only (prefix already exists)
 
-If Wine and the prefix are ready but Steam is missing:
+If Wine and the prefix are ready but Steam is missing (or a previous install
+left a broken Steam folder without `steam.exe`):
 
 ```bash
-./run.command --setup-steam
+./run.command --install-steam
 ```
 
-Complete the graphical Steam installer when the Wine window opens.
+By default this runs unattended and falls back to the graphical wizard if
+needed. To reinstall from scratch (including when Steam is already present):
+
+```bash
+./repair.command apply-fix reinstall_steam
+```
+
+`--setup-steam` still works and performs a full bottle prep (Wine, backend, and
+Steam) when you want everything refreshed in one step.
 
 ## Check your setup status
 
@@ -103,6 +112,23 @@ If everything is already installed:
 
 With `COSMOS_DETACH=1` (default), Steam keeps running after you close Terminal.
 Logs go to `COSMOS_LAUNCH_LOG` (see table above).
+
+Cosmos integrates MIT [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)
+patterns:
+
+- **Launch flags** — `STEAM_LAUNCH_ARGS` (default includes `-no-cef-sandbox`,
+  `-cef-single-process`, `-noverifyfiles`)
+- **Prefix prep** — Japanese font seeding, macOS CA bundle, DXMT `winemetal.dll`
+  staging
+- **steamwebhelper wrapper** — vendored C binary that injects
+  `--disable-gpu --single-process` into Steam's CEF helper (requires
+  `brew install mingw-w64` to build on first setup)
+- **Launch hardening** — clears Chromium singleton locks, scrubs AppCompat
+  tokens, merges Steam-specific `WINEDLLOVERRIDES`
+
+Set `COSMOS_STEAM_WEBHELPER_WRAPPER=0` to skip the wrapper, or
+`STEAM_LAUNCH_ARGS=""` to disable extra flags. See
+[OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md).
 
 Launch a specific game by App ID:
 

@@ -25,6 +25,7 @@ SCRIPTS_TO_BUNDLE=(
   run.command setup.command install_cosmos.command uninstall.command
   detect_steam_games.command bottle.command
   repair.command profile.command cosmosdb.command
+  scripts/install_steamwebhelper_wrapper.command
 )
 
 log() { printf "\n==> %s\n" "$1"; }
@@ -117,6 +118,11 @@ fi
 if [[ -d "${REPO_ROOT}/scripts/lib" ]]; then
   mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts/lib"
   cp -R "${REPO_ROOT}/scripts/lib/." "${APP_BUNDLE}/Contents/Resources/scripts/lib/"
+fi
+if [[ -d "${REPO_ROOT}/third_party/steam-on-m1-wine" ]]; then
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/third_party"
+  cp -R "${REPO_ROOT}/third_party/steam-on-m1-wine" \
+    "${APP_BUNDLE}/Contents/Resources/third_party/steam-on-m1-wine"
 fi
 if [[ -f "${REPO_ROOT}/scripts/repair_fixes.sh" ]]; then
   mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts"

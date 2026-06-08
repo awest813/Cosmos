@@ -1,0 +1,5 @@
+TYPE=fix
+ID=reinstall_steam
+DESCRIPTION=Remove Steam from the prefix and re-run the installer (silent by default, wizard fallback)
+ACTION=script
+SCRIPT=reinstall_steam

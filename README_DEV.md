@@ -45,6 +45,7 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - `run.command --steam` launches Steam explicitly.
   - `setup.command` — guided first-time setup in Terminal (install + `--setup-steam`)
   - `run.command --setup-steam` prepares Wine, the prefix, backend DLLs, and Steam without launching (see [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md)).
+  - `run.command --install-steam` installs or reinstalls Steam in an existing prefix only (skips Wine/backend downloads). Cleans up incomplete Steam folders before retrying; validates the downloaded `SteamSetup.exe`.
   - `run.command --profiles` opens `~/Library/Application Support/Cosmos/Profiles/` in Finder and exits (falling back to the legacy `~/Library/Application Support/Cider/Profiles/` if only that exists).
   - `run.command --game <path> [args...]` launches a saved profile executable directly.
   - `run.command --status` (alias `--doctor`) prints a read-only setup summary — Wine download, prefix, Steam install, and saved profile count — plus the recommended next command, then exits. It never modifies the prefix and mirrors the dashboard's setup checklist.
@@ -97,6 +98,16 @@ Defaults are the values in `run.command`.
 - `COSMOS_STEAM_SILENT`
   - `1` (default) installs Steam unattended via the NSIS `/S` flag — no wizard clicks. Cosmos polls for `steam.exe` (up to ~2 min) and, since a silent install can auto-start Steam, stops the prefix afterward so the explicit launch step is clean. Falls back to the interactive wizard if the silent run does not produce `steam.exe`.
   - `0` always shows the graphical `SteamSetup.exe` wizard.
+- `STEAM_LAUNCH_ARGS`
+  - Extra flags passed to `steam.exe` on launch (default: `-no-cef-sandbox -cef-single-process -noverifyfiles`). Adapted from MIT [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine). Set empty to disable.
+- `COSMOS_STEAM_WEBHELPER_WRAPPER`
+  - `1` (default) builds/installs the vendored MIT `steamwebhelper.exe` wrapper when `mingw-w64` is available (`brew install mingw-w64`).
+- `COSMOS_STEAM_SEED_FONTS` / `COSMOS_STEAM_CA_BUNDLE`
+  - `1` (default) copy macOS CJK fonts + CA bundle into the prefix during setup.
+- `COSMOS_STEAM_WINEDLLOVERRIDES`
+  - DLL overrides merged at Steam launch (default disables Steam overlay DLLs, sets DXMT-friendly `n,b` chain). Set empty to skip.
+- `WINE_VIRTUAL_DESKTOP` / `WINE_VIRTUAL_DESKTOP_NAME`
+  - Optional Wine virtual desktop wrapper (`auto`, `WxH`, or empty to disable). See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md).
 - `COSMOS_LAUNCH_LOG` (legacy aliases: `MERLOT_LAUNCH_LOG`, `MERLOT_STEAM_LOG`, `COSMOS_STEAM_LOG`)
   - Path to the detached-mode launch log (default: `~/Library/Application Support/Cosmos/logs/steam-launch.log`).
 - `COSMOS_SUPPORT_DIR`

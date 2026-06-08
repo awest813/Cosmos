@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Fix action implementations for repair.command (sourced, not executed directly).
 
+REPAIR_STEAM_LIB="${SCRIPT_DIR:-}/scripts/lib/steam_lib.sh"
+if [[ -f "${REPAIR_STEAM_LIB}" ]]; then
+  # shellcheck source=scripts/lib/steam_lib.sh
+  source "${REPAIR_STEAM_LIB}"
+fi
+
 REPAIR_WINE_BIN=""
 
 repair_find_wine_bin() {
@@ -79,6 +85,10 @@ repair_persist_setting() {
 COSMOS_BACKEND="recommended"
 COSMOS_DETACH="1"
 COSMOS_STEAM_SILENT="1"
+STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process -noverifyfiles"
+COSMOS_STEAM_WEBHELPER_WRAPPER="1"
+COSMOS_STEAM_SEED_FONTS="1"
+COSMOS_STEAM_CA_BUNDLE="1"
 WINE_RETINA_MODE="0"
 WINDOWS_VERSION=""
 WINE_VERSION="11.8"
@@ -136,8 +146,54 @@ repair_kill_wine() {
   echo "Sent kill signals for Wine processes tied to ${pfx}."
 }
 
+repair_install_steamwebhelper_wrapper() {
+  repair_find_wine_bin || return 1
+  repair_require_prefix || return 1
+  export WINE_BIN="${REPAIR_WINE_BIN}"
+  steam_install_webhelper_wrapper
+}
+
+repair_seed_japanese_fonts() {
+  repair_find_wine_bin || return 1
+  repair_require_prefix || return 1
+  export WINE_BIN="${REPAIR_WINE_BIN}"
+  steam_seed_japanese_fonts
+}
+
+repair_fix_steam_ssl() {
+  repair_require_prefix || return 1
+  steam_install_ca_bundle
+}
+
+repair_reinstall_steam() {
+  repair_kill_wine
+  repair_require_prefix || return 1
+  repair_find_wine_bin || return 1
+  local base removed=0
+  for base in \
+    "${WINEPREFIX}/drive_c/Program Files (x86)/Steam" \
+    "${WINEPREFIX}/drive_c/Program Files/Steam"; do
+    if [[ -d "${base}" ]]; then
+      rm -rf "${base}"
+      echo "Removed Steam at ${base}."
+      removed=1
+    fi
+  done
+  (( removed )) || echo "No existing Steam install found — running installer."
+  local runner="${SCRIPT_DIR:-}/run.command"
+  [[ -x "${runner}" ]] || {
+    echo "run.command not found at ${runner}."
+    return 1
+  }
+  echo "Re-running Steam installer via ${runner} --install-steam ..."
+  WINE_BIN="${REPAIR_WINE_BIN}" "${runner}" --install-steam
+}
+
 repair_clear_steam_caches() {
   local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  if declare -F steam_clear_chromium_locks >/dev/null 2>&1; then
+    steam_clear_chromium_locks
+  fi
   local removed=0 dir
   for dir in \
     "${pfx}/drive_c/users"/*/AppData/Local/Steam/htmlcache \

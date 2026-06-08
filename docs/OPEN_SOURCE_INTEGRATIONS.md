@@ -3,6 +3,52 @@
 How Cosmos uses external MIT-friendly (or external-tool) projects across the
 integration priorities.
 
+## Steam install & launch (MIT: steam-on-m1-wine)
+
+Upstream: https://github.com/notpop/steam-on-m1-wine (MIT)
+
+**Vendored in Cosmos**
+
+| Path | Upstream | Purpose |
+|------|----------|---------|
+| `third_party/steam-on-m1-wine/wrapper/` | `wrapper/` | C `steamwebhelper.exe` that injects `--disable-gpu --single-process` |
+| `third_party/steam-on-m1-wine/assets/` | `scripts/assets/` | Japanese font substitution + optional virtual-desktop registry |
+
+**Integrated at runtime**
+
+| Component | What it does |
+|-----------|--------------|
+| `scripts/lib/steam_lib.sh` | Prefix prep, launch hardening, VDF parsing, wrapper install |
+| `scripts/install_steamwebhelper_wrapper.command` | Standalone wrapper build/install (needs `brew install mingw-w64`) |
+| `run.command --setup-steam` | Seeds fonts, CA bundle, DXMT prefix DLLs, wrapper (when possible) |
+| `run.command --steam` | Stops lingering Wine, clears Chromium locks, applies DLL overrides + launch flags |
+
+**Defaults in `steam.conf`**
+
+```bash
+STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process -noverifyfiles"
+COSMOS_STEAM_WEBHELPER_WRAPPER="1"    # build/install wrapper when mingw-w64 exists
+COSMOS_STEAM_SEED_FONTS="1"           # copy macOS CJK fonts into prefix
+COSMOS_STEAM_CA_BUNDLE="1"            # copy /etc/ssl/cert.pem into prefix
+COSMOS_STEAM_WINEDLLOVERRIDES="dxgi,d3d11,d3d10core=n,b;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
+# WINE_VIRTUAL_DESKTOP="auto"         # optional: wrap Steam in a Wine virtual desktop
+```
+
+**Repair fixes**
+
+```bash
+./repair.command apply-fix install_steamwebhelper_wrapper
+./repair.command apply-fix seed_japanese_fonts
+./repair.command apply-fix fix_steam_ssl
+./repair.command apply-fix reinstall_steam
+```
+
+**Not ported (upstream-specific)**
+
+- Homebrew `wine-stable` install — Cosmos uses Gcenx tarballs instead
+- LLVM 15 self-build + Wine `-fvisibility=default` rebuild — experimental; see upstream `docs/building-for-games.md`
+- DXMT fork nightly pipeline — Cosmos pins official DXMT releases
+
 ## 1. Harden detection
 
 **In Cosmos today**
@@ -26,9 +72,10 @@ COSMOS_VERIFY_NODE=1 ./scripts/verify_steam_detection.command
 
 | Project | License | Use |
 | --- | --- | --- |
-| [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Cross-check library/manifest parsing |
+| [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Cross-check library/manifest parsing; v1/v2 `libraryfolders.vdf` |
 | [steamutils](https://github.com/bomkz/steamutils) | Unlicense | Go parser reference |
 | [Gameloop.Vdf](https://github.com/shravan2x/Gameloop.Vdf) | MIT | VDF grammar reference |
+| [macos-wine-steam](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; Gcenx Wine + DXMT bootstrap |
 
 ## Dashboard UI
 
@@ -53,6 +100,7 @@ When a bottle is selected, `COSMOS_BOTTLE` is passed to CLI commands automatical
 ./repair.command list-deps
 ./repair.command install-dep vcrun2015
 ./repair.command apply-fix clear_steam_caches
+./repair.command apply-fix install_steamwebhelper_wrapper
 ```
 
 Fix categories align with [Cellar](https://github.com/lasermaze/Cellar) / [D4Mac](https://github.com/MichaelLod/D4Mac) docs (caches, kill Wine, Windows version).

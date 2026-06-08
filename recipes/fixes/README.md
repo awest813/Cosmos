@@ -41,6 +41,10 @@ COSMOS_BACKEND=wined3d ./repair.command apply-fix set_backend
 | `force_borderless` | Disable display capture + Retina (common fullscreen fix) |
 | `disable_intro_video` | Append `-novid` (or `INTRO_SKIP_ARGS`) to game overrides |
 | `set_backend` | Persist `COSMOS_BACKEND` to bottle/steam settings (+ game override if `STEAM_APPID` set) |
+| `reinstall_steam` | Remove Steam from the prefix and re-run `./run.command --install-steam` |
+| `install_steamwebhelper_wrapper` | Build/install MIT `steamwebhelper.exe` wrapper (needs `mingw-w64`) |
+| `seed_japanese_fonts` | Copy macOS CJK fonts + font substitution registry into prefix |
+| `fix_steam_ssl` | Copy macOS CA bundle into prefix (`cacert.pem`) |
 
 ## Diagnose
 

@@ -48,9 +48,14 @@ repair_diagnose_prefix_health() {
   fi
   if [[ ! -f "${pfx}/drive_c/Program Files (x86)/Steam/steam.exe" \
      && ! -f "${pfx}/drive_c/Program Files/Steam/steam.exe" ]]; then
+    local steam_hint="./run.command --install-steam"
+    if [[ -d "${pfx}/drive_c/Program Files (x86)/Steam" \
+       || -d "${pfx}/drive_c/Program Files/Steam" ]]; then
+      steam_hint="./repair.command apply-fix reinstall_steam"
+    fi
     repair_diagnose_note steam-missing \
       "[prefix] Steam is not installed in this prefix
-  Try: ./run.command --setup-steam"
+  Try: ${steam_hint}"
   fi
   if pgrep -f "wineserver.*${pfx}" >/dev/null 2>&1; then
     repair_diagnose_note wineserver-running \
@@ -94,6 +99,26 @@ repair_diagnose_scan_log() {
     repair_diagnose_note fix-caches \
       "[steam] Shader or HTTP cache issues detected
   Try: ./repair.command apply-fix clear_steam_caches"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'SingletonLock|single.instance|already running|--silent'; then
+    repair_diagnose_note fix-singleton \
+      "[steam] Steam may be stuck on Chromium single-instance lock
+  Try: ./repair.command apply-fix clear_steam_caches"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'handshake failed|SSL error code|net_error -100|net_error -107'; then
+    repair_diagnose_note fix-steam-ssl \
+      "[steam] Chromium TLS handshake failures detected
+  Try: ./repair.command apply-fix fix_steam_ssl
+       then: ./repair.command apply-fix install_steamwebhelper_wrapper"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'black window|steamwebhelper|CEF.*fail|CreateDevice|D3D11'; then
+    repair_diagnose_note fix-steam-cef \
+      "[steam] Steam CEF / D3D11 UI issues detected
+  Try: ./repair.command apply-fix install_steamwebhelper_wrapper
+       COSMOS_BACKEND=dxmt ./repair.command apply-fix set_backend"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'RetinaMode|hidpi|HiDPI|Retina|scaling'; then

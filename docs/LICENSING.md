@@ -45,6 +45,7 @@ dependencies.
 | [Whisky](https://github.com/Whisky-App/Whisky) | GPL-3 | UX patterns only — do not copy Swift source into MIT Cosmos |
 | [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3 | Architecture reference only |
 | [macos-wine-steam / Merlot](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; safe to compare scripts |
-| [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Optional detection cross-check |
+| [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Optional detection cross-check; VDF parsing patterns in `steam_lib.sh` |
+| [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) | MIT | Vendored `third_party/steam-on-m1-wine/` (wrapper + assets); launch/prefix integration in `steam_lib.sh` |
 
 See also [OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md).

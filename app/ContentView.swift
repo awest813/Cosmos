@@ -301,10 +301,12 @@ struct ContentView: View {
             return "Installs launchers into /Applications/Cosmos Apps · opens Terminal"
         }
         if !steamSettings.isPrefixInitialized {
-            return "Downloads Wine, creates the prefix, and runs the Steam installer"
+            return "Downloads Wine, creates the prefix, and installs Steam"
         }
         if !steamSettings.isSteamInstalled {
-            return "Finish the Steam wizard, or launch Steam to complete installation"
+            return steamSettings.silentInstallEnabled
+                ? "Installs Steam automatically (wizard fallback if needed)"
+                : "Opens the graphical Steam installer wizard in Terminal"
         }
         if profiles.isEmpty {
             return "Detect installed games and create Dock-friendly .app launchers"
@@ -339,7 +341,9 @@ struct ContentView: View {
             return "Prepare the Steam bottle to download Wine and create the prefix, then install Steam."
         }
         if !steamSettings.isSteamInstalled {
-            return "Run Prepare Bottle or Launch Steam to finish the Steam installer wizard, then detect games."
+            return steamSettings.silentInstallEnabled
+                ? "Run Install Steam to finish the unattended install, then detect games."
+                : "Run Install Steam to complete the installer wizard, then detect games."
         }
         if profiles.isEmpty {
             return "Steam is ready — run Detect Games to populate saved profiles."
@@ -406,7 +410,9 @@ struct ContentView: View {
                             title: "Install Steam",
                             detail: steamSettings.isSteamInstalled
                                 ? "Steam is in the Wine prefix"
-                                : "Complete the graphical Steam installer wizard"
+                                : (steamSettings.silentInstallEnabled
+                                    ? "Unattended install (wizard fallback if needed)"
+                                    : "Complete the graphical Steam installer wizard")
                         )
                         setupStep(
                             done: !profiles.isEmpty,
@@ -518,8 +524,12 @@ struct ContentView: View {
             runInTerminal(script: "install_cosmos.command")
             return
         }
-        if !steamSettings.isPrefixInitialized || !steamSettings.isSteamInstalled {
+        if !steamSettings.isPrefixInitialized {
             runInTerminal(script: "run.command", arguments: ["--setup-steam"])
+            return
+        }
+        if !steamSettings.isSteamInstalled {
+            runInTerminal(script: "run.command", arguments: ["--install-steam"])
             return
         }
         if profiles.isEmpty {
