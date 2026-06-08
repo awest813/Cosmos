@@ -3,10 +3,12 @@
 
 DIAG_SEEN=""
 DIAG_LINES=()
+DIAG_SUGGESTIONS=()
 
 repair_diagnose_reset() {
   DIAG_SEEN=""
   DIAG_LINES=()
+  DIAG_SUGGESTIONS=()
 }
 
 repair_diagnose_note() {
@@ -16,6 +18,17 @@ repair_diagnose_note() {
   esac
   DIAG_SEEN="${DIAG_SEEN}|${key}|"
   DIAG_LINES+=("${text}")
+}
+
+# Record a one-click recipe suggestion (dep:id or fix:id).
+repair_diagnose_suggest() {
+  local kind="$1" id="$2" text="$3"
+  local token="${kind}:${id}"
+  repair_diagnose_note "${kind}-${id}" "${text}"
+  case " ${DIAG_SUGGESTIONS[*]} " in
+    *" ${token} "*) return 0 ;;
+  esac
+  DIAG_SUGGESTIONS+=("${token}")
 }
 
 repair_resolve_launch_log() {
@@ -51,16 +64,40 @@ repair_diagnose_prefix_health() {
     local steam_hint="./run.command --install-steam"
     if [[ -d "${pfx}/drive_c/Program Files (x86)/Steam" \
        || -d "${pfx}/drive_c/Program Files/Steam" ]]; then
-      steam_hint="./repair.command apply-fix reinstall_steam"
-    fi
-    repair_diagnose_note steam-missing \
-      "[prefix] Steam is not installed in this prefix
+      repair_diagnose_suggest fix reinstall_steam \
+        "[prefix] Steam is not installed in this prefix
+  Try: ./repair.command apply-fix reinstall_steam"
+    else
+      repair_diagnose_note steam-missing \
+        "[prefix] Steam is not installed in this prefix
   Try: ${steam_hint}"
+    fi
   fi
   if pgrep -f "wineserver.*${pfx}" >/dev/null 2>&1; then
-    repair_diagnose_note wineserver-running \
+    repair_diagnose_suggest fix kill_wine \
       "[prefix] Wine is still running for this prefix (can block launches)
   Try: ./repair.command apply-fix kill_wine"
+  fi
+}
+
+repair_diagnose_profile_hints() {
+  local appid="${COSMOS_PROFILE_APPID:-${STEAM_APPID:-}}"
+  [[ "${appid}" =~ ^[0-9]+$ ]] || return 0
+  local profiles_root="${SCRIPT_DIR:-.}/profiles"
+  [[ -d "${profiles_root}" ]] || return 0
+  # shellcheck disable=SC1091
+  [[ -f "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" ]] \
+    && source "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" 2>/dev/null || return 0
+  local pf
+  pf="$(profile_find_by_appid "${profiles_root}" "${appid}")" || return 0
+  local name deps fixes
+  name="$(profile_get_scalar "${pf}" name)"
+  deps="$(profile_list_dependencies "${pf}" | tr '\n' ' ')"
+  fixes="$(profile_list_fixes "${pf}" | tr '\n' ' ')"
+  if [[ -n "${deps}${fixes}" ]]; then
+    repair_diagnose_note "profile-${appid}" \
+      "[profile] Curated profile for ${name:-App ID ${appid}}
+  Try: ./profile.command for-appid ${appid} apply"
   fi
 }
 
@@ -72,57 +109,60 @@ repair_diagnose_scan_log() {
   [[ -n "${blob}" ]] || return 0
 
   if printf '%s' "${blob}" | grep -Eiq 'prefix.*in use|already using this prefix|wineserver.*running'; then
-    repair_diagnose_note prefix-busy \
+    repair_diagnose_suggest fix kill_wine \
       "[launch] Prefix was in use during launch
   Try: ./repair.command apply-fix kill_wine"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'MSVCP140|VCRUNTIME140|vcrun2015|Visual C\+\+.*2015'; then
-    repair_diagnose_note dep-vcrun2015 \
+    repair_diagnose_suggest dep vcrun2015 \
       "[runtime] Visual C++ 2015 runtime may be missing
   Try: ./repair.command install-dep vcrun2015"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'MSVCP100|VCRUNTIME100|vcrun2010|Visual C\+\+.*2010'; then
-    repair_diagnose_note dep-vcrun2010 \
+    repair_diagnose_suggest dep vcrun2010 \
       "[runtime] Visual C++ 2010 runtime may be missing
   Try: ./repair.command install-dep vcrun2010"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'd3dx9|D3DX9_43|d3dx9_43'; then
-    repair_diagnose_note dep-d3dx9 \
+    repair_diagnose_suggest dep d3dx9 \
       "[runtime] DirectX 9 components may be missing
   Try: ./repair.command install-dep d3dx9"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'shadercache|httpcache|shader.*cache|cache.*corrupt'; then
-    repair_diagnose_note fix-caches \
+    repair_diagnose_suggest fix clear_steam_caches \
       "[steam] Shader or HTTP cache issues detected
   Try: ./repair.command apply-fix clear_steam_caches"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'SingletonLock|single.instance|already running|--silent'; then
-    repair_diagnose_note fix-singleton \
+    repair_diagnose_suggest fix clear_steam_caches \
       "[steam] Steam may be stuck on Chromium single-instance lock
   Try: ./repair.command apply-fix clear_steam_caches"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'handshake failed|SSL error code|net_error -100|net_error -107'; then
-    repair_diagnose_note fix-steam-ssl \
+    repair_diagnose_suggest fix fix_steam_ssl \
       "[steam] Chromium TLS handshake failures detected
   Try: ./repair.command apply-fix fix_steam_ssl
        then: ./repair.command apply-fix install_steamwebhelper_wrapper"
+    repair_diagnose_suggest fix install_steamwebhelper_wrapper \
+      "[steam] Install the steamwebhelper wrapper after fixing SSL
+  Try: ./repair.command apply-fix install_steamwebhelper_wrapper"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'black window|steamwebhelper|CEF.*fail|CreateDevice|D3D11'; then
-    repair_diagnose_note fix-steam-cef \
+    repair_diagnose_suggest fix install_steamwebhelper_wrapper \
       "[steam] Steam CEF / D3D11 UI issues detected
   Try: ./repair.command apply-fix install_steamwebhelper_wrapper
        COSMOS_BACKEND=dxmt ./repair.command apply-fix set_backend"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'RetinaMode|hidpi|HiDPI|Retina|scaling'; then
-    repair_diagnose_note fix-retina \
+    repair_diagnose_suggest fix disable_retina \
       "[display] Retina / scaling issues detected
   Try: ./repair.command apply-fix disable_retina"
   fi
@@ -167,15 +207,16 @@ repair_diagnose_scan_log() {
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'segmentation fault|SIGSEGV|wine:.*crashed|abort\(\)|stack overflow'; then
-    repair_diagnose_note crash \
-      "[crash] Wine or the game crashed
-  Try: ./repair.command apply-fix kill_wine
-       then: ./repair.command apply-fix clear_steam_caches
-       then switch backend: COSMOS_BACKEND=wined3d ./repair.command apply-fix set_backend"
+    repair_diagnose_suggest fix kill_wine \
+      "[crash] Wine or the game crashed — stop lingering processes first
+  Try: ./repair.command apply-fix kill_wine"
+    repair_diagnose_suggest fix clear_steam_caches \
+      "[crash] Clear caches after killing Wine
+  Try: ./repair.command apply-fix clear_steam_caches"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'err:module:import_dll|\.dll.*not found|could not load library'; then
-    repair_diagnose_note missing-dll \
+    repair_diagnose_suggest dep vcrun2015 \
       "[module] Missing DLL reported in log
   Try: ./repair.command install-dep vcrun2015
        or: DLL_OVERRIDE='<dll>=n,b' ./repair.command apply-fix dll_override"
@@ -192,6 +233,7 @@ repair_diagnose_run() {
   local log_file="${1:-}"
   repair_diagnose_reset
   repair_diagnose_prefix_health
+  repair_diagnose_profile_hints
 
   if [[ -z "${log_file}" ]]; then
     log_file="$(repair_resolve_launch_log)"
@@ -234,4 +276,24 @@ repair_diagnose_run() {
   for item in "${DIAG_LINES[@]}"; do
     printf '%s\n\n' "${item}"
   done
+}
+
+# Print machine-readable suggestions (dep:id / fix:id), one per line.
+repair_diagnose_print_suggestions() {
+  local item
+  for item in "${DIAG_SUGGESTIONS[@]}"; do
+    printf '%s\n' "${item}"
+  done
+}
+
+# Fixes safe to run without extra env vars (used by apply-suggested).
+repair_suggestion_is_auto_applicable() {
+  local token="$1"
+  case "${token}" in
+    dep:*) return 0 ;;
+    fix:kill_wine|fix:clear_steam_caches|fix:disable_retina|fix:fix_steam_ssl|fix:install_steamwebhelper_wrapper|fix:reinstall_steam|fix:seed_japanese_fonts)
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
 }

@@ -40,6 +40,8 @@ Commands:
   list-deps                     List dependency recipes (winetricks verbs).
   list-fixes                    List fix recipes.
   diagnose [--log <path>]       Scan prefix health + launch log; suggest fixes.
+  suggest [--log <path>]        Print actionable recipe tokens (dep:id / fix:id).
+  apply-suggested [--log <path>] Diagnose, then auto-apply safe suggestions.
   install-dep <id>              Run winetricks for a dependency recipe.
   apply-fix <id>                Apply a fix recipe to the current WINEPREFIX.
   install-deps <id> [id...]     Install multiple dependencies.
@@ -117,23 +119,73 @@ cmd_apply_fix() {
   esac
 }
 
-cmd_diagnose() {
+repair_parse_log_flag() {
+  local _var="$1"
+  shift
   local log_file=""
   while (($#)); do
     case "$1" in
       --log)
         log_file="${2:-}"
-        [[ -n "${log_file}" ]] || die "Usage: repair.command diagnose [--log <path>]"
+        [[ -n "${log_file}" ]] || die "Missing value for --log"
         shift 2
         ;;
       *)
-        die "Unknown diagnose option: $1"
+        die "Unknown option: $1"
         ;;
     esac
   done
-  export WINEPREFIX COSMOS_BOTTLE COSMOS_SUPPORT_DIR SCRIPT_DIR
+  printf -v "${_var}" '%s' "${log_file}"
+}
+
+cmd_diagnose() {
+  local log_file=""
+  repair_parse_log_flag log_file "$@"
+  export WINEPREFIX COSMOS_BOTTLE COSMOS_SUPPORT_DIR SCRIPT_DIR \
+    COSMOS_PROFILE_APPID STEAM_APPID
   log "Diagnosing prefix and launch log"
   repair_diagnose_run "${log_file}"
+}
+
+cmd_suggest() {
+  local log_file=""
+  repair_parse_log_flag log_file "$@"
+  export WINEPREFIX COSMOS_BOTTLE COSMOS_SUPPORT_DIR SCRIPT_DIR \
+    COSMOS_PROFILE_APPID STEAM_APPID
+  repair_diagnose_run "${log_file}" >/dev/null
+  repair_diagnose_print_suggestions
+}
+
+cmd_apply_suggested() {
+  local log_file=""
+  repair_parse_log_flag log_file "$@"
+  export WINEPREFIX COSMOS_BOTTLE COSMOS_SUPPORT_DIR SCRIPT_DIR \
+    COSMOS_PROFILE_APPID STEAM_APPID
+  repair_diagnose_run "${log_file}" >/dev/null
+  local token applied=0 skipped=0
+  if ((${#DIAG_SUGGESTIONS[@]} == 0)); then
+    echo "No auto-applicable suggestions."
+    return 0
+  fi
+  log "Applying safe suggestions (${#DIAG_SUGGESTIONS[@]} found)"
+  for token in "${DIAG_SUGGESTIONS[@]}"; do
+    if ! repair_suggestion_is_auto_applicable "${token}"; then
+      echo "  skip   ${token} (needs manual env or confirmation)"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    case "${token}" in
+      dep:*)
+        cmd_install_dep "${token#dep:}" || true
+        applied=$((applied + 1))
+        ;;
+      fix:*)
+        cmd_apply_fix "${token#fix:}" || true
+        applied=$((applied + 1))
+        ;;
+    esac
+  done
+  echo "Applied ${applied} suggestion(s); skipped ${skipped}."
 }
 
 cmd_list_deps() {
@@ -152,6 +204,8 @@ main() {
     list-deps) cmd_list_deps ;;
     list-fixes) cmd_list_fixes ;;
     diagnose) cmd_diagnose "$@" ;;
+    suggest) cmd_suggest "$@" ;;
+    apply-suggested) cmd_apply_suggested "$@" ;;
     install-dep) cmd_install_dep "$@" ;;
     apply-fix) cmd_apply_fix "$@" ;;
     install-deps)
