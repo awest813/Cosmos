@@ -130,10 +130,10 @@ success criterion — if that sentence isn't true, the release isn't done.
 ### 0.5 — Repair engine *(in progress)*
 - [x] `repair.command` + `recipes/*/*.recipe` (winetricks deps, kill Wine, clear Steam caches)
 - [x] Winetricks as external LGPL tool — [LICENSING.md](LICENSING.md)
-- [ ] Crash/log detection + missing-runtime detection
+- [x] Crash/log detection + missing-runtime detection (`repair.command diagnose`)
 - [x] One-click fixes (Retina, rebuild prefix, DLL overrides, borderless, skip intro)
-- [ ] Backend switch fix recipe + crash/log-driven suggestions
-- [ ] Bottle health check + dashboard repair UI
+- [x] Backend switch fix recipe (`set_backend`) + log-driven suggestions
+- [x] Bottle health check + dashboard repair UI (Diagnose Logs button)
 - **Success:** When a game fails, Cosmos suggests useful fixes instead of dumping the user into logs.
 
 ### 0.6 — Store expansion

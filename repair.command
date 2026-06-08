@@ -7,8 +7,10 @@ set -euo pipefail
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 RECIPE_LIB="${SCRIPT_DIR}/scripts/lib/recipe_lib.sh"
 FIX_LIB="${SCRIPT_DIR}/scripts/repair_fixes.sh"
+DIAG_LIB="${SCRIPT_DIR}/scripts/repair_diagnose.sh"
 DEPS_DIR="${SCRIPT_DIR}/recipes/dependencies"
 FIXES_DIR="${SCRIPT_DIR}/recipes/fixes"
+COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
 
 WINEPREFIX="${WINEPREFIX:-$HOME/.wine-steam-11}"
 COSMOS_BOTTLE="${COSMOS_BOTTLE:-}"
@@ -22,6 +24,8 @@ fi
 source "${RECIPE_LIB}"
 # shellcheck source=scripts/repair_fixes.sh
 source "${FIX_LIB}"
+# shellcheck source=scripts/repair_diagnose.sh
+source "${DIAG_LIB}"
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
@@ -35,6 +39,7 @@ Usage: repair.command <command> [args]
 Commands:
   list-deps                     List dependency recipes (winetricks verbs).
   list-fixes                    List fix recipes.
+  diagnose [--log <path>]       Scan prefix health + launch log; suggest fixes.
   install-dep <id>              Run winetricks for a dependency recipe.
   apply-fix <id>                Apply a fix recipe to the current WINEPREFIX.
   install-deps <id> [id...]     Install multiple dependencies.
@@ -43,9 +48,11 @@ Commands:
 Environment:
   WINEPREFIX          Target prefix (default: ~/.wine-steam-11).
   COSMOS_BOTTLE       Named bottle (overrides WINEPREFIX via bottle.command).
+  COSMOS_LOG          Override launch log path for diagnose.
   WINDOWS_VERSION     Required for fix set_windows_version.
+  COSMOS_BACKEND      Required for fix set_backend.
   DLL_OVERRIDE        Required for fix dll_override (e.g. ddraw=n,b).
-  STEAM_APPID         Required for fix disable_intro_video.
+  STEAM_APPID         Optional for set_backend / required for disable_intro_video.
   INTRO_SKIP_ARGS     Optional skip-intro args (default: -novid).
   COSMOS_FORCE        Set to 1 for non-interactive rebuild_prefix.
 
@@ -99,10 +106,30 @@ cmd_apply_fix() {
     rebuild_prefix) repair_rebuild_prefix ;;
     force_borderless) repair_force_borderless ;;
     disable_intro_video) repair_disable_intro_video ;;
+    set_backend) repair_set_backend ;;
     *)
       die "Unknown fix script '${RECIPE_SCRIPT}' for ${id}"
       ;;
   esac
+}
+
+cmd_diagnose() {
+  local log_file=""
+  while (($#)); do
+    case "$1" in
+      --log)
+        log_file="${2:-}"
+        [[ -n "${log_file}" ]] || die "Usage: repair.command diagnose [--log <path>]"
+        shift 2
+        ;;
+      *)
+        die "Unknown diagnose option: $1"
+        ;;
+    esac
+  done
+  export WINEPREFIX COSMOS_BOTTLE COSMOS_SUPPORT_DIR SCRIPT_DIR
+  log "Diagnosing prefix and launch log"
+  repair_diagnose_run "${log_file}"
 }
 
 cmd_list_deps() {
@@ -120,6 +147,7 @@ main() {
   case "${cmd}" in
     list-deps) cmd_list_deps ;;
     list-fixes) cmd_list_fixes ;;
+    diagnose) cmd_diagnose "$@" ;;
     install-dep) cmd_install_dep "$@" ;;
     apply-fix) cmd_apply_fix "$@" ;;
     install-deps)

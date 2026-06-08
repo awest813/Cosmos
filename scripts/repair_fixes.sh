@@ -41,6 +41,30 @@ repair_wine_reg_set() {
   "${REPAIR_WINE_BIN}" reg add "${reg_path}" /v "${value_name}" /t REG_SZ /d "${value_data}" /f >/dev/null
 }
 
+repair_merge_override_env() {
+  local appid="$1" key="$2" val="$3"
+  local overrides_dir="${SCRIPT_DIR:-}/cosmos_configs/overrides"
+  mkdir -p "${overrides_dir}"
+  local out="${overrides_dir}/${appid}.env"
+  local tmp found=0 line
+  tmp="$(mktemp "${TMPDIR:-/tmp}/override.XXXXXX")"
+  if [[ -f "${out}" ]]; then
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      if [[ "${line}" == "${key}="* ]]; then
+        printf '%s=%s\n' "${key}" "${val}" >> "${tmp}"
+        found=1
+      else
+        printf '%s\n' "${line}" >> "${tmp}"
+      fi
+    done < "${out}"
+  else
+    printf '# Added by repair.command\n' >> "${tmp}"
+  fi
+  (( found )) || printf '%s=%s\n' "${key}" "${val}" >> "${tmp}"
+  mv "${tmp}" "${out}"
+  echo "Wrote ${out} (${key}=${val})."
+}
+
 repair_persist_setting() {
   local key="$1" val="$2"
   if [[ -n "${COSMOS_BOTTLE:-}" && -x "${SCRIPT_DIR:-}/bottle.command" ]]; then
@@ -208,37 +232,52 @@ repair_force_borderless() {
 repair_disable_intro_video() {
   local args="${INTRO_SKIP_ARGS:--novid}"
   local appid="${STEAM_APPID:-}"
-  local overrides_dir="${SCRIPT_DIR:-}/cosmos_configs/overrides"
   [[ "${appid}" =~ ^[0-9]+$ ]] || {
     echo "Set STEAM_APPID to the game's Steam App ID before applying this fix."
     echo "Default skip args: ${args} (override with INTRO_SKIP_ARGS)."
     return 1
   }
-  mkdir -p "${overrides_dir}"
+  local overrides_dir="${SCRIPT_DIR:-}/cosmos_configs/overrides"
   local out="${overrides_dir}/${appid}.env"
-  local tmp found=0 line existing=""
-  tmp="$(mktemp "${TMPDIR:-/tmp}/override.XXXXXX")"
+  local existing="" line
   if [[ -f "${out}" ]]; then
     while IFS= read -r line || [[ -n "${line}" ]]; do
-      if [[ "${line}" == STEAM_GAME_ARGS=* ]]; then
-        existing="${line#STEAM_GAME_ARGS=}"
-        if [[ -n "${existing}" && "${existing}" == *"${args}"* ]]; then
-          printf '%s\n' "${line}" >> "${tmp}"
-        elif [[ -n "${existing}" ]]; then
-          printf 'STEAM_GAME_ARGS=%s %s\n' "${existing}" "${args}" >> "${tmp}"
-        else
-          printf 'STEAM_GAME_ARGS=%s\n' "${args}" >> "${tmp}"
-        fi
-        found=1
-      else
-        printf '%s\n' "${line}" >> "${tmp}"
-      fi
+      [[ "${line}" == STEAM_GAME_ARGS=* ]] && existing="${line#STEAM_GAME_ARGS=}"
     done < "${out}"
-  else
-    printf '# Added by repair.command disable_intro_video\n' >> "${tmp}"
   fi
-  (( found )) || printf 'STEAM_GAME_ARGS=%s\n' "${args}" >> "${tmp}"
-  mv "${tmp}" "${out}"
-  echo "Wrote ${out} with STEAM_GAME_ARGS including ${args}."
+  local merged="${args}"
+  if [[ -n "${existing}" && "${existing}" != *"${args}"* ]]; then
+    merged="${existing} ${args}"
+  elif [[ -n "${existing}" ]]; then
+    merged="${existing}"
+  fi
+  repair_merge_override_env "${appid}" STEAM_GAME_ARGS "${merged}"
   echo "Re-run detect_steam_games.command --install to refresh launchers."
+}
+
+repair_set_backend() {
+  local backend="${COSMOS_BACKEND:-}"
+  [[ -n "${backend}" ]] || {
+    echo "Set COSMOS_BACKEND (recommended|dxmt|d3dmetal|dxvk|wined3d) before applying this fix."
+    return 1
+  }
+  backend="$(printf '%s' "${backend}" | tr '[:upper:]' '[:lower:]')"
+  [[ "${backend}" == "gptk" ]] && backend="d3dmetal"
+  case "${backend}" in
+    recommended|dxmt|d3dmetal|dxvk|wined3d) ;;
+    *) echo "COSMOS_BACKEND must be one of: recommended | dxmt | d3dmetal | dxvk | wined3d."; return 1 ;;
+  esac
+  repair_persist_setting COSMOS_BACKEND "${backend}"
+  echo "Persisted COSMOS_BACKEND=${backend} for future launches."
+  local appid="${STEAM_APPID:-}"
+  if [[ "${appid}" =~ ^[0-9]+$ ]]; then
+    repair_merge_override_env "${appid}" COSMOS_BACKEND "${backend}"
+    echo "Re-run detect_steam_games.command --install to refresh launchers."
+  fi
+  if [[ "${backend}" == "d3dmetal" && -z "${GPTK_PATH:-}" ]]; then
+    echo "Note: d3dmetal needs GPTK_PATH pointing at your Game Porting Toolkit install."
+  fi
+  if [[ "${backend}" == "dxvk" && -z "${DXVK_PATH:-}" ]]; then
+    echo "Note: dxvk needs DXVK_PATH pointing at a folder of DXVK DLLs."
+  fi
 }

@@ -23,6 +23,9 @@ Implementations live in `scripts/repair_fixes.sh`.
 DLL_OVERRIDE="ddraw=n,b" ./repair.command apply-fix dll_override
 STEAM_APPID=22380 ./repair.command apply-fix disable_intro_video
 COSMOS_FORCE=1 ./repair.command apply-fix rebuild_prefix
+COSMOS_BACKEND=wined3d ./repair.command apply-fix set_backend
+./repair.command diagnose
+./repair.command diagnose --log ~/Library/Application\ Support/Cosmos/logs/steam-launch.log
 ```
 
 ## Shipped fixes
@@ -37,3 +40,10 @@ COSMOS_FORCE=1 ./repair.command apply-fix rebuild_prefix
 | `rebuild_prefix` | Delete prefix for a clean rebuild (set `COSMOS_FORCE=1` in scripts) |
 | `force_borderless` | Disable display capture + Retina (common fullscreen fix) |
 | `disable_intro_video` | Append `-novid` (or `INTRO_SKIP_ARGS`) to game overrides |
+| `set_backend` | Persist `COSMOS_BACKEND` to bottle/steam settings (+ game override if `STEAM_APPID` set) |
+
+## Diagnose
+
+`repair.command diagnose` checks prefix health and scans the latest launch log for
+common Wine/Steam failure patterns, then prints suggested `apply-fix` / `install-dep`
+commands. Pass `--log <path>` to analyze a specific file.

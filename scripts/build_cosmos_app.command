@@ -122,6 +122,10 @@ if [[ -f "${REPO_ROOT}/scripts/repair_fixes.sh" ]]; then
   mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts"
   cp "${REPO_ROOT}/scripts/repair_fixes.sh" "${APP_BUNDLE}/Contents/Resources/scripts/repair_fixes.sh"
 fi
+if [[ -f "${REPO_ROOT}/scripts/repair_diagnose.sh" ]]; then
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts"
+  cp "${REPO_ROOT}/scripts/repair_diagnose.sh" "${APP_BUNDLE}/Contents/Resources/scripts/repair_diagnose.sh"
+fi
 if [[ -d "${REPO_ROOT}/recipes" ]]; then
   cp -R "${REPO_ROOT}/recipes" "${APP_BUNDLE}/Contents/Resources/recipes"
 fi
