@@ -1,0 +1,5 @@
+TYPE=fix
+ID=force_borderless
+DESCRIPTION=Disable display capture and Retina mode for fullscreen/borderless issues
+ACTION=script
+SCRIPT=force_borderless

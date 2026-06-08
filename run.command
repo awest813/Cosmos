@@ -919,31 +919,6 @@ prepare_steam_bottle() {
   esac
 }
 
-prepare_steam_bottle() {
-  resolve_backend
-  require_macos_version
-  ensure_rosetta
-  ensure_wine_installed
-  setup_wine_env
-  ensure_wine_prefix
-  ensure_wineprefix_alias
-  ensure_wine_mouse_warp_override
-  ensure_wine_retina_mode "${WINE_RETINA_MODE}"
-  ensure_wine_windows_version
-  ensure_wine_windows_mouse_accel_disabled
-  ensure_steam_installed
-  log "Graphics backend: ${RESOLVED_BACKEND} (requested: ${COSMOS_BACKEND})"
-  case "${RESOLVED_BACKEND}" in
-    dxmt) ensure_dxmt_installed; enable_dxmt_env ;;
-    d3dmetal)
-      [[ -n "${GPTK_PATH}" ]] || die "The d3dmetal backend needs GPTK_PATH set to your Game Porting Toolkit install (Apple does not permit Cosmos to bundle it). Use the dxmt backend for a no-setup default."
-      ensure_gptk_installed; enable_gptk_env ;;
-    dxvk) ensure_dxvk_installed; enable_dxvk_env ;;
-    wined3d) enable_wined3d_env ;;
-    *) die "Unhandled backend: ${RESOLVED_BACKEND}" ;;
-  esac
-}
-
 finish_steam_setup() {
   local steam_exe
   steam_exe="$(find_steam_exe || true)"

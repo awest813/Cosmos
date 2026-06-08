@@ -1,0 +1,5 @@
+TYPE=fix
+ID=set_backend
+DESCRIPTION=Switch graphics backend and persist COSMOS_BACKEND (requires COSMOS_BACKEND env)
+ACTION=script
+SCRIPT=set_backend

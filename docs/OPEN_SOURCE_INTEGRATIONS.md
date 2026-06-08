@@ -36,7 +36,7 @@ The SwiftUI app surfaces these tools in the main detail view:
 
 - **Verify Detection** — Setup grid button → `detect_steam_games.command --verify`
 - **Curated Game Profiles** — YAML cards → `profile.command show` / `apply`
-- **Repair & Dependencies** — recipe buttons → `repair.command`
+- **Repair & Dependencies** — Diagnose Logs + recipe buttons → `repair.command`
 - **Compatibility** — ProtonDB lookup + local macOS report → `cosmosdb.command`
 
 When a bottle is selected, `COSMOS_BOTTLE` is passed to CLI commands automatically.

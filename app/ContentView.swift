@@ -910,6 +910,18 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Button {
+                runCommand(
+                    script: "repair.command",
+                    arguments: ["diagnose"],
+                    environment: bottleEnvironment()
+                )
+            } label: {
+                Label("Diagnose Logs", systemImage: "stethoscope")
+            }
+            .disabled(isRunning)
+            .help("Scan the launch log and prefix for common issues, then suggest fixes")
+
             if !dependencyRecipes.isEmpty {
                 Text("Dependencies")
                     .font(.subheadline.weight(.semibold))
