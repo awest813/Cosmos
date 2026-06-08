@@ -168,6 +168,8 @@ COSMOS_DETACH="${COSMOS_DETACH:-${MERLOT_DETACH:-1}}"
 # to the interactive installer if the silent run does not produce steam.exe.
 # 0=always show the graphical Steam installer wizard.
 COSMOS_STEAM_SILENT="${COSMOS_STEAM_SILENT:-1}"
+# 1=skip Steam install (standalone / non-Steam launchers).
+COSMOS_SKIP_STEAM="${COSMOS_SKIP_STEAM:-0}"
 COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:-${MERLOT_STEAM_LOG:-${STEAM_LAUNCH_LOG_DEFAULT}}}}}"
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
@@ -182,6 +184,7 @@ COSMOS_LAUNCH_MODE="${COSMOS_LAUNCH_MODE:-${MERLOT_LAUNCH_MODE:-steam}}"
 COSMOS_FORCE="${COSMOS_FORCE:-0}"
 PROFILE_EXECUTABLE=""
 PROFILE_ARGS=()
+INSTALLER_PATH=""
 
 WINE_URL="https://github.com/Gcenx/macOS_Wine_builds/releases/download/${WINE_VERSION}/wine-devel-${WINE_VERSION}-osx64.tar.xz"
 STEAM_URL="https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe"
@@ -206,6 +209,7 @@ Actions:
   --install-steam         Install or reinstall Steam in an existing prefix only.
   --status                 Show setup progress and the next step, then exit.
   --game <path> [args...]  Launch a saved profile executable directly.
+  --run-installer <file>   Run a Windows .exe/.msi installer in the prefix.
   --profiles               Open the saved profiles folder in Finder and exit.
   --logs                   Open the latest launch log and exit.
   --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
@@ -252,6 +256,14 @@ parse_arguments() {
       PROFILE_EXECUTABLE="$2"
       COSMOS_LAUNCH_MODE="profile"
       PROFILE_ARGS=("${@:3}")
+      return 0
+      ;;
+    --run-installer)
+      if (($# < 2)); then
+        die "Missing required argument for --run-installer."
+      fi
+      INSTALLER_PATH="$2"
+      COSMOS_LAUNCH_MODE="run-installer"
       return 0
       ;;
     --logs)
@@ -954,6 +966,63 @@ launch_steam() {
   esac
 }
 
+resolve_game_exe_path() {
+  local path="${GAME_EXE_PATH:-}"
+  [[ -n "${path}" ]] || return 1
+  if [[ "${path}" == drive_c/* ]]; then
+    printf '%s' "${WINEPREFIX}/${path}"
+    return 0
+  fi
+  if [[ -f "${path}" ]]; then
+    printf '%s' "${path}"
+    return 0
+  fi
+  if [[ -f "${WINEPREFIX}/${path}" ]]; then
+    printf '%s' "${WINEPREFIX}/${path}"
+    return 0
+  fi
+  return 1
+}
+
+launch_standalone_game() {
+  local game_exe
+  game_exe="$(resolve_game_exe_path)" || die "GAME_EXE_PATH not found: ${GAME_EXE_PATH:-}"
+  [[ -f "${game_exe}" ]] || die "Standalone executable not found: ${game_exe}"
+
+  log "Launching standalone game: ${game_exe}"
+  local -a game_cmd=("${WINE_BIN}" "${game_exe}")
+  if [[ -n "${GAME_ARGS:-}" ]]; then
+    local -a extra_args=()
+    read -r -a extra_args <<< "${GAME_ARGS}"
+    (( ${#extra_args[@]} > 0 )) && game_cmd+=("${extra_args[@]}")
+  fi
+
+  case "${COSMOS_DETACH}" in
+    0) "${game_cmd[@]}" ;;
+    1)
+      log "Detaching game launch (log: ${COSMOS_LAUNCH_LOG})"
+      mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
+      : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
+      nohup "${game_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
+      echo "Game is running in the background (PID $!). Safe to close this Terminal window."
+      ;;
+    *) die "COSMOS_DETACH must be 0 or 1." ;;
+  esac
+}
+
+run_installer() {
+  [[ -n "${INSTALLER_PATH}" ]] || die "--run-installer requires a file path."
+  [[ -f "${INSTALLER_PATH}" ]] || die "Installer not found: ${INSTALLER_PATH}"
+  log "Running installer: ${INSTALLER_PATH}"
+  local abs
+  abs="$(cd "$(dirname "${INSTALLER_PATH}")" && pwd)/$(basename "${INSTALLER_PATH}")"
+  if printf '%s' "${abs}" | grep -qi '\.msi$'; then
+    "${WINE_BIN}" msiexec /i "${abs}"
+  else
+    "${WINE_BIN}" "${abs}"
+  fi
+}
+
 launch_profile() {
   log "Launching profile: ${PROFILE_EXECUTABLE}"
   [[ -n "${PROFILE_EXECUTABLE}" ]] || die "The --game/--profile flag requires a profile executable path."
@@ -1005,9 +1074,11 @@ prepare_steam_bottle() {
   ensure_wine_retina_mode "${WINE_RETINA_MODE}"
   ensure_wine_windows_version
   ensure_wine_windows_mouse_accel_disabled
-  steam_prepare_prefix
-  ensure_steam_installed
-  steam_ensure_webhelper_wrapper || true
+  if [[ "${COSMOS_SKIP_STEAM}" != "1" ]]; then
+    steam_prepare_prefix
+    ensure_steam_installed
+    steam_ensure_webhelper_wrapper || true
+  fi
 
   log "Graphics backend: ${RESOLVED_BACKEND} (requested: ${COSMOS_BACKEND})"
   case "${RESOLVED_BACKEND}" in
@@ -1128,11 +1199,17 @@ main() {
       return ;;
   esac
   prepare_steam_bottle
-  if [[ "${COSMOS_LAUNCH_MODE}" == "profile" ]]; then
-    launch_profile
-  else
-    launch_steam
-  fi
+  case "${COSMOS_LAUNCH_MODE}" in
+    profile) launch_profile ;;
+    run-installer) run_installer ;;
+    *)
+      if [[ -n "${GAME_EXE_PATH:-}" ]]; then
+        launch_standalone_game
+      else
+        launch_steam
+      fi
+      ;;
+  esac
 }
 
 main "$@"

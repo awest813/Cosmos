@@ -228,6 +228,7 @@ struct ContentView: View {
                     managementGrid
                     curatedProfilesSection
                     repairSection
+                    storeExpansionSection
                     compatibilitySection
                     bottlesSection
                 } else {
@@ -945,17 +946,46 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button {
-                runCommand(
-                    script: "repair.command",
-                    arguments: ["diagnose"],
-                    environment: bottleEnvironment()
-                )
-            } label: {
-                Label("Diagnose Logs", systemImage: "stethoscope")
+            HStack(spacing: 12) {
+                Button {
+                    runCommand(
+                        script: "repair.command",
+                        arguments: ["diagnose"],
+                        environment: repairEnvironment()
+                    )
+                } label: {
+                    Label("Diagnose Logs", systemImage: "stethoscope")
+                }
+                .disabled(isRunning)
+                .help("Scan the launch log and prefix for common issues, then suggest fixes")
+
+                Button {
+                    runCommand(
+                        script: "repair.command",
+                        arguments: ["apply-suggested"],
+                        environment: repairEnvironment()
+                    )
+                } label: {
+                    Label("Apply Suggested", systemImage: "wand.and.stars")
+                }
+                .disabled(isRunning)
+                .help("Diagnose and auto-apply safe dependency/fix recipes")
             }
-            .disabled(isRunning)
-            .help("Scan the launch log and prefix for common issues, then suggest fixes")
+
+            if let profile = selectedGameProfile,
+               profile.dependencyCount > 0 || profile.fixCount > 0 {
+                Button {
+                    runCommand(
+                        script: "profile.command",
+                        arguments: ["for-appid", profile.steamAppID, "apply"],
+                        environment: bottleEnvironment()
+                    )
+                } label: {
+                    Label("Apply Profile Repairs", systemImage: "arrow.down.circle")
+                }
+                .disabled(isRunning || profile.steamAppID.isEmpty)
+                .help("Install this profile's winetricks dependencies and fixes")
+            }
 
             if !dependencyRecipes.isEmpty {
                 Text("Dependencies")
@@ -1002,6 +1032,130 @@ struct ContentView: View {
                 .help(recipe.description)
             }
         }
+    }
+
+    // MARK: - Store expansion (0.6)
+
+    private var storeExpansionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Add Non-Steam Games", systemImage: "plus.rectangle.on.folder.fill")
+
+            Text("Import standalone Windows games from installers, GOG offline setups, or itch.io downloads.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 8)], spacing: 8) {
+                storeActionButton(
+                    title: "List Imports",
+                    subtitle: "Standalone configs",
+                    systemImage: "list.bullet",
+                    script: "import_game.command",
+                    arguments: ["list"]
+                )
+                storeActionButton(
+                    title: "Run Installer",
+                    subtitle: "EXE / MSI in prefix",
+                    systemImage: "arrow.down.doc.fill",
+                    script: "import_game.command",
+                    arguments: ["run-installer"],
+                    needsPath: true,
+                    pathPrompt: "Path to Windows installer (.exe or .msi)"
+                )
+                storeActionButton(
+                    title: "Register EXE",
+                    subtitle: "Already installed",
+                    systemImage: "app.badge.checkmark.fill",
+                    script: "import_game.command",
+                    arguments: ["add-exe"],
+                    needsPath: true,
+                    pathPrompt: "Game .exe path (drive_c/... or inside prefix)"
+                )
+                storeActionButton(
+                    title: "GOG Installer",
+                    subtitle: "Offline setup.exe",
+                    systemImage: "opticaldisc.fill",
+                    script: "import_game.command",
+                    arguments: ["add-gog"],
+                    needsPath: true,
+                    pathPrompt: "Path to GOG setup.exe"
+                )
+                storeActionButton(
+                    title: "itch.io Folder",
+                    subtitle: "Windows download",
+                    systemImage: "folder.fill",
+                    script: "import_game.command",
+                    arguments: ["add-itch"],
+                    needsPath: true,
+                    pathPrompt: "Path to extracted itch.io game folder"
+                )
+            }
+
+            Text("After importing, run Install Cosmos to build the .app launcher into /Applications/Cosmos Apps.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private func storeActionButton(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        script: String,
+        arguments: [String],
+        needsPath: Bool = false,
+        pathPrompt: String = ""
+    ) -> some View {
+        Button {
+            if needsPath {
+                promptAndRunStoreImport(script: script, baseArguments: arguments, pathPrompt: pathPrompt)
+            } else {
+                runCommand(script: script, arguments: arguments, environment: bottleEnvironment())
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(title, systemImage: systemImage)
+                    .font(.caption.weight(.semibold))
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .disabled(isRunning)
+    }
+
+    private func promptAndRunStoreImport(script: String, baseArguments: [String], pathPrompt: String) {
+        let alert = NSAlert()
+        alert.messageText = pathPrompt
+        alert.informativeText = "Enter the full path on your Mac. For GOG/itch imports also provide --name in Terminal if the default title is wrong."
+        alert.addButton(withTitle: "Run in Terminal")
+        alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        input.placeholderString = "/Users/you/Downloads/GameSetup.exe"
+        alert.accessoryView = input
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let path = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { return }
+        var args = baseArguments + [path]
+        if baseArguments.contains("add-gog") || baseArguments.contains("add-itch") {
+            let fallbackName = (path as NSString).lastPathComponent
+                .replacingOccurrences(of: ".exe", with: "", options: .caseInsensitive)
+            args += ["--name", fallbackName]
+        }
+        runInTerminal(script: script, arguments: args, environment: bottleEnvironment())
+    }
+
+    private func repairEnvironment() -> [String: String] {
+        var env = bottleEnvironment()
+        if let appid = activeSteamAppID, !appid.isEmpty {
+            env["COSMOS_PROFILE_APPID"] = appid
+            env["STEAM_APPID"] = appid
+        }
+        return env
     }
 
     // MARK: - CosmosDB
@@ -1893,15 +2047,22 @@ struct ContentView: View {
     // actions that need a real TTY — `sudo` password entry and interactive
     // confirmations — which the piped Process runner cannot provide. We launch it
     // and return; completion happens in Terminal, so the user taps Refresh after.
-    private func runInTerminal(script: String, arguments: [String] = []) {
+    private func runInTerminal(
+        script: String,
+        arguments: [String] = [],
+        environment: [String: String] = [:]
+    ) {
         guard let scriptURL = resolveScript(script) else {
             output = "Script not found or not executable: \(script)"
             return
         }
 
-        let shellCommand = ([scriptURL.path] + arguments)
-            .map(Self.shellQuote)
-            .joined(separator: " ")
+        var parts: [String] = []
+        for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
+            parts.append("export \(key)=\(Self.shellQuote(value))")
+        }
+        parts.append(([scriptURL.path] + arguments).map(Self.shellQuote).joined(separator: " "))
+        let shellCommand = parts.joined(separator: "; ")
 
         let appleScript = """
         tell application "Terminal"

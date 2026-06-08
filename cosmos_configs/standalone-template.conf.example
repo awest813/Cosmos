@@ -1,0 +1,15 @@
+# Example standalone game launcher (roadmap 0.6).
+# Copy to cosmos_configs/standalone-my-game.conf or use import_game.command add-exe.
+
+APP_NAME="Example Standalone (Cosmos)"
+BUNDLE_ID="com.cosmos.standalone-example"
+
+RUN_ENV_NAMES=(
+  GAME_EXE_PATH
+  COSMOS_SKIP_STEAM
+  COSMOS_BACKEND
+)
+
+GAME_EXE_PATH="drive_c/Games/example/game.exe"
+COSMOS_SKIP_STEAM="1"
+COSMOS_BACKEND="dxmt"

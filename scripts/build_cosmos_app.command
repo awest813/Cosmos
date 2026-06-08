@@ -24,7 +24,7 @@ ICON_SRC="${REPO_ROOT}/app/cosmos/AppIcon.icns"
 SCRIPTS_TO_BUNDLE=(
   run.command setup.command install_cosmos.command uninstall.command
   detect_steam_games.command bottle.command
-  repair.command profile.command cosmosdb.command
+  repair.command profile.command cosmosdb.command import_game.command
   scripts/install_steamwebhelper_wrapper.command
 )
 

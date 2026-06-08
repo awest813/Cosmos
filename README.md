@@ -7,8 +7,8 @@ For developer details, see the [Developer README](README_DEV.md).
 > Toolkit, DXVK), manages isolated Wine prefixes ("bottles"), auto-detects installed
 > Steam games, and generates Spotlight-friendly `.app` launchers with per-game presets.
 >
-> Milestone **0.4 (Profiles)** is complete — 20 curated YAML game profiles with
-> auto-applied overrides during game detection. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> Milestones **0.4 (Profiles)** and **0.5 (Repair engine)** are complete.
+> **0.6 (Store expansion)** adds non-Steam game import. See [docs/ROADMAP.md](docs/ROADMAP.md).
 > See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 >
 > **Upgrading from the old "Merlot" builds?** Your existing Wine prefix and saved
@@ -58,6 +58,7 @@ graphical interface.
    - **Launch Steam** — start Steam in a default Wine environment
    - **Detect Games** — auto-detect installed Steam games and build launchers
    - **Manage Bottles** — create isolated Wine prefixes with different backends
+   - **Add Non-Steam Games** — import EXE/MSI installers, GOG setups, or itch.io downloads
    - **View Profiles** — open your saved game profiles in Finder
    - **View Logs** — check launch logs for troubleshooting
    - **Install/Uninstall** — manage the `/Applications/Cosmos Apps` launchers

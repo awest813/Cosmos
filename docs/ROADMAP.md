@@ -133,20 +133,23 @@ success criterion — if that sentence isn't true, the release isn't done.
   Isaac, Fallout NV, Stardew Valley, Hades, and 16 more curated titles)
 - **Success:** Cosmos automatically applies known-good settings for specific games. ✅
 
-### 0.5 — Repair engine *(in progress)*
+### 0.5 — Repair engine *(complete)*
 - [x] `repair.command` + `recipes/*/*.recipe` (winetricks deps, kill Wine, clear Steam caches)
 - [x] Winetricks as external LGPL tool — [LICENSING.md](LICENSING.md)
 - [x] Crash/log detection + missing-runtime detection (`repair.command diagnose`)
 - [x] One-click fixes (Retina, rebuild prefix, DLL overrides, borderless, skip intro)
 - [x] Backend switch fix recipe (`set_backend`) + log-driven suggestions
 - [x] Bottle health check + dashboard repair UI (Diagnose Logs button)
-- **Success:** When a game fails, Cosmos suggests useful fixes instead of dumping the user into logs.
+- [x] Structured `suggest` / `apply-suggested` commands + profile-aware diagnose hints
+- [x] Dashboard **Apply Suggested** and **Apply Profile Repairs** buttons
+- **Success:** When a game fails, Cosmos suggests useful fixes instead of dumping the user into logs. ✅
 
-### 0.6 — Store expansion
-- Standalone EXE/MSI importer (Add Game → installer → create Cosmos game)
-- GOG offline installers
-- itch.io Windows games
-- Epic via Legendary (experiment)
+### 0.6 — Store expansion *(in progress)*
+- [x] Standalone EXE/MSI importer — `import_game.command` + `GAME_EXE_PATH` launch path
+- [x] GOG offline installers — `import_game.command add-gog`
+- [x] itch.io Windows games — `import_game.command add-itch`
+- [ ] Epic via Legendary (experiment)
+- [x] Dashboard **Add Non-Steam Games** section
 - **Success:** Users can add non-Steam Windows games and get the same launcher/profile experience.
 
 ### 0.7 — CosmosDB *(in progress)*
