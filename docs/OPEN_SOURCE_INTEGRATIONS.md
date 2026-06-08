@@ -3,6 +3,38 @@
 How Cosmos uses external MIT-friendly (or external-tool) projects across the
 integration priorities.
 
+## Steam install & launch (MIT patterns)
+
+**In Cosmos today**
+
+- `scripts/lib/steam_lib.sh` — shared helpers sourced by `run.command`,
+  `detect_steam_games.command`, and `repair_fixes.sh`.
+- Silent `SteamSetup.exe /S` install with PE validation and incomplete-folder recovery
+  (see `run.command --install-steam`).
+- Default `STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process"` applied on each
+  Steam launch (override in `steam.conf`).
+
+**Adopted from MIT projects**
+
+| Project | License | What Cosmos took |
+| --- | --- | --- |
+| [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) | MIT | `-no-cef-sandbox` / `-cef-single-process` launch flags; Chromium `SingletonLock` cleanup before launch; MZ header check on `SteamSetup.exe` |
+| [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | `libraryfolders.vdf` v1 (`"1" "C:\\path"`) and v2 (`"path" "C:\\path"`) parsing in `steam_library_paths_from_vdf` |
+| [macos-wine-steam](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; prefix layout and Gcenx Wine + DXMT bootstrap |
+
+**Not bundled (reference only)**
+
+| Project | License | Notes |
+| --- | --- | --- |
+| [Whisky](https://github.com/Whisky-App/Whisky) | GPL-3 | UX reference only — do not copy source into MIT Cosmos |
+| [MacNdCheese](https://github.com/mont127/MacNdCheese) | Apache-2.0 | Installer UX reference |
+
+```bash
+# Default launch flags (editable in ~/Library/Application Support/Cosmos/steam.conf)
+STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process"
+./run.command --steam
+```
+
 ## 1. Harden detection
 
 **In Cosmos today**

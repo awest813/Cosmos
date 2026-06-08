@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Fix action implementations for repair.command (sourced, not executed directly).
 
+REPAIR_STEAM_LIB="${SCRIPT_DIR:-}/scripts/lib/steam_lib.sh"
+if [[ -f "${REPAIR_STEAM_LIB}" ]]; then
+  # shellcheck source=scripts/lib/steam_lib.sh
+  source "${REPAIR_STEAM_LIB}"
+fi
+
 REPAIR_WINE_BIN=""
 
 repair_find_wine_bin() {
@@ -79,6 +85,7 @@ repair_persist_setting() {
 COSMOS_BACKEND="recommended"
 COSMOS_DETACH="1"
 COSMOS_STEAM_SILENT="1"
+STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process"
 WINE_RETINA_MODE="0"
 WINDOWS_VERSION=""
 WINE_VERSION="11.8"
@@ -162,6 +169,9 @@ repair_reinstall_steam() {
 
 repair_clear_steam_caches() {
   local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  if declare -F steam_clear_chromium_locks >/dev/null 2>&1; then
+    steam_clear_chromium_locks
+  fi
   local removed=0 dir
   for dir in \
     "${pfx}/drive_c/users"/*/AppData/Local/Steam/htmlcache \

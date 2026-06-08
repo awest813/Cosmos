@@ -101,6 +101,12 @@ repair_diagnose_scan_log() {
   Try: ./repair.command apply-fix clear_steam_caches"
   fi
 
+  if printf '%s' "${blob}" | grep -Eiq 'SingletonLock|single.instance|already running|--silent'; then
+    repair_diagnose_note fix-singleton \
+      "[steam] Steam may be stuck on Chromium single-instance lock
+  Try: ./repair.command apply-fix clear_steam_caches"
+  fi
+
   if printf '%s' "${blob}" | grep -Eiq 'RetinaMode|hidpi|HiDPI|Retina|scaling'; then
     repair_diagnose_note fix-retina \
       "[display] Retina / scaling issues detected

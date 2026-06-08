@@ -81,6 +81,7 @@ enum SteamSettingsStore {
             "COSMOS_BACKEND=\"recommended\"",
             "COSMOS_DETACH=\"1\"",
             "COSMOS_STEAM_SILENT=\"1\"",
+            "STEAM_LAUNCH_ARGS=\"-no-cef-sandbox -cef-single-process\"",
             "WINE_RETINA_MODE=\"0\"",
             "WINDOWS_VERSION=\"\"",
             "WINE_VERSION=\"11.8\"",

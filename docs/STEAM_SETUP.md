@@ -113,6 +113,12 @@ If everything is already installed:
 With `COSMOS_DETACH=1` (default), Steam keeps running after you close Terminal.
 Logs go to `COSMOS_LAUNCH_LOG` (see table above).
 
+Cosmos passes Wine-friendly Steam flags by default (`STEAM_LAUNCH_ARGS` in
+`steam.conf`, currently `-no-cef-sandbox -cef-single-process`) and clears stale
+Chromium lock files before each launch — patterns adapted from MIT
+[steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine). Set
+`STEAM_LAUNCH_ARGS=""` to opt out.
+
 Launch a specific game by App ID:
 
 ```bash

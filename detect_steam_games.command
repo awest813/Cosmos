@@ -27,6 +27,8 @@ set -euo pipefail
 #   detect_steam_games.command --verify    # list games + verify installdir on disk
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+# shellcheck source=scripts/lib/steam_lib.sh
+source "${SCRIPT_DIR}/scripts/lib/steam_lib.sh"
 # Writable user-data root, matching run.command. Generated configs/icons live
 # under here when Cosmos runs from an installed app bundle.
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
@@ -163,15 +165,16 @@ find_steam_dir() {
 # Print the steamapps directory for every Steam library (newline separated, deduped).
 collect_steamapps_dirs() {
   local steam_dir="$1"
-  local vdf="${steam_dir}/steamapps/libraryfolders.vdf"
+  local vdf=""
+  vdf="$(steam_find_libraryfolders_vdf "${steam_dir}" || true)"
   {
     printf '%s\n' "${steam_dir}/steamapps"
-    if [[ -f "${vdf}" ]]; then
+    if [[ -n "${vdf}" ]]; then
       local path
       while IFS= read -r path; do
         [[ -n "${path}" ]] || continue
         printf '%s/steamapps\n' "$(win_to_unix "${path}")"
-      done < <(awk -F'"' '$2=="path"{print $4}' "${vdf}")
+      done < <(steam_library_paths_from_vdf "${vdf}")
     fi
   } | awk '!seen[$0]++'
 }

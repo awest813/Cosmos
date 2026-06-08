@@ -2,6 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+# shellcheck source=scripts/lib/steam_lib.sh
+source "${SCRIPT_DIR}/scripts/lib/steam_lib.sh"
 
 # --- Bottle pre-load (roadmap 0.3) -------------------------------------------
 # A named bottle (COSMOS_BOTTLE) supplies an isolated Wine prefix plus default
@@ -61,6 +63,7 @@ ensure_steam_conf() {
 COSMOS_BACKEND="recommended"
 COSMOS_DETACH="1"
 COSMOS_STEAM_SILENT="1"
+STEAM_LAUNCH_ARGS="-no-cef-sandbox -cef-single-process"
 WINE_RETINA_MODE="0"
 WINDOWS_VERSION=""
 WINE_VERSION="11.8"
@@ -601,6 +604,7 @@ download_steam_setup() {
   echo "Downloading Steam installer..."
   curl -L --fail --retry 5 --retry-delay 1 -o "${STEAM_SETUP}" "${STEAM_URL}"
   validate_steam_setup || die "Downloaded Steam installer looks invalid. Check your network and try again."
+  echo "Downloaded $(wc -c <"${STEAM_SETUP}" | tr -d ' ') bytes."
 }
 
 cleanup_steam_setup() {
@@ -649,7 +653,9 @@ install_steam_silently() {
     return 1
   fi
 
-  echo "Steam installed at ${steam_exe}."
+  local size
+  size="$(wc -c <"${steam_exe}" | tr -d ' ')"
+  echo "Steam installed at ${steam_exe} (${size} bytes)."
   stop_wine_prefix
   return 0
 }
@@ -890,7 +896,13 @@ launch_steam() {
     echo "Note: Wine is already using this prefix. Quit Steam before launching again to avoid prefix corruption."
   fi
 
+  steam_prepare_launch
+
   local -a steam_cmd=("${WINE_BIN}" "${steam_exe}")
+  steam_append_launch_args steam_cmd
+  if [[ -n "${STEAM_LAUNCH_ARGS:-}" ]]; then
+    echo "Steam launch flags: ${STEAM_LAUNCH_ARGS}"
+  fi
   if [[ -n "${STEAM_GAME_ID:-}" ]]; then
     echo "Launching Steam game ${STEAM_GAME_ID}..."
     steam_cmd+=(-applaunch "${STEAM_GAME_ID}")
