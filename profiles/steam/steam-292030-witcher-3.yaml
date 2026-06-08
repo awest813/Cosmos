@@ -1,0 +1,13 @@
+id: witcher_3
+name: "The Witcher 3: Wild Hunt"
+store: steam
+steam_appid: 292030
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: "REDengine D3D11. Lower hairworks and shadow quality if frame rate dips. DXMT is preferred; try d3dmetal with GPTK if you hit rendering glitches."

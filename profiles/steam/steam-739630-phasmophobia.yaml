@@ -1,0 +1,13 @@
+id: phasmophobia
+name: "Phasmophobia"
+store: steam
+steam_appid: 739630
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: "Unity title. Install vcrun2015 if you see a missing-runtime error. Online play requires stable network; expect occasional shader stutter on first load."

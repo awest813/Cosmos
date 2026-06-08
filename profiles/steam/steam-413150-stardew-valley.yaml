@@ -1,0 +1,11 @@
+id: stardew_valley
+name: "Stardew Valley"
+store: steam
+steam_appid: 413150
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "Runs well on DXMT with default settings. Disable Retina if the window looks blurry on HiDPI displays."

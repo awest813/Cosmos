@@ -47,3 +47,6 @@ jobs:
 
       - name: Steam detection unit tests
         run: ./scripts/test_steam_detection.sh
+
+      - name: Profile library unit tests
+        run: ./scripts/test_profile_lib.sh

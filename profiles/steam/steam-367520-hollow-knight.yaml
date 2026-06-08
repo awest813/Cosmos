@@ -1,0 +1,11 @@
+id: hollow_knight
+name: "Hollow Knight"
+store: steam
+steam_appid: 367520
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "Use borderless windowed mode in-game if fullscreen misbehaves on macOS."

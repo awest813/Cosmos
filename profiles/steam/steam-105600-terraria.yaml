@@ -1,0 +1,13 @@
+id: terraria
+name: "Terraria"
+store: steam
+steam_appid: 105600
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2010
+notes: "Install vcrun2010 via Apply Profile if the game fails to start. XNA/Mono runtime is bundled with the game."

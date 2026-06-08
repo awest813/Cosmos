@@ -1,0 +1,11 @@
+id: disco_elysium
+name: "Disco Elysium"
+store: steam
+steam_appid: 632470
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "Unity-based narrative RPG. Runs well on DXMT; disable Retina if text looks soft."

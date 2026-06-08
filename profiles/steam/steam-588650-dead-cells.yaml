@@ -1,0 +1,11 @@
+id: dead_cells
+name: "Dead Cells"
+store: steam
+steam_appid: 588650
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "2D action roguelike. Launches cleanly on DXMT with no extra dependencies."

@@ -29,6 +29,9 @@ set -euo pipefail
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=scripts/lib/steam_lib.sh
 source "${SCRIPT_DIR}/scripts/lib/steam_lib.sh"
+# shellcheck source=scripts/lib/profile_lib.sh
+source "${SCRIPT_DIR}/scripts/lib/profile_lib.sh"
+PROFILES_DIR="${SCRIPT_DIR}/profiles"
 # Writable user-data root, matching run.command. Generated configs/icons live
 # under here when Cosmos runs from an installed app bundle.
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
@@ -167,6 +170,19 @@ collect_curated_appids() {
 }
 
 is_curated() { [[ "${curated_appids}" == *" $1 "* ]]; }
+
+# When a v0 YAML profile exists and the user has not authored an override yet,
+# export recommended backend / env into overrides/<appid>.env so auto-generated
+# launchers pick up known-good defaults (roadmap 0.4).
+merge_profile_override() {
+  local appid="$1"
+  local override_file="${OVERRIDES_DIR}/${appid}.env"
+  [[ -f "${override_file}" ]] && return 1
+  local profile_file
+  profile_file="$(profile_find_by_appid "${PROFILES_DIR}" "${appid}")" || return 1
+  profile_export_override_to "${profile_file}" "${appid}" "${override_file}" || return 1
+  printf '%s' "${profile_file}"
+}
 
 remove_stale_generated() {
   local cfg
@@ -405,6 +421,13 @@ main() {
     for i in "${!appids[@]}"; do
       local note=""
       is_curated "${appids[$i]}" && note="  [curated config exists]"
+      if profile_find_by_appid "${PROFILES_DIR}" "${appids[$i]}" >/dev/null 2>&1; then
+        local pf status backend
+        pf="$(profile_find_by_appid "${PROFILES_DIR}" "${appids[$i]}")"
+        status="$(profile_get_scalar "${pf}" status)"
+        backend="$(profile_get_scalar "${pf}" recommended_backend)"
+        note+="  [profile: ${status:-?}/${backend:-?}]"
+      fi
       printf '  %-8s %s%s\n' "${appids[$i]}" "${names[$i]}" "${note}"
     done
     if [[ "${MODE}" == "verify" ]]; then
@@ -430,10 +453,14 @@ main() {
       skipped=$((skipped + 1))
       continue
     fi
+    local profile_note=""
+    if merge_profile_override "${appids[$i]}"; then
+      profile_note="  [profile override]"
+    fi
     file="$(write_config "${appids[$i]}" "${names[$i]}")"
     local icon_note=""
     grep -q '^ICON_PATH=' "${file}" && icon_note="  [icon]"
-    printf '  write  %-8s %s -> %s%s\n' "${appids[$i]}" "${names[$i]}" "${file##*/}" "${icon_note}"
+    printf '  write  %-8s %s -> %s%s%s\n' "${appids[$i]}" "${names[$i]}" "${file##*/}" "${profile_note}" "${icon_note}"
     written=$((written + 1))
   done
 

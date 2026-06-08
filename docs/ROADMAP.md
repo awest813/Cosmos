@@ -122,13 +122,16 @@ success criterion — if that sentence isn't true, the release isn't done.
   `HKCU\Software\Wine\Version`, and clears the override when empty.
 - **Success:** A user can manage multiple isolated bottles and switch a game's backend from the UI. ✅
 
-### 0.4 — Profiles *(in progress)*
+### 0.4 — Profiles *(complete)*
 - [x] v0 profile schema (YAML/JSON) — see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)
 - [x] `profile.command` — list/show/apply profiles; export `overrides/<appid>.env`
 - [x] Lutris field mapping — [LUTRIS_MAPPING.md](LUTRIS_MAPPING.md)
-- [ ] Recommended backend + dependency recipes + local compatibility notes
-- [ ] First 20 hand-tested game profiles
-- **Success:** Cosmos automatically applies known-good settings for specific games.
+- [x] Recommended backend + dependency recipes + local compatibility notes —
+  `detect_steam_games.command` auto-exports `overrides/<appid>.env` from YAML
+  profiles when no user override exists; dashboard shows notes and recipe counts
+- [x] First 20 hand-tested game profiles — `profiles/steam/*.yaml` (Binding of
+  Isaac, Fallout NV, Stardew Valley, Hades, and 16 more curated titles)
+- **Success:** Cosmos automatically applies known-good settings for specific games. ✅
 
 ### 0.5 — Repair engine *(in progress)*
 - [x] `repair.command` + `recipes/*/*.recipe` (winetricks deps, kill Wine, clear Steam caches)

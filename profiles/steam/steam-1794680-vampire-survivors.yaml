@@ -1,0 +1,11 @@
+id: vampire_survivors
+name: "Vampire Survivors"
+store: steam
+steam_appid: 1794680
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "Simple D3D renderer. Use windowed mode if fullscreen focus is lost when switching Spaces."

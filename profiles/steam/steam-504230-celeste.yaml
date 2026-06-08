@@ -1,0 +1,11 @@
+id: celeste
+name: "Celeste"
+store: steam
+steam_appid: 504230
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "FNA/XNA-based 2D platformer. No extra dependencies needed on DXMT."

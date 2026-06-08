@@ -1,0 +1,13 @@
+id: cyberpunk_2077
+name: "Cyberpunk 2077"
+store: steam
+steam_appid: 1091500
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: "Demanding D3D12 game. Requires GPTK_PATH and d3dmetal backend. Lower ray tracing and use FSR. Expect reduced performance vs native Windows."
