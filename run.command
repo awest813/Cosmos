@@ -4,6 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=scripts/lib/steam_lib.sh
 source "${SCRIPT_DIR}/scripts/lib/steam_lib.sh"
+# profile_lib powers the pre-launch compatibility heads-up (best-effort).
+if [[ -f "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/profile_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/profile_lib.sh"
+fi
 
 # --- Bottle pre-load (roadmap 0.3) -------------------------------------------
 # A named bottle (COSMOS_BOTTLE) supplies an isolated Wine prefix plus default
@@ -194,9 +199,16 @@ WINDOWS_VERSION="${WINDOWS_VERSION:-}"
 COSMOS_LAUNCH_MODE="${COSMOS_LAUNCH_MODE:-${MERLOT_LAUNCH_MODE:-steam}}"
 # Skip the interactive confirmation for destructive actions (e.g. --reset-bottle).
 COSMOS_FORCE="${COSMOS_FORCE:-0}"
+# 1=skip the pre-launch compatibility heads-up that warns about games marked
+# broken/blocked (anti-cheat/DRM) in their curated profile. See compat_preflight.
+COSMOS_SKIP_COMPAT_CHECK="${COSMOS_SKIP_COMPAT_CHECK:-0}"
+# Override the profiles directory used by the compatibility check (default:
+# the profiles/ folder next to this script or bundled into the .app).
+COSMOS_PROFILES_DIR="${COSMOS_PROFILES_DIR:-${SCRIPT_DIR}/profiles}"
 PROFILE_EXECUTABLE=""
 PROFILE_ARGS=()
 INSTALLER_PATH=""
+COMPAT_CHECK_APPID=""
 
 WINE_URL="https://github.com/Gcenx/macOS_Wine_builds/releases/download/${WINE_VERSION}/wine-devel-${WINE_VERSION}-osx64.tar.xz"
 STEAM_URL="https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe"
@@ -220,6 +232,8 @@ Actions:
   --setup-steam           Prepare Wine, DXMT/backend, and Steam (no launch).
   --install-steam         Install or reinstall Steam in an existing prefix only.
   --status                 Show setup progress and the next step, then exit.
+  --compat-check <appid>   Print the curated compatibility status for a Steam
+                           App ID (warns if broken/blocked), then exit.
   --game <path> [args...]  Launch a saved profile executable directly.
   --run-installer <file>   Run a Windows .exe/.msi installer in the prefix.
   --profiles               Open the saved profiles folder in Finder and exit.
@@ -290,6 +304,17 @@ parse_arguments() {
         die "The $1 flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="status"
+      return 0
+      ;;
+    --compat-check)
+      if (($# < 2)); then
+        die "Missing required Steam App ID for --compat-check."
+      fi
+      if (($# > 2)); then
+        die "The --compat-check flag accepts only one Steam App ID."
+      fi
+      COMPAT_CHECK_APPID="$2"
+      COSMOS_LAUNCH_MODE="compat-check"
       return 0
       ;;
     --reset-bottle)
@@ -1028,6 +1053,38 @@ run_launch_cmd() {
   return "${status}"
 }
 
+# Pre-launch compatibility heads-up. When launching a known Steam game, check its
+# curated profile and warn if it is marked broken/blocked (e.g. anti-cheat) so the
+# user is not surprised — the macOS equivalent of a ProtonDB "Blocked" badge.
+# Best-effort: never blocks the launch. Set COSMOS_SKIP_COMPAT_CHECK=1 to silence,
+# or returns quietly when profile_lib or the profiles folder is unavailable.
+# Echoes a final "no known blockers" line only in verbose mode ($2 == "verbose").
+compat_preflight() {
+  [[ "${COSMOS_SKIP_COMPAT_CHECK}" == "1" ]] && return 0
+  local appid="${1:-}" verbose="${2:-}"
+  [[ -n "${appid}" ]] || return 0
+  command -v profile_find_by_appid >/dev/null 2>&1 || return 0
+  [[ -d "${COSMOS_PROFILES_DIR}" ]] || return 0
+
+  local file status name notes msg
+  file="$(profile_find_by_appid "${COSMOS_PROFILES_DIR}" "${appid}" 2>/dev/null)" || {
+    [[ "${verbose}" == "verbose" ]] && echo "No curated profile for App ID ${appid} — compatibility unknown."
+    return 0
+  }
+  status="$(profile_get_scalar "${file}" status 2>/dev/null)"
+  name="$(profile_get_scalar "${file}" name 2>/dev/null)"
+  notes="$(profile_get_notes "${file}" 2>/dev/null)"
+  [[ -n "${name}" ]] || name="App ID ${appid}"
+
+  if msg="$(profile_compat_warning "${status}" "${name}" "${notes}")"; then
+    log "Compatibility check"
+    printf '%s\n' "${msg}"
+    printf 'Continuing anyway — set COSMOS_SKIP_COMPAT_CHECK=1 to silence this.\n'
+  elif [[ "${verbose}" == "verbose" ]]; then
+    echo "${name}: status ${status:-unknown}, no known blockers."
+  fi
+}
+
 launch_steam() {
   log "Launching Steam"
   local steam_exe
@@ -1054,6 +1111,7 @@ launch_steam() {
     echo "Virtual desktop: ${WINE_VIRTUAL_DESKTOP_NAME:-cosmos-steam} @ ${WINE_VIRTUAL_DESKTOP}"
   fi
   if [[ -n "${STEAM_GAME_ID:-}" ]]; then
+    compat_preflight "${STEAM_GAME_ID}"
     echo "Launching Steam game ${STEAM_GAME_ID}..."
     steam_cmd+=(-applaunch "${STEAM_GAME_ID}")
     # Optional extra arguments handed to the game itself (Steam forwards anything
@@ -1304,6 +1362,12 @@ show_status() {
 
 main() {
   parse_arguments "$@"
+  # Read-only compatibility lookup: works on any platform (no Wine/macOS needed),
+  # so the dashboard and CI can query a game's status without a full launch.
+  if [[ "${COSMOS_LAUNCH_MODE}" == "compat-check" ]]; then
+    compat_preflight "${COMPAT_CHECK_APPID}" verbose
+    return
+  fi
   require_macos_arm64
   [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"
   case "${COSMOS_LAUNCH_MODE}" in

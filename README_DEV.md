@@ -120,6 +120,10 @@ Defaults are the values in `run.command`.
   - Minimum macOS major version enforced at startup (default: `11`).
 - `COSMOS_FORCE`
   - `1` skips the interactive confirmation for destructive actions such as `--reset-bottle`. The desktop app sets this after its own confirmation dialog. Default: `0`.
+- `COSMOS_SKIP_COMPAT_CHECK`
+  - `1` silences the pre-launch compatibility heads-up. By default, when launching a Steam game by App ID (`STEAM_GAME_ID`), `run.command` looks up the game's curated profile and prints a warning if it is marked `broken` or `blocked` (e.g. anti-cheat / DRM) — the macOS equivalent of a ProtonDB "Blocked" badge. It never blocks the launch. Default: `0`.
+- `COSMOS_PROFILES_DIR`
+  - Profiles directory used by the compatibility check (default: the `profiles/` folder next to `run.command`, or bundled into `Cosmos.app`). `run.command --compat-check <appid>` prints a game's status without launching anything and works on any platform.
 - `STEAM_GAME_ID`
   - When set (usually by a per-game `.conf`), Steam launches straight into that App ID via `-applaunch`.
 - `STEAM_GAME_ARGS`

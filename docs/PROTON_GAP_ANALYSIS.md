@@ -105,6 +105,11 @@ Prioritized for **impact × tractability on macOS**:
 - **(d) Surface compatibility badges in the library** (CosmosDB 0.7) so users see
   "Playable / Broken / Blocked" before launching or buying.
 - **(e) Honest anti-cheat / blocked messaging** at detect- and launch-time.
+  First step shipped: a pre-launch compatibility heads-up
+  (`run.command` `compat_preflight` / `--compat-check <appid>`) warns when a
+  game's curated profile is `broken`/`blocked`, with Destiny 2 as a real
+  anti-cheat example. Surfacing the same badge in the dashboard library is the
+  follow-up.
 
 These do not make Cosmos *equal* to Proton — the CPU-translation tax and
 anti-cheat blockers are structural — but they close the gaps that users actually

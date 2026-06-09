@@ -108,6 +108,37 @@ profile_get_notes() {
   ' "${file}" 2>/dev/null
 }
 
+# Compatibility status for a Steam App ID, read from the curated profile under
+# ${root} (e.g. profiles/). Prints the status (platinum|gold|…|broken|blocked)
+# and returns 0, or returns 1 when no profile matches the App ID.
+profile_status_for_appid() {
+  local root="$1" appid="$2" file
+  file="$(profile_find_by_appid "${root}" "${appid}")" || return 1
+  profile_get_scalar "${file}" status
+}
+
+# Emit a pre-launch heads-up line for known-bad statuses and return 0; for
+# playable/good statuses print nothing and return 1. This keeps users from being
+# surprised by anti-cheat/DRM blockers — the macOS equivalent of a ProtonDB
+# "Borked"/"Blocked" badge. Pure string logic, so it is easy to unit-test.
+profile_compat_warning() {
+  local status="$1" name="${2:-this game}" notes="${3:-}"
+  case "${status}" in
+    blocked)
+      printf 'WARNING: %s is marked BLOCKED on macOS (anti-cheat, DRM, or an unsupported CPU feature). It almost certainly will not run.' "${name}"
+      ;;
+    broken)
+      printf 'WARNING: %s is marked BROKEN on macOS — it is not currently expected to work.' "${name}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+  [[ -n "${notes}" ]] && printf ' Note: %s' "${notes}"
+  printf '\n'
+  return 0
+}
+
 # Write cosmos_configs/overrides/<appid>.env from a v0 YAML profile.
 profile_export_override_to() {
   local file="$1" appid="$2" out="$3"
