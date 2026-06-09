@@ -60,5 +60,11 @@ jobs:
       - name: Store import unit tests
         run: ./scripts/test_import_lib.sh
 
+      - name: Launch recovery unit tests
+        run: ./scripts/test_launch_recovery.sh
+
+      - name: Compatibility preflight unit tests
+        run: ./scripts/test_compat_preflight.sh
+
       - name: cosmosdb lib tests
         run: ./scripts/test_cosmosdb_lib.sh

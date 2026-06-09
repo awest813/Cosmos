@@ -110,12 +110,20 @@ Defaults are the values in `run.command`.
   - Wine virtual desktop wrapper (`auto` default, `WxH`, or empty/`0` to disable). See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md).
 - `COSMOS_LAUNCH_LOG` (legacy aliases: `MERLOT_LAUNCH_LOG`, `MERLOT_STEAM_LOG`, `COSMOS_STEAM_LOG`)
   - Path to the detached-mode launch log (default: `~/Library/Application Support/Cosmos/logs/steam-launch.log`).
+- `COSMOS_LAUNCH_RETRIES`
+  - Automatic recovery for launches that fail or crash on startup (default: `1` extra attempt; `0` disables). Before each retry Cosmos clears common transient blockers — chiefly a stale `wineserver` from a previous crashed session that is still holding the prefix — so a small hiccup does not stop the game from running. In foreground mode (`COSMOS_DETACH=0`) any non-zero exit is retried. In detached mode only the unambiguous launchers (standalone games, saved profiles, Epic via Legendary) retry a crash-on-startup; Steam is exempt because its bootstrapper can exit its first process while Steam keeps running.
+- `COSMOS_LAUNCH_GRACE`
+  - Seconds a detached launch must survive before it counts as healthy (default: `6`). A process that exits within this window is treated as a crash-on-startup and retried (subject to `COSMOS_LAUNCH_RETRIES`).
 - `COSMOS_SUPPORT_DIR`
   - Cosmos Application Support directory (default: `~/Library/Application Support/Cosmos`). `PROFILE_DIRECTORY` defaults to `${COSMOS_SUPPORT_DIR}/Profiles`.
 - `COSMOS_MIN_MACOS_MAJOR`
   - Minimum macOS major version enforced at startup (default: `11`).
 - `COSMOS_FORCE`
   - `1` skips the interactive confirmation for destructive actions such as `--reset-bottle`. The desktop app sets this after its own confirmation dialog. Default: `0`.
+- `COSMOS_SKIP_COMPAT_CHECK`
+  - `1` silences the pre-launch compatibility heads-up. By default, when launching a Steam game by App ID (`STEAM_GAME_ID`), `run.command` looks up the game's curated profile and prints a warning if it is marked `broken` or `blocked` (e.g. anti-cheat / DRM) — the macOS equivalent of a ProtonDB "Blocked" badge. It never blocks the launch. Default: `0`.
+- `COSMOS_PROFILES_DIR`
+  - Profiles directory used by the compatibility check (default: the `profiles/` folder next to `run.command`, or bundled into `Cosmos.app`). `run.command --compat-check <appid>` prints a game's status without launching anything and works on any platform.
 - `STEAM_GAME_ID`
   - When set (usually by a per-game `.conf`), Steam launches straight into that App ID via `-applaunch`.
 - `STEAM_GAME_ARGS`

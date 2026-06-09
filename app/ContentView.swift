@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var output = "Welcome to Cosmos\n\nNew here? Follow the setup guide below — one button per step.\nFirst-time setup takes about 10–15 minutes (downloads + Steam installer).\n\nWhen finished, launch Steam, install a Windows game, then tap Build Game Launchers."
     @State private var profiles: [SavedProfile] = []
     @State private var selectedProfileID: String?
+    @State private var profileSearchText = ""
     @State private var cosmosInstalled = false
     @State private var steamSettings = SteamSettings.defaults
     @State private var isRunning = false
@@ -45,6 +46,19 @@ struct ContentView: View {
 
     private var selectedProfile: SavedProfile? {
         profiles.first { $0.id == selectedProfileID }
+    }
+
+    /// Saved profiles narrowed by the sidebar search field. Matches name,
+    /// executable path, and Steam App ID so users with large libraries can
+    /// jump straight to a title.
+    private var filteredProfiles: [SavedProfile] {
+        let query = profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return profiles }
+        return profiles.filter { profile in
+            profile.name.localizedCaseInsensitiveContains(query)
+                || profile.path.localizedCaseInsensitiveContains(query)
+                || (profile.steamAppID?.localizedCaseInsensitiveContains(query) ?? false)
+        }
     }
 
     private var selectedBottle: Bottle? {
@@ -165,9 +179,16 @@ struct ContentView: View {
             Divider()
                 .padding(.top, 14)
 
+            // Search field — only worth showing once there are profiles to filter.
+            if !profiles.isEmpty {
+                profileSearchField
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+            }
+
             // Profile list
             List(selection: $selectedProfileID) {
-                Section("Saved Profiles") {
+                Section(profileSectionTitle) {
                     if profiles.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Label("No profiles yet", systemImage: "tray")
@@ -180,8 +201,20 @@ struct ContentView: View {
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("No saved game profiles. Run Detect Games after installing Steam.")
+                    } else if filteredProfiles.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("No matches", systemImage: "magnifyingglass")
+                                .foregroundStyle(.secondary)
+                                .font(.subheadline)
+                            Text("No saved game matches “\(profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines))”.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("No saved games match the search.")
                     } else {
-                        ForEach(profiles) { profile in
+                        ForEach(filteredProfiles) { profile in
                             profileRow(profile)
                                 .tag(profile.id)
                         }
@@ -191,6 +224,42 @@ struct ContentView: View {
             .listStyle(.sidebar)
             .disabled(isRunning)
         }
+    }
+
+    private var profileSectionTitle: String {
+        let query = profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if profiles.isEmpty || query.isEmpty {
+            return "Saved Profiles"
+        }
+        return "Saved Profiles (\(filteredProfiles.count) of \(profiles.count))"
+    }
+
+    private var profileSearchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            TextField("Search games", text: $profileSearchText)
+                .textFieldStyle(.plain)
+                .font(.subheadline)
+                .accessibilityLabel("Search saved games")
+            if !profileSearchText.isEmpty {
+                Button {
+                    profileSearchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear search")
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(Color.primary.opacity(0.06), in: Capsule())
+        .disabled(isRunning)
     }
 
     private func profileRow(_ profile: SavedProfile) -> some View {
@@ -203,9 +272,35 @@ struct ContentView: View {
                 .lineLimit(1)
         }
         .padding(.vertical, 2)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(profile.name). \(profile.path.isEmpty ? "No executable path set" : profile.path)")
         .accessibilityAddTraits(profile.id == selectedProfileID ? .isSelected : [])
+        .contextMenu {
+            Button {
+                selectedProfileID = profile.id
+                launchProfile(profile)
+            } label: {
+                Label("Launch", systemImage: "play.fill")
+            }
+            .disabled(profile.path.isEmpty || isRunning)
+
+            Button {
+                revealInFinder(profile.fileURL)
+            } label: {
+                Label("Reveal Config in Finder", systemImage: "folder")
+            }
+
+            if !profile.path.isEmpty {
+                Button {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(profile.path, forType: .string)
+                } label: {
+                    Label("Copy Executable Path", systemImage: "doc.on.doc")
+                }
+            }
+        }
     }
 
     // MARK: - Detail
@@ -563,11 +658,23 @@ struct ContentView: View {
                 : "Select a profile with an executable path in the sidebar"
         ) {
             guard let selectedProfile else { return }
-            runCommand(
-                script: "run.command",
-                arguments: ["--game", selectedProfile.path] + shellArguments(from: selectedProfile.args)
-            )
+            launchProfile(selectedProfile)
         }
+    }
+
+    /// Launch a saved profile's game executable through the Wine shell flow.
+    /// Shared by the Quick Launch button and the sidebar context menu.
+    private func launchProfile(_ profile: SavedProfile) {
+        guard !profile.path.isEmpty else { return }
+        runCommand(
+            script: "run.command",
+            arguments: ["--game", profile.path] + shellArguments(from: profile.args)
+        )
+    }
+
+    /// Reveal a file in Finder, selecting it in its enclosing folder.
+    private func revealInFinder(_ url: URL) {
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     private var launchSection: some View {
@@ -1600,7 +1707,19 @@ struct ContentView: View {
 
     private func selectedProfileSection(_ profile: SavedProfile) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Selected Launcher", systemImage: "gamecontroller.fill")
+            HStack {
+                sectionHeader("Selected Launcher", systemImage: "gamecontroller.fill")
+                Spacer()
+                Button {
+                    revealInFinder(profile.fileURL)
+                } label: {
+                    Label("Reveal in Finder", systemImage: "folder")
+                        .font(.subheadline.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.cosmosPrimary)
+                .help("Show this profile's config file in Finder")
+            }
 
             VStack(alignment: .leading, spacing: 14) {
                 detailRow(title: "Executable", value: profile.path)

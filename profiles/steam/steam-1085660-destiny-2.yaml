@@ -1,0 +1,11 @@
+id: destiny_2
+name: "Destiny 2"
+store: steam
+steam_appid: 1085660
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: "Blocked by Bungie's anti-cheat. Destiny 2 detects Wine/Proton and bans accounts that play this way, so there is no supported path to run it on macOS through Cosmos. Listed here so the launcher warns before you try."

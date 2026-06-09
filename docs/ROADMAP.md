@@ -23,6 +23,11 @@ In Cosmos terms, the existing code already covers slices of the **Runtime**,
 [ARCHITECTURE.md](ARCHITECTURE.md)). The roadmap below describes how those slices
 grow into a coherent product.
 
+> For a feature-by-feature comparison against Proton / Steam Play and the
+> remaining gaps (anti-cheat, turnkey D3D12, distribution polish, the Apple
+> Silicon CPU-translation tax), see
+> [PROTON_GAP_ANALYSIS.md](PROTON_GAP_ANALYSIS.md).
+
 > **Heritage:** the codebase passed through earlier names (`Cider`, then
 > `Merlot`) before Cosmos. The 0.1 rename keeps `MERLOT_*` env vars working as
 > aliases and still cleans up the legacy `Merlot Apps` folder on uninstall, so
