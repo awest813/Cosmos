@@ -83,42 +83,65 @@ launchers directly.
 
 #### Install:
 
-1. In Finder, locate the unzipped folder.
-2. Double-click `install_cosmos.command`.
-3. If macOS blocks it, right-click `install_cosmos.command` -> `Open` -> confirm `Open`.
-4. It installs `Cosmos Apps` into `/Applications`.
+```bash
+# Build .app launchers and install to /Applications/Cosmos Apps
+./install_cosmos.command
+
+# If macOS blocks it, right-click and select "Open"
+```
 
 #### Run:
 
-1. Open one of the apps in `/Applications/Cosmos Apps`, or find it in Spotlight:
-   - `Steam (Cosmos).app` to launch Steam without game-specific presets.
-   - A game launcher, for example `Binding of Isaac (Cosmos).app`, to use settings optimized for that game.
-2. If macOS blocks it, right-click the app → `Open` → confirm `Open`.
-3. After Steam launches, the Terminal window can be closed (Steam continues running).
-   (This is the default behavior; set `COSMOS_DETACH=0` if you prefer keeping Terminal open.)
+```bash
+# Find launchers in /Applications/Cosmos Apps or Spotlight:
+# - Steam (Cosmos).app           # Launch Steam without game presets
+# - Binding of Isaac (Cosmos).app # Game-specific launcher with optimized presets
+# - (and other detected games)
+
+# If macOS blocks launching, right-click → "Open" → confirm
+# After Steam launches, the Terminal window can be closed (Steam continues running)
+# (This is the default behavior; set COSMOS_DETACH=0 to keep Terminal open)
+
+# Or use command line to rebuild launchers:
+WINEPREFIX="$HOME/Games/MyPrefix" ./detect_steam_games.command --install
+```
 
 `Cosmos Apps` includes `Steam (Cosmos).app` plus ready-made launchers for supported
 games. Each game launcher includes presets optimized for that game.
 
-**Optional:** To add your own game config, create a file in `cosmos_configs/` and run
-`install_cosmos.command` again. See the [Developer README](README_DEV.md) for details.
+**Optional:** To add your own game config, create a file in `cosmos_configs/` and run:
+
+```bash
+./install_cosmos.command
+```
+
+See the [Developer README](README_DEV.md) for details on creating custom game configs.
 
 ### Alternative 2: Generic Steam Launcher (Terminal)
 
 If you want the general Steam-in-Wine setup without creating game-specific launchers:
 
-1. In Finder, locate the unzipped folder.
-2. Double-click `run.command`.
-3. If macOS blocks it, right-click `run.command` → `Open` → confirm `Open`.
-4. After Steam launches, the Terminal window can be closed.
-
-Or, from Terminal with custom options:
-
 ```bash
+# Navigate to the Cosmos folder and run
+cd /path/to/Cosmos
+./run.command
+
+# Or set custom environment variables and run
 WINEPREFIX="$HOME/Games/SteamPrefix" WINE_RETINA_MODE=1 ./run.command
+
+# Or just prepare Steam without launching
+./run.command --setup-steam
+
+# Check setup status
+./run.command --status
+
+# View logs
+./run.command --logs
 ```
 
-See the [Developer README](README_DEV.md) for all configuration options.
+After Steam launches, the Terminal window can be closed (by default `COSMOS_DETACH=1` runs Steam detached).
+
+See [Command Reference → run.command](#runcommand) and [Environment Variables](#environment-variables) for all options.
 
 ## Graphics Backends
 
@@ -129,11 +152,34 @@ Cosmos supports multiple D3D translation backends for running DirectX 9, 10, 11,
 - **DXVK** (experimental) — Vulkan-to-Metal via MoltenVK; slower but useful for testing.
 - **WineD3D** — Wine's software D3D implementation; most compatible but slower.
 
-Select a backend when creating a bottle or set it per-game:
+Select a backend when creating a bottle, or set it per-game via environment variables or `.conf` files:
 
 ```bash
-# Use the desktop app to manage bottles and backends, or:
-./bottle.command create mybot --backend d3dmetal --gptk-path "$HOME/GPTK"
+# Use the default backend (DXMT)
+./run.command
+
+# Specify DXMT explicitly
+COSMOS_BACKEND=dxmt ./run.command
+
+# Use Apple Game Porting Toolkit (must provide path to GPTK)
+GPTK_PATH="$HOME/GPTK" COSMOS_BACKEND=d3dmetal ./run.command --setup-steam
+
+# Use WineD3D (software, more compatible but slower)
+COSMOS_BACKEND=wined3d ./run.command
+
+# Use experimental DXVK backend
+DXVK_PATH="$HOME/custom-dxvk" COSMOS_BACKEND=dxvk ./run.command
+
+# Create a bottle with a specific backend
+./bottle.command create gaming --backend d3dmetal --gptk-path "$HOME/GPTK"
+./bottle.command create retro --backend wined3d
+
+# Switch a bottle's backend
+./bottle.command set gaming COSMOS_BACKEND dxvk
+
+# Use 'recommended' to auto-select the best backend
+# (d3dmetal if GPTK_PATH is set, else dxmt)
+COSMOS_BACKEND=recommended ./run.command
 ```
 
 See [docs/BACKENDS.md](docs/BACKENDS.md) for detailed backend comparison and troubleshooting.
@@ -142,21 +188,39 @@ See [docs/BACKENDS.md](docs/BACKENDS.md) for detailed backend comparison and tro
 
 A **bottle** is a named, isolated Wine prefix with its own settings. Bottles let you
 keep, say, a `steam` bottle on DXMT and a `retro` bottle on WineD3D without their
-prefixes colliding.
+prefixes colliding. Each bottle has independent Wine versions, Windows versions, graphics backends, and per-game settings.
 
 **Using the desktop app:** Click "Manage Bottles" to create, configure, and launch bottles.
 
-**Using the command line:**
+**Using the command line:** See [Command Reference → bottle.command](#bottlecommand) for all options.
+
+**Common workflows:**
 
 ```bash
-./bottle.command create mybot --wine 11.8 --windows win10 --backend dxmt --retina 0
-./bottle.command launch mybot                    # Launch Steam in this bottle
-./bottle.command launch mybot --game "…/Game.exe" # Launch a specific game
-./bottle.command set mybot COSMOS_BACKEND d3dmetal  # Change backend
-./bottle.command reset mybot                    # Delete prefix, keep settings
+# Create and launch a bottle
+./bottle.command create mybot
+./bottle.command launch mybot                   # Launches Steam in mybot
+
+# Create a bottle for older games with WineD3D (more compatible but slower)
+./bottle.command create retro --backend wined3d --windows win98
+./bottle.command launch retro
+
+# Create a bottle using Apple Game Porting Toolkit
+./bottle.command create gptk --backend d3dmetal --gptk-path "$HOME/GPTK"
+./bottle.command launch gptk --game "./MyGame.exe"
+
+# Modify a bottle's settings
+./bottle.command set mybot WINDOWS_VERSION win10
+./bottle.command set mybot COSMOS_BACKEND d3dmetal
+
+# View bottle info
+./bottle.command info mybot
+
+# Delete a bottle (loses all games/data in that prefix)
+./bottle.command delete mybot --force
 ```
 
-See the [Developer README](README_DEV.md) for full bottle documentation.
+See the [Developer README](README_DEV.md) for additional bottle documentation.
 
 ## What to Expect
 
@@ -229,46 +293,356 @@ The default installation uses roughly:
 
 **Need more help?** See [docs/BACKENDS.md](docs/BACKENDS.md) and [README_DEV.md](README_DEV.md) for advanced configuration.
 
+## Environment Variables
+
+Configure Cosmos behavior by setting environment variables before running commands. All variables are optional with sensible defaults.
+
+### Core Paths & Versions
+
+```bash
+# Wine build version to download (default: 11.8)
+# Must exist in https://github.com/Gcenx/macOS_Wine_builds/releases
+WINE_VERSION=11.8 ./run.command
+
+# Where Wine is extracted (default: ~/wine-$WINE_VERSION)
+WINE_ROOT="$HOME/custom-wine" ./run.command
+
+# Wine prefix location (default: ~/.wine-steam-11)
+WINEPREFIX="$HOME/Games/MyPrefix" ./run.command
+
+# Name of the symlink created next to run.command (default: WINEPREFIX)
+WINEPREFIX_ALIAS_NAME="MyPrefix" ./run.command
+
+# Directory for generated configs and icons (default: cosmos_configs/)
+COSMOS_CONFIGS_DIR="$HOME/Library/Application Support/Cosmos/cosmos_configs" ./run.command
+
+# Directory for bottles (default: ~/Library/Application Support/Cosmos/Bottles)
+COSMOS_BOTTLES_DIR="$HOME/custom-bottles" ./run.command
+
+# Log directory (default: ~/Library/Application Support/Cosmos/logs)
+COSMOS_SUPPORT_DIR="$HOME/custom-cosmos" ./run.command
+```
+
+### Graphics Backends
+
+```bash
+# Graphics backend selector (default: recommended)
+# Options: recommended | dxmt | d3dmetal | dxvk | wined3d
+# 'recommended' uses d3dmetal if GPTK_PATH is set, else dxmt
+COSMOS_BACKEND=d3dmetal ./run.command
+
+# DXMT backend version to download (default: 0.74)
+DXMT_VERSION=0.75 ./run.command --setup-steam
+
+# DXMT install location (default: ~/DXMT)
+DXMT_ROOT="$HOME/custom-dxmt" ./run.command
+
+# DXMT log level (default: error)
+# Options: error | warning | info | debug
+DXMT_LOG_LEVEL=debug ./run.command
+
+# Apple Game Porting Toolkit path (enables d3dmetal backend)
+# Point at GPTK root or folder containing its DLLs
+GPTK_PATH="$HOME/GPTK" ./run.command
+
+# DXVK DLLs folder path (enables experimental dxvk backend)
+DXVK_PATH="$HOME/custom-dxvk" ./run.command
+```
+
+### Windows & Display Settings
+
+```bash
+# Windows version reported inside the prefix (default: none)
+# Options: winxp | win7 | win8 | win10 | win11
+WINDOWS_VERSION=win10 ./run.command
+
+# Enable/disable Wine's Retina mode (default: 0)
+# Set to 1 for high-DPI displays
+WINE_RETINA_MODE=1 ./run.command
+
+# Mouse warp override behavior (default: Wine's default)
+# Options: force | enable | disable | (empty to remove)
+WINE_MOUSE_WARP_OVERRIDE=force ./run.command
+```
+
+### Wine & Debug Settings
+
+```bash
+# Wine debug output (default: -all,err+all)
+# See Wine documentation for full syntax
+WINEDEBUG="-all,+relay" ./run.command
+
+# Wine CPU to emulate (rarely needed)
+WINEARCH=win32 ./run.command
+
+# Additional Wine DLL path (prepended to system)
+WINEDLLPATH_PREPEND="$HOME/custom-dlls" ./run.command
+
+# Wine DLL overrides (e.g., force native or builtin)
+WINEDLLOVERRIDES="mscoree=n,b" ./run.command
+
+# Enable verbose startup logging
+COSMOS_DEBUG=1 ./run.command --status
+```
+
+### Bottle & Launch Mode
+
+```bash
+# Use a specific bottle for all commands
+COSMOS_BOTTLE=mybot ./run.command
+
+# Detach Steam from Terminal (default: 1)
+# Set to 1 to close Terminal without killing Steam
+# Set to 0 to keep Terminal open while Steam runs
+COSMOS_DETACH=1 ./run.command
+
+# Silent Steam install mode (default: 1)
+# Set to 1 for unattended install via NSIS /S flag
+# Set to 0 to show the SteamSetup.exe wizard
+COSMOS_STEAM_SILENT=1 ./run.command --setup-steam
+
+# Steam log location (default: ~/Library/Application Support/Cosmos/logs/steam-launch.log)
+COSMOS_LAUNCH_LOG="$HOME/steam.log" ./run.command
+
+# Force certain operations (e.g., --reset-bottle without prompting)
+COSMOS_FORCE=1 ./run.command --reset-bottle
+```
+
+### Legacy Compatibility (Merlot → Cosmos)
+
+For backward compatibility with old "Merlot" scripts, these environment variables are honored as fallbacks:
+
+```bash
+# Legacy name for COSMOS_BOTTLE
+MERLOT_BOTTLE=mybot ./run.command
+
+# Legacy name for COSMOS_DETACH
+MERLOT_DETACH=0 ./run.command
+
+# Legacy name for COSMOS_LAUNCH_LOG
+MERLOT_LAUNCH_LOG="$HOME/steam.log" ./run.command
+
+# Legacy name for COSMOS_STEAM_LOG
+MERLOT_STEAM_LOG="$HOME/steam-install.log" ./run.command
+```
+
+The `COSMOS_*` names always take precedence over their `MERLOT_*` equivalents if both are set.
+
+See [README_DEV.md](README_DEV.md#configuration-environment-variables) for complete documentation.
+
+## Command Reference
+
+### run.command
+
+The main launcher script. Manages Wine prefixes, downloads and installs Steam, and launches games.
+
+```bash
+Usage: run.command [ACTION]
+
+Actions:
+  (none) | --steam        Set up the bottle if needed and launch Steam (default).
+  --setup-steam           Prepare Wine, DXMT/backend, and Steam (no launch).
+  --install-steam         Install or reinstall Steam in an existing prefix only.
+  --status                Show setup progress and the next step, then exit.
+  --compat-check <appid>  Print the curated compatibility status for a Steam App ID
+                          (warns if broken/blocked), then exit.
+  --game <path> [args...] Launch a saved profile executable directly.
+  --run-installer <file>  Run a Windows .exe/.msi installer in the prefix.
+  --profiles              Open the saved profiles folder in Finder and exit.
+  --logs                  Open the latest launch log and exit.
+  --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
+  --help | -h             Show this usage information.
+```
+
+**Examples:**
+
+```bash
+# Launch Steam (default behavior, no args needed)
+./run.command
+
+# Prepare Wine and Steam without launching
+WINEPREFIX="$HOME/Games/SteamPrefix" ./run.command --setup-steam
+
+# Launch a specific game via saved profile
+./run.command --game "$HOME/Library/Application Support/Cosmos/Profiles/my-game.exe"
+
+# Install a game from a Windows installer
+./run.command --run-installer "./MyGame-Setup.exe"
+
+# Check setup status
+./run.command --status
+
+# Check if a game is known to work (Ctrl+F for AppID on https://steamdb.info)
+./run.command --compat-check 220
+
+# View the latest launch log
+./run.command --logs
+
+# Delete the Wine prefix and let it rebuild on next launch
+./run.command --reset-bottle
+
+# Use custom environment variables
+WINE_RETINA_MODE=1 WINDOWS_VERSION=win10 ./run.command
+
+# Use a specific Wine version
+WINE_VERSION=11.7 ./run.command --setup-steam
+```
+
+### bottle.command
+
+Manage isolated Wine prefixes with different configurations (bottling).
+
+```bash
+Usage: bottle.command <command> [args]
+
+Commands:
+  list                          List all bottles and a one-line summary.
+  create <name> [options]       Create a bottle (prefix is built on first launch).
+      --wine <version>          Pin a Wine version (e.g. 11.8).
+      --windows <ver>           winxp | win7 | win8 | win10 | win11.
+      --backend <backend>       recommended | dxmt | d3dmetal | dxvk | wined3d.
+      --retina <0|1>            Enable/disable Wine RetinaMode.
+  info <name>                   Show a bottle's settings and status.
+  set <name> <KEY> <VALUE>      Set/replace a setting (e.g. COSMOS_BACKEND dxmt).
+  path <name>                   Print the bottle's prefix path.
+  launch <name> [run args...]   Launch into the bottle (runs run.command).
+  logs <name>                   Show the bottle's latest launch log.
+  reset <name> [--force]        Delete the prefix only (keep settings/logs).
+  delete <name> [--force]       Delete the whole bottle.
+
+Known settings: WINE_VERSION, WINDOWS_VERSION, COSMOS_BACKEND, WINE_RETINA_MODE,
+COSMOS_DETACH, GPTK_PATH, DXVK_PATH, plus any UPPER_SNAKE_CASE env var run.command honors.
+```
+
+**Examples:**
+
+```bash
+# List all bottles
+./bottle.command list
+
+# Create a bottle with default settings
+./bottle.command create mybot
+
+# Create a bottle for retro games with WineD3D
+./bottle.command create retro --backend wined3d --windows win98
+
+# Create a bottle using Apple Game Porting Toolkit (requires GPTK install)
+./bottle.command create gptk-games --backend d3dmetal --gptk-path "$HOME/GPTK"
+
+# Create a bottle with a specific Wine version
+./bottle.command create wine117 --wine 11.7 --windows win10
+
+# Get info about a bottle
+./bottle.command info mybot
+
+# Launch Steam in a bottle
+./bottle.command launch mybot
+
+# Launch a specific game in a bottle
+./bottle.command launch mybot --game "./Binding\ of\ Isaac.exe"
+
+# Change a bottle's backend
+./bottle.command set mybot COSMOS_BACKEND d3dmetal
+
+# View a bottle's launch log
+./bottle.command logs mybot
+
+# Delete a bottle's Wine prefix (recreates on next launch)
+./bottle.command reset mybot
+
+# Completely delete a bottle
+./bottle.command delete mybot
+```
+
+### detect_steam_games.command
+
+Scan for installed Steam games and auto-generate launcher configs.
+
+```bash
+Usage:
+  detect_steam_games.command            # default: refresh generated configs
+  detect_steam_games.command --list     # print detected games, write nothing
+  detect_steam_games.command --write    # write/refresh generated configs (default)
+  detect_steam_games.command --install  # write configs, then build all launchers
+  detect_steam_games.command --verify   # list games + verify installdir on disk
+```
+
+**Examples:**
+
+```bash
+# Detect and list installed Steam games
+./detect_steam_games.command --list
+
+# Generate launcher configs for detected games
+./detect_steam_games.command --write
+
+# Generate configs and build all .app launchers
+./detect_steam_games.command --install
+
+# Verify game directories exist on disk
+./detect_steam_games.command --verify
+
+# Use a specific Wine prefix
+WINEPREFIX="$HOME/Games/MyPrefix" ./detect_steam_games.command --list
+```
+
+### install_cosmos.command
+
+Build and install Spotlight-friendly .app launchers.
+
+```bash
+# Build .app bundles and install to /Applications/Cosmos Apps
+./install_cosmos.command
+
+# Also uninstall previous installations first
+UNINSTALL_FIRST=1 ./install_cosmos.command
+```
+
+### build_cosmos_app.command & build_dmg.command
+
+Build the desktop app.
+
+```bash
+# Build the Cosmos.app desktop application
+./scripts/build_cosmos_app.command
+
+# Build and install to /Applications
+INSTALL=1 ./scripts/build_cosmos_app.command
+
+# Build a redistributable .dmg disk image
+./scripts/build_dmg.command
+
+# Repackage an already-built Cosmos.app into a .dmg
+SKIP_BUILD=1 ./scripts/build_dmg.command
+```
+
+### uninstall.command
+
+Remove Cosmos-created files and folders.
+
+```bash
+# Interactively remove /Applications/Cosmos Apps, Wine prefixes, and backend DLLs
+./uninstall.command
+
+# Force removal without confirmation (use with caution)
+# (set via confirmation prompts, not command-line flag)
+```
+
 ## What The Scripts Do
 
-### Main Scripts
+**`run.command`** — Main launcher that manages Wine, downloads Steam, installs backends, and launches games. See [Command Reference](#runcommand) for all flags.
 
-**`run.command`**
-- Installs Rosetta 2 (if missing; requires `sudo`).
-- Downloads Wine (Gcenx macOS Wine builds) and sets up a Steam Wine prefix (or a named bottle).
-- Downloads and installs Steam into that prefix.
-- Enables a graphics backend (DXMT by default, or another choice).
-- Launches Steam with optimized settings.
+**`bottle.command`** — Creates and manages isolated Wine prefixes ("bottles") with independent settings and backends. Each bottle can have different Windows versions, graphics backends, and game-specific presets. See [Command Reference](#bottlecommand).
 
-**`bottle.command`**
-- Creates, manages, and launches isolated Wine prefixes ("bottles").
-- Each bottle can use different Windows versions, backends, and per-game settings.
-- Loads bottle-specific settings (e.g., `COSMOS_BACKEND`, `GPTK_PATH`) with priority over defaults.
+**`detect_steam_games.command`** — Scans Steam libraries inside a Wine prefix, auto-generates per-game launcher configs with optimized settings, and builds per-game `.app` icons from Steam artwork (cached in `cosmos_configs/icons/`). See [Command Reference](#detect_steam_gamescommand).
 
-**`detect_steam_games.command`**
-- Scans Steam libraries inside a Wine prefix.
-- Auto-generates per-game launcher configs with optimized settings.
-- Builds per-game `.app` icons from Steam artwork (cached in `cosmos_configs/icons/`).
+**`install_cosmos.command`** — Assembles Spotlight-friendly `.app` bundles for Steam and each detected game, then installs them to `/Applications/Cosmos Apps`. Each app bundles its config and environment for consistent launches.
 
-**`install_cosmos.command`**
-- Assembles Spotlight-friendly `.app` bundles for Steam and each detected game.
-- Installs the bundle folder to `/Applications/Cosmos Apps`.
-- Each app bundles its config and environment for consistent launches.
+**`scripts/build_cosmos_app.command`** — Builds the Cosmos desktop app (SwiftUI dashboard) into `Cosmos.app`, bundles all helper scripts and configs, and optionally installs to `/Applications`. See [Command Reference](#build_cosmos_appcommand--build_dmgcommand).
 
-**`scripts/build_cosmos_app.command`**
-- Builds the Cosmos desktop app (SwiftUI dashboard) into `Cosmos.app`.
-- Bundles all helper scripts and configs into the app for portability.
-- Optional `INSTALL=1` copies it to `/Applications`.
+**`scripts/build_dmg.command`** — Builds the Cosmos desktop app and packages it as a drag-to-Applications `build/Cosmos.dmg` for easy redistribution.
 
-**`scripts/build_dmg.command`**
-- Builds the app, then packages a drag-to-Applications `build/Cosmos.dmg`.
-- Lets you share a single double-clickable installer instead of asking people to
-  compile from source. `SKIP_BUILD=1` repackages an already-built `Cosmos.app`.
-
-**`uninstall.command`**
-- Removes files/directories created by the scripts (with per-item confirmation).
-- Asks for `sudo` to remove `/Applications/Cosmos Apps`.
-- Does not remove Rosetta 2 or Wine DLLs (can be reused by other projects).
+**`uninstall.command`** — Removes files/directories created by Cosmos with per-item confirmation. Does not remove Rosetta 2 or Wine DLLs (can be reused).
 
 ### Desktop App (Cosmos.app)
 
