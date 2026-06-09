@@ -6,10 +6,13 @@ set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 IMPORT_LIB="${SCRIPT_DIR}/scripts/lib/import_lib.sh"
+LIBRARY_LIB="${SCRIPT_DIR}/scripts/lib/library_lib.sh"
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
 
 # shellcheck source=scripts/lib/import_lib.sh
 source "${IMPORT_LIB}"
+# shellcheck source=scripts/lib/library_lib.sh
+source "${LIBRARY_LIB}"
 
 resolve_configs_dir() {
   if [[ -n "${COSMOS_CONFIGS_DIR:-}" ]]; then
@@ -40,6 +43,12 @@ fi
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
 
+import_refresh_library() {
+  [[ -x "${SCRIPT_DIR}/library.command" ]] || return 0
+  COSMOS_BOTTLE="${COSMOS_BOTTLE}" WINEPREFIX="${WINEPREFIX}" \
+    "${SCRIPT_DIR}/library.command" scan ${COSMOS_BOTTLE:+--bottle "${COSMOS_BOTTLE}"} >/dev/null 2>&1 || true
+}
+
 usage() {
   cat <<'EOF'
 Cosmos store importer — add non-Steam Windows games.
@@ -47,12 +56,14 @@ Cosmos store importer — add non-Steam Windows games.
 Usage: import_game.command <command> [args]
 
 Commands:
-  list                          List standalone launcher configs.
+  list                          List non-Steam launcher configs.
+  list-gog                        List GOG games detected in the prefix.
   add-exe <path> --name <title> [--slug <id>] [--bottle <name>]
                                 Register an installed .exe as a Cosmos launcher.
   run-installer <file>        Run a Windows .exe/.msi installer in the prefix.
-  add-gog <setup.exe> --name <title> [--slug <id>] [--bottle <name>]
-                                Run a GOG offline installer, then register the game.
+  add-gog <setup|slug|path> --name <title> [--slug <id>] [--bottle <name>]
+                                Run a GOG offline installer or register an installed game.
+  list-gog                        List GOG games detected under drive_c/GOG Games.
   add-itch <folder> --name <title> [--slug <id>]
                                 Find a .exe in an itch.io download folder and register it.
   install-battlenet <setup.exe> [--bottle <name>]
@@ -91,8 +102,9 @@ legendary_die() {
 cmd_list() {
   local f
   shopt -s nullglob
-  for f in "${CONFIGS_DIR}"/standalone-*.conf "${CONFIGS_DIR}"/itch-*.conf \
-           "${CONFIGS_DIR}"/battlenet-*.conf "${CONFIGS_DIR}"/epic-*.conf; do
+  for f in "${CONFIGS_DIR}"/standalone-*.conf "${CONFIGS_DIR}"/gog-*.conf \
+           "${CONFIGS_DIR}"/itch-*.conf "${CONFIGS_DIR}"/battlenet-*.conf \
+           "${CONFIGS_DIR}"/epic-*.conf; do
     [[ -f "${f}" ]] || continue
     local name exe
     name="$(sed -n 's/^APP_NAME="\{0,1\}\(.*\) (Cosmos)"\{0,1\}$/\1/p' "${f}" | head -n1)"
@@ -151,11 +163,27 @@ cmd_add_exe() {
   local file
   file="$(import_write_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${exe_path}")"
   log "Wrote ${file}"
+  import_refresh_library
   echo "Next: ./install_cosmos.command ${file##*/}"
 }
 
+cmd_list_gog() {
+  log "Detected GOG games in ${WINEPREFIX}"
+  local found=0 line slug title exe
+  while IFS=$'\t' read -r slug title exe; do
+    [[ -n "${slug}" ]] || continue
+    found=1
+    printf '  %-24s %-28s %s\n' "${slug}" "${title}" "${exe}"
+  done < <(import_scan_gog_games "${WINEPREFIX}")
+  if [[ "${found}" -eq 0 ]]; then
+    echo "  (no GOG game folders with .exe found)"
+    echo "Install with: ./import_game.command add-gog <setup.exe> --name \"Game Title\""
+    echo "GOG offline installers place games under drive_c/GOG Games/ by default."
+  fi
+}
+
 cmd_add_gog() {
-  local installer="${1:-}"
+  local target="${1:-}"
   shift || true
   local name="" slug="" bottle=""
   while (($#)); do
@@ -166,18 +194,40 @@ cmd_add_gog() {
       *) die "Unknown option: $1" ;;
     esac
   done
-  [[ -n "${installer}" && -f "${installer}" ]] \
-    || die "Usage: import_game.command add-gog <setup.exe> --name <title>"
+  [[ -n "${target}" ]] \
+    || die "Usage: import_game.command add-gog <setup.exe|slug|path> --name <title>"
   [[ -n "${name}" ]] || die "--name is required"
-  cmd_run_installer "${installer}"
-  local games_dir="${WINEPREFIX}/drive_c/GOG Games"
-  [[ -d "${games_dir}" ]] || games_dir="${WINEPREFIX}/drive_c/Program Files (x86)/GOG Galaxy/Games"
-  [[ -d "${games_dir}" ]] || games_dir="${WINEPREFIX}/drive_c/Program Files/GOG Galaxy/Games"
-  local exe
-  exe="$(import_find_game_exe "${games_dir}" 2>/dev/null || import_find_game_exe "${WINEPREFIX}/drive_c" || true)"
-  [[ -n "${exe}" ]] || die "Could not find game .exe after GOG install. Use add-exe manually."
-  local rel="${exe#${WINEPREFIX}/}"
-  cmd_add_exe "${rel}" --name "${name}" ${slug:+--slug "${slug}"} ${bottle:+--bottle "${bottle}"}
+  [[ -n "${bottle}" ]] && COSMOS_BOTTLE="${bottle}" \
+    && WINEPREFIX="$("${SCRIPT_DIR}/bottle.command" path "${COSMOS_BOTTLE}" 2>/dev/null || echo "${WINEPREFIX}")"
+
+  local exe_path="" exe rel line scan_slug scan_title scan_exe
+  if [[ -f "${target}" ]]; then
+    cmd_run_installer "${target}"
+    exe="$(import_find_gog_game_exe "${WINEPREFIX}" "${name}")" \
+      || die "Could not find game .exe after GOG install. Run list-gog or register with add-exe."
+    exe_path="${exe#${WINEPREFIX}/}"
+  elif [[ "${target}" == drive_c/* ]]; then
+    exe_path="${target}"
+  else
+    scan_slug="$(import_slugify "${target}")"
+    while IFS=$'\t' read -r line scan_title scan_exe; do
+      [[ "${line}" == "${scan_slug}" ]] || continue
+      exe_path="${scan_exe}"
+      [[ "${name}" == "${target}" ]] && name="${scan_title}"
+      break
+    done < <(import_scan_gog_games "${WINEPREFIX}")
+    [[ -n "${exe_path}" ]] \
+      || die "Could not resolve GOG game '${target}'. Run list-gog or pass an installer/setup path."
+  fi
+
+  [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
+  local bundle_id="com.cosmos.gog-${slug}"
+  local file
+  file="$(import_write_gog_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${exe_path}")"
+  log "Wrote ${file}"
+  import_refresh_library
+  echo "Executable: ${exe_path}"
+  echo "Next: ./install_cosmos.command ${file##*/}"
 }
 
 cmd_add_itch() {
@@ -193,20 +243,21 @@ cmd_add_itch() {
   done
   [[ -d "${folder}" ]] || die "Usage: import_game.command add-itch <folder> --name <title>"
   [[ -n "${name}" ]] || die "--name is required"
-  local exe host_exe
+  [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
+  local exe host_exe dest
   exe="$(import_find_game_exe "${folder}")" || die "No .exe found under ${folder}"
   host_exe="$(cd "$(dirname "${exe}")" && pwd)/$(basename "${exe}")"
-  local dest="${WINEPREFIX}/drive_c/Games/$(import_slugify "${name}")"
+  dest="$(library_install_dir "${WINEPREFIX}" "itch" "${slug}")"
   mkdir -p "${dest}"
   cp -R "${folder}/." "${dest}/"
   local rel_exe installed
   installed="$(import_find_game_exe "${dest}")" || die "Copied files but no .exe found in ${dest}"
   rel_exe="${installed#${WINEPREFIX}/}"
-  [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
   local bundle_id="com.cosmos.itch-${slug}"
   local file
   file="$(import_write_itch_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${rel_exe}")"
   log "Wrote ${file}"
+  import_refresh_library
   echo "Copied itch.io files to ${dest}"
   echo "Next: ./install_cosmos.command ${file##*/}"
 }
@@ -305,6 +356,7 @@ cmd_add_battlenet() {
   local file
   file="$(import_write_battlenet_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${exe_path}" "${launcher}")"
   log "Wrote ${file}"
+  import_refresh_library
   [[ -n "${launcher}" ]] && echo "Battle.net launcher: ${launcher}"
   echo "Executable:    ${exe_path}"
   echo "Next: ./install_cosmos.command ${file##*/}"
@@ -362,6 +414,7 @@ cmd_add_epic() {
   local file
   file="$(import_write_epic_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${exe}" "${legendary_app}")"
   log "Wrote ${file}"
+  import_refresh_library
   echo "Epic app name: ${legendary_app}"
   echo "Install dir:   ${install_dir}"
   echo "Executable:    ${exe}"
@@ -375,6 +428,7 @@ main() {
     add-exe) cmd_add_exe "$@" ;;
     run-installer) cmd_run_installer "$@" ;;
     add-gog) cmd_add_gog "$@" ;;
+    list-gog) cmd_list_gog ;;
     add-itch) cmd_add_itch "$@" ;;
     install-battlenet) cmd_install_battlenet "$@" ;;
     list-battlenet) cmd_list_battlenet ;;

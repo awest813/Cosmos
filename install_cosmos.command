@@ -164,7 +164,14 @@ collect_config_paths() {
 
   (( ${#config_paths[@]} > 0 )) || die "No configs found in ${CONFIGS_DIR}"
 
-  printf '%s\0' "${config_paths[@]}"
+  local config_path base
+  for config_path in "${config_paths[@]}"; do
+    base="$(basename "${config_path}")"
+    case "${base}" in
+      steam.conf|binding-of-isaac.conf|*-template.conf|template.conf.example) continue ;;
+    esac
+    printf '%s\0' "${config_path}"
+  done
 }
 
 build_from_config() (

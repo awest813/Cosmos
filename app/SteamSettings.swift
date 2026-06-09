@@ -30,13 +30,25 @@ struct SteamSettings: Equatable {
             .appendingPathComponent("drive_c/Program Files (x86)/Steam/steam.exe")
     }
 
+    /// Matches `steam_exe_is_valid` in `scripts/lib/steam_lib.sh` (size + PE header).
     var isSteamInstalled: Bool {
-        let fileManager = FileManager.default
-        let steam32 = steamExecutableURL
         let steam64 = prefixURL
             .appendingPathComponent("drive_c/Program Files/Steam/steam.exe")
-        return fileManager.fileExists(atPath: steam32.path)
-            || fileManager.fileExists(atPath: steam64.path)
+        return Self.isValidSteamExecutable(at: steamExecutableURL)
+            || Self.isValidSteamExecutable(at: steam64)
+    }
+
+    private static let steamExecutableMinBytes = 500_000
+
+    private static func isValidSteamExecutable(at url: URL) -> Bool {
+        let fileManager = FileManager.default
+        guard let attrs = try? fileManager.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? Int,
+              size >= steamExecutableMinBytes else { return false }
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        guard let header = try? handle.read(upToCount: 2), header.count == 2 else { return false }
+        return header[0] == 0x4D && header[1] == 0x5A
     }
 
     var isPrefixInitialized: Bool {

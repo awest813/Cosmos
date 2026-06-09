@@ -93,6 +93,11 @@ IGNORED_APPIDS=" 218 228980 931380 1054830 1070560 1391110 1493710 1628350 "
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
 
+steam_refresh_library() {
+  [[ -x "${SCRIPT_DIR}/library.command" ]] || return 0
+  WINEPREFIX="${WINEPREFIX}" "${SCRIPT_DIR}/library.command" scan >/dev/null 2>&1 || true
+}
+
 usage() {
   cat <<'EOF'
 Auto-detect installed Steam games and turn them into Cosmos launcher configs.
@@ -410,6 +415,7 @@ main() {
     mkdir -p "${CONFIGS_DIR}"
     remove_stale_generated
     prune_orphan_icons
+    steam_refresh_library
     echo "Removed any previously generated launcher configs."
     return
   fi
@@ -467,6 +473,7 @@ main() {
   prune_orphan_icons
 
   log "Wrote ${written} generated config(s); skipped ${skipped} curated."
+  steam_refresh_library
 
   if [[ "${MODE}" == "install" ]]; then
     log "Building launchers via install_cosmos.command"

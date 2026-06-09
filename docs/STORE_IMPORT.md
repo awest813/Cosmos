@@ -21,10 +21,11 @@ Cosmos can register non-Steam Windows games as first-class `.app` launchers usin
 
 | Command | Purpose |
 | --- | --- |
-| `list` | Show standalone, itch, Battle.net, and Epic configs in `cosmos_configs/` |
+| `list` | Show standalone, GOG, itch, Battle.net, and Epic configs in `cosmos_configs/` |
 | `run-installer <file>` | Run `.exe` / `.msi` via `run.command --run-installer` |
 | `add-exe <path> --name <title>` | Create `standalone-<slug>.conf` |
-| `add-gog <setup.exe> --name <title>` | Run GOG offline installer, auto-find `.exe` |
+| `add-gog <setup\|slug\|path> --name <title>` | Run GOG offline installer or register an installed game |
+| `list-gog` | List GOG games detected under `drive_c/GOG Games` |
 | `add-itch <folder> --name <title>` | Copy itch.io download into prefix; creates `itch-<slug>.conf` |
 | `install-battlenet <setup.exe>` | Install the Battle.net desktop app in the prefix |
 | `list-battlenet` | List Blizzard games detected under Program Files |
@@ -42,6 +43,17 @@ APP_NAME="My Game (Cosmos)"
 BUNDLE_ID="com.cosmos.standalone-my-game"
 RUN_ENV_NAMES=( GAME_EXE_PATH COSMOS_SKIP_STEAM )
 GAME_EXE_PATH="drive_c/Games/my-game/game.exe"
+COSMOS_SKIP_STEAM="1"
+```
+
+GOG offline imports use `gog-<slug>.conf` and install into `drive_c/GOG Games/` by
+default (GOG Galaxy paths are also scanned):
+
+```sh
+APP_NAME="The Witcher 3 (Cosmos)"
+BUNDLE_ID="com.cosmos.gog-the-witcher-3"
+RUN_ENV_NAMES=( GAME_EXE_PATH COSMOS_SKIP_STEAM )
+GAME_EXE_PATH="drive_c/GOG Games/The Witcher 3 Wild Hunt GOTY/bin/x64/witcher3.exe"
 COSMOS_SKIP_STEAM="1"
 ```
 
@@ -84,8 +96,36 @@ Optional: add store-specific YAML profiles for known-good settings (see
 [PROFILE_FORMAT.md](PROFILE_FORMAT.md)):
 
 - `profiles/standalone/<slug>.yaml`
+- `profiles/gog/gog-<slug>.yaml`
 - `profiles/itch/itch-<slug>.yaml`
 - `profiles/battlenet/battlenet-<slug>.yaml`
+
+## GOG offline installers
+
+Cosmos runs GOG `setup.exe` installers inside your Wine prefix, finds the main
+game executable (skipping redistributables and uninstall helpers), and registers
+a `gog-<slug>.conf` launcher.
+
+### Import flow
+
+```bash
+# 1. Run the GOG offline installer and register the game
+./import_game.command add-gog ~/Downloads/setup_celeste_1.2.3.exe --name "Celeste"
+
+# 2. Or register an already-installed GOG folder by slug from list-gog
+./import_game.command list-gog
+./import_game.command add-gog celeste --name "Celeste"
+
+# 3. Build the .app launcher
+./install_cosmos.command
+```
+
+### Notes
+
+- **GOG Galaxy** is not supported — use offline `setup.exe` installers only.
+- Games install to `drive_c/GOG Games/<title>/` by default; Cosmos scans that path
+  and GOG Galaxy `Games` folders when present.
+- DRM-free titles launch directly via `GAME_EXE_PATH`; no Galaxy bootstrap is required.
 
 ## Battle.net / Blizzard
 
