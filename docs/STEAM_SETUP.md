@@ -123,6 +123,9 @@ patterns:
 - **steamwebhelper wrapper** — vendored C binary that injects
   `--disable-gpu --single-process` into Steam's CEF helper (requires
   `brew install mingw-w64` to build on first setup)
+- **Virtual desktop** — `WINE_VIRTUAL_DESKTOP="auto"` (default) wraps Steam in a
+  single Wine window sized to your display, which prevents games from taking over
+  the whole screen. Set `WINE_VIRTUAL_DESKTOP=""` or `0` to opt out.
 - **Launch hardening** — clears Chromium singleton locks, scrubs AppCompat
   tokens, merges Steam-specific `WINEDLLOVERRIDES`
 

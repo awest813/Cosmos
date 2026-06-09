@@ -18,6 +18,9 @@
 : "${COSMOS_STEAM_WINEDLLOVERRIDES:=dxgi,d3d11,d3d10core=n,b;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d}"
 : "${WINE_VIRTUAL_DESKTOP_NAME:=cosmos-steam}"
 
+# steam.exe is typically several MB; smaller files are incomplete or corrupt installs.
+STEAM_EXE_MIN_BYTES=500000
+
 steam_third_party_root() {
   local root
   for root in \
@@ -70,6 +73,31 @@ steam_find_steam_dir() {
   local a="${pfx}/drive_c/Program Files (x86)/Steam"
   local b="${pfx}/drive_c/Program Files/Steam"
   if [[ -d "${a}" ]]; then printf '%s' "${a}"; elif [[ -d "${b}" ]]; then printf '%s' "${b}"; fi
+}
+
+# Return the first steam.exe candidate path in the prefix (may be invalid/incomplete).
+steam_find_exe_candidate() {
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local steam32="${pfx}/drive_c/Program Files (x86)/Steam/steam.exe"
+  local steam64="${pfx}/drive_c/Program Files/Steam/steam.exe"
+  if [[ -f "${steam32}" ]]; then
+    printf '%s\n' "${steam32}"
+  elif [[ -f "${steam64}" ]]; then
+    printf '%s\n' "${steam64}"
+  fi
+}
+
+# True when steam.exe exists and looks like a real Valve binary (not a stub).
+steam_exe_is_valid() {
+  local path="$1"
+  [[ -f "${path}" ]] || return 1
+  local size
+  size="$(wc -c <"${path}" | tr -d ' ')"
+  (( size >= STEAM_EXE_MIN_BYTES )) || return 1
+  local magic
+  magic="$(dd if="${path}" bs=1 count=2 2>/dev/null || true)"
+  [[ "${magic}" == $'MZ' ]] || return 1
+  return 0
 }
 
 # Print the steamapps directory for every Steam library (newline separated, deduped).
@@ -357,6 +385,10 @@ steam_stop_lingering_processes() {
   local pfx="${WINEPREFIX:?WINEPREFIX required}"
   pkill -f "wineserver.*${pfx}" 2>/dev/null || true
   pkill -f "wine.*${pfx}" 2>/dev/null || true
+  # Steam can auto-start during silent install and leave Chromium locks behind.
+  pkill -f "${pfx}/drive_c/Program Files \\(x86\\)/Steam" 2>/dev/null || true
+  pkill -f "${pfx}/drive_c/Program Files/Steam" 2>/dev/null || true
+  sleep 1
 }
 
 steam_clear_chromium_locks() {

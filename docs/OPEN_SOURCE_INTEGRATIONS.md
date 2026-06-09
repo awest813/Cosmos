@@ -31,7 +31,7 @@ COSMOS_STEAM_WEBHELPER_WRAPPER="1"    # build/install wrapper when mingw-w64 exi
 COSMOS_STEAM_SEED_FONTS="1"           # copy macOS CJK fonts into prefix
 COSMOS_STEAM_CA_BUNDLE="1"            # copy /etc/ssl/cert.pem into prefix
 COSMOS_STEAM_WINEDLLOVERRIDES="dxgi,d3d11,d3d10core=n,b;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
-# WINE_VIRTUAL_DESKTOP="auto"         # optional: wrap Steam in a Wine virtual desktop
+WINE_VIRTUAL_DESKTOP="auto"           # wrap Steam in a Wine virtual desktop (set "" to opt out)
 ```
 
 **Repair fixes**

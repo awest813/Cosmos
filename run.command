@@ -68,6 +68,7 @@ COSMOS_STEAM_WEBHELPER_WRAPPER="1"
 COSMOS_STEAM_SEED_FONTS="1"
 COSMOS_STEAM_CA_BUNDLE="1"
 COSMOS_STEAM_WINEDLLOVERRIDES="dxgi,d3d11,d3d10core=n,b;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
+WINE_VIRTUAL_DESKTOP="auto"
 WINE_RETINA_MODE="0"
 WINDOWS_VERSION=""
 WINE_VERSION="11.8"
@@ -567,18 +568,20 @@ ensure_wine_windows_mouse_accel_disabled() {
 STEAM_SETUP_MIN_BYTES=1000000
 
 find_steam_exe() {
-  local steam32="${WINEPREFIX}/drive_c/Program Files (x86)/Steam/steam.exe"
-  local steam64="${WINEPREFIX}/drive_c/Program Files/Steam/steam.exe"
-  if [[ -f "${steam32}" ]]; then
-    printf "%s\n" "${steam32}"
-  elif [[ -f "${steam64}" ]]; then
-    printf "%s\n" "${steam64}"
-  fi
+  local candidate
+  candidate="$(steam_find_exe_candidate || true)"
+  [[ -n "${candidate}" ]] && steam_exe_is_valid "${candidate}" && printf '%s\n' "${candidate}"
 }
 
-# True when a Steam folder exists in the prefix but steam.exe is missing (failed install).
+# True when a Steam folder exists but steam.exe is missing or looks corrupt.
 steam_install_incomplete() {
-  [[ -n "$(find_steam_exe || true)" ]] && return 1
+  local candidate
+  candidate="$(steam_find_exe_candidate || true)"
+  if [[ -n "${candidate}" ]]; then
+    steam_exe_is_valid "${candidate}" && return 1
+    echo "Found invalid steam.exe at ${candidate} (too small or not a PE executable)." >&2
+    return 0
+  fi
   local base
   for base in \
     "${WINEPREFIX}/drive_c/Program Files (x86)/Steam" \
@@ -639,10 +642,7 @@ cleanup_steam_setup() {
 # Steam install can auto-start Steam, so we stop it to leave a clean prefix for
 # the explicit Launch Steam step.
 stop_wine_prefix() {
-  local wineserver_bin
-  wineserver_bin="$(dirname "${WINE_BIN}")/wineserver"
-  [[ -x "${wineserver_bin}" ]] || return 0
-  WINEPREFIX="${WINEPREFIX}" "${wineserver_bin}" -k 2>/dev/null || true
+  steam_stop_lingering_processes
 }
 
 # Attempt an unattended Steam install using the NSIS /S flag. Prints progress and
@@ -650,17 +650,27 @@ stop_wine_prefix() {
 # to the interactive wizard.
 install_steam_silently() {
   log "Installing Steam silently (no wizard)"
-  echo "Running the Steam installer unattended — this usually takes under a minute."
+  echo "Running the Steam installer unattended — this usually takes 30–90 seconds."
+  stop_wine_prefix
+
+  local install_log="${COSMOS_SUPPORT_DIR}/logs/steam-install.log"
+  mkdir -p "$(dirname "${install_log}")"
+  : >"${install_log}" || install_log="/dev/null"
+
   # NSIS installers accept /S for a silent install. Run it detached so a
   # post-install auto-launch of Steam can't block us while we poll for steam.exe.
-  WINEPREFIX="${WINEPREFIX}" nohup "${WINE_BIN}" "${STEAM_SETUP}" /S </dev/null >/dev/null 2>&1 &
+  WINEPREFIX="${WINEPREFIX}" nohup "${WINE_BIN}" "${STEAM_SETUP}" /S </dev/null >>"${install_log}" 2>&1 &
   disown
 
-  local waited=0 steam_exe=""
+  local waited=0 steam_exe="" candidate=""
+  local timeout=180
   printf 'Waiting for steam.exe'
-  while ((waited < 120)); do
-    steam_exe="$(find_steam_exe || true)"
-    [[ -n "${steam_exe}" ]] && break
+  while ((waited < timeout)); do
+    candidate="$(steam_find_exe_candidate || true)"
+    if [[ -n "${candidate}" ]] && steam_exe_is_valid "${candidate}"; then
+      steam_exe="${candidate}"
+      break
+    fi
     printf '.'
     sleep 3
     waited=$((waited + 3))
@@ -668,7 +678,12 @@ install_steam_silently() {
   printf '\n'
 
   if [[ -z "${steam_exe}" ]]; then
-    echo "Silent install did not finish within ${waited}s — falling back to the installer wizard."
+    if [[ -n "${candidate}" ]]; then
+      echo "Silent install produced an invalid steam.exe at ${candidate} — falling back to the installer wizard."
+    else
+      echo "Silent install did not finish within ${waited}s — falling back to the installer wizard."
+    fi
+    echo "Installer log: ${install_log}"
     stop_wine_prefix
     return 1
   fi

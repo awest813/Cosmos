@@ -85,6 +85,7 @@ enum SteamSettingsStore {
             "COSMOS_STEAM_WEBHELPER_WRAPPER=\"1\"",
             "COSMOS_STEAM_SEED_FONTS=\"1\"",
             "COSMOS_STEAM_CA_BUNDLE=\"1\"",
+            "WINE_VIRTUAL_DESKTOP=\"auto\"",
             "WINE_RETINA_MODE=\"0\"",
             "WINDOWS_VERSION=\"\"",
             "WINE_VERSION=\"11.8\"",
