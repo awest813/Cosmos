@@ -238,10 +238,10 @@ badges at point-of-use.
 
 **Tasks:**
 
-- [ ] Script `scripts/import_macos_wine_steam.sh` to diff upstream
-  `cosmos_configs/` against ours; emit YAML profile drafts.
-- [ ] Merge non-conflicting `*.conf` env patterns into `profiles/steam/*.yaml`
-  `settings.env` blocks.
+- [x] Script `scripts/import_macos_wine_steam.sh` to diff upstream
+  `merlot_configs/` against ours; emit YAML profile drafts.
+- [x] Merge non-conflicting `*.conf` env patterns into `profiles/steam/*.yaml`
+  `settings.env` blocks (`--merge`).
 - [ ] Track upstream periodically (quarterly or on release tags).
 
 ### 4b. winemactricks-json → profiles
@@ -267,8 +267,8 @@ badges at point-of-use.
 
 **Tasks:**
 
-- [ ] Add `docs/PROTONFIXES_PORTING.md` with the workflow above.
-- [ ] Pilot: port 5 high-traffic ProtonDB titles already in Cosmos profiles.
+- [x] Add `docs/PROTONFIXES_PORTING.md` with the workflow above.
+- [x] Pilot: port hints for Fallout NV/4, Skyrim SE, Cyberpunk, Hades (`scripts/protonfix_port_hint.py`, `profile.command port-hint`).
 - [ ] Link `cosmosdb.command lookup` → "suggest profile draft" (human review PR).
 
 **Phase 4 exit criteria:** 50+ validated profiles; porting guide; automated

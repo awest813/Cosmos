@@ -32,6 +32,12 @@ dependencies.
 - Upstream: [Alien4042x/winemactricks-json](https://github.com/Alien4042x/winemactricks-json).
 - Imported into `recipes/fixes/` via `scripts/import_winemactricks.sh` (retain LICENSE notice).
 
+## macos-wine-steam
+
+- MIT presets vendored under `third_party/macos-wine-steam/`.
+- Upstream: [ByMedion/macos-wine-steam](https://github.com/ByMedion/macos-wine-steam).
+- Imported into `profiles/drafts/` via `scripts/import_macos_wine_steam.sh`.
+
 ## UMU database API
 
 - GPL-3.0 data repository: [Open-Wine-Components/umu-database](https://github.com/Open-Wine-Components/umu-database).

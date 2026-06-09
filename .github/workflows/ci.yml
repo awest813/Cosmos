@@ -65,6 +65,9 @@ jobs:
       - name: winemactricks import unit tests
         run: ./scripts/test_import_winemactricks.sh
 
+      - name: Profile porting unit tests
+        run: ./scripts/test_protonfix_port_hint.sh
+
       - name: Store import unit tests
         run: ./scripts/test_import_lib.sh
 

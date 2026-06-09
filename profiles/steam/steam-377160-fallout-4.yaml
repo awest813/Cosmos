@@ -13,4 +13,7 @@ dependencies:
   - d3dx9
 fixes:
   - disable_retina
-notes: "Same Creation Engine family as Skyrim SE. Disable intro videos in the launcher if startup hangs. Expect longer first-launch shader compile."
+notes: >
+  Same Creation Engine family as Skyrim SE. Disable intro videos in the launcher
+  if startup hangs. Protonfix reference (GPL): Bethesda titles may swap the game
+  exe for f4se_loader.exe when using F4SE. Expect longer first-launch shader compile.

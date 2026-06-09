@@ -160,7 +160,12 @@ Parsers and HTTP helpers live in `scripts/lib/cosmosdb_lib.sh`. Unit tests:
 
 ```bash
 ./profile.command apply profiles/steam/steam-22380-fallout-new-vegas.yaml
+./scripts/import_macos_wine_steam.sh --write-drafts
+./scripts/protonfix_port_hint.py 22380
+./profile.command port-hint 22380
 ```
+
+See [PROTONFIXES_PORTING.md](PROTONFIXES_PORTING.md).
 
 ## 5. License hygiene
 
