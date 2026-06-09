@@ -60,6 +60,9 @@ jobs:
       - name: Store import unit tests
         run: ./scripts/test_import_lib.sh
 
+      - name: Game library filesystem unit tests
+        run: ./scripts/test_library_lib.sh
+
       - name: Launch recovery unit tests
         run: ./scripts/test_launch_recovery.sh
 

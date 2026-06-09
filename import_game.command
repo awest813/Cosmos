@@ -6,10 +6,13 @@ set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 IMPORT_LIB="${SCRIPT_DIR}/scripts/lib/import_lib.sh"
+LIBRARY_LIB="${SCRIPT_DIR}/scripts/lib/library_lib.sh"
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
 
 # shellcheck source=scripts/lib/import_lib.sh
 source "${IMPORT_LIB}"
+# shellcheck source=scripts/lib/library_lib.sh
+source "${LIBRARY_LIB}"
 
 resolve_configs_dir() {
   if [[ -n "${COSMOS_CONFIGS_DIR:-}" ]]; then
@@ -39,6 +42,12 @@ fi
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
+
+import_refresh_library() {
+  [[ -x "${SCRIPT_DIR}/library.command" ]] || return 0
+  COSMOS_BOTTLE="${COSMOS_BOTTLE}" WINEPREFIX="${WINEPREFIX}" \
+    "${SCRIPT_DIR}/library.command" scan ${COSMOS_BOTTLE:+--bottle "${COSMOS_BOTTLE}"} >/dev/null 2>&1 || true
+}
 
 usage() {
   cat <<'EOF'
@@ -151,6 +160,7 @@ cmd_add_exe() {
   local file
   file="$(import_write_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${exe_path}")"
   log "Wrote ${file}"
+  import_refresh_library
   echo "Next: ./install_cosmos.command ${file##*/}"
 }
 
@@ -193,20 +203,21 @@ cmd_add_itch() {
   done
   [[ -d "${folder}" ]] || die "Usage: import_game.command add-itch <folder> --name <title>"
   [[ -n "${name}" ]] || die "--name is required"
-  local exe host_exe
+  [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
+  local exe host_exe dest
   exe="$(import_find_game_exe "${folder}")" || die "No .exe found under ${folder}"
   host_exe="$(cd "$(dirname "${exe}")" && pwd)/$(basename "${exe}")"
-  local dest="${WINEPREFIX}/drive_c/Games/$(import_slugify "${name}")"
+  dest="$(library_install_dir "${WINEPREFIX}" "itch" "${slug}")"
   mkdir -p "${dest}"
   cp -R "${folder}/." "${dest}/"
   local rel_exe installed
   installed="$(import_find_game_exe "${dest}")" || die "Copied files but no .exe found in ${dest}"
   rel_exe="${installed#${WINEPREFIX}/}"
-  [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
   local bundle_id="com.cosmos.itch-${slug}"
   local file
   file="$(import_write_itch_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${rel_exe}")"
   log "Wrote ${file}"
+  import_refresh_library
   echo "Copied itch.io files to ${dest}"
   echo "Next: ./install_cosmos.command ${file##*/}"
 }
@@ -305,6 +316,7 @@ cmd_add_battlenet() {
   local file
   file="$(import_write_battlenet_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${exe_path}" "${launcher}")"
   log "Wrote ${file}"
+  import_refresh_library
   [[ -n "${launcher}" ]] && echo "Battle.net launcher: ${launcher}"
   echo "Executable:    ${exe_path}"
   echo "Next: ./install_cosmos.command ${file##*/}"
@@ -362,6 +374,7 @@ cmd_add_epic() {
   local file
   file="$(import_write_epic_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${exe}" "${legendary_app}")"
   log "Wrote ${file}"
+  import_refresh_library
   echo "Epic app name: ${legendary_app}"
   echo "Install dir:   ${install_dir}"
   echo "Executable:    ${exe}"
