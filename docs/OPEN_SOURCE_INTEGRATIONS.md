@@ -5,8 +5,9 @@ integration priorities.
 
 > **Phased adoption plan:** see [ADOPTION_PLAN.md](ADOPTION_PLAN.md) for
 > winemactricks-json, wineregdiff, VDF libraries, UMU API, profile seeding,
-> and Runtime 1.0 bundling priorities. Runtime manifest and DXVK auto-fetch:
-> [RUNTIME.md](RUNTIME.md).
+> and Runtime 1.0 bundling priorities. Runtime manifest, offline DMG bundle, and
+> DXVK auto-fetch: [RUNTIME.md](RUNTIME.md). Community DB sync and profile drafts:
+> [COSMOSDB.md](COSMOSDB.md). Profile dep seeding: `profile.command seed-deps`.
 
 ## Steam install & launch (MIT: steam-on-m1-wine)
 

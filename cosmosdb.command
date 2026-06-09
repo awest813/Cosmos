@@ -192,16 +192,17 @@ cmd_sync() {
 }
 
 cmd_badge() {
-  local appid="${1:-}" json=0
-  shift || true
-  [[ "${appid}" =~ ^[0-9]+$ ]] || cosmosdb_die "Usage: cosmosdb.command badge <steam_appid> [--json]"
+  local appid="" json=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --json) json=1 ;;
-      *) cosmosdb_die "Unknown option: $1" ;;
+      --json) json=1; shift ;;
+      *)
+        [[ -z "${appid}" && "${1}" =~ ^[0-9]+$ ]] && { appid="$1"; shift; continue; }
+        cosmosdb_die "Usage: cosmosdb.command badge <steam_appid> [--json]"
+        ;;
     esac
-    shift
   done
+  [[ "${appid}" =~ ^[0-9]+$ ]] || cosmosdb_die "Usage: cosmosdb.command badge <steam_appid> [--json]"
   local body
   body="$(cosmosdb_badge_resolve "${appid}")" || cosmosdb_die "badge resolve failed"
   if (( json == 1 )); then
@@ -225,7 +226,10 @@ cmd_suggest_profile() {
   local py="${SCRIPT_DIR}/scripts/cosmosdb_suggest_profile.py"
   [[ -f "${py}" ]] || cosmosdb_die "Missing ${py}"
   local comm; comm="$(cosmosdb_community_games_dir)"
-  [[ -d "${comm}" ]] || cmd_sync >/dev/null
+  if [[ ! -d "${comm}" ]] || ! compgen -G "${comm}/*.json" >/dev/null; then
+    cosmosdb_sync_community >/dev/null || cosmosdb_die "Community DB sync failed (run: cosmosdb.command sync)"
+    comm="$(cosmosdb_community_games_dir)"
+  fi
   local args=(--repo "${COSMOS_REPO_ROOT}" --community-dir "${comm}" "${appid}")
   (( write == 1 )) && args=(--write "${args[@]}")
   python3 "${py}" "${args[@]}"

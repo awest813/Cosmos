@@ -8,13 +8,13 @@ milestone **0.7 (CosmosDB)** and **1.0 (Cosmos Runtime)** in
 
 ## Current baseline
 
-| Area | Status today | Gap |
+| Area | Status today | Remaining gap |
 | --- | --- | --- |
-| Repair / recipes | 3 dependency + 13 fix `.recipe` files; winetricks external | Small catalog; no registry-diff tooling; Cellar cited only in docs |
-| Steam detection | Bash/awk VDF + ACF in `scripts/lib/steam_lib.sh` | Wine-prefix only; heuristic parser; no native macOS Steam path |
-| CosmosDB | ProtonDB + AGW + MacGamingDB + local reports | No community GitHub DB; no UMU API; no profile auto-update |
-| Profiles | 21 hand-curated `profiles/steam/*.yaml` | Thin vs ProtonDB breadth; no seeded presets from macos-wine-steam |
-| Runtime | Gcenx Wine + DXMT v0.74 download at runtime | No bundled stack; DXVK manual; no versioned Cosmos Runtime |
+| Repair / recipes | winemactricks import, regdiff, UMU-aware diagnose | Cellar recipe mining; more JSON catalog growth |
+| Steam detection | VDF verify + native dual-path in `steam_lib.sh` | steamlocate-rs signed helper (1.0) |
+| CosmosDB | ProtonDB, AGW, MacGamingDB, UMU, community `cosmos-db/`, badges | Scale community DB; auto-merge validated drafts |
+| Profiles | 21+ curated YAML + macos-wine-steam drafts + `seed-deps` | 100+ profiles; quarterly upstream sync |
+| Runtime | Manifest, offline DMG tarball, DXVK auto-fetch | DXVK/MoltenVK in offline bundle; checksum pins |
 
 Cosmos is **bash-first** with a SwiftUI dashboard. Prefer integrations that
 fit shell scripts + optional Python helpers until a native helper binary (1.0)

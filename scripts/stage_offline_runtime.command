@@ -38,10 +38,10 @@ PY
 stage_fixture_bundle() {
   log "Staging fixture offline runtime (FIXTURE=1)"
   rm -rf "${STAGING}"
-  mkdir -p "${STAGING}/wine-${WINE_VERSION}/Wine Devel.app/Contents/MacOS/wine/bin"
+  mkdir -p "${STAGING}/wine-${WINE_VERSION}/Wine Devel.app/Contents/Resources/wine/bin"
   mkdir -p "${STAGING}/dxmt-${DXMT_VERSION}/"{i386-windows,x86_64-windows,x86_64-unix}
-  printf '#!/bin/sh\necho fixture-wine\n' > "${STAGING}/wine-${WINE_VERSION}/Wine Devel.app/Contents/MacOS/wine/bin/wine"
-  chmod +x "${STAGING}/wine-${WINE_VERSION}/Wine Devel.app/Contents/MacOS/wine/bin/wine"
+  printf '#!/bin/sh\necho fixture-wine\n' > "${STAGING}/wine-${WINE_VERSION}/Wine Devel.app/Contents/Resources/wine/bin/wine"
+  chmod +x "${STAGING}/wine-${WINE_VERSION}/Wine Devel.app/Contents/Resources/wine/bin/wine"
   touch "${STAGING}/dxmt-${DXMT_VERSION}/x86_64-windows/d3d11.dll"
   cp "${MANIFEST}" "${STAGING}/cosmos-runtime.json"
   printf 'fixture-offline-runtime\n' > "${STAGING}/.cosmos-offline-bundle"

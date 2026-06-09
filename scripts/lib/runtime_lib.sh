@@ -235,23 +235,39 @@ runtime_extract_offline_tarball() {
   }
 }
 
+# Gcenx layouts use Contents/Resources/wine/bin/wine; older bundles may use MacOS/.
+runtime_wine_binary_in_app() {
+  local app="$1" rel candidate
+  for rel in \
+    "Contents/Resources/wine/bin/wine" \
+    "Contents/MacOS/wine/bin/wine"; do
+    candidate="${app}/${rel}"
+    [[ -x "${candidate}" ]] && {
+      printf '%s' "${candidate}"
+      return 0
+    }
+  done
+  return 1
+}
+
 runtime_install_wine_from_offline_bundle() {
   local wine_root="${WINE_ROOT:-}"
   local wine_ver="${WINE_VERSION:-}"
   [[ -n "${wine_root}" && -n "${wine_ver}" ]] || return 1
-  local bundle wine_src wine_app wine_bin
+  local bundle wine_src wine_app installed_app wine_bin
   bundle="$(runtime_offline_cache_dir)"
   wine_src="${bundle}/wine-${wine_ver}"
   wine_app="${wine_src}/Wine Devel.app"
-  wine_bin="${wine_app}/Contents/MacOS/wine/bin/wine"
-  [[ -x "${wine_bin}" ]] || return 1
-  if [[ -x "${wine_root}/Wine Devel.app/Contents/MacOS/wine/bin/wine" ]]; then
+  installed_app="${wine_root}/Wine Devel.app"
+  if runtime_wine_binary_in_app "${installed_app}" >/dev/null; then
     return 0
   fi
+  wine_bin="$(runtime_wine_binary_in_app "${wine_app}" || true)"
+  [[ -n "${wine_bin}" ]] || return 1
   mkdir -p "${wine_root}"
-  rm -rf "${wine_root}/Wine Devel.app"
+  rm -rf "${installed_app}"
   cp -R "${wine_app}" "${wine_root}/"
-  [[ -x "${wine_bin}" ]] || return 1
+  runtime_wine_binary_in_app "${installed_app}" >/dev/null || return 1
   echo "Wine ${wine_ver} installed from offline bundle at ${wine_root}"
 }
 

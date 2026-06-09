@@ -560,7 +560,7 @@ def read_profile_full():
         status = title = None
         for line in text.splitlines():
             if line.startswith("status:"):
-                status = norm_status(line.split(":", 1)[1])
+                status = norm_status(line.split(":", 1)[1].strip().strip('"'))
             if line.startswith("name:"):
                 title = line.split(":", 1)[1].strip().strip('"')
         if status:
@@ -620,7 +620,14 @@ def main():
     if mgd and mgd[0]:
         print(json.dumps({"steam_appid": int(appid), "status": mgd[0], "source": mgd[1], "label": mgd[2] or mgd[0]}))
         return
-    pdb = read_cache("protondb", lambda d: (proton_status((d.get("tier") or {}).get("tier") if isinstance(d.get("tier"), dict) else d.get("tier")), "protondb", d.get("title")))
+    def proton_from_cache(d):
+        tier = d.get("tier")
+        if isinstance(tier, dict):
+            tier = tier.get("tier")
+        title = d.get("title") or (d.get("game") or {}).get("title")
+        return proton_status(tier), "protondb", title
+
+    pdb = read_cache("protondb", proton_from_cache)
     if pdb and pdb[0]:
         print(json.dumps({"steam_appid": int(appid), "status": pdb[0], "source": pdb[1], "label": pdb[2] or pdb[0]}))
         return

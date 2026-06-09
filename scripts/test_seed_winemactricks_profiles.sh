@@ -42,4 +42,7 @@ after="$(md5sum "${ROOT}/profiles/steam/steam-22380-fallout-new-vegas.yaml" | aw
 python3 "${ROOT}/scripts/seed_winemactricks_profile_deps.py" --dry-run --appid 1091500 \
   | grep -q 'steam-1091500' || fail "cyberpunk dry-run"
 
+bash "${ROOT}/profile.command" validate profiles/steam/steam-22380-fallout-new-vegas.yaml \
+  || fail "profile validate failed after seed pass"
+
 printf 'OK: seed winemactricks profiles tests passed\n'

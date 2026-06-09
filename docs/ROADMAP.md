@@ -168,7 +168,7 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] User reports, status badges, suggest/apply profile actions in the dashboard
 - [x] Open-source adoption tranche (Phases 1–4) — [ADOPTION_PLAN.md](ADOPTION_PLAN.md)
   (winemactricks-json, wineregdiff, VDF verify, UMU API runtime, profile seeding)
-- [ ] Runtime manifest + DXVK auto-fetch (Phase 5) — [RUNTIME.md](RUNTIME.md)
+- [x] Runtime manifest + offline DMG bundle + DXVK auto-fetch (Phase 5) — [RUNTIME.md](RUNTIME.md)
 - **Success:** Cosmos has its own "ProtonDB for Mac" that feeds back into profiles.
 
 ### 1.0 — Cosmos Runtime

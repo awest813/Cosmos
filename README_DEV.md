@@ -256,13 +256,18 @@ See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md) and
 | `scripts/test_steam_detection.sh` | Fixture-based unit tests (CI) |
 | `repair.command` | Winetricks deps + fix recipes (`recipes/`) |
 | `profile.command` | Apply YAML profiles → overrides + repair |
-| `cosmosdb.command` | ProtonDB + AppleGamingWiki + MacGamingDB hints + local macOS reports |
+| `cosmosdb.command` | Compatibility hints, community DB sync, badges, profile drafts |
+| `profile.command seed-deps` | Bulk-merge winemactricks map deps/fixes into profiles |
 
 ```bash
 ./detect_steam_games.command --verify
 ./repair.command install-dep vcrun2015
+COSMOS_PROFILE_APPID=1091500 ./repair.command diagnose   # includes UMU recipe hints
 ./profile.command apply profiles/steam/steam-250900-binding-of-isaac.yaml
+./profile.command seed-deps --dry-run
+./cosmosdb.command sync
 ./cosmosdb.command lookup 250900
+./cosmosdb.command badge 250900
 ./cosmosdb.command report 250900 gold "DXMT, win10, stable on M2"
 ```
 

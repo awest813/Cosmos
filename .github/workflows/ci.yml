@@ -92,7 +92,8 @@ jobs:
       - name: Profile export-reg unit tests
         run: ./scripts/test_profile_export_reg.sh
 
-      - name: UMU diagnose + winemactricks profile seed tests
-        run: |
-          ./scripts/test_repair_diagnose.sh
-          ./scripts/test_seed_winemactricks_profiles.sh
+      - name: winemactricks profile seed tests
+        run: ./scripts/test_seed_winemactricks_profiles.sh
+
+      - name: UMU suggest recipe tests
+        run: ./scripts/test_umu_suggest.sh

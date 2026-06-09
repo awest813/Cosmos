@@ -50,4 +50,15 @@ out="$(python3 "${ROOT}/scripts/cosmosdb_suggest_profile.py" 250900 --repo "${RO
 printf '%s' "${out}" | grep -q 'steam_appid: 250900' || fail "draft missing appid"
 printf '%s' "${out}" | grep -q 'recommended_backend: dxmt' || fail "draft missing backend"
 
+# badge --json flag order
+badge_json="$(COSMOSDB_DIR="${COSMOSDB_DIR}" COSMOS_REPO_ROOT="${ROOT}" \
+  bash "${ROOT}/cosmosdb.command" badge --json 22380 2>/dev/null)" \
+  || fail "badge --json failed"
+printf '%s' "${badge_json}" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert d["steam_appid"] == 22380
+assert d["status"] in ("playable", "gold", "silver")
+'
+
 printf 'OK: cosmosdb community tests passed\n'

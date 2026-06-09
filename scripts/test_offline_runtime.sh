@@ -27,8 +27,9 @@ export COSMOS_OFFLINE_RUNTIME_TARBALL="${OUTPUT_DIR}/cosmos-runtime-offline.tar.
 source "${ROOT}/scripts/lib/runtime_lib.sh"
 
 runtime_try_offline_stack || fail "runtime_try_offline_stack failed"
-[[ -x "${WINE_ROOT}/Wine Devel.app/Contents/MacOS/wine/bin/wine" ]] \
-  || fail "wine not installed from bundle"
+WINE_APP="${WINE_ROOT}/Wine Devel.app"
+WINE_BIN="${WINE_APP}/Contents/Resources/wine/bin/wine"
+[[ -x "${WINE_BIN}" ]] || fail "wine not installed at Gcenx path ${WINE_BIN}"
 [[ -f "${DXMT_ROOT}/x86_64-windows/d3d11.dll" ]] \
   || fail "dxmt not installed from bundle"
 

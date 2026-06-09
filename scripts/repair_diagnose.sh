@@ -97,11 +97,27 @@ repair_diagnose_umu_hints() {
   [[ -f "${SCRIPT_DIR}/scripts/lib/umu_suggest_lib.sh" ]] \
     && source "${SCRIPT_DIR}/scripts/lib/umu_suggest_lib.sh" 2>/dev/null || return 0
 
+  local profiles_root="${SCRIPT_DIR:-.}/profiles"
+  local existing_deps="" existing_fixes="" pf
+  if [[ -d "${profiles_root}" && -f "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" 2>/dev/null || true
+    if pf="$(profile_find_by_appid "${profiles_root}" "${appid}" 2>/dev/null)"; then
+      existing_deps="$(profile_list_dependencies "${pf}" | tr '\n' ' ')"
+      existing_fixes="$(profile_list_fixes "${pf}" | tr '\n' ' ')"
+    fi
+  fi
+
   local line kind id
   while IFS= read -r line; do
     [[ -n "${line}" ]] || continue
     kind="${line%% *}"
     id="${line#* }"
+    case "${kind}" in
+      dep) [[ " ${existing_deps} " == *" ${id} "* ]] && continue ;;
+      fix) [[ " ${existing_fixes} " == *" ${id} "* ]] && continue ;;
+      *) continue ;;
+    esac
     case "${kind}:${id}" in
       dep:*)
         repair_diagnose_suggest dep "${id}" \
