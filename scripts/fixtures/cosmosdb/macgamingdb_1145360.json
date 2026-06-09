@@ -1,0 +1,41 @@
+{
+  "game": {
+    "id": "1145360",
+    "details": "{\"steam_appid\":1145360,\"name\":\"Hades\",\"platforms\":{\"mac\":true}}",
+    "aggregatedPerformance": "EXCELLENT",
+    "reviewCount": 3
+  },
+  "reviews": [
+    {
+      "gameId": "1145360",
+      "playMethod": "CROSSOVER",
+      "translationLayer": "D3D_METAL",
+      "fps": 60,
+      "notes": "Smooth on M2 Pro with CrossOver 25."
+    },
+    {
+      "gameId": "1145360",
+      "playMethod": "CROSSOVER",
+      "translationLayer": "DXMT",
+      "fps": 45,
+      "notes": "DXMT path playable with minor stutter."
+    },
+    {
+      "gameId": "1145360",
+      "playMethod": "NATIVE",
+      "translationLayer": "NONE",
+      "fps": 120,
+      "notes": "Native ARM build runs great."
+    }
+  ],
+  "stats": {
+    "totalReviews": 3,
+    "methods": { "native": 1, "crossover": 2, "parallels": 0, "other": 0 },
+    "averagePerformance": 4.5,
+    "translationLayers": {
+      "D3D_METAL": { "count": 1, "averagePerformance": 4.0 },
+      "DXMT": { "count": 1, "averagePerformance": 3.0 },
+      "NONE": { "count": 1, "averagePerformance": 5.0 }
+    }
+  }
+}
