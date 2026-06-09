@@ -1286,7 +1286,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader("Compatibility", systemImage: "chart.bar.doc.horizontal")
 
-            Text("ProtonDB hints are Linux-focused. Local reports capture macOS results.")
+            Text("Hints from ProtonDB, AppleGamingWiki, and MacGamingDB. Local reports capture your macOS results.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1298,7 +1298,7 @@ struct ContentView: View {
                     Button {
                         runCommand(script: "cosmosdb.command", arguments: ["lookup", appid])
                     } label: {
-                        Label("ProtonDB Lookup", systemImage: "globe")
+                        Label("Compatibility Lookup", systemImage: "globe")
                     }
                     .disabled(isRunning)
 

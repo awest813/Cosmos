@@ -96,6 +96,38 @@ case "${dirs}" in
   *) assert_fail "collects secondary library" false ;;
 esac
 
+printf '\n== steam_lib install validation ==\n'
+
+tmp_steam_dir="$(mktemp -d)"
+trap 'rm -rf "${tmp_steam_dir}"' EXIT
+
+valid_exe="${tmp_steam_dir}/drive_c/Program Files (x86)/Steam/steam.exe"
+mkdir -p "$(dirname "${valid_exe}")"
+{
+  printf 'MZ'
+  dd if=/dev/zero bs=1 count=$((STEAM_EXE_MIN_BYTES - 2)) 2>/dev/null
+} > "${valid_exe}"
+
+stub_exe="${tmp_steam_dir}/drive_c/Program Files/Steam/steam.exe"
+mkdir -p "$(dirname "${stub_exe}")"
+printf 'MZstub' > "${stub_exe}"
+
+saved_prefix="${WINEPREFIX}"
+WINEPREFIX="${tmp_steam_dir}"
+export WINEPREFIX
+
+assert_ok "valid steam.exe passes size check" steam_exe_is_valid "${valid_exe}"
+assert_fail "stub steam.exe fails size check" steam_exe_is_valid "${stub_exe}"
+assert_fail "missing steam.exe fails" steam_exe_is_valid "${tmp_steam_dir}/missing.exe"
+assert_eq "find_exe_candidate prefers x86 path" "${valid_exe}" "$(steam_find_exe_candidate)"
+resolved=""
+candidate="$(steam_find_exe_candidate || true)"
+[[ -n "${candidate}" ]] && steam_exe_is_valid "${candidate}" && resolved="${candidate}"
+assert_eq "validated exe resolves to valid binary" "${valid_exe}" "${resolved}"
+
+WINEPREFIX="${saved_prefix}"
+export WINEPREFIX
+
 printf '\n== detect_steam_games.command (fixture prefix) ==\n'
 list_out="$("${REPO_ROOT}/detect_steam_games.command" --list 2>&1)" || true
 case "${list_out}" in

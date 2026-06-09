@@ -155,6 +155,7 @@ success criterion — if that sentence isn't true, the release isn't done.
 
 ### 0.7 — CosmosDB *(in progress)*
 - [x] `cosmosdb.command` — ProtonDB Community API lookup + local macOS JSON reports
+- [x] AppleGamingWiki + MacGamingDB macOS hint lookups (`scripts/lib/cosmosdb_lib.sh`)
 - [x] Report schema — [COSMOSDB.md](COSMOSDB.md)
 - [ ] GitHub-hosted community compatibility database (see schema below)
 - [ ] User reports, status badges, one-click profile updates in the dashboard

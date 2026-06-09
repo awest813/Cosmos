@@ -31,7 +31,7 @@ COSMOS_STEAM_WEBHELPER_WRAPPER="1"    # build/install wrapper when mingw-w64 exi
 COSMOS_STEAM_SEED_FONTS="1"           # copy macOS CJK fonts into prefix
 COSMOS_STEAM_CA_BUNDLE="1"            # copy /etc/ssl/cert.pem into prefix
 COSMOS_STEAM_WINEDLLOVERRIDES="dxgi,d3d11,d3d10core=n,b;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
-# WINE_VIRTUAL_DESKTOP="auto"         # optional: wrap Steam in a Wine virtual desktop
+WINE_VIRTUAL_DESKTOP="auto"           # wrap Steam in a Wine virtual desktop (set "" to opt out)
 ```
 
 **Repair fixes**
@@ -92,7 +92,7 @@ The SwiftUI app surfaces these tools in the main detail view:
 - **Verify Detection** — Setup grid button → `detect_steam_games.command --verify`
 - **Curated Game Profiles** — YAML cards → `profile.command show` / `apply`
 - **Repair & Dependencies** — Diagnose Logs + recipe buttons → `repair.command`
-- **Compatibility** — ProtonDB lookup + local macOS report → `cosmosdb.command`
+- **Compatibility** — ProtonDB + AppleGamingWiki + MacGamingDB hints + local report → `cosmosdb.command`
 
 When a bottle is selected, `COSMOS_BOTTLE` is passed to CLI commands automatically.
 
@@ -115,8 +115,18 @@ Fix categories align with [Cellar](https://github.com/lasermaze/Cellar) / [D4Mac
 
 ## 3. CosmosDB (0.7)
 
-- `cosmosdb.command` — ProtonDB lookup + local macOS JSON reports
+- `cosmosdb.command` — ProtonDB + AppleGamingWiki + MacGamingDB lookups + local macOS JSON reports
 - See [COSMOSDB.md](COSMOSDB.md)
+
+### AppleGamingWiki + MacGamingDB (0.7)
+
+| Source | Integration | Lookup |
+| --- | --- | --- |
+| [AppleGamingWiki](https://applegamingwiki.com/) | MediaWiki search + `Compatibility/macOS` parse | `./cosmosdb.command lookup <appid> applegamingwiki` |
+| [MacGamingDB](https://macgamingdb.app/) | Public REST `GET /games/{steamAppId}` | `./cosmosdb.command lookup <appid> macgamingdb` |
+
+Parsers and HTTP helpers live in `scripts/lib/cosmosdb_lib.sh`. Unit tests:
+`./scripts/test_cosmosdb_lib.sh` (fixture-based, no network).
 
 ## 4. Profiles (0.4)
 

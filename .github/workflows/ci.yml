@@ -62,3 +62,6 @@ jobs:
 
       - name: Launch recovery unit tests
         run: ./scripts/test_launch_recovery.sh
+
+      - name: cosmosdb lib tests
+        run: ./scripts/test_cosmosdb_lib.sh

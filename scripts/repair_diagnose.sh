@@ -59,8 +59,14 @@ repair_diagnose_prefix_health() {
   Try: ./run.command --setup-steam"
     return
   fi
-  if [[ ! -f "${pfx}/drive_c/Program Files (x86)/Steam/steam.exe" \
-     && ! -f "${pfx}/drive_c/Program Files/Steam/steam.exe" ]]; then
+  local steam_candidate=""
+  if [[ -f "${pfx}/drive_c/Program Files (x86)/Steam/steam.exe" ]]; then
+    steam_candidate="${pfx}/drive_c/Program Files (x86)/Steam/steam.exe"
+  elif [[ -f "${pfx}/drive_c/Program Files/Steam/steam.exe" ]]; then
+    steam_candidate="${pfx}/drive_c/Program Files/Steam/steam.exe"
+  fi
+
+  if [[ -z "${steam_candidate}" ]]; then
     local steam_hint="./run.command --install-steam"
     if [[ -d "${pfx}/drive_c/Program Files (x86)/Steam" \
        || -d "${pfx}/drive_c/Program Files/Steam" ]]; then
@@ -72,6 +78,10 @@ repair_diagnose_prefix_health() {
         "[prefix] Steam is not installed in this prefix
   Try: ${steam_hint}"
     fi
+  elif declare -F steam_exe_is_valid >/dev/null 2>&1 && ! steam_exe_is_valid "${steam_candidate}"; then
+    repair_diagnose_suggest fix reinstall_steam \
+      "[prefix] Steam install looks corrupt (steam.exe is missing or invalid)
+  Try: ./repair.command apply-fix reinstall_steam"
   fi
   if pgrep -f "wineserver.*${pfx}" >/dev/null 2>&1; then
     repair_diagnose_suggest fix kill_wine \
@@ -142,6 +152,13 @@ repair_diagnose_scan_log() {
     repair_diagnose_suggest fix clear_steam_caches \
       "[steam] Steam may be stuck on Chromium single-instance lock
   Try: ./repair.command apply-fix clear_steam_caches"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'Silent install did not finish|invalid steam\.exe|Steam installation appears incomplete'; then
+    repair_diagnose_suggest fix reinstall_steam \
+      "[steam] Unattended Steam install did not complete
+  Try: ./repair.command apply-fix reinstall_steam
+       or: COSMOS_STEAM_SILENT=0 ./run.command --install-steam"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'handshake failed|SSL error code|net_error -100|net_error -107'; then

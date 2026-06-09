@@ -1,0 +1,17 @@
+Fallout: New Vegas
+{{Infobox game
+|steam appid = 22380
+|steam appid side = 2028016,72840
+|pcgamingwiki = Fallout:_New_Vegas
+|codeweavers = fallout-new-vegas
+}}
+
+{{Compatibility/macOS
+|native = na
+|crossover = playable
+|crossover notes = Using crossover 21.2, sluggish performance (15fps-ish) on base M1 Mac Mini.
+|wine = playable
+|wine notes = Playable via porting kit. Performance on M3 is good and is moddable.
+|parallels = perfect
+|parallels notes = Runs well on Parallels and is moddable.
+}}
