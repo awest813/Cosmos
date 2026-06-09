@@ -31,4 +31,26 @@ repair_suggestion_is_auto_applicable dep:vcrun2015 || fail "dep should be auto-a
 repair_suggestion_is_auto_applicable fix:kill_wine || fail "kill_wine should be auto-applicable"
 repair_suggestion_is_auto_applicable fix:set_backend && fail "set_backend should not be auto-applicable"
 
+repair_diagnose_reset
+export COSMOS_PROFILE_APPID=1091500
+export COSMOS_UMU_HINT_FIXTURE="${ROOT}/scripts/fixtures/umu/protonfix-1091500.py"
+repair_diagnose_umu_hints
+[[ " ${DIAG_SUGGESTIONS[*]} " == *" dep:vcrun2019 "* ]] \
+  || fail "expected dep:vcrun2019 from UMU/protonfix fixture"
+
+repair_diagnose_reset
+export COSMOS_PROFILE_APPID=962130
+unset COSMOS_UMU_HINT_FIXTURE
+repair_diagnose_umu_hints
+[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:grounded-mscoree-fix "* ]] \
+  || fail "expected winemactricks fix from UMU map for Grounded"
+
+# UMU suggests deps not already in curated profile (Cyberpunk has vcrun2015, not vcrun2019).
+repair_diagnose_reset
+export COSMOS_PROFILE_APPID=1091500
+export COSMOS_UMU_HINT_FIXTURE="${ROOT}/scripts/fixtures/umu/protonfix-1091500.py"
+repair_diagnose_umu_hints
+[[ " ${DIAG_SUGGESTIONS[*]} " == *" dep:vcrun2019 "* ]] \
+  || fail "expected vcrun2019 when not in profile"
+
 printf 'OK: repair diagnose tests passed\n'

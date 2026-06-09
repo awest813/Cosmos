@@ -36,6 +36,10 @@ enum CosmosPaths {
         cosmosRoot()?.appendingPathComponent("recipes/fixes", isDirectory: true)
     }
 
+    static var communityDatabaseDirectory: URL? {
+        CosmosBadgeStore.communityGamesDirectory()
+    }
+
     /// Path to pass to `profile.command apply` (relative to cosmos root).
     static func profileCommandPath(for fileURL: URL) -> String? {
         guard let root = cosmosRoot() else { return nil }

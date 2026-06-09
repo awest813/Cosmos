@@ -90,6 +90,49 @@ repair_diagnose_prefix_health() {
   fi
 }
 
+repair_diagnose_umu_hints() {
+  local appid="${COSMOS_PROFILE_APPID:-${STEAM_APPID:-}}"
+  [[ "${appid}" =~ ^[0-9]+$ ]] || return 0
+  # shellcheck disable=SC1091
+  [[ -f "${SCRIPT_DIR}/scripts/lib/umu_suggest_lib.sh" ]] \
+    && source "${SCRIPT_DIR}/scripts/lib/umu_suggest_lib.sh" 2>/dev/null || return 0
+
+  local profiles_root="${SCRIPT_DIR:-.}/profiles"
+  local existing_deps="" existing_fixes="" pf
+  if [[ -d "${profiles_root}" && -f "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" 2>/dev/null || true
+    if pf="$(profile_find_by_appid "${profiles_root}" "${appid}" 2>/dev/null)"; then
+      existing_deps="$(profile_list_dependencies "${pf}" | tr '\n' ' ')"
+      existing_fixes="$(profile_list_fixes "${pf}" | tr '\n' ' ')"
+    fi
+  fi
+
+  local line kind id
+  while IFS= read -r line; do
+    [[ -n "${line}" ]] || continue
+    kind="${line%% *}"
+    id="${line#* }"
+    case "${kind}" in
+      dep) [[ " ${existing_deps} " == *" ${id} "* ]] && continue ;;
+      fix) [[ " ${existing_fixes} " == *" ${id} "* ]] && continue ;;
+      *) continue ;;
+    esac
+    case "${kind}:${id}" in
+      dep:*)
+        repair_diagnose_suggest dep "${id}" \
+          "[umu] Proton/UMU port hint suggests dependency ${id}
+  Try: ./repair.command install-dep ${id}"
+        ;;
+      fix:*)
+        repair_diagnose_suggest fix "${id}" \
+          "[umu] Proton/UMU port hint suggests fix ${id}
+  Try: ./repair.command apply-fix ${id}"
+        ;;
+    esac
+  done < <(umu_suggest_recipes "${appid}" 2>/dev/null || true)
+}
+
 repair_diagnose_profile_hints() {
   local appid="${COSMOS_PROFILE_APPID:-${STEAM_APPID:-}}"
   [[ "${appid}" =~ ^[0-9]+$ ]] || return 0
@@ -267,6 +310,7 @@ repair_diagnose_run() {
   repair_diagnose_reset
   repair_diagnose_prefix_health
   repair_diagnose_profile_hints
+  repair_diagnose_umu_hints
 
   if [[ -z "${log_file}" ]]; then
     log_file="$(repair_resolve_launch_log)"

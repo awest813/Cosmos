@@ -64,6 +64,10 @@ Environment:
   STEAM_APPID         Optional for set_backend / required for disable_intro_video.
   INTRO_SKIP_ARGS     Optional skip-intro args (default: -novid).
   COSMOS_FORCE        Set to 1 for non-interactive rebuild_prefix.
+  COSMOS_PROFILE_APPID / STEAM_APPID
+                      When set, diagnose includes UMU/protonfix recipe hints (offline
+                      map + winemactricks). COSMOS_DIAGNOSE_FETCH_UMU=1 fetches live
+                      protonfix scripts; COSMOS_UMU_HINT_FIXTURE=<path> for tests.
 
 Winetricks must be installed (brew install winetricks). Cosmos does not bundle it.
 EOF

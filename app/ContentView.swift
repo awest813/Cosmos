@@ -30,6 +30,7 @@ struct ContentView: View {
     @State private var fixRecipes: [RepairRecipe] = []
     @State private var cosmosReportStatus = "playable"
     @State private var cosmosReportNote = ""
+    @State private var resolvedCompatBadge: ResolvedBadge?
 
     @State private var bottles: [Bottle] = []
     @State private var selectedBottleID: String?
@@ -1408,7 +1409,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader("Compatibility", systemImage: "chart.bar.doc.horizontal")
 
-            Text("Hints from ProtonDB, AppleGamingWiki, and MacGamingDB. Local reports capture your macOS results.")
+            Text("Hints from ProtonDB, AppleGamingWiki, MacGamingDB, and the community DB. Local reports capture your macOS results.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1416,11 +1417,38 @@ struct ContentView: View {
             if let appid = activeSteamAppID {
                 detailRow(title: "Steam App ID", value: appid)
 
+                if let badge = resolvedCompatBadge, badge.isKnown {
+                    HStack(spacing: 8) {
+                        Text(badge.status.capitalized)
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(badgeColor(badge.status).opacity(0.15), in: Capsule())
+                            .foregroundStyle(badgeColor(badge.status))
+                        Text("via \(badge.source.replacingOccurrences(of: "_", with: " "))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if !badge.label.isEmpty, badge.source != "profile" {
+                            Text("· \(badge.label)")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+
                 HStack(spacing: 12) {
                     Button {
                         runCommand(script: "cosmosdb.command", arguments: ["lookup", appid])
                     } label: {
                         Label("Compatibility Lookup", systemImage: "globe")
+                    }
+                    .disabled(isRunning)
+
+                    Button {
+                        runCommand(script: "cosmosdb.command", arguments: ["sync"])
+                    } label: {
+                        Label("Sync Community DB", systemImage: "arrow.triangle.2.circlepath")
                     }
                     .disabled(isRunning)
 
@@ -1433,6 +1461,13 @@ struct ContentView: View {
                             )
                         } label: {
                             Label("Apply YAML Profile", systemImage: "doc.text.fill")
+                        }
+                        .disabled(isRunning)
+                    } else {
+                        Button {
+                            runCommand(script: "cosmosdb.command", arguments: ["suggest-profile", appid, "--write"])
+                        } label: {
+                            Label("Suggest Profile Draft", systemImage: "doc.badge.plus")
                         }
                         .disabled(isRunning)
                     }
@@ -1472,6 +1507,8 @@ struct ContentView: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.cosmosPrimary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+        .onChange(of: activeSteamAppID) { _, _ in refreshCompatBadge() }
+        .onChange(of: selectedGameProfileID) { _, _ in refreshCompatBadge() }
     }
 
     private static let cosmosStatusOptions = [
@@ -2167,8 +2204,31 @@ struct ContentView: View {
             self.selectedBottleID = nil
         }
 
+        refreshCompatBadge()
+
         if let message {
             output = message + "\n\n" + output
+        }
+    }
+
+    private func refreshCompatBadge() {
+        guard let appid = activeSteamAppID else {
+            resolvedCompatBadge = nil
+            return
+        }
+        resolvedCompatBadge = CosmosBadgeStore.resolve(
+            steamAppID: appid,
+            curated: selectedGameProfile ?? GameProfileStore.find(steamAppID: appid)
+        )
+    }
+
+    private func badgeColor(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "platinum", "gold": return .green
+        case "silver", "playable": return Color.cosmosPrimary
+        case "bronze": return .orange
+        case "broken", "blocked": return .red
+        default: return .secondary
         }
     }
 

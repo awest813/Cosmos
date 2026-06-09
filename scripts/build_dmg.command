@@ -38,6 +38,12 @@ if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
   [[ -d "${APP_BUNDLE}" ]] || die "SKIP_BUILD=1 but ${APP_BUNDLE} does not exist. Run scripts/build_cosmos_app.command first."
   log "Reusing existing ${APP_BUNDLE} (SKIP_BUILD=1)"
 else
+  OFFLINE_TAR="${OUTPUT_DIR}/offline-runtime/cosmos-runtime-offline.tar.xz"
+  if [[ "${COSMOS_OFFLINE_RUNTIME:-1}" == "1" && ! -f "${OFFLINE_TAR}" ]]; then
+    log "Staging offline Wine+DXMT runtime bundle"
+    FIXTURE="${COSMOS_OFFLINE_FIXTURE:-0}" OUTPUT_DIR="${OUTPUT_DIR}/offline-runtime" \
+      "${SCRIPT_DIR}/stage_offline_runtime.command"
+  fi
   log "Building ${APP_NAME}.app via scripts/build_cosmos_app.command"
   OUTPUT_DIR="${OUTPUT_DIR}" "${SCRIPT_DIR}/build_cosmos_app.command"
   [[ -d "${APP_BUNDLE}" ]] || die "Build did not produce ${APP_BUNDLE}"
@@ -52,6 +58,14 @@ trap cleanup EXIT
 log "Staging disk image contents"
 cp -R "${APP_BUNDLE}" "${staging}/${APP_NAME}.app"
 ln -s /Applications "${staging}/Applications"
+OFFLINE_TAR="${OUTPUT_DIR}/offline-runtime/cosmos-runtime-offline.tar.xz"
+if [[ -f "${OFFLINE_TAR}" ]]; then
+  cp "${OFFLINE_TAR}" "${staging}/CosmosRuntime.tar.xz"
+  printf '%s\n' \
+    "Cosmos offline runtime (Wine + DXMT). Extracted automatically on first setup" \
+    "when using Cosmos.app, or set COSMOS_OFFLINE_RUNTIME_TARBALL to this file." \
+    > "${staging}/CosmosRuntime-README.txt"
+fi
 
 log "Creating ${DMG_PATH}"
 rm -f "${DMG_PATH}"

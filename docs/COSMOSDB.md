@@ -28,6 +28,10 @@ AppleGamingWiki **Wine** rows often reflect Porting Kit / GPTK paths. MacGamingD
 ./cosmosdb.command lookup 1145360 macgamingdb      # MacGamingDB only
 ./cosmosdb.command lookup 22380 protondb            # ProtonDB only
 ./cosmosdb.command lookup 1091500 umu               # UMU fix metadata (if listed)
+./cosmosdb.command sync                             # copy cosmos-db/ into Application Support
+./cosmosdb.command badge 22380                      # resolved badge (profile > report > community)
+./cosmosdb.command badge 22380 --json
+./cosmosdb.command suggest-profile 250900 --write   # YAML draft in profiles/drafts/
 ./cosmosdb.command report 22380 gold "Stable on M2, DXMT, win10 bottle"
 ./cosmosdb.command list-reports
 ./cosmosdb.command cache-clear                      # all cached hints
@@ -43,6 +47,31 @@ Environment:
 - `COSMOS_UMU_API_URL` — UMU API base (default `https://umu.openwinecomponents.org/umu_api.php`)
 - `COSMOSDB_CACHE_TTL_SECONDS` — cache lifetime (default `86400`)
 - `COSMOSDB_HTTP_USER_AGENT` — User-Agent for wiki/API requests
+- `COSMOS_COMMUNITY_DB_URL` — optional remote `cosmos-db` base for `sync`
+
+## Community database (`cosmosdb-community-v0`)
+
+Git-hosted entries under `cosmos-db/games/<appid>.json`. Synced to:
+
+`~/Library/Application Support/Cosmos/CosmosDB/community/games/`
+
+```json
+{
+  "schema": "cosmosdb-community-v0",
+  "steam_appid": 22380,
+  "title": "Fallout: New Vegas",
+  "status": "gold",
+  "recommended_backend": "dxmt",
+  "windows_version": "win10",
+  "report_count": 2,
+  "sources": ["curated-profile", "macgamingdb"],
+  "notes": "Use the in-game launcher for resolution.",
+  "updated_at": "2026-06-01T12:00:00Z"
+}
+```
+
+Badge resolution priority: **curated profile** → **local report** → **community
+entry** → cached MacGamingDB → cached ProtonDB.
 
 ## Normalized hint schemas
 
@@ -127,8 +156,14 @@ Same scale as profiles and [PROFILE_FORMAT.md](PROFILE_FORMAT.md):
 
 Query: `GET …/umu_api.php?umu_id=umu-{steam_appid}`. Empty `store_entries` means no UMU listing.
 
+## Dashboard
+
+The Cosmos app shows a resolved compatibility badge in the Compatibility section
+when a Steam App ID is selected. Buttons: **Sync Community DB**, **Suggest Profile
+Draft** (when no curated YAML is selected), **Apply YAML Profile** (when one exists).
+
 ## Future work
 
-- GitHub-hosted shared macOS report database (roadmap 0.7)
-- Dashboard badges wired to `lookup` + local reports
+- Expand community DB via GitHub PRs; optional signed release channel
+- One-click merge of `suggest-profile` drafts after validation
 - Merge external hints with profile `status` when generating launchers

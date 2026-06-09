@@ -55,8 +55,27 @@ See [LICENSING.md](LICENSING.md).
 
 Shows manifest version and runtime cache path when loaded.
 
+## Offline bundle (Wine + DXMT)
+
+Stage a pinned offline tarball:
+
+```bash
+scripts/stage_offline_runtime.command
+# Linux CI stub: FIXTURE=1 scripts/stage_offline_runtime.command
+```
+
+Produces `build/offline-runtime/cosmos-runtime-offline.tar.xz`. DMG builds
+(`scripts/build_dmg.command`) stage this automatically and ship:
+
+- `CosmosRuntime.tar.xz` on the disk image root
+- `Contents/Resources/runtime/cosmos-runtime-offline.tar.xz` inside Cosmos.app
+
+`run.command` extracts the bundle before network download when
+`COSMOS_USE_BUNDLED_RUNTIME=1` (default). Disable with `COSMOS_USE_BUNDLED_RUNTIME=0`.
+
+Override tarball path: `COSMOS_OFFLINE_RUNTIME_TARBALL=/path/to/cosmos-runtime-offline.tar.xz`
+
 ## Bundled in Cosmos.app
 
-`scripts/build_cosmos_app.command` copies `runtime/` (manifest + NOTICE) into the
-app Resources folder for offline reference. Wine/DXMT binaries are still
-downloaded on first setup (full offline bundle is a follow-up).
+`scripts/build_cosmos_app.command` copies `runtime/` (manifest + NOTICE) and,
+when present, the offline tarball into the app Resources folder.

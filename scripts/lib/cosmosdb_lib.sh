@@ -437,3 +437,202 @@ cosmosdb_macgamingdb_parse_fixture() {
   local appid="$1" fixture="$2"
   cat "${fixture}" | cosmosdb_normalize_macgamingdb "${appid}"
 }
+
+# --- Community database (Git-hosted cosmos-db/) ---
+
+cosmosdb_bundled_community_root() {
+  local root="${COSMOS_REPO_ROOT:-${SCRIPT_DIR:-}}"
+  [[ -n "${root}" && -d "${root}/cosmos-db" ]] && {
+    printf '%s/cosmos-db' "${root}"
+    return 0
+  }
+  return 1
+}
+
+cosmosdb_community_games_dir() {
+  local base="${COSMOSDB_DIR:-}"
+  [[ -n "${base}" ]] || base="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}/CosmosDB"
+  printf '%s/community/games' "${base}"
+}
+
+cosmosdb_sync_community() {
+  local bundled dest index_url tmp idx appid
+  bundled="$(cosmosdb_bundled_community_root || true)"
+  dest="$(cosmosdb_community_games_dir)"
+  mkdir -p "${dest}"
+
+  if [[ -n "${COSMOS_COMMUNITY_DB_URL:-}" ]]; then
+    index_url="${COSMOS_COMMUNITY_DB_URL%/}/index.json"
+    cosmosdb_require_curl
+    tmp="$(mktemp "${TMPDIR:-/tmp}/cosmosdb-comm-idx.XXXXXX")"
+    if cosmosdb_http_get "${index_url}" "${tmp}"; then
+      while IFS= read -r appid; do
+        [[ "${appid}" =~ ^[0-9]+$ ]] || continue
+        cosmosdb_http_get \
+          "${COSMOS_COMMUNITY_DB_URL%/}/games/${appid}.json" \
+          "${dest}/${appid}.json" || true
+      done < <(python3 - "${tmp}" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as fh:
+    data = json.load(fh)
+for appid in data.get("games") or []:
+    print(appid)
+PY
+)
+      rm -f "${tmp}"
+      printf 'synced-remote\n'
+      return 0
+    fi
+    rm -f "${tmp}"
+  fi
+
+  [[ -n "${bundled}" ]] || {
+    echo "No bundled cosmos-db/ and COSMOS_COMMUNITY_DB_URL fetch failed." >&2
+    return 1
+  }
+  mkdir -p "${dest}"
+  cp -f "${bundled}/games/"*.json "${dest}/" 2>/dev/null || true
+  [[ -f "${bundled}/index.json" ]] && cp -f "${bundled}/index.json" "$(dirname "${dest}")/index.json"
+  printf 'synced-bundled\n'
+}
+
+cosmosdb_read_community_entry() {
+  local appid="$1"
+  local path
+  path="$(cosmosdb_community_games_dir)/${appid}.json"
+  [[ -f "${path}" ]] || {
+    bundled="$(cosmosdb_bundled_community_root || true)"
+    [[ -n "${bundled}" && -f "${bundled}/games/${appid}.json" ]] && path="${bundled}/games/${appid}.json"
+  }
+  [[ -f "${path}" ]] || return 1
+  cat "${path}"
+}
+
+cosmosdb_badge_resolve() {
+  local appid="$1"
+  cosmosdb_require_python3
+  python3 - "${appid}" <<'PY'
+import json, os, sys
+from pathlib import Path
+
+appid = sys.argv[1]
+repo = os.environ.get("COSMOS_REPO_ROOT") or os.environ.get("SCRIPT_DIR") or "."
+support = Path(os.environ.get("COSMOSDB_DIR") or Path.home() / "Library/Application Support/Cosmos/CosmosDB")
+reports = support / "reports"
+community = support / "community" / "games" / f"{appid}.json"
+bundled = Path(repo) / "cosmos-db" / "games" / f"{appid}.json"
+cache = support / "cache"
+profiles = Path(repo) / "profiles"
+
+STATUS_ORDER = ["blocked", "broken", "bronze", "playable", "silver", "gold", "platinum"]
+
+def norm_status(s):
+    s = (s or "").lower().strip()
+    return s if s in STATUS_ORDER else None
+
+def mgd_status(tier):
+    return {
+        "EXCELLENT": "platinum",
+        "VERY_GOOD": "gold",
+        "GOOD": "silver",
+        "PLAYABLE": "playable",
+        "BARELY_PLAYABLE": "bronze",
+        "UNPLAYABLE": "broken",
+    }.get((tier or "").upper())
+
+def proton_status(tier):
+    return {
+        "platinum": "platinum",
+        "gold": "gold",
+        "silver": "silver",
+        "borked": "broken",
+        "native": "platinum",
+    }.get((tier or "").lower())
+
+def read_profile_full():
+    steam = profiles / "steam"
+    if not steam.is_dir():
+        return None
+    for path in steam.glob("steam-*.yaml"):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if f"steam_appid: {appid}" not in text and f"steam_appid: {int(appid)}" not in text:
+            continue
+        status = title = None
+        for line in text.splitlines():
+            if line.startswith("status:"):
+                status = norm_status(line.split(":", 1)[1].strip().strip('"'))
+            if line.startswith("name:"):
+                title = line.split(":", 1)[1].strip().strip('"')
+        if status:
+            return status, "profile", title or path.stem
+    return None
+
+def latest_report():
+    if not reports.is_dir():
+        return None
+    best = None
+    for path in sorted(reports.glob(f"{appid}-*.json"), reverse=True):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        st = norm_status(data.get("status"))
+        if st:
+            return st, "local_report", data.get("note") or path.name
+    return None
+
+def read_community():
+    for path in (community, bundled):
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        st = norm_status(data.get("status"))
+        if st:
+            return st, "community", data.get("title")
+    return None
+
+def read_cache(source, parser):
+    path = cache / f"{source}-{appid}.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    return parser(data)
+
+def main():
+    for reader in (read_profile_full, latest_report, read_community):
+        hit = reader()
+        if hit and hit[0]:
+            status, source, label = hit
+            print(json.dumps({
+                "steam_appid": int(appid),
+                "status": status,
+                "source": source,
+                "label": label or status,
+            }))
+            return
+    mgd = read_cache("macgamingdb", lambda d: (mgd_status(d.get("aggregated_performance")), "macgamingdb", d.get("title")))
+    if mgd and mgd[0]:
+        print(json.dumps({"steam_appid": int(appid), "status": mgd[0], "source": mgd[1], "label": mgd[2] or mgd[0]}))
+        return
+    def proton_from_cache(d):
+        tier = d.get("tier")
+        if isinstance(tier, dict):
+            tier = tier.get("tier")
+        title = d.get("title") or (d.get("game") or {}).get("title")
+        return proton_status(tier), "protondb", title
+
+    pdb = read_cache("protondb", proton_from_cache)
+    if pdb and pdb[0]:
+        print(json.dumps({"steam_appid": int(appid), "status": pdb[0], "source": pdb[1], "label": pdb[2] or pdb[0]}))
+        return
+    print(json.dumps({"steam_appid": int(appid), "status": "unknown", "source": "none", "label": "unknown"}))
+
+main()
+PY
+}

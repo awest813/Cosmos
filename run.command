@@ -462,6 +462,12 @@ ensure_wine_installed() {
     return
   fi
 
+  if declare -F runtime_try_offline_stack >/dev/null 2>&1; then
+    if runtime_try_offline_stack; then
+      [[ -x "${WINE_BIN}" ]] && return 0
+    fi
+  fi
+
   mkdir -p "${WINE_ROOT}"
   curl -L --fail --retry 5 --retry-delay 1 "${WINE_URL}" | tar xJf - -C "${WINE_ROOT}"
   [[ -x "${WINE_BIN}" ]] || die "Wine binary not found after extraction: ${WINE_BIN}"
@@ -805,6 +811,14 @@ ensure_dxmt_installed() {
   if [[ -d "${DXMT_ROOT}/i386-windows" && -d "${DXMT_ROOT}/x86_64-windows" && -d "${DXMT_ROOT}/x86_64-unix" ]]; then
     echo "DXMT already installed at ${DXMT_ROOT}. Skipping."
     return
+  fi
+
+  if declare -F runtime_install_dxmt_from_offline_bundle >/dev/null 2>&1; then
+    local tarball
+    tarball="$(runtime_find_offline_tarball 2>/dev/null || true)"
+    if [[ -n "${tarball}" ]]; then
+      runtime_extract_offline_tarball "${tarball}" && runtime_install_dxmt_from_offline_bundle && return 0
+    fi
   fi
 
   local tmp_dir

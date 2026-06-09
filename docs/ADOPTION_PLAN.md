@@ -8,13 +8,13 @@ milestone **0.7 (CosmosDB)** and **1.0 (Cosmos Runtime)** in
 
 ## Current baseline
 
-| Area | Status today | Gap |
+| Area | Status today | Remaining gap |
 | --- | --- | --- |
-| Repair / recipes | 3 dependency + 13 fix `.recipe` files; winetricks external | Small catalog; no registry-diff tooling; Cellar cited only in docs |
-| Steam detection | Bash/awk VDF + ACF in `scripts/lib/steam_lib.sh` | Wine-prefix only; heuristic parser; no native macOS Steam path |
-| CosmosDB | ProtonDB + AGW + MacGamingDB + local reports | No community GitHub DB; no UMU API; no profile auto-update |
-| Profiles | 21 hand-curated `profiles/steam/*.yaml` | Thin vs ProtonDB breadth; no seeded presets from macos-wine-steam |
-| Runtime | Gcenx Wine + DXMT v0.74 download at runtime | No bundled stack; DXVK manual; no versioned Cosmos Runtime |
+| Repair / recipes | winemactricks import, regdiff, UMU-aware diagnose | Cellar recipe mining; more JSON catalog growth |
+| Steam detection | VDF verify + native dual-path in `steam_lib.sh` | steamlocate-rs signed helper (1.0) |
+| CosmosDB | ProtonDB, AGW, MacGamingDB, UMU, community `cosmos-db/`, badges | Scale community DB; auto-merge validated drafts |
+| Profiles | 21+ curated YAML + macos-wine-steam drafts + `seed-deps` | 100+ profiles; quarterly upstream sync |
+| Runtime | Manifest, offline DMG tarball, DXVK auto-fetch | DXVK/MoltenVK in offline bundle; checksum pins |
 
 Cosmos is **bash-first** with a SwiftUI dashboard. Prefer integrations that
 fit shell scripts + optional Python helpers until a native helper binary (1.0)
@@ -112,7 +112,7 @@ repair.command recipe-from-diff <a> <b> # write recipes/fixes/custom-<slug>.reci
 - [x] New fix recipe type `apply_reg_commands` (`REG_COMMANDS` pipe-separated).
 - [x] Document workflow in `recipes/fixes/README.md`: "fix on working Mac →
   diff → commit recipe."
-- [ ] Optional: `profile.command export-reg` after `apply` for regression capture.
+- [x] Optional: `profile.command export-reg` after `apply` for regression capture.
 
 **Success:** Contributors can turn a one-off registry fix into a shareable recipe
 in one command.
@@ -208,8 +208,8 @@ fixtures; optional native Steam path documented and tested.
 **Tasks:**
 
 - [x] Add `cosmosdb.command lookup <appid> umu` in `cosmosdb_lib.sh`.
-- [ ] Normalize UMU fix hints → Cosmos recipe IDs + profile fields (same as
-  diagnose suggester).
+- [x] Normalize UMU fix hints → Cosmos recipe IDs in diagnose suggester
+  (`scripts/umu_suggest_recipes.py`, `repair_diagnose_umu_hints`).
 - [x] **Do not** vendor UMU fix scripts; translate ideas into
   `recipes/` + `profiles/`.
 - [x] Cache 24h; document GPL data attribution in LICENSING.md.
@@ -218,10 +218,11 @@ fixtures; optional native Steam path documented and tested.
 
 **Tasks:**
 
-- [ ] Create `cosmos-db/` directory schema (JSON per appid or SQLite export).
-- [ ] Borrow field names from macgamingdb + local `cosmosdb-report-v0`.
-- [ ] `cosmosdb.command sync` to pull community reports.
-- [ ] Dashboard badges + one-click "Apply community profile" (roadmap 0.7).
+- [x] Create `cosmos-db/` directory schema (JSON per appid).
+- [x] Borrow field names from macgamingdb + local `cosmosdb-report-v0`.
+- [x] `cosmosdb.command sync` to pull community reports (bundled + optional URL).
+- [x] Dashboard badges (`CosmosBadgeStore`) + **Suggest Profile Draft** /
+  **Apply YAML Profile** buttons (roadmap 0.7).
 
 **Phase 3 exit criteria:** UMU lookup live; community DB sync; dashboard shows
 badges at point-of-use.
@@ -248,9 +249,9 @@ badges at point-of-use.
 
 **Tasks:**
 
-- [ ] For each imported dependency recipe, add optional `dependencies:` entries
-  to matching profiles (by App ID lists in JSON if present).
-- [ ] `profile.command validate` must pass after bulk seed.
+- [x] Bulk-seed profile `dependencies:` / `fixes:` from winemactricks map
+  (`scripts/seed_winemactricks_profile_deps.py`, `profile.command seed-deps`).
+- [x] `profile.command validate` passes after idempotent seed (CI).
 
 ### 4c. protonfixes / umu-protonfixes (GPL-3.0) — reference porting
 
@@ -269,7 +270,7 @@ badges at point-of-use.
 
 - [x] Add `docs/PROTONFIXES_PORTING.md` with the workflow above.
 - [x] Pilot: port hints for Fallout NV/4, Skyrim SE, Cyberpunk, Hades (`scripts/protonfix_port_hint.py`, `profile.command port-hint`).
-- [ ] Link `cosmosdb.command lookup` → "suggest profile draft" (human review PR).
+- [x] `cosmosdb.command suggest-profile` → YAML draft (human review PR).
 
 **Phase 4 exit criteria:** 50+ validated profiles; porting guide; automated
 draft generation from macos-wine-steam diff.
@@ -296,9 +297,8 @@ not MIT — document notices.
   MoltenVK, DXVK-macOS versions (checksums follow-up).
 - [x] Experimental `COSMOS_AUTO_DXVK=1` downloads DXVK-macOS + MoltenVK to
   `~/Library/Application Support/Cosmos/Runtime/` (`scripts/lib/runtime_lib.sh`).
-- [ ] Offline installer build embeds pinned MIT stack binaries (manifest + NOTICE
-  ship in `Cosmos.app` via `build_cosmos_app.command`; DMG inherits; full offline
-  tarball is follow-up).
+- [x] Offline installer build embeds pinned MIT stack binaries (`stage_offline_runtime.command`,
+  `CosmosRuntime.tar.xz` in DMG, auto-extract in `run.command`).
 - [x] LGPL gate in CI: `scripts/test_runtime_lib.sh` fails if `DXMT_VERSION` > 0.80
   without `COSMOS_ALLOW_LGPL=1`; `run.command` enforces the same at startup.
 

@@ -141,6 +141,15 @@ fi
 if [[ -d "${REPO_ROOT}/runtime" ]]; then
   cp -R "${REPO_ROOT}/runtime" "${APP_BUNDLE}/Contents/Resources/runtime"
 fi
+OFFLINE_TAR="${REPO_ROOT}/build/offline-runtime/cosmos-runtime-offline.tar.xz"
+if [[ -f "${OFFLINE_TAR}" ]]; then
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/runtime"
+  cp "${OFFLINE_TAR}" "${APP_BUNDLE}/Contents/Resources/runtime/cosmos-runtime-offline.tar.xz"
+  log "Bundled offline runtime tarball into app Resources"
+fi
+if [[ -d "${REPO_ROOT}/cosmos-db" ]]; then
+  cp -R "${REPO_ROOT}/cosmos-db" "${APP_BUNDLE}/Contents/Resources/cosmos-db"
+fi
 if [[ -f "${REPO_ROOT}/docs/LICENSING.md" ]]; then
   cp "${REPO_ROOT}/docs/LICENSING.md" "${APP_BUNDLE}/Contents/Resources/docs/LICENSING.md"
 fi

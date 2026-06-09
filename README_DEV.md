@@ -98,6 +98,10 @@ Defaults are the values in `run.command`.
   - Cache directory for auto-fetched DXVK/MoltenVK (default: `${COSMOS_SUPPORT_DIR}/Runtime`).
 - `COSMOS_ALLOW_LGPL`
   - `1` allows `DXMT_VERSION` above the MIT pin (v0.80) after reviewing [docs/LICENSING.md](docs/LICENSING.md). Default: unset (refuse LGPL DXMT).
+- `COSMOS_USE_BUNDLED_RUNTIME`
+  - `1` (default) extracts Wine + DXMT from `cosmos-runtime-offline.tar.xz` in the app/DMG before network download. Set `0` to always fetch from GitHub.
+- `COSMOS_OFFLINE_RUNTIME_TARBALL`
+  - Override path to the offline runtime tarball (see [docs/RUNTIME.md](docs/RUNTIME.md)).
 - `COSMOS_DETACH` (legacy alias: `MERLOT_DETACH`)
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
@@ -252,13 +256,18 @@ See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md) and
 | `scripts/test_steam_detection.sh` | Fixture-based unit tests (CI) |
 | `repair.command` | Winetricks deps + fix recipes (`recipes/`) |
 | `profile.command` | Apply YAML profiles → overrides + repair |
-| `cosmosdb.command` | ProtonDB + AppleGamingWiki + MacGamingDB hints + local macOS reports |
+| `cosmosdb.command` | Compatibility hints, community DB sync, badges, profile drafts |
+| `profile.command seed-deps` | Bulk-merge winemactricks map deps/fixes into profiles |
 
 ```bash
 ./detect_steam_games.command --verify
 ./repair.command install-dep vcrun2015
+COSMOS_PROFILE_APPID=1091500 ./repair.command diagnose   # includes UMU recipe hints
 ./profile.command apply profiles/steam/steam-250900-binding-of-isaac.yaml
+./profile.command seed-deps --dry-run
+./cosmosdb.command sync
 ./cosmosdb.command lookup 250900
+./cosmosdb.command badge 250900
 ./cosmosdb.command report 250900 gold "DXMT, win10, stable on M2"
 ```
 
