@@ -1184,8 +1184,15 @@ struct ContentView: View {
                     systemImage: "opticaldisc.fill",
                     script: "import_game.command",
                     arguments: ["add-gog"],
-                    needsPath: true,
+                    needsStoreTitle: true,
                     pathPrompt: "Path to GOG setup.exe"
+                )
+                storeActionButton(
+                    title: "List GOG Games",
+                    subtitle: "Detected in prefix",
+                    systemImage: "list.bullet.rectangle",
+                    script: "import_game.command",
+                    arguments: ["list-gog"]
                 )
                 storeActionButton(
                     title: "itch.io Folder",
@@ -1193,7 +1200,7 @@ struct ContentView: View {
                     systemImage: "folder.fill",
                     script: "import_game.command",
                     arguments: ["add-itch"],
-                    needsPath: true,
+                    needsStoreTitle: true,
                     pathPrompt: "Path to extracted itch.io game folder"
                 )
                 storeActionButton(
@@ -1258,6 +1265,7 @@ struct ContentView: View {
         script: String,
         arguments: [String],
         needsPath: Bool = false,
+        needsStoreTitle: Bool = false,
         pathPrompt: String = "",
         needsEpicAppName: Bool = false,
         needsBattlenetSlug: Bool = false,
@@ -1268,6 +1276,8 @@ struct ContentView: View {
                 promptAndRunEpicImport(script: script, baseArguments: arguments)
             } else if needsBattlenetSlug {
                 promptAndRunBattlenetImport(script: script, baseArguments: arguments)
+            } else if needsStoreTitle {
+                promptAndRunTitledStoreImport(script: script, baseArguments: arguments, pathPrompt: pathPrompt)
             } else if needsPath {
                 promptAndRunStoreImport(script: script, baseArguments: arguments, pathPrompt: pathPrompt)
             } else if forceTerminal {
@@ -1318,7 +1328,7 @@ struct ContentView: View {
     private func promptAndRunStoreImport(script: String, baseArguments: [String], pathPrompt: String) {
         let alert = NSAlert()
         alert.messageText = pathPrompt
-        alert.informativeText = "Enter the full path on your Mac. For GOG/itch imports also provide --name in Terminal if the default title is wrong."
+        alert.informativeText = "Enter the full path on your Mac."
         alert.addButton(withTitle: "Run in Terminal")
         alert.addButton(withTitle: "Cancel")
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
@@ -1327,13 +1337,36 @@ struct ContentView: View {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         let path = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !path.isEmpty else { return }
-        var args = baseArguments + [path]
-        if baseArguments.contains("add-gog") || baseArguments.contains("add-itch") {
-            let fallbackName = (path as NSString).lastPathComponent
-                .replacingOccurrences(of: ".exe", with: "", options: .caseInsensitive)
-            args += ["--name", fallbackName]
-        }
-        runInTerminal(script: script, arguments: args, environment: bottleEnvironment())
+        runInTerminal(script: script, arguments: baseArguments + [path], environment: bottleEnvironment())
+    }
+
+    private func promptAndRunTitledStoreImport(script: String, baseArguments: [String], pathPrompt: String) {
+        let alert = NSAlert()
+        alert.messageText = pathPrompt
+        alert.informativeText = "Provide the file or folder path and a display name for the Cosmos launcher."
+        alert.addButton(withTitle: "Run in Terminal")
+        alert.addButton(withTitle: "Cancel")
+
+        let pathField = NSTextField(frame: NSRect(x: 0, y: 28, width: 320, height: 24))
+        pathField.placeholderString = baseArguments.contains("add-gog")
+            ? "/Users/you/Downloads/setup_game.exe"
+            : "/Users/you/Downloads/MyGame"
+        let nameField = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        nameField.placeholderString = "Display name for launcher"
+        let stack = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 56))
+        stack.addSubview(pathField)
+        stack.addSubview(nameField)
+        alert.accessoryView = stack
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let path = pathField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty, !displayName.isEmpty else { return }
+        runInTerminal(
+            script: script,
+            arguments: baseArguments + [path, "--name", displayName],
+            environment: bottleEnvironment()
+        )
     }
 
     private func promptAndRunBattlenetImport(script: String, baseArguments: [String]) {

@@ -49,4 +49,23 @@ scan="$(import_scan_battlenet_games "${bnet_fixture}")"
 printf '%s' "${scan}" | grep -q $'starcraft-ii\tStarCraft II\t' \
   || fail "battlenet game scan failed: ${scan}"
 
+gog_fixture="${ROOT}/scripts/fixtures/gog_detection/wineprefix"
+gog_exe="$(import_find_gog_game_exe "${gog_fixture}" "Celeste")"
+[[ "${gog_exe}" == *"/Celeste/celeste.exe" ]] \
+  || fail "gog exe finder failed: ${gog_exe}"
+
+gog_scan="$(import_scan_gog_games "${gog_fixture}")"
+printf '%s' "${gog_scan}" | grep -q $'celeste\tCeleste\t' \
+  || fail "gog game scan failed: ${gog_scan}"
+
+gog_file="$(import_write_gog_config "${tmpdir}" "celeste" "Celeste" "com.cosmos.gog-celeste" \
+  "drive_c/GOG Games/Celeste/celeste.exe")"
+[[ "${gog_file}" == *"/gog-celeste.conf" ]] || fail "gog config wrong filename"
+grep -q 'GAME_EXE_PATH="drive_c/GOG Games/Celeste/celeste.exe"' "${gog_file}" \
+  || fail "gog config missing exe path"
+
+import_exe_is_helper "uninstall.exe" || fail "uninstall should be helper"
+import_exe_is_helper "vcredist_x64.exe" || fail "vcredist should be helper"
+import_exe_is_helper "celeste.exe" && fail "celeste should not be helper"
+
 printf 'OK: import_lib tests passed\n'

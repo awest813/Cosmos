@@ -36,6 +36,18 @@ import_resolve_exe_path() {
   return 1
 }
 
+# True when a basename looks like a helper binary, not the game itself.
+import_exe_is_helper() {
+  local base="$1"
+  printf '%s' "${base}" | grep -Eqi \
+    '^(uninstall|setup|unins|goggalaxy|galaxyclient|crashreporter|launcher|webhelper)' \
+    && return 0
+  printf '%s' "${base}" | grep -Eqi \
+    'redist|vcredist|dxsetup|dotnet|physx|support|helper|updater|patch' \
+    && return 0
+  return 1
+}
+
 # Find the first plausible game .exe under a directory (skip uninstall/setup helpers).
 import_find_game_exe() {
   local root="$1"
@@ -43,12 +55,116 @@ import_find_game_exe() {
   local f base
   while IFS= read -r f; do
     base="$(basename "${f}")"
-    printf '%s' "${base}" | grep -Eqi '^(uninstall|setup)' && continue
-    printf '%s' "${base}" | grep -Eqi 'redist' && continue
+    import_exe_is_helper "${base}" && continue
     printf '%s' "${f}"
     return 0
-  done < <(find "${root}" -type f \( -iname '*.exe' \) 2>/dev/null | head -n 50)
+  done < <(find "${root}" -type f \( -iname '*.exe' \) 2>/dev/null | head -n 80)
   return 1
+}
+
+# --- GOG offline installers (roadmap 0.6) ---
+
+import_gog_games_dirs() {
+  local pfx="$1"
+  local dir
+  for dir in \
+    "${pfx}/drive_c/GOG Games" \
+    "${pfx}/drive_c/Program Files (x86)/GOG Galaxy/Games" \
+    "${pfx}/drive_c/Program Files/GOG Galaxy/Games"; do
+    [[ -d "${dir}" ]] && printf '%s\n' "${dir}"
+  done
+}
+
+# Pick the most recently modified game folder under GOG install roots.
+import_gog_newest_game_dir() {
+  local pfx="$1"
+  local root game_dir best_dir="" best_mtime=0 mtime
+  while IFS= read -r root; do
+    [[ -d "${root}" ]] || continue
+    shopt -s nullglob
+    for game_dir in "${root}"/*; do
+      [[ -d "${game_dir}" ]] || continue
+      mtime="$(stat -f %m "${game_dir}" 2>/dev/null || stat -c %Y "${game_dir}" 2>/dev/null || echo 0)"
+      if (( mtime >= best_mtime )); then
+        best_mtime="${mtime}"
+        best_dir="${game_dir}"
+      fi
+    done
+    shopt -u nullglob
+  done < <(import_gog_games_dirs "${pfx}")
+  [[ -n "${best_dir}" ]] && printf '%s' "${best_dir}"
+}
+
+# Find the main game .exe after a GOG offline install.
+import_find_gog_game_exe() {
+  local pfx="$1" game_name="${2:-}"
+  local root game_dir exe hint_dir="" hint
+
+  if [[ -n "${game_name}" ]]; then
+    hint="$(import_slugify "${game_name}")"
+    while IFS= read -r root; do
+      [[ -d "${root}" ]] || continue
+      shopt -s nullglob
+      for game_dir in "${root}"/*; do
+        [[ -d "${game_dir}" ]] || continue
+        if printf '%s' "$(basename "${game_dir}")" | grep -Eqi "${game_name// /[[:space:]]+}"; then
+          hint_dir="${game_dir}"
+          break 2
+        fi
+        if [[ "$(import_slugify "$(basename "${game_dir}")")" == *"${hint}"* ]]; then
+          hint_dir="${game_dir}"
+        fi
+      done
+      shopt -u nullglob
+    done < <(import_gog_games_dirs "${pfx}")
+  fi
+
+  if [[ -z "${hint_dir}" ]]; then
+    hint_dir="$(import_gog_newest_game_dir "${pfx}" || true)"
+  fi
+  [[ -n "${hint_dir}" ]] || return 1
+  exe="$(import_find_game_exe "${hint_dir}")" && {
+    printf '%s' "${exe}"
+    return 0
+  }
+  return 1
+}
+
+# Print lines: slug<TAB>title<TAB>exe_relative_path
+import_scan_gog_games() {
+  local pfx="$1"
+  local root game_dir slug title exe
+  while IFS= read -r root; do
+    [[ -d "${root}" ]] || continue
+    shopt -s nullglob
+    for game_dir in "${root}"/*; do
+      [[ -d "${game_dir}" ]] || continue
+      exe="$(import_find_game_exe "${game_dir}" 2>/dev/null || true)"
+      [[ -n "${exe}" ]] || continue
+      title="$(basename "${game_dir}")"
+      slug="$(import_slugify "${title}")"
+      printf '%s\t%s\t%s\n' "${slug}" "${title}" "${exe#${pfx}/}"
+    done
+    shopt -u nullglob
+  done < <(import_gog_games_dirs "${pfx}")
+}
+
+import_write_gog_config() {
+  local configs_dir="$1" slug="$2" app_name="$3" bundle_id="$4" exe_path="$5"
+  local file="${configs_dir}/gog-${slug}.conf"
+  mkdir -p "${configs_dir}"
+  {
+    printf '# Created by import_game.command (GOG offline installer)\n'
+    printf 'APP_NAME="%s (Cosmos)"\n' "$(import_safe_name "${app_name}")"
+    printf 'BUNDLE_ID="%s"\n' "${bundle_id}"
+    printf '\nRUN_ENV_NAMES=(\n'
+    printf '  GAME_EXE_PATH\n'
+    printf '  COSMOS_SKIP_STEAM\n'
+    printf ')\n\n'
+    printf 'GAME_EXE_PATH="%s"\n' "${exe_path}"
+    printf 'COSMOS_SKIP_STEAM="1"\n'
+  } > "${file}"
+  printf '%s' "${file}"
 }
 
 import_write_config() {

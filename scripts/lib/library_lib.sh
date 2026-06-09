@@ -98,9 +98,11 @@ library_slugify() {
 library_resolve_install_path() {
   local pfx="$1" store="$2" slug="$3" exe_path="${4:-}" conf="${5:-}"
   local install_path="" acf appid steam_dir
+  local saved_prefix="${WINEPREFIX:-}"
 
   case "${store}" in
     steam)
+      WINEPREFIX="${pfx}"
       appid="$(library_read_conf_field "${conf}" "STEAM_GAME_ID" 2>/dev/null || true)"
       [[ -n "${appid}" ]] || appid="${slug%%-*}"
       if [[ -n "${appid}" && "${appid}" =~ ^[0-9]+$ ]]; then
@@ -143,6 +145,7 @@ library_resolve_install_path() {
       ;;
   esac
 
+  WINEPREFIX="${saved_prefix}"
   [[ -n "${install_path}" ]] && printf '%s' "${install_path}"
 }
 
@@ -176,7 +179,7 @@ library_collect_from_configs() {
     managed_by="${store}"
     [[ "${store}" == "steam" ]] && managed_by="steam"
     [[ "${store}" == "epic" ]] && managed_by="legendary"
-    [[ "${store}" == "itch" || "${store}" == "standalone" ]] && managed_by="cosmos"
+    [[ "${store}" == "itch" || "${store}" == "standalone" || "${store}" == "gog" ]] && managed_by="cosmos"
 
     id="$(library_make_game_id "${store}" "${slug}")"
     launcher_conf="${base}"

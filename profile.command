@@ -207,7 +207,7 @@ validate_one() {
     else
       err "store: steam requires numeric steam_appid"
     fi
-  elif [[ "${store}" == "standalone" || "${store}" == "itch" || "${store}" == "battlenet" ]]; then
+  elif [[ "${store}" == "standalone" || "${store}" == "itch" || "${store}" == "battlenet" || "${store}" == "gog" ]]; then
     local exe; exe="$(profile_get_scalar "${file}" exe_path)"
     [[ -n "${exe}" ]] || err "store: ${store} requires exe_path"
   fi
