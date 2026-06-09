@@ -14,8 +14,11 @@ dependencies.
 
 ## DXMT
 
-- Cosmos currently pins **DXMT v0.74** in `run.command` (`DXMT_VERSION`).
-- Releases **after v0.80** moved from MIT to **LGPL**. Before upgrading:
+- Pinned in `runtime/cosmos-runtime.json` and loaded by `run.command` (`DXMT_VERSION`,
+  default **0.74**).
+- Releases **after v0.80** moved from MIT to **LGPL**. `run.command` and CI refuse
+  `DXMT_VERSION` above the manifest pin unless `COSMOS_ALLOW_LGPL=1`.
+- Before upgrading past the MIT pin:
   - Read [3Shain/dxmt licensing discussion](https://github.com/3Shain/dxmt/releases).
   - If you ship DXMT inside Cosmos artifacts, comply with LGPL (source offer,
     license notice) or stay on the last MIT release.
@@ -23,8 +26,22 @@ dependencies.
 
 ## Wine (Gcenx macOS builds)
 
+- Version and URL pinned in `runtime/cosmos-runtime.json`.
 - Downloaded at runtime from Gcenx release tarballs; verify license on each
   release artifact before bundling offline installers.
+
+## DXVK-macOS (Gcenx)
+
+- **Zlib** — experimental `dxvk` backend only.
+- Pinned in `runtime/cosmos-runtime.json`; optional auto-download when
+  `COSMOS_AUTO_DXVK=1` (see [RUNTIME.md](RUNTIME.md)).
+- Upstream: [Gcenx/DXVK-macOS](https://github.com/Gcenx/DXVK-macOS).
+
+## MoltenVK (Khronos)
+
+- **Apache-2.0** — Vulkan ICD for the experimental DXVK path on macOS.
+- Pinned in `runtime/cosmos-runtime.json`; downloaded with `COSMOS_AUTO_DXVK=1`.
+- Upstream: [KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK).
 
 ## winemactricks-json
 

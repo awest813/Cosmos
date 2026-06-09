@@ -166,8 +166,9 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] Report schema — [COSMOSDB.md](COSMOSDB.md)
 - [ ] GitHub-hosted community compatibility database (see schema below)
 - [ ] User reports, status badges, one-click profile updates in the dashboard
-- [ ] Open-source adoption tranche — [ADOPTION_PLAN.md](ADOPTION_PLAN.md) Phases 0–3
+- [x] Open-source adoption tranche (Phases 1–4) — [ADOPTION_PLAN.md](ADOPTION_PLAN.md)
   (winemactricks-json, wineregdiff, VDF verify, UMU API runtime, profile seeding)
+- [ ] Runtime manifest + DXVK auto-fetch (Phase 5) — [RUNTIME.md](RUNTIME.md)
 - **Success:** Cosmos has its own "ProtonDB for Mac" that feeds back into profiles.
 
 ### 1.0 — Cosmos Runtime

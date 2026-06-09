@@ -82,3 +82,6 @@ jobs:
 
       - name: cosmosdb lib tests
         run: ./scripts/test_cosmosdb_lib.sh
+
+      - name: Runtime manifest unit tests
+        run: ./scripts/test_runtime_lib.sh

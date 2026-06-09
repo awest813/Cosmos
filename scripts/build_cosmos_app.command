@@ -138,6 +138,12 @@ fi
 if [[ -d "${REPO_ROOT}/profiles" ]]; then
   cp -R "${REPO_ROOT}/profiles" "${APP_BUNDLE}/Contents/Resources/profiles"
 fi
+if [[ -d "${REPO_ROOT}/runtime" ]]; then
+  cp -R "${REPO_ROOT}/runtime" "${APP_BUNDLE}/Contents/Resources/runtime"
+fi
+if [[ -f "${REPO_ROOT}/docs/LICENSING.md" ]]; then
+  cp "${REPO_ROOT}/docs/LICENSING.md" "${APP_BUNDLE}/Contents/Resources/docs/LICENSING.md"
+fi
 
 # Bundle the launcher template (app/cosmos: CosmosLauncher + AppIcon.icns) so
 # install_cosmos.command can build game .app bundles from the installed app,

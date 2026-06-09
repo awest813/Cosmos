@@ -1,0 +1,36 @@
+{
+  "schema": "cosmos-runtime-1.0",
+  "version": "1.0.0-preview",
+  "description": "Pinned Cosmos Runtime stack for Wine-on-macOS (roadmap 1.0).",
+  "components": {
+    "wine": {
+      "version": "11.8",
+      "license": "Wine",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.8/wine-devel-11.8-osx64.tar.xz",
+      "install_subdir": "wine-{version}"
+    },
+    "dxmt": {
+      "version": "0.74",
+      "license": "MIT",
+      "mit_max_version": "0.80",
+      "url": "https://github.com/3Shain/dxmt/releases/download/v0.74/dxmt-v0.74-builtin.tar.gz",
+      "install_subdir": "DXMT"
+    },
+    "dxvk_macos": {
+      "version": "1.10.3-20230507-repack",
+      "license": "Zlib",
+      "url": "https://github.com/Gcenx/DXVK-macOS/releases/download/v1.10.3-20230507-repack/dxvk-macOS-async-v1.10.3-20230507-repack-builtin.tar.gz",
+      "install_subdir": "dxvk-macOS-{version}"
+    },
+    "moltenvk": {
+      "version": "1.2.8",
+      "license": "Apache-2.0",
+      "url": "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.8/MoltenVK-macos.tar",
+      "install_subdir": "MoltenVK-{version}"
+    }
+  },
+  "defaults": {
+    "runtime_dir_name": "Runtime",
+    "dxmt_mit_max_version": "0.80"
+  }
+}

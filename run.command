@@ -13,6 +13,10 @@ if [[ -f "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" ]]; then
   # shellcheck source=scripts/lib/profile_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/profile_lib.sh"
 fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/runtime_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/runtime_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/runtime_lib.sh"
+fi
 
 # --- Bottle pre-load (roadmap 0.3) -------------------------------------------
 # A named bottle (COSMOS_BOTTLE) supplies an isolated Wine prefix plus default
@@ -128,9 +132,17 @@ load_steam_conf
 sanitize_steam_settings
 # -----------------------------------------------------------------------------
 
+if declare -F runtime_load_manifest >/dev/null 2>&1; then
+  runtime_load_manifest
+fi
+
 WINE_VERSION="${WINE_VERSION:-11.8}"
-# Pinned for MIT license on release artifacts; see docs/LICENSING.md before upgrading.
+# Pinned for MIT license on release artifacts; see runtime/cosmos-runtime.json and docs/LICENSING.md.
 DXMT_VERSION="${DXMT_VERSION:-0.74}"
+
+if declare -F runtime_assert_dxmt_license >/dev/null 2>&1; then
+  runtime_assert_dxmt_license || exit 1
+fi
 
 WINE_ROOT="${WINE_ROOT:-$HOME/wine-${WINE_VERSION}}"
 WINE_APP="${WINE_ROOT}/Wine Devel.app"
@@ -214,9 +226,9 @@ PROFILE_ARGS=()
 INSTALLER_PATH=""
 COMPAT_CHECK_APPID=""
 
-WINE_URL="https://github.com/Gcenx/macOS_Wine_builds/releases/download/${WINE_VERSION}/wine-devel-${WINE_VERSION}-osx64.tar.xz"
+WINE_URL="${WINE_URL:-https://github.com/Gcenx/macOS_Wine_builds/releases/download/${WINE_VERSION}/wine-devel-${WINE_VERSION}-osx64.tar.xz}"
 STEAM_URL="https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe"
-DXMT_URL="https://github.com/3Shain/dxmt/releases/download/v${DXMT_VERSION}/dxmt-v${DXMT_VERSION}-builtin.tar.gz"
+DXMT_URL="${DXMT_URL:-https://github.com/3Shain/dxmt/releases/download/v${DXMT_VERSION}/dxmt-v${DXMT_VERSION}-builtin.tar.gz}"
 
 log() {
   printf "\n==> %s\n" "$1"
@@ -786,6 +798,9 @@ install_steam_only() {
 }
 
 ensure_dxmt_installed() {
+  if declare -F runtime_assert_dxmt_license >/dev/null 2>&1; then
+    runtime_assert_dxmt_license || exit 1
+  fi
   log "Ensuring DXMT ${DXMT_VERSION} is installed"
   if [[ -d "${DXMT_ROOT}/i386-windows" && -d "${DXMT_ROOT}/x86_64-windows" && -d "${DXMT_ROOT}/x86_64-unix" ]]; then
     echo "DXMT already installed at ${DXMT_ROOT}. Skipping."
@@ -920,7 +935,10 @@ find_dxvk_dll_dir() {
 
 ensure_dxvk_installed() {
   log "Installing DXVK DLLs into the Wine prefix (experimental)"
-  [[ -n "${DXVK_PATH}" ]] || die "The dxvk backend needs DXVK_PATH set to a folder of DXVK DLLs (d3d11.dll, dxgi.dll, ...). DXVK on macOS routes through MoltenVK and is experimental; use dxmt or d3dmetal for a supported path."
+  if declare -F runtime_auto_fetch_dxvk_stack >/dev/null 2>&1; then
+    runtime_auto_fetch_dxvk_stack || true
+  fi
+  [[ -n "${DXVK_PATH}" ]] || die "The dxvk backend needs DXVK_PATH set to a folder of DXVK DLLs (d3d11.dll, dxgi.dll, ...), or set COSMOS_AUTO_DXVK=1 to download DXVK-macOS + MoltenVK into Application Support/Cosmos/Runtime/. DXVK on macOS is experimental; use dxmt or d3dmetal for a supported path."
   [[ -d "${DXVK_PATH}" ]] || die "DXVK_PATH is not a directory: ${DXVK_PATH}"
 
   local src
@@ -1397,6 +1415,10 @@ show_status() {
 
   echo ""
   echo "  Backend: ${COSMOS_BACKEND}   Windows: ${WINDOWS_VERSION:-Wine default}   Retina: $([[ "${WINE_RETINA_MODE}" == "1" ]] && echo on || echo off)   Install: $([[ "${COSMOS_STEAM_SILENT}" == "1" ]] && echo silent || echo wizard)"
+  if [[ -n "${RUNTIME_MANIFEST_VERSION:-}" ]]; then
+    echo "  Runtime manifest: ${RUNTIME_MANIFEST_VERSION} (DXMT ${DXMT_VERSION}, Wine ${WINE_VERSION})"
+    [[ -n "${COSMOS_RUNTIME_DIR:-}" ]] && echo "  Runtime cache: ${COSMOS_RUNTIME_DIR}"
+  fi
   echo ""
   if [[ "${wine_ok}" -eq 0 || "${prefix_ok}" -eq 0 ]]; then
     echo "  Next step: ./run.command --setup-steam"

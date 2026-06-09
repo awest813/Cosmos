@@ -5,7 +5,8 @@ integration priorities.
 
 > **Phased adoption plan:** see [ADOPTION_PLAN.md](ADOPTION_PLAN.md) for
 > winemactricks-json, wineregdiff, VDF libraries, UMU API, profile seeding,
-> and Runtime 1.0 bundling priorities.
+> and Runtime 1.0 bundling priorities. Runtime manifest and DXVK auto-fetch:
+> [RUNTIME.md](RUNTIME.md).
 
 ## Steam install & launch (MIT: steam-on-m1-wine)
 

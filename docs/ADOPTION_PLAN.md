@@ -292,12 +292,15 @@ not MIT — document notices.
 
 **Tasks:**
 
-- [ ] `run.command` / Runtime manifest: `cosmos-runtime.json` pins Wine, DXMT,
-  MoltenVK, DXVK-macOS versions and checksums.
-- [ ] Experimental `COSMOS_AUTO_DXVK=1` downloads DXVK-macOS + MoltenVK to
-  `~/Library/Application Support/Cosmos/Runtime/`.
-- [ ] Offline installer build (`scripts/build_dmg.command`) embeds pinned MIT stack.
-- [ ] LGPL gate in CI: fail if `DXMT_VERSION` > 0.80 without `COSMOS_ALLOW_LGPL=1`.
+- [x] `run.command` / Runtime manifest: `cosmos-runtime.json` pins Wine, DXMT,
+  MoltenVK, DXVK-macOS versions (checksums follow-up).
+- [x] Experimental `COSMOS_AUTO_DXVK=1` downloads DXVK-macOS + MoltenVK to
+  `~/Library/Application Support/Cosmos/Runtime/` (`scripts/lib/runtime_lib.sh`).
+- [ ] Offline installer build embeds pinned MIT stack binaries (manifest + NOTICE
+  ship in `Cosmos.app` via `build_cosmos_app.command`; DMG inherits; full offline
+  tarball is follow-up).
+- [x] LGPL gate in CI: `scripts/test_runtime_lib.sh` fails if `DXMT_VERSION` > 0.80
+  without `COSMOS_ALLOW_LGPL=1`; `run.command` enforces the same at startup.
 
 **Phase 5 exit criteria:** Single downloadable Cosmos Runtime; backend auto-fetch
 for DXVK path; license notices in app bundle.
