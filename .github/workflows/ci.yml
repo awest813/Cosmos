@@ -59,3 +59,6 @@ jobs:
 
       - name: Store import unit tests
         run: ./scripts/test_import_lib.sh
+
+      - name: Launch recovery unit tests
+        run: ./scripts/test_launch_recovery.sh

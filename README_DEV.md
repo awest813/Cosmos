@@ -110,6 +110,10 @@ Defaults are the values in `run.command`.
   - Optional Wine virtual desktop wrapper (`auto`, `WxH`, or empty to disable). See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md).
 - `COSMOS_LAUNCH_LOG` (legacy aliases: `MERLOT_LAUNCH_LOG`, `MERLOT_STEAM_LOG`, `COSMOS_STEAM_LOG`)
   - Path to the detached-mode launch log (default: `~/Library/Application Support/Cosmos/logs/steam-launch.log`).
+- `COSMOS_LAUNCH_RETRIES`
+  - Automatic recovery for launches that fail or crash on startup (default: `1` extra attempt; `0` disables). Before each retry Cosmos clears common transient blockers — chiefly a stale `wineserver` from a previous crashed session that is still holding the prefix — so a small hiccup does not stop the game from running. In foreground mode (`COSMOS_DETACH=0`) any non-zero exit is retried. In detached mode only the unambiguous launchers (standalone games, saved profiles, Epic via Legendary) retry a crash-on-startup; Steam is exempt because its bootstrapper can exit its first process while Steam keeps running.
+- `COSMOS_LAUNCH_GRACE`
+  - Seconds a detached launch must survive before it counts as healthy (default: `6`). A process that exits within this window is treated as a crash-on-startup and retried (subject to `COSMOS_LAUNCH_RETRIES`).
 - `COSMOS_SUPPORT_DIR`
   - Cosmos Application Support directory (default: `~/Library/Application Support/Cosmos`). `PROFILE_DIRECTORY` defaults to `${COSMOS_SUPPORT_DIR}/Profiles`.
 - `COSMOS_MIN_MACOS_MAJOR`

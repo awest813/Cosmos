@@ -171,6 +171,17 @@ COSMOS_STEAM_SILENT="${COSMOS_STEAM_SILENT:-1}"
 # 1=skip Steam install (standalone / non-Steam launchers).
 COSMOS_SKIP_STEAM="${COSMOS_SKIP_STEAM:-0}"
 COSMOS_LAUNCH_LOG="${COSMOS_LAUNCH_LOG:-${MERLOT_LAUNCH_LOG:-${COSMOS_STEAM_LOG:-${MERLOT_STEAM_LOG:-${STEAM_LAUNCH_LOG_DEFAULT}}}}}"
+# Automatic recovery for launches that fail or crash on startup. The most common
+# "small issue" is a stale wineserver from a previous crashed session holding the
+# prefix; before each retry we clear it so the game still runs. Number of extra
+# attempts after the first; set to 0 to disable.
+COSMOS_LAUNCH_RETRIES="${COSMOS_LAUNCH_RETRIES:-1}"
+# Seconds a detached launch must survive before it counts as healthy. A process
+# that exits within this window is treated as a crash-on-startup and retried.
+COSMOS_LAUNCH_GRACE="${COSMOS_LAUNCH_GRACE:-6}"
+# Fall back to safe defaults if these were set to something non-numeric.
+[[ "${COSMOS_LAUNCH_RETRIES}" =~ ^[0-9]+$ ]] || COSMOS_LAUNCH_RETRIES=1
+[[ "${COSMOS_LAUNCH_GRACE}" =~ ^[0-9]+$ ]] || COSMOS_LAUNCH_GRACE=6
 # Default before we added this: the value is not set in registry (Wine internal default).
 # Set to force|enable|disable to override, or leave empty to keep default.
 WINE_MOUSE_WARP_OVERRIDE="${WINE_MOUSE_WARP_OVERRIDE:-}"
@@ -906,6 +917,102 @@ enable_wined3d_env() {
   echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
 }
 
+# Clear common transient blockers before a relaunch. A leftover wineserver from
+# a previous crashed session can hold the prefix and make the next launch fail or
+# hang; killing it lets the retry start from a clean state. Best-effort and safe
+# to call when nothing is actually wrong.
+recover_wine_prefix() {
+  log "Clearing the Wine prefix before retrying"
+  stop_wine_prefix
+  # Give wineserver a moment to release the prefix before relaunching.
+  sleep 2
+}
+
+# Run a launch command with automatic recovery so a small hiccup does not stop
+# the game from running. Usage: run_launch_cmd LABEL DETACH_RETRY CMD [ARGS...]
+#   LABEL        - human name used in progress messages.
+#   DETACH_RETRY - 1 to also retry crash-on-startup in detached mode, else 0.
+#                  Steam passes 0 because its bootstrapper can exit its first
+#                  process while Steam keeps running, which would look like a
+#                  crash; standalone games/profiles pass 1.
+# Honors COSMOS_DETACH, COSMOS_LAUNCH_RETRIES, and COSMOS_LAUNCH_GRACE.
+run_launch_cmd() {
+  local label="$1" detach_retry="$2"
+  shift 2
+  local -a cmd=("$@")
+  local attempts=$((COSMOS_LAUNCH_RETRIES + 1))
+  local attempt=1 status=0
+
+  if [[ "${COSMOS_DETACH}" != "0" && "${COSMOS_DETACH}" != "1" ]]; then
+    die "COSMOS_DETACH must be 0 or 1."
+  fi
+
+  # Foreground: the call blocks until the process really exits, so the exit code
+  # is trustworthy and we retry any non-zero result.
+  if [[ "${COSMOS_DETACH}" == "0" ]]; then
+    while (( attempt <= attempts )); do
+      status=0
+      "${cmd[@]}" || status=$?
+      (( status == 0 )) && return 0
+      if (( attempt < attempts )); then
+        echo "${label} exited with status ${status}. Recovering and retrying (attempt $((attempt + 1)) of ${attempts})..."
+        recover_wine_prefix
+      fi
+      attempt=$((attempt + 1))
+    done
+    echo "${label} still failed after ${attempts} attempt(s) (status ${status})."
+    return "${status}"
+  fi
+
+  # Detached.
+  mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
+
+  # Classic fire-and-forget when crash-on-startup retries are not wanted here.
+  if [[ "${detach_retry}" != "1" || "${COSMOS_LAUNCH_RETRIES}" -le 0 ]]; then
+    : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
+    log "Detaching ${label} from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
+    nohup "${cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
+    local pid="$!"
+    disown
+    echo "${label} is running in the background (PID ${pid}). Safe to close this Terminal window."
+    echo "Tail the log with: tail -f ${COSMOS_LAUNCH_LOG}"
+    return 0
+  fi
+
+  while (( attempt <= attempts )); do
+    : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
+    log "Detaching ${label} from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
+    nohup "${cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
+    local pid="$!"
+    # Watch briefly so a crash-on-startup is retried instead of silently failing.
+    local waited=0
+    while (( waited < COSMOS_LAUNCH_GRACE )); do
+      kill -0 "${pid}" 2>/dev/null || break
+      sleep 1
+      waited=$((waited + 1))
+    done
+    if kill -0 "${pid}" 2>/dev/null; then
+      disown
+      echo "${label} is running in the background (PID ${pid}). Safe to close this Terminal window."
+      echo "Tail the log with: tail -f ${COSMOS_LAUNCH_LOG}"
+      return 0
+    fi
+    status=0
+    wait "${pid}" 2>/dev/null || status=$?
+    if (( status == 0 )); then
+      echo "${label} exited right after starting (status 0). See ${COSMOS_LAUNCH_LOG}."
+      return 0
+    fi
+    if (( attempt < attempts )); then
+      echo "${label} crashed on startup (status ${status}). Recovering and retrying (attempt $((attempt + 1)) of ${attempts})..."
+      recover_wine_prefix
+    fi
+    attempt=$((attempt + 1))
+  done
+  echo "${label} could not start after ${attempts} attempt(s) (status ${status}). See ${COSMOS_LAUNCH_LOG}."
+  return "${status}"
+}
+
 launch_steam() {
   log "Launching Steam"
   local steam_exe
@@ -946,24 +1053,10 @@ launch_steam() {
     fi
   fi
 
-  case "${COSMOS_DETACH}" in
-    0)
-      "${steam_cmd[@]}"
-      ;;
-    1)
-      log "Detaching Steam from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
-      mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
-      : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
-      nohup "${steam_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
-      local pid="$!"
-      disown
-      echo "Steam is running in the background (PID ${pid}). Safe to close this Terminal window."
-      echo "Tail the log with: tail -f ${COSMOS_LAUNCH_LOG}"
-      ;;
-    *)
-      die "COSMOS_DETACH must be 0 or 1."
-      ;;
-  esac
+  # Steam opts out of detached crash-on-startup retries: its bootstrapper can
+  # exit the first process while Steam keeps running, which a retry would
+  # misread as a crash. Foreground retries still apply.
+  run_launch_cmd "Steam" 0 "${steam_cmd[@]}"
 }
 
 find_legendary_bin() {
@@ -996,17 +1089,7 @@ launch_epic_via_legendary() {
     (( ${#extra_args[@]} > 0 )) && leg_cmd+=("${extra_args[@]}")
   fi
 
-  case "${COSMOS_DETACH}" in
-    0) "${leg_cmd[@]}" ;;
-    1)
-      log "Detaching Legendary launch (log: ${COSMOS_LAUNCH_LOG})"
-      mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
-      : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
-      nohup "${leg_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
-      echo "Game is running in the background (PID $!). Safe to close this Terminal window."
-      ;;
-    *) die "COSMOS_DETACH must be 0 or 1." ;;
-  esac
+  run_launch_cmd "Epic game (${LEGENDARY_APP_NAME})" 1 "${leg_cmd[@]}"
 }
 
 resolve_game_exe_path() {
@@ -1050,17 +1133,7 @@ launch_standalone_game() {
     (( ${#extra_args[@]} > 0 )) && game_cmd+=("${extra_args[@]}")
   fi
 
-  case "${COSMOS_DETACH}" in
-    0) "${game_cmd[@]}" ;;
-    1)
-      log "Detaching game launch (log: ${COSMOS_LAUNCH_LOG})"
-      mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
-      : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
-      nohup "${game_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
-      echo "Game is running in the background (PID $!). Safe to close this Terminal window."
-      ;;
-    *) die "COSMOS_DETACH must be 0 or 1." ;;
-  esac
+  run_launch_cmd "Game" 1 "${game_cmd[@]}"
 }
 
 run_installer() {
@@ -1094,24 +1167,7 @@ launch_profile() {
     profile_cmd+=("${PROFILE_ARGS[@]}")
   fi
 
-  case "${COSMOS_DETACH}" in
-    0)
-      "${profile_cmd[@]}"
-      ;;
-    1)
-      log "Detaching profile launch from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
-      mkdir -p "$(dirname "${COSMOS_LAUNCH_LOG}")"
-      : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
-      nohup "${profile_cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
-      local pid="$!"
-      disown
-      echo "Profile is running in the background (PID ${pid}). Safe to close this Terminal window."
-      echo "Tail the log with: tail -f ${COSMOS_LAUNCH_LOG}"
-      ;;
-    *)
-      die "COSMOS_DETACH must be 0 or 1."
-      ;;
-  esac
+  run_launch_cmd "Profile" 1 "${profile_cmd[@]}"
 }
 
 prepare_steam_bottle() {
@@ -1265,4 +1321,8 @@ main() {
   esac
 }
 
-main "$@"
+# Run main unless this file is being sourced (e.g. by the test harness), which
+# lets tests exercise individual functions like run_launch_cmd in isolation.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
