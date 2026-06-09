@@ -108,10 +108,9 @@ repair.command recipe-from-diff <a> <b> # write recipes/fixes/custom-<slug>.reci
 
 **Tasks:**
 
-- [ ] Add `third_party/wineregdiff/` or thin Python dependency (MIT) invoked
-  from `scripts/lib/regdiff_lib.sh`.
-- [ ] New fix recipe type `apply_reg_script` (lines of `wine reg add` / `reg delete`).
-- [ ] Document workflow in `recipes/fixes/README.md`: "fix on working Mac →
+- [x] Add `scripts/lib/regdiff_lib.sh` (optional `wineregdiff` binary; MIT).
+- [x] New fix recipe type `apply_reg_commands` (`REG_COMMANDS` pipe-separated).
+- [x] Document workflow in `recipes/fixes/README.md`: "fix on working Mac →
   diff → commit recipe."
 - [ ] Optional: `profile.command export-reg` after `apply` for regression capture.
 
@@ -173,14 +172,14 @@ Keep `steam_lib.sh` as the hot path (no new runtime dep for default users). Add
 
 **Tasks:**
 
-- [ ] Add `scripts/verify_vdf_python.sh` using ValvePython/vdf; run in CI
+- [x] Add `scripts/verify_vdf_python.sh` using ValvePython/vdf; run in CI
   alongside `test_steam_detection.sh` on fixture prefixes.
-- [ ] Extend `detect_steam_games.command` with `COSMOS_STEAM_NATIVE_SCAN=1`:
+- [x] Extend `detect_steam_games.command` with `COSMOS_STEAM_NATIVE_SCAN=1`:
   merge native Steam libraries with Wine-prefix libraries (dedupe by App ID).
-- [ ] Implement `steam_native_paths()` in `steam_lib.sh` calling `steam-locate`
-  or steam-path via small Python/Node shim (user-opt-in).
-- [ ] Document dual-path semantics in `docs/STEAM_SETUP.md`.
-- [ ] Keep `COSMOS_VERIFY_NODE=1` + find-steam-app as optional cross-check
+- [x] Implement `steam_native_roots()` / `steam_collect_native_steamapps_dirs()` in
+  `steam_lib.sh`; optional `COSMOS_VERIFY_STEAM_LOCATE=1` via npx steam-locate.
+- [x] Document dual-path semantics in `docs/STEAM_SETUP.md`.
+- [x] Keep `COSMOS_VERIFY_NODE=1` + find-steam-app as optional cross-check
   (already integrated).
 
 **Defer:** steamlocate-rs until Cosmos Runtime ships a signed helper binary.
@@ -208,12 +207,12 @@ fixtures; optional native Steam path documented and tested.
 
 **Tasks:**
 
-- [ ] Add `cosmosdb.command lookup <appid> umu` in `cosmosdb_lib.sh`.
+- [x] Add `cosmosdb.command lookup <appid> umu` in `cosmosdb_lib.sh`.
 - [ ] Normalize UMU fix hints → Cosmos recipe IDs + profile fields (same as
   diagnose suggester).
-- [ ] **Do not** vendor UMU fix scripts; translate ideas into
+- [x] **Do not** vendor UMU fix scripts; translate ideas into
   `recipes/` + `profiles/`.
-- [ ] Cache 24h; document GPL data attribution in LICENSING.md.
+- [x] Cache 24h; document GPL data attribution in LICENSING.md.
 
 ### 3c. GitHub-hosted community DB (0.7 blocker)
 

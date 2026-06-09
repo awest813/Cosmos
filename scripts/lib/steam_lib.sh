@@ -117,6 +117,68 @@ steam_collect_steamapps_dirs() {
   } | awk '!seen[$0]++'
 }
 
+# --- Native macOS / Linux Steam (dual-path detection, Phase 2) ---------------
+
+# Print candidate native Steam installation roots (one per line).
+steam_native_roots() {
+  if [[ -n "${COSMOS_STEAM_NATIVE_PATH:-}" ]]; then
+    printf '%s\n' "${COSMOS_STEAM_NATIVE_PATH}"
+    return 0
+  fi
+  case "$(uname -s)" in
+    Darwin)
+      printf '%s\n' "${HOME}/Library/Application Support/Steam"
+      ;;
+    Linux)
+      [[ -d "${HOME}/.steam/steam" ]] && printf '%s\n' "${HOME}/.steam/steam"
+      [[ -d "${HOME}/.local/share/Steam" ]] && printf '%s\n' "${HOME}/.local/share/Steam"
+      ;;
+  esac
+}
+
+# Resolve a library path from libraryfolders.vdf (Windows or Unix style).
+steam_resolve_library_path() {
+  local path="$1"
+  [[ -n "${path}" ]] || return 1
+  if [[ "${path}" == *'\'* ]] || [[ "${path}" =~ ^[A-Za-z]: ]]; then
+    steam_win_to_unix "${path}"
+  else
+    printf '%s' "${path}"
+  fi
+}
+
+# Collect steamapps directories from native Steam installs (not Wine prefix).
+steam_collect_native_steamapps_dirs() {
+  local root steam_dir vdf path resolved
+  {
+    while IFS= read -r root; do
+      [[ -n "${root}" && -d "${root}" ]] || continue
+      steam_dir="${root}"
+      printf '%s/steamapps\n' "${steam_dir}"
+      vdf="$(steam_find_libraryfolders_vdf "${steam_dir}" || true)"
+      if [[ -n "${vdf}" ]]; then
+        while IFS= read -r path; do
+          [[ -n "${path}" ]] || continue
+          resolved="$(steam_resolve_library_path "${path}" 2>/dev/null || true)"
+          [[ -n "${resolved}" ]] || continue
+          printf '%s/steamapps\n' "${resolved}"
+        done < <(steam_library_paths_from_vdf "${vdf}")
+      fi
+    done < <(steam_native_roots)
+  } | awk '!seen[$0]++'
+}
+
+# Wine-prefix libraries plus optional native Steam libraries (deduped paths).
+steam_collect_detection_steamapps_dirs() {
+  local steam_dir="$1"
+  {
+    steam_collect_steamapps_dirs "${steam_dir}"
+    if [[ "${COSMOS_STEAM_NATIVE_SCAN:-0}" == "1" ]]; then
+      steam_collect_native_steamapps_dirs
+    fi
+  } | awk '!seen[$0]++'
+}
+
 # Read a quoted VDF field from an appmanifest_*.acf file.
 steam_acf_read_field() {
   local acf="$1" field="$2"

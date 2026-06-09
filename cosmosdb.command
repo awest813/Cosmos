@@ -27,14 +27,14 @@ Usage: cosmosdb.command <command> [args]
 Commands:
   lookup <steam_appid> [source]
       Fetch compatibility hints (cached 24h). Sources:
-        all (default) | protondb | applegamingwiki | macgamingdb
+        all (default) | protondb | applegamingwiki | macgamingdb | umu
   report <appid> <status> [note]
       Save a local macOS compatibility report (JSON).
   list-reports [appid]
       List local reports (optionally filter by App ID).
   cache-clear [source]
       Remove cached responses (all sources, or one of: protondb,
-      applegamingwiki, macgamingdb).
+      applegamingwiki, macgamingdb, umu).
 
 Status values: platinum | gold | silver | playable | bronze | broken | blocked
 
@@ -43,6 +43,7 @@ Environment:
   COSMOS_PROTONDB_API_URL       ProtonDB API base
   COSMOS_APPLEGAMINGWIKI_API_URL  MediaWiki API base
   COSMOS_MACGAMINGDB_API_URL    MacGamingDB REST base (…/api/rest)
+  COSMOS_UMU_API_URL            UMU database API (GPL data; hints only)
   COSMOSDB_CACHE_TTL_SECONDS    Cache lifetime (default 86400)
   COSMOSDB_HTTP_USER_AGENT      HTTP User-Agent for wiki/API requests
 
@@ -87,6 +88,21 @@ cmd_lookup_one() {
       [[ -n "${body}" ]] && printf '%s\n' "${body}"
       note "(MacGamingDB reports community FPS/benchmarks. DXMT/D3D_METAL map to Cosmos graphics backends.)"
       ;;
+    umu)
+      log "UMU database fix metadata for App ID ${appid}"
+      if ! body="$(cosmosdb_fetch_umu "${appid}")"; then
+        note "(UMU lookup failed — network error.)"
+        return 1
+      fi
+      status_line="$(printf '%s' "${body}" | head -n1)"
+      body="$(printf '%s' "${body}" | tail -n +2)"
+      [[ -n "${body}" ]] && printf '%s\n' "${body}"
+      if printf '%s' "${body}" | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get("has_fix_database_entry") else 1)' 2>/dev/null; then
+        note "(UMU lists Proton fix metadata. Port concepts to Cosmos recipes — do not import GPL scripts.)"
+      else
+        note "(No UMU database entry — game may run without Proton-specific fixes.)"
+      fi
+      ;;
     *)
       cosmosdb_die "Unknown lookup source: ${source}"
       ;;
@@ -104,16 +120,17 @@ cmd_lookup() {
       cmd_lookup_one protondb "${appid}" || failed=1
       cmd_lookup_one applegamingwiki "${appid}" || failed=1
       cmd_lookup_one macgamingdb "${appid}" || failed=1
+      cmd_lookup_one umu "${appid}" || failed=1
       (( failed == 0 )) || note "(One or more sources failed. Local Cosmos reports override external hints.)"
       ;;
-    protondb|applegamingwiki|agw|macgamingdb|mgd)
+    protondb|applegamingwiki|agw|macgamingdb|mgd|umu)
       local norm="${source}"
       [[ "${norm}" == agw ]] && norm=applegamingwiki
       [[ "${norm}" == mgd ]] && norm=macgamingdb
       cmd_lookup_one "${norm}" "${appid}"
       ;;
     *)
-      cosmosdb_die "Unknown source '${source}'. Use all, protondb, applegamingwiki, or macgamingdb."
+      cosmosdb_die "Unknown source '${source}'. Use all, protondb, applegamingwiki, macgamingdb, or umu."
       ;;
   esac
 }
@@ -164,7 +181,7 @@ cmd_cache_clear() {
       rm -f "${CACHE_DIR}"/*.json
       echo "Cleared compatibility cache under ${CACHE_DIR}"
       ;;
-    protondb|applegamingwiki|macgamingdb)
+    protondb|applegamingwiki|macgamingdb|umu)
       rm -f "${CACHE_DIR}/${source}-"*.json
       echo "Cleared ${source} cache under ${CACHE_DIR}"
       ;;

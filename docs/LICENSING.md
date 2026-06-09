@@ -32,6 +32,12 @@ dependencies.
 - Upstream: [Alien4042x/winemactricks-json](https://github.com/Alien4042x/winemactricks-json).
 - Imported into `recipes/fixes/` via `scripts/import_winemactricks.sh` (retain LICENSE notice).
 
+## UMU database API
+
+- GPL-3.0 data repository: [Open-Wine-Components/umu-database](https://github.com/Open-Wine-Components/umu-database).
+- `cosmosdb.command lookup <appid> umu` fetches fix **metadata** at runtime only.
+- Translate fix ideas into Cosmos YAML/recipes; **do not** vendor umu-protonfixes Python scripts.
+
 ## wineregdiff
 
 - MIT optional tool for registry snapshots: [castaneai/wineregdiff](https://github.com/castaneai/wineregdiff).

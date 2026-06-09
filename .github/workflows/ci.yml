@@ -48,6 +48,11 @@ jobs:
       - name: Steam detection unit tests
         run: ./scripts/test_steam_detection.sh
 
+      - name: VDF python cross-check (ValvePython/vdf)
+        run: |
+          pip install vdf
+          ./scripts/verify_vdf_python.sh
+
       - name: Profile library unit tests
         run: ./scripts/test_profile_lib.sh
 
