@@ -49,6 +49,19 @@ graphical interface.
 3. If macOS prompts you, follow the instructions (may ask for your password or
    to install Xcode Command Line Tools).
 
+#### Or: Build a Drag-to-Applications Installer (`Cosmos.dmg`)
+
+To produce a single double-clickable disk image (handy for sharing a build):
+
+```bash
+cd /path/to/Cosmos
+scripts/build_dmg.command
+```
+
+This builds the app and packages `build/Cosmos.dmg`. Open it and drag **Cosmos**
+into **Applications** — no compiling needed on the receiving Mac. On first launch
+of an unsigned build, right-click `Cosmos` → `Open` → confirm `Open`.
+
 #### Launch Cosmos App
 
 1. Open `Cosmos.app` from `/Applications`, or find it in Spotlight as "Cosmos".
@@ -246,6 +259,11 @@ The default installation uses roughly:
 - Builds the Cosmos desktop app (SwiftUI dashboard) into `Cosmos.app`.
 - Bundles all helper scripts and configs into the app for portability.
 - Optional `INSTALL=1` copies it to `/Applications`.
+
+**`scripts/build_dmg.command`**
+- Builds the app, then packages a drag-to-Applications `build/Cosmos.dmg`.
+- Lets you share a single double-clickable installer instead of asking people to
+  compile from source. `SKIP_BUILD=1` repackages an already-built `Cosmos.app`.
 
 **`uninstall.command`**
 - Removes files/directories created by the scripts (with per-item confirmation).
