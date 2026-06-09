@@ -208,8 +208,8 @@ fixtures; optional native Steam path documented and tested.
 **Tasks:**
 
 - [x] Add `cosmosdb.command lookup <appid> umu` in `cosmosdb_lib.sh`.
-- [ ] Normalize UMU fix hints → Cosmos recipe IDs + profile fields (same as
-  diagnose suggester).
+- [x] Normalize UMU fix hints → Cosmos recipe IDs in diagnose suggester
+  (`scripts/umu_suggest_recipes.py`, `repair_diagnose_umu_hints`).
 - [x] **Do not** vendor UMU fix scripts; translate ideas into
   `recipes/` + `profiles/`.
 - [x] Cache 24h; document GPL data attribution in LICENSING.md.
@@ -249,9 +249,9 @@ badges at point-of-use.
 
 **Tasks:**
 
-- [ ] For each imported dependency recipe, add optional `dependencies:` entries
-  to matching profiles (by App ID lists in JSON if present).
-- [ ] `profile.command validate` must pass after bulk seed.
+- [x] Bulk-seed profile `dependencies:` / `fixes:` from winemactricks map
+  (`scripts/seed_winemactricks_profile_deps.py`, `profile.command seed-deps`).
+- [x] `profile.command validate` passes after idempotent seed (CI).
 
 ### 4c. protonfixes / umu-protonfixes (GPL-3.0) — reference porting
 
@@ -297,9 +297,8 @@ not MIT — document notices.
   MoltenVK, DXVK-macOS versions (checksums follow-up).
 - [x] Experimental `COSMOS_AUTO_DXVK=1` downloads DXVK-macOS + MoltenVK to
   `~/Library/Application Support/Cosmos/Runtime/` (`scripts/lib/runtime_lib.sh`).
-- [ ] Offline installer build embeds pinned MIT stack binaries (manifest + NOTICE
-  ship in `Cosmos.app` via `build_cosmos_app.command`; DMG inherits; full offline
-  tarball is follow-up).
+- [x] Offline installer build embeds pinned MIT stack binaries (`stage_offline_runtime.command`,
+  `CosmosRuntime.tar.xz` in DMG, auto-extract in `run.command`).
 - [x] LGPL gate in CI: `scripts/test_runtime_lib.sh` fails if `DXMT_VERSION` > 0.80
   without `COSMOS_ALLOW_LGPL=1`; `run.command` enforces the same at startup.
 

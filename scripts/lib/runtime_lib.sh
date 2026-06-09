@@ -185,3 +185,100 @@ runtime_auto_fetch_dxvk_stack() {
   runtime_prepare_dxvk_path || return 1
   runtime_prepare_moltenvk_env || return 1
 }
+
+# --- Offline bundle (Wine + DXMT tarball in app / DMG) ---
+
+runtime_offline_tarball_candidates() {
+  local root="${SCRIPT_DIR:-}"
+  local candidate
+  for candidate in \
+    "${COSMOS_OFFLINE_RUNTIME_TARBALL:-}" \
+    "${root}/build/offline-runtime/cosmos-runtime-offline.tar.xz" \
+    "${root}/runtime/cosmos-runtime-offline.tar.xz" \
+    "${root}/runtime/bundle/cosmos-runtime-offline.tar.xz"; do
+    [[ -n "${candidate}" && -f "${candidate}" ]] && printf '%s\n' "${candidate}"
+  done
+  if [[ "${root}" == *.app/Contents/Resources ]]; then
+    candidate="${root}/runtime/cosmos-runtime-offline.tar.xz"
+    [[ -f "${candidate}" ]] && printf '%s\n' "${candidate}"
+  fi
+}
+
+runtime_find_offline_tarball() {
+  local path
+  while IFS= read -r path; do
+    [[ -n "${path}" ]] || continue
+    printf '%s' "${path}"
+    return 0
+  done < <(runtime_offline_tarball_candidates)
+  return 1
+}
+
+runtime_offline_cache_dir() {
+  printf '%s/offline-bundle' "${COSMOS_RUNTIME_DIR:-$(runtime_default_dir)}"
+}
+
+runtime_extract_offline_tarball() {
+  local tarball="$1"
+  local dest
+  dest="$(runtime_offline_cache_dir)"
+  [[ -f "${tarball}" ]] || return 1
+  if [[ -f "${dest}/.cosmos-offline-bundle" && -f "${dest}/cosmos-runtime.json" ]]; then
+    return 0
+  fi
+  mkdir -p "${dest}"
+  rm -rf "${dest:?}"/*
+  tar -xJf "${tarball}" -C "${dest}"
+  [[ -f "${dest}/.cosmos-offline-bundle" ]] || {
+    echo "Invalid offline runtime tarball: ${tarball}" >&2
+    return 1
+  }
+}
+
+runtime_install_wine_from_offline_bundle() {
+  local wine_root="${WINE_ROOT:-}"
+  local wine_ver="${WINE_VERSION:-}"
+  [[ -n "${wine_root}" && -n "${wine_ver}" ]] || return 1
+  local bundle wine_src wine_app wine_bin
+  bundle="$(runtime_offline_cache_dir)"
+  wine_src="${bundle}/wine-${wine_ver}"
+  wine_app="${wine_src}/Wine Devel.app"
+  wine_bin="${wine_app}/Contents/MacOS/wine/bin/wine"
+  [[ -x "${wine_bin}" ]] || return 1
+  if [[ -x "${wine_root}/Wine Devel.app/Contents/MacOS/wine/bin/wine" ]]; then
+    return 0
+  fi
+  mkdir -p "${wine_root}"
+  rm -rf "${wine_root}/Wine Devel.app"
+  cp -R "${wine_app}" "${wine_root}/"
+  [[ -x "${wine_bin}" ]] || return 1
+  echo "Wine ${wine_ver} installed from offline bundle at ${wine_root}"
+}
+
+runtime_install_dxmt_from_offline_bundle() {
+  local dxmt_root="${DXMT_ROOT:-$HOME/DXMT}"
+  local dxmt_ver="${DXMT_VERSION:-0.74}"
+  local bundle src
+  bundle="$(runtime_offline_cache_dir)"
+  src="${bundle}/dxmt-${dxmt_ver}"
+  [[ -d "${src}/i386-windows" && -d "${src}/x86_64-windows" && -d "${src}/x86_64-unix" ]] || return 1
+  if [[ -d "${dxmt_root}/i386-windows" && -d "${dxmt_root}/x86_64-windows" ]]; then
+    return 0
+  fi
+  mkdir -p "${dxmt_root}"
+  rm -rf "${dxmt_root}/i386-windows" "${dxmt_root}/x86_64-windows" "${dxmt_root}/x86_64-unix"
+  cp -R "${src}/i386-windows" "${src}/x86_64-windows" "${src}/x86_64-unix" "${dxmt_root}/"
+  echo "DXMT ${dxmt_ver} installed from offline bundle at ${dxmt_root}"
+}
+
+# Try bundled offline tarball before network download. Returns 0 if wine+dxmt ready.
+runtime_try_offline_stack() {
+  [[ "${COSMOS_USE_BUNDLED_RUNTIME:-1}" == "0" ]] && return 1
+  local tarball
+  tarball="$(runtime_find_offline_tarball || true)"
+  [[ -n "${tarball}" ]] || return 1
+  runtime_extract_offline_tarball "${tarball}" || return 1
+  runtime_install_wine_from_offline_bundle || return 1
+  runtime_install_dxmt_from_offline_bundle || return 1
+  return 0
+}

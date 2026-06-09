@@ -1,0 +1,19 @@
+{
+  "schema": "winemactricks-profile-map-v1",
+  "description": "Maps winemactricks-json tweaks and common verbs to Steam App IDs for profile seeding.",
+  "by_tweak_id": {
+    "grounded.mscoree_fix": {
+      "steam_appids": [962130],
+      "fixes": ["grounded-mscoree-fix"]
+    }
+  },
+  "by_appid": {
+    "22380": { "dependencies": ["vcrun2010", "d3dx9"] },
+    "377160": { "dependencies": ["vcrun2010", "d3dx9"] },
+    "489830": { "dependencies": ["vcrun2015", "d3dx9"] },
+    "1091500": { "dependencies": ["vcrun2019"] },
+    "1086940": { "dependencies": ["vcrun2019", "dotnet48"] },
+    "292030": { "dependencies": ["vcrun2015"] },
+    "632470": { "dependencies": ["vcrun2015", "corefonts"] }
+  }
+}

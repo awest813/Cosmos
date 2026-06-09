@@ -98,6 +98,10 @@ Defaults are the values in `run.command`.
   - Cache directory for auto-fetched DXVK/MoltenVK (default: `${COSMOS_SUPPORT_DIR}/Runtime`).
 - `COSMOS_ALLOW_LGPL`
   - `1` allows `DXMT_VERSION` above the MIT pin (v0.80) after reviewing [docs/LICENSING.md](docs/LICENSING.md). Default: unset (refuse LGPL DXMT).
+- `COSMOS_USE_BUNDLED_RUNTIME`
+  - `1` (default) extracts Wine + DXMT from `cosmos-runtime-offline.tar.xz` in the app/DMG before network download. Set `0` to always fetch from GitHub.
+- `COSMOS_OFFLINE_RUNTIME_TARBALL`
+  - Override path to the offline runtime tarball (see [docs/RUNTIME.md](docs/RUNTIME.md)).
 - `COSMOS_DETACH` (legacy alias: `MERLOT_DETACH`)
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.

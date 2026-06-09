@@ -42,4 +42,6 @@ fi
 export COSMOS_ALLOW_LGPL=1
 runtime_assert_dxmt_license || fail "0.81 should pass with COSMOS_ALLOW_LGPL=1"
 
+bash "${ROOT}/scripts/test_offline_runtime.sh" || fail "offline runtime tests failed"
+
 printf 'OK: runtime_lib tests passed\n'
