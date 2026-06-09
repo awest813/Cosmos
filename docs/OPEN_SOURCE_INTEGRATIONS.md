@@ -3,6 +3,10 @@
 How Cosmos uses external MIT-friendly (or external-tool) projects across the
 integration priorities.
 
+> **Phased adoption plan:** see [ADOPTION_PLAN.md](ADOPTION_PLAN.md) for
+> winemactricks-json, wineregdiff, VDF libraries, UMU API, profile seeding,
+> and Runtime 1.0 bundling priorities.
+
 ## Steam install & launch (MIT: steam-on-m1-wine)
 
 Upstream: https://github.com/notpop/steam-on-m1-wine (MIT)
