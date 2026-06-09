@@ -238,7 +238,7 @@ See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md) and
 | `scripts/test_steam_detection.sh` | Fixture-based unit tests (CI) |
 | `repair.command` | Winetricks deps + fix recipes (`recipes/`) |
 | `profile.command` | Apply YAML profiles → overrides + repair |
-| `cosmosdb.command` | ProtonDB lookup (hint) + local macOS reports |
+| `cosmosdb.command` | ProtonDB + AppleGamingWiki + MacGamingDB hints + local macOS reports |
 
 ```bash
 ./detect_steam_games.command --verify

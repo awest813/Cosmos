@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # CosmosDB client (roadmap 0.7) — fetch compatibility hints and store local reports.
-# Uses the MIT ProtonDB Community API as one data source (Linux/Proton reports).
+# External hints: ProtonDB, AppleGamingWiki, MacGamingDB.
 # macOS-specific reports are stored locally until a shared host exists.
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
@@ -10,12 +10,13 @@ COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosm
 COSMOSDB_DIR="${COSMOSDB_DIR:-${COSMOS_SUPPORT_DIR}/CosmosDB}"
 REPORTS_DIR="${COSMOSDB_DIR}/reports"
 CACHE_DIR="${COSMOSDB_DIR}/cache"
+COSMOSDB_CACHE_DIR="${CACHE_DIR}"
 
-# Default public instance; override with COSMOS_PROTONDB_API_URL.
-PROTONDB_API_URL="${COSMOS_PROTONDB_API_URL:-https://protondb-community-api.vercel.app}"
+# shellcheck source=scripts/lib/cosmosdb_lib.sh
+source "${SCRIPT_DIR}/scripts/lib/cosmosdb_lib.sh"
 
 log() { printf "\n==> %s\n" "$1"; }
-die() { printf "Error: %s\n" "$1" >&2; exit 1; }
+note() { printf '\n%s\n' "$1"; }
 
 usage() {
   cat <<'EOF'
@@ -24,56 +25,103 @@ CosmosDB — compatibility lookup and local macOS reports.
 Usage: cosmosdb.command <command> [args]
 
 Commands:
-  lookup <steam_appid>          Fetch ProtonDB summary (cached 24h). Hint only on macOS.
-  report <appid> <status> [note] Save a local macOS compatibility report (JSON).
-  list-reports [appid]          List local reports (optionally filter by App ID).
-  cache-clear                   Remove cached ProtonDB responses.
+  lookup <steam_appid> [source]
+      Fetch compatibility hints (cached 24h). Sources:
+        all (default) | protondb | applegamingwiki | macgamingdb
+  report <appid> <status> [note]
+      Save a local macOS compatibility report (JSON).
+  list-reports [appid]
+      List local reports (optionally filter by App ID).
+  cache-clear [source]
+      Remove cached responses (all sources, or one of: protondb,
+      applegamingwiki, macgamingdb).
 
 Status values: platinum | gold | silver | playable | bronze | broken | blocked
 
-See docs/COSMOSDB.md for the full schema and data sources.
+Environment:
+  COSMOSDB_DIR                  Storage root
+  COSMOS_PROTONDB_API_URL       ProtonDB API base
+  COSMOS_APPLEGAMINGWIKI_API_URL  MediaWiki API base
+  COSMOS_MACGAMINGDB_API_URL    MacGamingDB REST base (…/api/rest)
+  COSMOSDB_CACHE_TTL_SECONDS    Cache lifetime (default 86400)
+  COSMOSDB_HTTP_USER_AGENT      HTTP User-Agent for wiki/API requests
+
+See docs/COSMOSDB.md for schemas and attribution.
 EOF
 }
 
-require_curl() {
-  command -v curl >/dev/null 2>&1 || die "curl is required for ProtonDB lookup"
-}
-
-cache_path() {
-  printf '%s/protondb-%s.json' "${CACHE_DIR}" "$1"
+cmd_lookup_one() {
+  local source="$1" appid="$2"
+  local status_line body
+  case "${source}" in
+    protondb)
+      log "ProtonDB summary for App ID ${appid}"
+      if ! body="$(cosmosdb_fetch_protondb "${appid}")"; then
+        note "(ProtonDB lookup failed — network or API down.)"
+        return 1
+      fi
+      status_line="$(printf '%s' "${body}" | head -n1)"
+      body="$(printf '%s' "${body}" | tail -n +2)"
+      [[ -n "${body}" ]] && printf '%s\n' "${body}"
+      note "(ProtonDB reflects Linux/Proton. Treat as a weak hint for macOS Wine.)"
+      ;;
+    applegamingwiki|agw)
+      log "AppleGamingWiki macOS compatibility for App ID ${appid}"
+      if ! body="$(cosmosdb_fetch_applegamingwiki "${appid}")"; then
+        note "(AppleGamingWiki lookup failed — no page found or network error.)"
+        return 1
+      fi
+      status_line="$(printf '%s' "${body}" | head -n1)"
+      body="$(printf '%s' "${body}" | tail -n +2)"
+      [[ -n "${body}" ]] && printf '%s\n' "${body}"
+      note "(AppleGamingWiki is community-maintained. Wine/CrossOver columns are hints for Cosmos backends.)"
+      ;;
+    macgamingdb|mgd)
+      log "MacGamingDB Apple Silicon data for App ID ${appid}"
+      if ! body="$(cosmosdb_fetch_macgamingdb "${appid}")"; then
+        note "(MacGamingDB lookup failed — game not found or network error.)"
+        return 1
+      fi
+      status_line="$(printf '%s' "${body}" | head -n1)"
+      body="$(printf '%s' "${body}" | tail -n +2)"
+      [[ -n "${body}" ]] && printf '%s\n' "${body}"
+      note "(MacGamingDB reports community FPS/benchmarks. DXMT/D3D_METAL map to Cosmos graphics backends.)"
+      ;;
+    *)
+      cosmosdb_die "Unknown lookup source: ${source}"
+      ;;
+  esac
 }
 
 cmd_lookup() {
-  local appid="${1:-}"
-  [[ "${appid}" =~ ^[0-9]+$ ]] || die "Usage: cosmosdb.command lookup <steam_appid>"
-  require_curl
-  mkdir -p "${CACHE_DIR}"
-  local cache; cache="$(cache_path "${appid}")"
-  if [[ -f "${cache}" ]]; then
-    local age=$(( $(date +%s) - $(stat -f %m "${cache}" 2>/dev/null || stat -c %Y "${cache}") ))
-    if (( age < 86400 )); then
-      log "ProtonDB summary (cached) for App ID ${appid}"
-      cat "${cache}"
-      printf '\n\n(Note: ProtonDB reflects Linux/Proton. Treat as a hint for macOS Wine.)\n'
-      return 0
-    fi
-  fi
-  local url="${PROTONDB_API_URL}/api/games/${appid}/summary"
-  log "Fetching ${url}"
-  local tmp; tmp="$(mktemp "${TMPDIR:-/tmp}/cosmosdb.XXXXXX")"
-  if ! curl -fsSL --retry 3 --connect-timeout 10 -o "${tmp}" "${url}"; then
-    rm -f "${tmp}"
-    die "ProtonDB lookup failed (network or API down). Set COSMOS_PROTONDB_API_URL or try later."
-  fi
-  mv "${tmp}" "${cache}"
-  cat "${cache}"
-  printf '\n\n(Note: ProtonDB reflects Linux/Proton. Treat as a hint for macOS Wine.)\n'
+  local appid="${1:-}" source="${2:-all}"
+  [[ "${appid}" =~ ^[0-9]+$ ]] || cosmosdb_die "Usage: cosmosdb.command lookup <steam_appid> [source]"
+  cosmosdb_require_curl
+
+  case "${source}" in
+    all)
+      local failed=0
+      cmd_lookup_one protondb "${appid}" || failed=1
+      cmd_lookup_one applegamingwiki "${appid}" || failed=1
+      cmd_lookup_one macgamingdb "${appid}" || failed=1
+      (( failed == 0 )) || note "(One or more sources failed. Local Cosmos reports override external hints.)"
+      ;;
+    protondb|applegamingwiki|agw|macgamingdb|mgd)
+      local norm="${source}"
+      [[ "${norm}" == agw ]] && norm=applegamingwiki
+      [[ "${norm}" == mgd ]] && norm=macgamingdb
+      cmd_lookup_one "${norm}" "${appid}"
+      ;;
+    *)
+      cosmosdb_die "Unknown source '${source}'. Use all, protondb, applegamingwiki, or macgamingdb."
+      ;;
+  esac
 }
 
 cmd_report() {
   local appid="${1:-}" status="${2:-}" note="${3:-}"
-  [[ "${appid}" =~ ^[0-9]+$ ]] || die "Usage: cosmosdb.command report <appid> <status> [note]"
-  [[ -n "${status}" ]] || die "status required"
+  [[ "${appid}" =~ ^[0-9]+$ ]] || cosmosdb_die "Usage: cosmosdb.command report <appid> <status> [note]"
+  [[ -n "${status}" ]] || cosmosdb_die "status required"
   mkdir -p "${REPORTS_DIR}"
   local chip osv
   chip="$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "unknown")"
@@ -109,9 +157,21 @@ cmd_list_reports() {
 }
 
 cmd_cache_clear() {
-  rm -rf "${CACHE_DIR}"
+  local source="${1:-all}"
   mkdir -p "${CACHE_DIR}"
-  echo "Cleared ProtonDB cache under ${CACHE_DIR}"
+  case "${source}" in
+    all)
+      rm -f "${CACHE_DIR}"/*.json
+      echo "Cleared compatibility cache under ${CACHE_DIR}"
+      ;;
+    protondb|applegamingwiki|macgamingdb)
+      rm -f "${CACHE_DIR}/${source}-"*.json
+      echo "Cleared ${source} cache under ${CACHE_DIR}"
+      ;;
+    *)
+      cosmosdb_die "Unknown cache source '${source}'"
+      ;;
+  esac
 }
 
 main() {
@@ -120,9 +180,9 @@ main() {
     lookup) cmd_lookup "$@" ;;
     report) cmd_report "$@" ;;
     list-reports) cmd_list_reports "$@" ;;
-    cache-clear) cmd_cache_clear ;;
+    cache-clear) cmd_cache_clear "$@" ;;
     ""|--help|-h|help) usage ;;
-    *) die "Unknown command: ${cmd}" ;;
+    *) cosmosdb_die "Unknown command: ${cmd}" ;;
   esac
 }
 

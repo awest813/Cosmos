@@ -38,6 +38,19 @@ dependencies.
 - `cosmosdb.command` uses a public instance by default; override with
   `COSMOS_PROTONDB_API_URL`. ProtonDB data is community-submitted and unofficial.
 
+## AppleGamingWiki
+
+- Community wiki content (typically [CC BY-SA](https://creativecommons.org/licenses/by-sa/3.0/)).
+- Cosmos reads via the public MediaWiki API for compatibility **hints** only; attribute
+  the wiki when surfacing notes in UI. Do not bulk-republish wiki text.
+
+## MacGamingDB
+
+- Community compatibility and benchmark data from [macgamingdb.app](https://macgamingdb.app/).
+- Cosmos uses the public read REST API (`/api/rest/games/{steamAppId}`) for hints.
+- Open-source app: [neo773/macgamingdb](https://github.com/neo773/macgamingdb). Respect
+  any rate limits; cache responses locally (Cosmos defaults to 24h).
+
 ## Reference launchers (GPL vs MIT)
 
 | Project | License | Use in Cosmos |
