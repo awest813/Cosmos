@@ -272,9 +272,35 @@ struct ContentView: View {
                 .lineLimit(1)
         }
         .padding(.vertical, 2)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(profile.name). \(profile.path.isEmpty ? "No executable path set" : profile.path)")
         .accessibilityAddTraits(profile.id == selectedProfileID ? .isSelected : [])
+        .contextMenu {
+            Button {
+                selectedProfileID = profile.id
+                launchProfile(profile)
+            } label: {
+                Label("Launch", systemImage: "play.fill")
+            }
+            .disabled(profile.path.isEmpty || isRunning)
+
+            Button {
+                revealInFinder(profile.fileURL)
+            } label: {
+                Label("Reveal Config in Finder", systemImage: "folder")
+            }
+
+            if !profile.path.isEmpty {
+                Button {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(profile.path, forType: .string)
+                } label: {
+                    Label("Copy Executable Path", systemImage: "doc.on.doc")
+                }
+            }
+        }
     }
 
     // MARK: - Detail
@@ -632,11 +658,23 @@ struct ContentView: View {
                 : "Select a profile with an executable path in the sidebar"
         ) {
             guard let selectedProfile else { return }
-            runCommand(
-                script: "run.command",
-                arguments: ["--game", selectedProfile.path] + shellArguments(from: selectedProfile.args)
-            )
+            launchProfile(selectedProfile)
         }
+    }
+
+    /// Launch a saved profile's game executable through the Wine shell flow.
+    /// Shared by the Quick Launch button and the sidebar context menu.
+    private func launchProfile(_ profile: SavedProfile) {
+        guard !profile.path.isEmpty else { return }
+        runCommand(
+            script: "run.command",
+            arguments: ["--game", profile.path] + shellArguments(from: profile.args)
+        )
+    }
+
+    /// Reveal a file in Finder, selecting it in its enclosing folder.
+    private func revealInFinder(_ url: URL) {
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     private var launchSection: some View {
@@ -1669,7 +1707,19 @@ struct ContentView: View {
 
     private func selectedProfileSection(_ profile: SavedProfile) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Selected Launcher", systemImage: "gamecontroller.fill")
+            HStack {
+                sectionHeader("Selected Launcher", systemImage: "gamecontroller.fill")
+                Spacer()
+                Button {
+                    revealInFinder(profile.fileURL)
+                } label: {
+                    Label("Reveal in Finder", systemImage: "folder")
+                        .font(.subheadline.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.cosmosPrimary)
+                .help("Show this profile's config file in Finder")
+            }
 
             VStack(alignment: .leading, spacing: 14) {
                 detailRow(title: "Executable", value: profile.path)
