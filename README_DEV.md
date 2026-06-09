@@ -96,7 +96,7 @@ Defaults are the values in `run.command`.
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.
 - `COSMOS_STEAM_SILENT`
-  - `1` (default) installs Steam unattended via the NSIS `/S` flag — no wizard clicks. Cosmos polls for `steam.exe` (up to ~2 min) and, since a silent install can auto-start Steam, stops the prefix afterward so the explicit launch step is clean. Falls back to the interactive wizard if the silent run does not produce `steam.exe`.
+  - `1` (default) installs Steam unattended via the NSIS `/S` flag — no wizard clicks. Cosmos polls for a valid `steam.exe` (up to ~3 min), logs installer output to `~/Library/Application Support/Cosmos/logs/steam-install.log`, and stops lingering Wine/Steam processes afterward so the explicit launch step is clean. Falls back to the interactive wizard if the silent run does not produce a valid `steam.exe`.
   - `0` always shows the graphical `SteamSetup.exe` wizard.
 - `STEAM_LAUNCH_ARGS`
   - Extra flags passed to `steam.exe` on launch (default: `-no-cef-sandbox -cef-single-process -noverifyfiles`). Adapted from MIT [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine). Set empty to disable.
@@ -107,7 +107,7 @@ Defaults are the values in `run.command`.
 - `COSMOS_STEAM_WINEDLLOVERRIDES`
   - DLL overrides merged at Steam launch (default disables Steam overlay DLLs, sets DXMT-friendly `n,b` chain). Set empty to skip.
 - `WINE_VIRTUAL_DESKTOP` / `WINE_VIRTUAL_DESKTOP_NAME`
-  - Optional Wine virtual desktop wrapper (`auto`, `WxH`, or empty to disable). See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md).
+  - Wine virtual desktop wrapper (`auto` default, `WxH`, or empty/`0` to disable). See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md).
 - `COSMOS_LAUNCH_LOG` (legacy aliases: `MERLOT_LAUNCH_LOG`, `MERLOT_STEAM_LOG`, `COSMOS_STEAM_LOG`)
   - Path to the detached-mode launch log (default: `~/Library/Application Support/Cosmos/logs/steam-launch.log`).
 - `COSMOS_SUPPORT_DIR`
