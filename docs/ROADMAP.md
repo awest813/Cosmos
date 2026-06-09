@@ -164,8 +164,8 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] `cosmosdb.command` — ProtonDB Community API lookup + local macOS JSON reports
 - [x] AppleGamingWiki + MacGamingDB macOS hint lookups (`scripts/lib/cosmosdb_lib.sh`)
 - [x] Report schema — [COSMOSDB.md](COSMOSDB.md)
-- [ ] GitHub-hosted community compatibility database (see schema below)
-- [ ] User reports, status badges, one-click profile updates in the dashboard
+- [x] GitHub-hosted community compatibility database (`cosmos-db/` + `cosmosdb.command sync`)
+- [x] User reports, status badges, suggest/apply profile actions in the dashboard
 - [x] Open-source adoption tranche (Phases 1–4) — [ADOPTION_PLAN.md](ADOPTION_PLAN.md)
   (winemactricks-json, wineregdiff, VDF verify, UMU API runtime, profile seeding)
 - [ ] Runtime manifest + DXVK auto-fetch (Phase 5) — [RUNTIME.md](RUNTIME.md)

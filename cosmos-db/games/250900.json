@@ -1,0 +1,12 @@
+{
+  "schema": "cosmosdb-community-v0",
+  "steam_appid": 250900,
+  "title": "The Binding of Isaac",
+  "status": "playable",
+  "recommended_backend": "dxmt",
+  "windows_version": "win10",
+  "report_count": 1,
+  "sources": ["macos-wine-steam"],
+  "notes": "Imported preset from macos-wine-steam; cap frame rate via DXMT_CONFIG.",
+  "updated_at": "2026-06-01T12:00:00Z"
+}

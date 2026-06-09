@@ -6,11 +6,14 @@ set -euo pipefail
 # macOS-specific reports are stored locally until a shared host exists.
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+COSMOS_REPO_ROOT="${COSMOS_REPO_ROOT:-${SCRIPT_DIR}}"
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
 COSMOSDB_DIR="${COSMOSDB_DIR:-${COSMOS_SUPPORT_DIR}/CosmosDB}"
 REPORTS_DIR="${COSMOSDB_DIR}/reports"
 CACHE_DIR="${COSMOSDB_DIR}/cache"
+COMMUNITY_DIR="${COSMOSDB_DIR}/community"
 COSMOSDB_CACHE_DIR="${CACHE_DIR}"
+export COSMOS_REPO_ROOT COSMOSDB_DIR COSMOS_SUPPORT_DIR SCRIPT_DIR
 
 # shellcheck source=scripts/lib/cosmosdb_lib.sh
 source "${SCRIPT_DIR}/scripts/lib/cosmosdb_lib.sh"
@@ -35,6 +38,12 @@ Commands:
   cache-clear [source]
       Remove cached responses (all sources, or one of: protondb,
       applegamingwiki, macgamingdb, umu).
+  sync
+      Copy bundled cosmos-db/ (or COSMOS_COMMUNITY_DB_URL) into Application Support.
+  badge <steam_appid> [--json]
+      Resolved compatibility badge (profile > local report > community > cache).
+  suggest-profile <steam_appid> [--write]
+      Print YAML profile draft from community DB + port hints (human review).
 
 Status values: platinum | gold | silver | playable | bronze | broken | blocked
 
@@ -46,6 +55,7 @@ Environment:
   COSMOS_UMU_API_URL            UMU database API (GPL data; hints only)
   COSMOSDB_CACHE_TTL_SECONDS    Cache lifetime (default 86400)
   COSMOSDB_HTTP_USER_AGENT      HTTP User-Agent for wiki/API requests
+  COSMOS_COMMUNITY_DB_URL       Remote cosmos-db base URL (optional sync source)
 
 See docs/COSMOSDB.md for schemas and attribution.
 EOF
@@ -173,6 +183,54 @@ cmd_list_reports() {
   shopt -u nullglob
 }
 
+cmd_sync() {
+  log "Syncing community compatibility database"
+  local mode
+  mode="$(cosmosdb_sync_community)" || cosmosdb_die "Community DB sync failed"
+  echo "Community games: $(cosmosdb_community_games_dir)"
+  note "(${mode})"
+}
+
+cmd_badge() {
+  local appid="${1:-}" json=0
+  shift || true
+  [[ "${appid}" =~ ^[0-9]+$ ]] || cosmosdb_die "Usage: cosmosdb.command badge <steam_appid> [--json]"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      *) cosmosdb_die "Unknown option: $1" ;;
+    esac
+    shift
+  done
+  local body
+  body="$(cosmosdb_badge_resolve "${appid}")" || cosmosdb_die "badge resolve failed"
+  if (( json == 1 )); then
+    printf '%s\n' "${body}"
+  else
+    printf '%s' "${body}" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(f"{d[\"status\"]} ({d[\"source\"]})")'
+  fi
+}
+
+cmd_suggest_profile() {
+  local appid="${1:-}" write=0
+  shift || true
+  [[ "${appid}" =~ ^[0-9]+$ ]] || cosmosdb_die "Usage: cosmosdb.command suggest-profile <steam_appid> [--write]"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --write) write=1 ;;
+      *) cosmosdb_die "Unknown option: $1" ;;
+    esac
+    shift
+  done
+  local py="${SCRIPT_DIR}/scripts/cosmosdb_suggest_profile.py"
+  [[ -f "${py}" ]] || cosmosdb_die "Missing ${py}"
+  local comm; comm="$(cosmosdb_community_games_dir)"
+  [[ -d "${comm}" ]] || cmd_sync >/dev/null
+  local args=(--repo "${COSMOS_REPO_ROOT}" --community-dir "${comm}" "${appid}")
+  (( write == 1 )) && args=(--write "${args[@]}")
+  python3 "${py}" "${args[@]}"
+}
+
 cmd_cache_clear() {
   local source="${1:-all}"
   mkdir -p "${CACHE_DIR}"
@@ -198,6 +256,9 @@ main() {
     report) cmd_report "$@" ;;
     list-reports) cmd_list_reports "$@" ;;
     cache-clear) cmd_cache_clear "$@" ;;
+    sync) cmd_sync ;;
+    badge) cmd_badge "$@" ;;
+    suggest-profile) cmd_suggest_profile "$@" ;;
     ""|--help|-h|help) usage ;;
     *) cosmosdb_die "Unknown command: ${cmd}" ;;
   esac

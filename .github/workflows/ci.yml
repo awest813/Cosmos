@@ -85,3 +85,9 @@ jobs:
 
       - name: Runtime manifest unit tests
         run: ./scripts/test_runtime_lib.sh
+
+      - name: CosmosDB community unit tests
+        run: ./scripts/test_cosmosdb_community.sh
+
+      - name: Profile export-reg unit tests
+        run: ./scripts/test_profile_export_reg.sh

@@ -112,7 +112,7 @@ repair.command recipe-from-diff <a> <b> # write recipes/fixes/custom-<slug>.reci
 - [x] New fix recipe type `apply_reg_commands` (`REG_COMMANDS` pipe-separated).
 - [x] Document workflow in `recipes/fixes/README.md`: "fix on working Mac →
   diff → commit recipe."
-- [ ] Optional: `profile.command export-reg` after `apply` for regression capture.
+- [x] Optional: `profile.command export-reg` after `apply` for regression capture.
 
 **Success:** Contributors can turn a one-off registry fix into a shareable recipe
 in one command.
@@ -218,10 +218,11 @@ fixtures; optional native Steam path documented and tested.
 
 **Tasks:**
 
-- [ ] Create `cosmos-db/` directory schema (JSON per appid or SQLite export).
-- [ ] Borrow field names from macgamingdb + local `cosmosdb-report-v0`.
-- [ ] `cosmosdb.command sync` to pull community reports.
-- [ ] Dashboard badges + one-click "Apply community profile" (roadmap 0.7).
+- [x] Create `cosmos-db/` directory schema (JSON per appid).
+- [x] Borrow field names from macgamingdb + local `cosmosdb-report-v0`.
+- [x] `cosmosdb.command sync` to pull community reports (bundled + optional URL).
+- [x] Dashboard badges (`CosmosBadgeStore`) + **Suggest Profile Draft** /
+  **Apply YAML Profile** buttons (roadmap 0.7).
 
 **Phase 3 exit criteria:** UMU lookup live; community DB sync; dashboard shows
 badges at point-of-use.
@@ -269,7 +270,7 @@ badges at point-of-use.
 
 - [x] Add `docs/PROTONFIXES_PORTING.md` with the workflow above.
 - [x] Pilot: port hints for Fallout NV/4, Skyrim SE, Cyberpunk, Hades (`scripts/protonfix_port_hint.py`, `profile.command port-hint`).
-- [ ] Link `cosmosdb.command lookup` → "suggest profile draft" (human review PR).
+- [x] `cosmosdb.command suggest-profile` → YAML draft (human review PR).
 
 **Phase 4 exit criteria:** 50+ validated profiles; porting guide; automated
 draft generation from macos-wine-steam diff.

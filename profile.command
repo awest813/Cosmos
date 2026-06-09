@@ -33,6 +33,10 @@ OVERRIDES_DIR="${COSMOS_OVERRIDES_DIR:-${CONFIGS_DIR}/overrides}"
 
 # shellcheck source=scripts/lib/profile_lib.sh
 source "${PROFILE_LIB}"
+if [[ -f "${SCRIPT_DIR}/scripts/lib/regdiff_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/regdiff_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/regdiff_lib.sh"
+fi
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
@@ -52,6 +56,8 @@ Commands:
   apply <path>                  export-override + install-deps + apply-fixes from profile.
   for-appid <appid> <cmd...>    Run show|apply using the profile matching steam_appid.
   port-hint <steam_appid>       Print umu-protonfixes porting hints (reference only).
+  export-reg <path-or-id> [label]
+                                Snapshot WINEPREFIX/user.reg (wineregdiff workflow).
 
 Examples:
   profile.command list
@@ -59,7 +65,20 @@ Examples:
   profile.command validate
   profile.command export-override profiles/steam/steam-250900-binding-of-isaac.yaml 250900
   profile.command apply profiles/steam/steam-22380-fallout-new-vegas.yaml
+  WINEPREFIX=~/.wine-steam-11 profile.command export-reg profiles/steam/steam-22380-fallout-new-vegas.yaml
 EOF
+}
+
+cmd_export_reg() {
+  declare -F regdiff_capture_user_reg >/dev/null 2>&1 \
+    || die "regdiff_lib.sh not available"
+  local file label appid
+  file="$(resolve_profile "${1:-}")" || die "Profile not found: $1"
+  appid="$(profile_get_scalar "${file}" steam_appid)"
+  label="${2:-profile-${appid}-$(date +%Y%m%d)}"
+  export WINEPREFIX
+  [[ -n "${WINEPREFIX:-}" ]] || die "WINEPREFIX required (set explicitly or via bottle.conf)"
+  regdiff_capture_user_reg "${label}"
 }
 
 resolve_profile() {
@@ -282,6 +301,7 @@ main() {
       esac
       ;;
     port-hint) cmd_port_hint "${1:-}" ;;
+    export-reg) cmd_export_reg "${1:-}" "${2:-}" ;;
     ""|--help|-h|help) usage ;;
     *) die "Unknown command: ${cmd}" ;;
   esac
