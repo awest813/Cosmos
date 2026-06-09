@@ -76,6 +76,17 @@ Matches the CosmosDB rating scale:
 - `broken` — does not work
 - `blocked` — anti-cheat / DRM / AVX / etc.
 
+## Validation
+
+Run `./profile.command validate` to lint every profile (or
+`./profile.command validate <path-or-id>` for one). It checks that the required
+fields are present, that `store`, `status`, `recommended_backend`, and
+`settings.windows_version` use allowed values, that `store: steam` profiles have
+a numeric `steam_appid` whose value matches the `steam-<appid>-<slug>.yaml`
+filename, and that every `dependencies`/`fixes` entry resolves to a recipe under
+`recipes/`. CI runs the same check via `scripts/test_profiles.sh`, so a typo in a
+backend name, status, or recipe id fails the build instead of silently shipping.
+
 ## Relationship to today's `cosmos_configs/*.conf`
 
 The current per-game configs are flat shell files that declare env-var presets:

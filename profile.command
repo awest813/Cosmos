@@ -46,6 +46,8 @@ Usage: profile.command <command> [args]
 Commands:
   list                          List profiles (store / appid / name).
   show <path-or-id>             Print resolved settings from a profile file.
+  validate [path-or-id]         Lint one profile (or all) against the v0 schema
+                                and check referenced recipes exist.
   export-override <path> <appid> Write cosmos_configs/overrides/<appid>.env from profile.
   apply <path>                  export-override + install-deps + apply-fixes from profile.
   for-appid <appid> <cmd...>    Run show|apply using the profile matching steam_appid.
@@ -53,6 +55,7 @@ Commands:
 Examples:
   profile.command list
   profile.command show profiles/steam/steam-250900-binding-of-isaac.yaml
+  profile.command validate
   profile.command export-override profiles/steam/steam-250900-binding-of-isaac.yaml 250900
   profile.command apply profiles/steam/steam-22380-fallout-new-vegas.yaml
 EOF
@@ -145,11 +148,117 @@ cmd_apply() {
   log "Profile applied. Re-run detect_steam_games.command to refresh launchers if needed."
 }
 
+# --- validation -------------------------------------------------------------
+
+# in_set <value> <allowed...> -> 0 if value is one of the allowed words.
+in_set() {
+  local needle="$1" item
+  shift
+  for item in "$@"; do
+    [[ "${needle}" == "${item}" ]] && return 0
+  done
+  return 1
+}
+
+# validate_one <file> -> prints FAIL lines, returns the number of errors found.
+validate_one() {
+  local file="$1"
+  local errs=0
+  err() { printf '  FAIL %s: %s\n' "${file##*/}" "$1" >&2; errs=$((errs + 1)); }
+
+  local id name store status backend
+  id="$(profile_get_scalar "${file}" id)"
+  name="$(profile_get_scalar "${file}" name)"
+  store="$(profile_get_scalar "${file}" store)"
+  status="$(profile_get_scalar "${file}" status)"
+  backend="$(profile_get_scalar "${file}" recommended_backend)"
+
+  [[ -n "${id}" ]] || err "missing required field: id"
+  [[ -n "${name}" ]] || err "missing required field: name"
+  [[ -n "${store}" ]] || err "missing required field: store"
+  [[ -n "${status}" ]] || err "missing required field: status"
+  [[ -n "${backend}" ]] || err "missing required field: recommended_backend"
+
+  if [[ -n "${store}" ]] && ! in_set "${store}" steam gog epic itch standalone; then
+    err "invalid store: ${store}"
+  fi
+  if [[ -n "${status}" ]] && ! in_set "${status}" \
+      platinum gold silver playable bronze broken blocked; then
+    err "invalid status: ${status}"
+  fi
+  if [[ -n "${backend}" ]] && ! in_set "${backend}" \
+      recommended d3dmetal dxmt dxvk wined3d; then
+    err "invalid recommended_backend: ${backend}"
+  fi
+
+  local winver; winver="$(profile_get_scalar "${file}" settings.windows_version)"
+  if [[ -n "${winver}" ]] && ! in_set "${winver}" winxp win7 win8 win10 win11; then
+    err "invalid settings.windows_version: ${winver}"
+  fi
+
+  # store-specific required identifiers
+  if [[ "${store}" == "steam" ]]; then
+    local appid; appid="$(profile_get_scalar "${file}" steam_appid)"
+    if [[ "${appid}" =~ ^[0-9]+$ ]]; then
+      # filename convention: steam-<appid>-<slug>.yaml
+      local base="${file##*/}"
+      [[ "${base}" == steam-"${appid}"-* ]] \
+        || err "filename ${base} does not match steam_appid ${appid}"
+    else
+      err "store: steam requires numeric steam_appid"
+    fi
+  elif [[ "${store}" == "standalone" ]]; then
+    local exe; exe="$(profile_get_scalar "${file}" exe_path)"
+    [[ -n "${exe}" ]] || err "store: standalone requires exe_path"
+  fi
+
+  # referenced recipes must exist on disk
+  local dep fix
+  while IFS= read -r dep; do
+    [[ -n "${dep}" ]] || continue
+    [[ -f "${SCRIPT_DIR}/recipes/dependencies/${dep}.recipe" ]] \
+      || err "unknown dependency recipe: ${dep}"
+  done < <(profile_list_dependencies "${file}")
+  while IFS= read -r fix; do
+    [[ -n "${fix}" ]] || continue
+    [[ -f "${SCRIPT_DIR}/recipes/fixes/${fix}.recipe" ]] \
+      || err "unknown fix recipe: ${fix}"
+  done < <(profile_list_fixes "${file}")
+
+  return "${errs}"
+}
+
+cmd_validate() {
+  local target="${1:-}"
+  local files=()
+  if [[ -n "${target}" ]]; then
+    local f; f="$(resolve_profile "${target}")" || die "Profile not found: ${target}"
+    files=("${f}")
+  else
+    shopt -s nullglob
+    files=("${PROFILES_DIR}"/*/*.yaml "${PROFILES_DIR}"/*/*.yml)
+    shopt -u nullglob
+  fi
+  [[ "${#files[@]}" -gt 0 ]] || die "No profiles found under ${PROFILES_DIR}"
+
+  local bad=0 file
+  for file in "${files[@]}"; do
+    if validate_one "${file}"; then
+      printf '  ok  %s\n' "${file##*/}"
+    else
+      bad=$((bad + 1))
+    fi
+  done
+  [[ "${bad}" -eq 0 ]] || die "${bad} of ${#files[@]} profile(s) failed validation"
+  log "All ${#files[@]} profile(s) valid."
+}
+
 main() {
   local cmd="${1:-}"; shift || true
   case "${cmd}" in
     list) cmd_list ;;
     show) cmd_show "${1:-}" ;;
+    validate) cmd_validate "${1:-}" ;;
     export-override) cmd_export_override "${1:-}" "${2:-}" ;;
     apply) cmd_apply "${1:-}" ;;
     for-appid)

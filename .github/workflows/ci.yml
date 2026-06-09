@@ -51,6 +51,9 @@ jobs:
       - name: Profile library unit tests
         run: ./scripts/test_profile_lib.sh
 
+      - name: Profile schema validation tests
+        run: ./scripts/test_profiles.sh
+
       - name: Repair diagnose unit tests
         run: ./scripts/test_repair_diagnose.sh
 
