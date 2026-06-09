@@ -117,6 +117,19 @@ When a bottle is selected, `COSMOS_BOTTLE` is passed to CLI commands automatical
 
 Fix categories align with [Cellar](https://github.com/lasermaze/Cellar) / [D4Mac](https://github.com/MichaelLod/D4Mac) docs (caches, kill Wine, Windows version).
 
+**winemactricks-json + wineregdiff (adoption Phase 1)**
+
+| Project | License | Integration |
+| --- | --- | --- |
+| [winemactricks-json](https://github.com/Alien4042x/winemactricks-json) | MIT | Vendored `third_party/winemactricks-json/`; `scripts/import_winemactricks.sh` → `recipes/fixes/` |
+| [wineregdiff](https://github.com/castaneai/wineregdiff) | MIT | Optional; `repair.command capture-reg` / `diff-reg` / `recipe-from-diff` |
+
+```bash
+./scripts/import_winemactricks.sh
+./repair.command capture-reg before && ./repair.command capture-reg after
+./repair.command recipe-from-diff before after my-fix
+```
+
 ## 3. CosmosDB (0.7)
 
 - `cosmosdb.command` — ProtonDB + AppleGamingWiki + MacGamingDB lookups + local macOS JSON reports

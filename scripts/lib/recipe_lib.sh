@@ -5,7 +5,8 @@
 recipe_load() {
   local file="$1"
   RECIPE_TYPE="" RECIPE_ID="" RECIPE_DESCRIPTION="" RECIPE_WINETRICKS=""
-  RECIPE_ACTION="" RECIPE_SCRIPT=""
+  RECIPE_ACTION="" RECIPE_SCRIPT="" RECIPE_DLL_OVERRIDE="" RECIPE_SOURCE=""
+  RECIPE_REG_COMMANDS=""
   [[ -f "${file}" ]] || return 1
   local line key val
   while IFS= read -r line || [[ -n "${line}" ]]; do
@@ -21,6 +22,9 @@ recipe_load() {
       WINETRICKS) RECIPE_WINETRICKS="${val}" ;;
       ACTION) RECIPE_ACTION="${val}" ;;
       SCRIPT) RECIPE_SCRIPT="${val}" ;;
+      DLL_OVERRIDE) RECIPE_DLL_OVERRIDE="${val}" ;;
+      SOURCE) RECIPE_SOURCE="${val}" ;;
+      REG_COMMANDS) RECIPE_REG_COMMANDS="${val}" ;;
     esac
   done < "${file}"
   [[ -n "${RECIPE_ID}" ]] || return 1

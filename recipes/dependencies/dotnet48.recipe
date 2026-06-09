@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=dotnet48
+DESCRIPTION=.NET Framework 4.8 (winetricks)
+WINETRICKS=dotnet48

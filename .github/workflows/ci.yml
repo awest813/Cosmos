@@ -57,6 +57,9 @@ jobs:
       - name: Repair diagnose unit tests
         run: ./scripts/test_repair_diagnose.sh
 
+      - name: winemactricks import unit tests
+        run: ./scripts/test_import_winemactricks.sh
+
       - name: Store import unit tests
         run: ./scripts/test_import_lib.sh
 

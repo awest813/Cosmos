@@ -26,6 +26,17 @@ dependencies.
 - Downloaded at runtime from Gcenx release tarballs; verify license on each
   release artifact before bundling offline installers.
 
+## winemactricks-json
+
+- MIT database vendored under `third_party/winemactricks-json/`.
+- Upstream: [Alien4042x/winemactricks-json](https://github.com/Alien4042x/winemactricks-json).
+- Imported into `recipes/fixes/` via `scripts/import_winemactricks.sh` (retain LICENSE notice).
+
+## wineregdiff
+
+- MIT optional tool for registry snapshots: [castaneai/wineregdiff](https://github.com/castaneai/wineregdiff).
+- Cosmos does not bundle it; `repair.command diff-reg` shells out when installed.
+
 ## Winetricks (repair engine)
 
 - **LGPL-2.1** — Cosmos **does not vendor** winetricks.

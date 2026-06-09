@@ -80,15 +80,14 @@ scripts/import_winemactricks.sh     # one-time / CI sync → Cosmos recipes
 
 **Tasks:**
 
-- [ ] Vendor JSON under `third_party/winemactricks-json/` with LICENSE + README
+- [x] Vendor JSON under `third_party/winemactricks-json/` with LICENSE + README
   pointing at upstream.
-- [ ] Add `scripts/import_winemactricks.sh` to map JSON entries → `.recipe`
+- [x] Add `scripts/import_winemactricks.sh` to map JSON entries → `.recipe`
   files (idempotent; skip duplicates).
-- [ ] Extend `recipe_lib.sh` if needed for `REGISTRY_KEY`, `REGISTRY_VALUE`,
-  `DLL_OVERRIDE` fields already partially used by fixes.
-- [ ] Wire high-frequency deps (`vcrun2019`, `dotnet48`, `corefonts`) into
+- [x] Extend `recipe_lib.sh` for `DLL_OVERRIDE`, `SOURCE`, `REG_COMMANDS`.
+- [x] Wire high-frequency deps (`vcrun2019`, `dotnet48`, `corefonts`) into
   `repair.command diagnose` missing-runtime hints.
-- [ ] Dashboard: surface new deps in Repair & Dependencies (no UI change if
+- [x] Dashboard: surface new deps in Repair & Dependencies (no UI change if
   `list-deps` auto-discovers).
 
 **Success:** Dependency catalog grows from 3 → 15+ Mac-relevant entries without

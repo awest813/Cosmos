@@ -28,7 +28,24 @@ Winetricks is **LGPL** — invoked as an external tool; see [docs/LICENSING.md](
 | --- | --- |
 | `vcrun2010` | `vcrun2010` |
 | `vcrun2015` | `vcrun2015` |
+| `vcrun2019` | `vcrun2019` |
+| `dotnet48` | `dotnet48` |
+| `corefonts` | `corefonts` |
 | `d3dx9` | `d3dx9` |
 
-Add more by copying a `.recipe` file and listing the verb from [winetricks](https://github.com/Winetricks/winetricks).
+### winemactricks-json import
+
+Mac-oriented tweaks from [winemactricks-json](https://github.com/Alien4042x/winemactricks-json)
+(MIT) are imported into `recipes/fixes/`:
+
+```bash
+./scripts/import_winemactricks.sh          # from vendored JSON
+./scripts/import_winemactricks.sh --sync   # refresh JSON, then import
+```
+
+Generated recipes include `SOURCE=winemactricks:<id>` and are safe to re-run
+(idempotent; skips hand-written recipes unless `--force`).
+
+Add more by copying a `.recipe` file, importing from winemactricks-json, or
+listing a verb from [winetricks](https://github.com/Winetricks/winetricks).
 </content>
