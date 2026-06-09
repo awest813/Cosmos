@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=corefonts
+DESCRIPTION=Microsoft core fonts (winetricks)
+WINETRICKS=corefonts

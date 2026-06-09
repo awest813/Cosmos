@@ -66,4 +66,22 @@ if { printf 'Wrong\n---WIKITEXT---\n'; cat "${bad_fixture}"; } | cosmosdb_agw_pa
 fi
 rm -f "${bad_fixture}"
 
+umu_out="$(cosmosdb_umu_parse_fixture 1091500 "${FIX}/umu_1091500.json")"
+printf '%s' "${umu_out}" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert d["source"] == "umu"
+assert d["umu_id"] == "umu-1091500"
+assert d["has_fix_database_entry"] is True
+assert d["title"] == "Cyberpunk 2077"
+assert len(d["store_entries"]) == 2
+'
+
+empty_umu="$(printf '[]' | cosmosdb_normalize_umu 999999)"
+printf '%s' "${empty_umu}" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert d["has_fix_database_entry"] is False
+'
+
 printf 'OK: cosmosdb_lib tests passed\n'

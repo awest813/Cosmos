@@ -37,6 +37,25 @@ In the **Cosmos** dashboard:
 3. **Launch Steam** — sign in and install a Windows game.
 4. **Detect Games** → **Build Launchers**.
 
+## Dual-path Steam detection (optional)
+
+By default Cosmos scans Steam libraries **inside the Wine prefix** only. To also
+scan native macOS Steam (for validation / discovery):
+
+```bash
+COSMOS_STEAM_NATIVE_SCAN=1 ./detect_steam_games.command --list
+```
+
+Native-only titles are tagged `[native only]` and are **not** turned into Wine
+launchers unless the same App ID is also installed in the prefix.
+
+Optional cross-checks when verifying detection:
+
+```bash
+COSMOS_VERIFY_VDF_PYTHON=1 ./scripts/verify_steam_detection.command
+COSMOS_VERIFY_STEAM_LOCATE=1 ./scripts/verify_steam_detection.command
+```
+
 ## What `--setup-steam` does
 
 `run.command --setup-steam` runs the same preparation as a normal Steam launch,

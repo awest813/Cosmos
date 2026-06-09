@@ -147,5 +147,34 @@ case "${list_out}" in
   *) assert_fail "reports skipped partial count" false ;;
 esac
 
+printf '\n== steam_lib native dual-path scan ==\n'
+
+NATIVE_FIXTURE="${REPO_ROOT}/scripts/fixtures/steam_detection/native_steam"
+COSMOS_STEAM_NATIVE_PATH="${NATIVE_FIXTURE}"
+COSMOS_STEAM_NATIVE_SCAN=1
+export COSMOS_STEAM_NATIVE_PATH COSMOS_STEAM_NATIVE_SCAN
+
+native_dirs="$(steam_collect_native_steamapps_dirs | tr '\n' '|')"
+case "${native_dirs}" in
+  *"native_steam/steamapps"*) assert_ok "native fixture steamapps discovered" true ;;
+  *) assert_fail "native fixture steamapps discovered" false ;;
+esac
+
+list_native="$("${REPO_ROOT}/detect_steam_games.command" --list 2>&1)" || true
+case "${list_native}" in
+  *"620"*"Portal 2"*) assert_ok "native scan lists portal 2" true ;;
+  *) assert_fail "native scan lists portal 2" false ;;
+esac
+case "${list_native}" in
+  *"native only"*) assert_ok "portal 2 tagged native only" true ;;
+  *) assert_fail "portal 2 tagged native only" false ;;
+esac
+case "${list_native}" in
+  *"570"*"Dota 2"*) assert_ok "wine games still listed with native scan" true ;;
+  *) assert_fail "wine games still listed with native scan" false ;;
+esac
+
+unset COSMOS_STEAM_NATIVE_PATH COSMOS_STEAM_NATIVE_SCAN
+
 printf '\nResults: %s passed, %s failed\n' "${pass}" "${fail}"
 (( fail == 0 ))

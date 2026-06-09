@@ -10,6 +10,7 @@ CosmosDB is Cosmos's compatibility layer: **hints from community sources** plus
 | [ProtonDB Community API](https://github.com/Trsnaqe/protondb-community-api) | Linux/Proton ratings by Steam App ID | MIT |
 | [AppleGamingWiki](https://applegamingwiki.com/) | macOS Wine / CrossOver / Parallels tiers + notes | Community wiki (CC BY-SA); MediaWiki API |
 | [MacGamingDB](https://macgamingdb.app/) | Apple Silicon FPS benchmarks, play method, translation layer | Community site; public read REST API |
+| [UMU database](https://umu.openwinecomponents.org/) | Proton/umu-protonfixes fix metadata by `umu-{appid}` | GPL-3.0 data repo; **runtime API hints only** |
 | Local `~/Library/Application Support/Cosmos/CosmosDB/reports/` | macOS-specific user reports | User data |
 
 **Hint priority:** local Cosmos reports > MacGamingDB / AppleGamingWiki > ProtonDB.
@@ -26,6 +27,7 @@ AppleGamingWiki **Wine** rows often reflect Porting Kit / GPTK paths. MacGamingD
 ./cosmosdb.command lookup 22380 applegamingwiki    # AGW only
 ./cosmosdb.command lookup 1145360 macgamingdb      # MacGamingDB only
 ./cosmosdb.command lookup 22380 protondb            # ProtonDB only
+./cosmosdb.command lookup 1091500 umu               # UMU fix metadata (if listed)
 ./cosmosdb.command report 22380 gold "Stable on M2, DXMT, win10 bottle"
 ./cosmosdb.command list-reports
 ./cosmosdb.command cache-clear                      # all cached hints
@@ -38,6 +40,7 @@ Environment:
 - `COSMOS_PROTONDB_API_URL` — ProtonDB API base
 - `COSMOS_APPLEGAMINGWIKI_API_URL` — MediaWiki API (default `applegamingwiki.com/w/api.php`)
 - `COSMOS_MACGAMINGDB_API_URL` — REST base (default `https://macgamingdb.app/api/rest`)
+- `COSMOS_UMU_API_URL` — UMU API base (default `https://umu.openwinecomponents.org/umu_api.php`)
 - `COSMOSDB_CACHE_TTL_SECONDS` — cache lifetime (default `86400`)
 - `COSMOSDB_HTTP_USER_AGENT` — User-Agent for wiki/API requests
 
@@ -105,6 +108,24 @@ MacGamingDB performance tiers: `EXCELLENT`, `VERY_GOOD`, `GOOD`, `PLAYABLE`,
 Same scale as profiles and [PROFILE_FORMAT.md](PROFILE_FORMAT.md):
 
 `platinum` · `gold` · `silver` / `playable` · `bronze` · `broken` · `blocked`
+
+### UMU (`umu-{appid}.json`)
+
+```json
+{
+  "source": "umu",
+  "steam_appid": 1091500,
+  "umu_id": "umu-1091500",
+  "title": "Cyberpunk 2077",
+  "has_fix_database_entry": true,
+  "store_entries": [
+    { "title": "Cyberpunk 2077", "umu_id": "umu-1091500", "store": "egs", "codename": "Ginger" }
+  ],
+  "hint": "Port Proton fix ideas to Cosmos recipes; do not import GPL scripts."
+}
+```
+
+Query: `GET …/umu_api.php?umu_id=umu-{steam_appid}`. Empty `store_entries` means no UMU listing.
 
 ## Future work
 

@@ -130,6 +130,22 @@ repair_diagnose_scan_log() {
   Try: ./repair.command install-dep vcrun2015"
   fi
 
+  if printf '%s' "${blob}" | grep -Eiq 'VCRUNTIME140_1|MSVCP140_1|vcrun2019|Visual C\+\+.*2019'; then
+    repair_diagnose_suggest dep vcrun2019 \
+      "[runtime] Visual C++ 2019 runtime may be missing
+  Try: ./repair.command install-dep vcrun2019"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'mscoree|mscoree\.dll|\.NET Framework|clr\.dll|mscorlib'; then
+    repair_diagnose_suggest fix grounded-mscoree-fix \
+      "[runtime] .NET / mscoree.dll issues detected (common Unity black screen)
+  Try: ./repair.command apply-fix grounded-mscoree-fix
+       or: ./repair.command install-dep dotnet48"
+    repair_diagnose_note dep-dotnet \
+      "[runtime] .NET Framework may be required
+  Try: ./repair.command install-dep dotnet48"
+  fi
+
   if printf '%s' "${blob}" | grep -Eiq 'MSVCP100|VCRUNTIME100|vcrun2010|Visual C\+\+.*2010'; then
     repair_diagnose_suggest dep vcrun2010 \
       "[runtime] Visual C++ 2010 runtime may be missing
@@ -308,7 +324,7 @@ repair_suggestion_is_auto_applicable() {
   local token="$1"
   case "${token}" in
     dep:*) return 0 ;;
-    fix:kill_wine|fix:clear_steam_caches|fix:disable_retina|fix:fix_steam_ssl|fix:install_steamwebhelper_wrapper|fix:reinstall_steam|fix:seed_japanese_fonts)
+    fix:kill_wine|fix:clear_steam_caches|fix:disable_retina|fix:fix_steam_ssl|fix:install_steamwebhelper_wrapper|fix:reinstall_steam|fix:seed_japanese_fonts|fix:grounded-mscoree-fix)
       return 0
       ;;
     *) return 1 ;;

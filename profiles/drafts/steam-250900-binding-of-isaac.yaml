@@ -1,0 +1,14 @@
+# Generated from macos-wine-steam/binding-of-isaac.conf — review before merging
+id: binding_of_isaac
+name: "Binding of Isaac"
+store: steam
+steam_appid: 250900
+status: playable
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    DXMT_CONFIG: "d3d11.preferredMaxFrameRate=60;"
+notes: "Imported from macos-wine-steam/binding-of-isaac.conf. Validate with ./profile.command validate."

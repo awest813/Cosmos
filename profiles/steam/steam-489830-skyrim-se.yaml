@@ -12,4 +12,7 @@ dependencies:
   - vcrun2015
 fixes:
   - disable_retina
-notes: "Creation Engine D3D11 game. Use the in-game launcher to set resolution. Mod-heavy installs may need extra winetricks deps."
+notes: >
+  Creation Engine D3D11 game. Use the in-game launcher to set resolution.
+  Protonfix reference (GPL): may swap SkyrimSELauncher.exe for skse64_loader.exe
+  when using SKSE. Mod-heavy installs may need extra winetricks deps.

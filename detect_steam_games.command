@@ -110,6 +110,10 @@ Usage: detect_steam_games.command [--list|--write|--install|--verify]
 
 Partial installs (downloads in progress) are skipped by default. Set
 COSMOS_DETECT_INCLUDE_PARTIAL=1 to include them.
+
+Set COSMOS_STEAM_NATIVE_SCAN=1 to also scan native macOS/Linux Steam libraries
+(validation / discovery). Native-only titles are listed but not turned into
+Wine launchers unless they also appear in the Wine prefix.
 EOF
 }
 
@@ -160,6 +164,69 @@ safe_app_name() {
 win_to_unix() { steam_win_to_unix "$@"; }
 find_steam_dir() { steam_find_steam_dir; }
 collect_steamapps_dirs() { steam_collect_steamapps_dirs "$@"; }
+collect_detection_steamapps_dirs() { steam_collect_detection_steamapps_dirs "$@"; }
+collect_native_steamapps_dirs() { steam_collect_native_steamapps_dirs; }
+
+# Space-padded App ID lists for dual-path source tracking (bash 3.2 safe).
+DETECT_WINE_APPIDS=""
+DETECT_NATIVE_APPIDS=""
+
+detect_mark_wine_appid() {
+  local id="$1"
+  [[ "${DETECT_WINE_APPIDS}" == *" ${id} "* ]] || DETECT_WINE_APPIDS+=" ${id} "
+}
+
+detect_mark_native_appid() {
+  local id="$1"
+  [[ "${DETECT_NATIVE_APPIDS}" == *" ${id} "* ]] || DETECT_NATIVE_APPIDS+=" ${id} "
+}
+
+detect_appid_source_label() {
+  local id="$1"
+  local in_wine=0 in_native=0
+  [[ "${DETECT_WINE_APPIDS}" == *" ${id} "* ]] && in_wine=1
+  [[ "${DETECT_NATIVE_APPIDS}" == *" ${id} "* ]] && in_native=1
+  if (( in_wine && in_native )); then
+    printf '  [wine+native]'
+  elif (( in_native )); then
+    printf '  [native only]'
+  elif (( in_wine )); then
+    printf ''
+  else
+    printf ''
+  fi
+}
+
+detect_appid_in_wine_prefix() {
+  [[ "${DETECT_WINE_APPIDS}" == *" $1 "* ]]
+}
+
+scan_steamapps_library() {
+  local steamapps="$1" source="$2"
+  local acf appid name
+  [[ -d "${steamapps}" ]] || return 0
+  shopt -s nullglob
+  for acf in "${steamapps}"/appmanifest_*.acf; do
+    appid="${acf##*/appmanifest_}"; appid="${appid%.acf}"
+    [[ "${appid}" =~ ^[0-9]+$ ]] || continue
+    name="$(steam_acf_read_field "${acf}" "name")"
+    [[ -n "${name}" ]] || name="Steam App ${appid}"
+    is_ignored_app "${appid}" "${name}" && continue
+    if ! steam_acf_is_playable "${acf}"; then
+      DETECT_SKIPPED_PARTIAL=$((DETECT_SKIPPED_PARTIAL + 1))
+      continue
+    fi
+    case "${source}" in
+      wine) detect_mark_wine_appid "${appid}" ;;
+      native) detect_mark_native_appid "${appid}" ;;
+    esac
+    [[ "${DETECT_SEEN}" == *" ${appid} "* ]] && continue
+    DETECT_SEEN+=" ${appid} "
+    DETECT_APPIDS+=("${appid}")
+    DETECT_NAMES+=("${name}")
+  done
+  shopt -u nullglob
+}
 
 # Record Steam App IDs that already have a hand-curated (non auto-generated) config.
 curated_appids=""
@@ -377,32 +444,31 @@ main() {
 
   collect_curated_appids
 
-  # Gather (appid, name) pairs from every library, deduped by appid.
+  # Gather (appid, name) pairs from Wine prefix libraries (and optional native Steam).
   local -a appids=() names=()
-  local seen="" skipped_partial=0
-  local steamapps acf appid name
+  DETECT_WINE_APPIDS=""
+  DETECT_NATIVE_APPIDS=""
+  DETECT_SEEN=""
+  DETECT_SKIPPED_PARTIAL=0
+  DETECT_APPIDS=()
+  DETECT_NAMES=()
+  local steamapps
+
   while IFS= read -r steamapps; do
-    [[ -d "${steamapps}" ]] || continue
-    shopt -s nullglob
-    for acf in "${steamapps}"/appmanifest_*.acf; do
-      appid="${acf##*/appmanifest_}"; appid="${appid%.acf}"
-      [[ "${appid}" =~ ^[0-9]+$ ]] || continue
-      [[ "${seen}" == *" ${appid} "* ]] && continue
-      seen+=" ${appid} "
-      name="$(steam_acf_read_field "${acf}" "name")"
-      [[ -n "${name}" ]] || name="Steam App ${appid}"
-      is_ignored_app "${appid}" "${name}" && continue
-      if ! steam_acf_is_playable "${acf}"; then
-        skipped_partial=$((skipped_partial + 1))
-        continue
-      fi
-      appids+=("${appid}"); names+=("${name}")
-    done
-    shopt -u nullglob
+    scan_steamapps_library "${steamapps}" "wine"
   done < <(collect_steamapps_dirs "${steam_dir}")
 
-  if (( skipped_partial > 0 )); then
-    printf '  (skipped %s partial/in-progress install(s); set COSMOS_DETECT_INCLUDE_PARTIAL=1 to include)\n' "${skipped_partial}"
+  if [[ "${COSMOS_STEAM_NATIVE_SCAN:-0}" == "1" ]]; then
+    while IFS= read -r steamapps; do
+      scan_steamapps_library "${steamapps}" "native"
+    done < <(collect_native_steamapps_dirs)
+  fi
+
+  appids=("${DETECT_APPIDS[@]}")
+  names=("${DETECT_NAMES[@]}")
+
+  if (( DETECT_SKIPPED_PARTIAL > 0 )); then
+    printf '  (skipped %s partial/in-progress install(s); set COSMOS_DETECT_INCLUDE_PARTIAL=1 to include)\n' "${DETECT_SKIPPED_PARTIAL}"
   fi
 
   if (( ${#appids[@]} == 0 )); then
@@ -420,13 +486,18 @@ main() {
     return
   fi
 
-  log "Detected ${#appids[@]} installed Steam game(s) in ${WINEPREFIX}"
+  if [[ "${COSMOS_STEAM_NATIVE_SCAN:-0}" == "1" ]]; then
+    log "Detected ${#appids[@]} installed Steam game(s) (Wine prefix + native Steam scan)"
+  else
+    log "Detected ${#appids[@]} installed Steam game(s) in ${WINEPREFIX}"
+  fi
 
   if [[ "${MODE}" == "list" || "${MODE}" == "verify" ]]; then
     local i
     for i in "${!appids[@]}"; do
       local note=""
-      is_curated "${appids[$i]}" && note="  [curated config exists]"
+      note="$(detect_appid_source_label "${appids[$i]}")"
+      is_curated "${appids[$i]}" && note+="  [curated config exists]"
       if profile_find_by_appid "${PROFILES_DIR}" "${appids[$i]}" >/dev/null 2>&1; then
         local pf status backend
         pf="$(profile_find_by_appid "${PROFILES_DIR}" "${appids[$i]}")"
@@ -454,6 +525,12 @@ main() {
 
   local written=0 skipped=0 i file
   for i in "${!appids[@]}"; do
+    if ! detect_appid_in_wine_prefix "${appids[$i]}"; then
+      printf '  skip   %-8s %s (native Steam only — not in Wine prefix)\n' \
+        "${appids[$i]}" "${names[$i]}"
+      skipped=$((skipped + 1))
+      continue
+    fi
     if is_curated "${appids[$i]}"; then
       printf '  skip   %-8s %s (curated config already exists)\n' "${appids[$i]}" "${names[$i]}"
       skipped=$((skipped + 1))

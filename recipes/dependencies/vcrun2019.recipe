@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=vcrun2019
+DESCRIPTION=Microsoft Visual C++ 2019 Redistributable (winetricks)
+WINETRICKS=vcrun2019

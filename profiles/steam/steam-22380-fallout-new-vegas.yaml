@@ -14,5 +14,9 @@ dependencies:
   - d3dx9
 fixes:
   - clear_steam_caches
-notes: "Use the in-game launcher first to set resolution. Apply with: ./profile.command apply profiles/steam/steam-22380-fallout-new-vegas.yaml"
+notes: >
+  Use the in-game launcher first to set resolution. Protonfix reference (GPL):
+  swaps FalloutNV.exe for nvse_loader.exe when using NVSE — install script
+  extenders in the prefix and launch the loader for modded play. Apply with
+  ./profile.command apply profiles/steam/steam-22380-fallout-new-vegas.yaml
 </content>

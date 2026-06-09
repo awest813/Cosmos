@@ -3,6 +3,11 @@
 How Cosmos uses external MIT-friendly (or external-tool) projects across the
 integration priorities.
 
+> **Phased adoption plan:** see [ADOPTION_PLAN.md](ADOPTION_PLAN.md) for
+> winemactricks-json, wineregdiff, VDF libraries, UMU API, profile seeding,
+> and Runtime 1.0 bundling priorities. Runtime manifest and DXVK auto-fetch:
+> [RUNTIME.md](RUNTIME.md).
+
 ## Steam install & launch (MIT: steam-on-m1-wine)
 
 Upstream: https://github.com/notpop/steam-on-m1-wine (MIT)
@@ -54,7 +59,9 @@ WINE_VIRTUAL_DESKTOP="auto"           # wrap Steam in a Wine virtual desktop (se
 **In Cosmos today**
 
 - `detect_steam_games.command` scans `libraryfolders.vdf` and `appmanifest_*.acf`
-  inside the Wine prefix (not native macOS Steam).
+  inside the Wine prefix. Set `COSMOS_STEAM_NATIVE_SCAN=1` to also scan native
+  macOS/Linux Steam libraries (validation; native-only games are listed but not
+  launched via Wine).
 - Tool/runtime App IDs are filtered via `IGNORED_APPIDS` and name heuristics.
 
 **Added**
@@ -69,10 +76,14 @@ WINE_VIRTUAL_DESKTOP="auto"           # wrap Steam in a Wine virtual desktop (se
 - Optional `COSMOS_VERIFY_NODE=1` with [@ciberus/find-steam-app](https://github.com/Ciberusps/find-steam-app) (MIT).
 - Unit tests: `./scripts/test_steam_detection.sh` (runs in CI; uses fixtures under
   `scripts/fixtures/steam_detection/`).
+- ValvePython/vdf cross-check: `./scripts/verify_vdf_python.sh` (CI installs `pip install vdf`).
 
 ```bash
 ./detect_steam_games.command --verify
+COSMOS_STEAM_NATIVE_SCAN=1 ./detect_steam_games.command --list
 ./scripts/verify_steam_detection.command
+COSMOS_VERIFY_VDF_PYTHON=1 ./scripts/verify_steam_detection.command
+COSMOS_VERIFY_STEAM_LOCATE=1 ./scripts/verify_steam_detection.command
 COSMOS_VERIFY_NODE=1 ./scripts/verify_steam_detection.command
 ```
 
@@ -83,6 +94,8 @@ COSMOS_VERIFY_NODE=1 ./scripts/verify_steam_detection.command
 | [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Cross-check library/manifest parsing; v1/v2 `libraryfolders.vdf` |
 | [steamutils](https://github.com/bomkz/steamutils) | Unlicense | Go parser reference |
 | [Gameloop.Vdf](https://github.com/shravan2x/Gameloop.Vdf) | MIT | VDF grammar reference |
+| [ValvePython/vdf](https://github.com/ValvePython/vdf) | MIT | Python verify parser (`scripts/verify_vdf_python.sh`) |
+| [steam-locate](https://github.com/zevnda/steam-locate) | MIT | Optional native Steam path cross-check |
 | [macos-wine-steam](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; Gcenx Wine + DXMT bootstrap |
 
 ## Dashboard UI
@@ -113,9 +126,22 @@ When a bottle is selected, `COSMOS_BOTTLE` is passed to CLI commands automatical
 
 Fix categories align with [Cellar](https://github.com/lasermaze/Cellar) / [D4Mac](https://github.com/MichaelLod/D4Mac) docs (caches, kill Wine, Windows version).
 
+**winemactricks-json + wineregdiff (adoption Phase 1)**
+
+| Project | License | Integration |
+| --- | --- | --- |
+| [winemactricks-json](https://github.com/Alien4042x/winemactricks-json) | MIT | Vendored `third_party/winemactricks-json/`; `scripts/import_winemactricks.sh` → `recipes/fixes/` |
+| [wineregdiff](https://github.com/castaneai/wineregdiff) | MIT | Optional; `repair.command capture-reg` / `diff-reg` / `recipe-from-diff` |
+
+```bash
+./scripts/import_winemactricks.sh
+./repair.command capture-reg before && ./repair.command capture-reg after
+./repair.command recipe-from-diff before after my-fix
+```
+
 ## 3. CosmosDB (0.7)
 
-- `cosmosdb.command` — ProtonDB + AppleGamingWiki + MacGamingDB lookups + local macOS JSON reports
+- `cosmosdb.command` — ProtonDB + AppleGamingWiki + MacGamingDB + UMU lookups + local macOS JSON reports
 - See [COSMOSDB.md](COSMOSDB.md)
 
 ### AppleGamingWiki + MacGamingDB (0.7)
@@ -135,7 +161,12 @@ Parsers and HTTP helpers live in `scripts/lib/cosmosdb_lib.sh`. Unit tests:
 
 ```bash
 ./profile.command apply profiles/steam/steam-22380-fallout-new-vegas.yaml
+./scripts/import_macos_wine_steam.sh --write-drafts
+./scripts/protonfix_port_hint.py 22380
+./profile.command port-hint 22380
 ```
+
+See [PROTONFIXES_PORTING.md](PROTONFIXES_PORTING.md).
 
 ## 5. License hygiene
 

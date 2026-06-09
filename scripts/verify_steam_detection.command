@@ -4,14 +4,17 @@ set -euo pipefail
 # Cross-check Cosmos Steam game detection against the prefix on disk.
 # Intended to run after detect_steam_games.command --list or on its own.
 #
-# Optional external cross-check (MIT find-steam-app):
-#   npm install -g @ciberus/find-steam-app
-#   COSMOS_VERIFY_NODE=1 ./scripts/verify_steam_detection.command
+# Optional external cross-checks:
+#   COSMOS_VERIFY_NODE=1          @ciberus/find-steam-app (MIT)
+#   COSMOS_VERIFY_STEAM_LOCATE=1  steam-locate (MIT)
+#   COSMOS_VERIFY_VDF_PYTHON=1    ValvePython/vdf vs bash parser
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd -- "${SCRIPT_DIR}/.." && pwd)}"
 WINEPREFIX="${WINEPREFIX:-$HOME/.wine-steam-11}"
 COSMOS_VERIFY_NODE="${COSMOS_VERIFY_NODE:-0}"
+COSMOS_VERIFY_STEAM_LOCATE="${COSMOS_VERIFY_STEAM_LOCATE:-0}"
+COSMOS_VERIFY_VDF_PYTHON="${COSMOS_VERIFY_VDF_PYTHON:-0}"
 
 # shellcheck source=scripts/lib/steam_lib.sh
 source "${REPO_ROOT}/scripts/lib/steam_lib.sh"
@@ -79,6 +82,30 @@ done < "${TMP_LIST}"
 log "Summary: ${games} game(s) listed, ${issues} warning(s)"
 if (( issues > 0 )); then
   printf 'Review warnings above — partial installs or stale manifests are common.\n'
+fi
+
+if [[ "${COSMOS_VERIFY_VDF_PYTHON}" == "1" ]]; then
+  verifier="${REPO_ROOT}/scripts/verify_vdf_python.sh"
+  if [[ -x "${verifier}" ]]; then
+    log "Optional: ValvePython/vdf cross-check"
+    "${verifier}" || issues=$((issues + 1))
+  fi
+fi
+
+if [[ "${COSMOS_VERIFY_STEAM_LOCATE}" == "1" ]]; then
+  if command -v npx >/dev/null 2>&1; then
+    log "Optional: steam-locate library folders (MIT)"
+    npx --yes -p steam-locate@1.0.6 -c "
+import('steam-locate').then(({ findSteamLocation }) =>
+  findSteamLocation().then((info) => {
+    console.log('steam path:', info.path);
+    for (const p of info.libraryFolders || []) console.log('  library:', p);
+  })
+).catch((e) => { console.error(e); process.exit(1); });
+" 2>/dev/null || printf '  (steam-locate failed — needs Node.js)\n'
+  else
+    printf 'COSMOS_VERIFY_STEAM_LOCATE=1 but npx not found; skip.\n'
+  fi
 fi
 
 if [[ "${COSMOS_VERIFY_NODE}" == "1" ]]; then

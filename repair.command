@@ -8,6 +8,7 @@ SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 RECIPE_LIB="${SCRIPT_DIR}/scripts/lib/recipe_lib.sh"
 FIX_LIB="${SCRIPT_DIR}/scripts/repair_fixes.sh"
 DIAG_LIB="${SCRIPT_DIR}/scripts/repair_diagnose.sh"
+REGDIFF_LIB="${SCRIPT_DIR}/scripts/lib/regdiff_lib.sh"
 DEPS_DIR="${SCRIPT_DIR}/recipes/dependencies"
 FIXES_DIR="${SCRIPT_DIR}/recipes/fixes"
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
@@ -26,6 +27,8 @@ source "${RECIPE_LIB}"
 source "${FIX_LIB}"
 # shellcheck source=scripts/repair_diagnose.sh
 source "${DIAG_LIB}"
+# shellcheck source=scripts/lib/regdiff_lib.sh
+source "${REGDIFF_LIB}"
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
@@ -46,6 +49,10 @@ Commands:
   apply-fix <id>                Apply a fix recipe to the current WINEPREFIX.
   install-deps <id> [id...]     Install multiple dependencies.
   apply-fixes <id> [id...]      Apply multiple fixes.
+  capture-reg <label>           Snapshot WINEPREFIX/user.reg for later diff.
+  diff-reg <old> <new>          Diff two snapshots or .reg files (needs wineregdiff).
+  recipe-from-diff <old> <new> [id]
+                                Write recipes/fixes/<id>.recipe from a reg diff.
 
 Environment:
   WINEPREFIX          Target prefix (default: ~/.wine-steam-11).
@@ -97,7 +104,8 @@ cmd_apply_fix() {
   local id="${1:-}"; [[ -n "${id}" ]] || die "Usage: repair.command apply-fix <id>"
   local file; file="$(find_recipe fix "${id}")"
   recipe_load "${file}" || die "Invalid recipe: ${file}"
-  export WINEPREFIX SCRIPT_DIR
+  export WINEPREFIX SCRIPT_DIR RECIPE_DLL_OVERRIDE RECIPE_REG_COMMANDS
+  [[ -z "${DLL_OVERRIDE:-}" && -n "${RECIPE_DLL_OVERRIDE:-}" ]] && export DLL_OVERRIDE="${RECIPE_DLL_OVERRIDE}"
   log "Applying fix ${id} on ${WINEPREFIX}"
   case "${RECIPE_SCRIPT}" in
     kill_wine) repair_kill_wine ;;
@@ -105,6 +113,7 @@ cmd_apply_fix() {
     set_windows_version) repair_set_windows_version ;;
     disable_retina) repair_disable_retina ;;
     dll_override) repair_dll_override ;;
+    apply_reg_commands) repair_apply_reg_commands ;;
     rebuild_prefix) repair_rebuild_prefix ;;
     force_borderless) repair_force_borderless ;;
     disable_intro_video) repair_disable_intro_video ;;
@@ -198,6 +207,41 @@ cmd_list_fixes() {
   recipe_list_dir "${FIXES_DIR}" fix
 }
 
+cmd_capture_reg() {
+  local label="${1:-}"
+  [[ -n "${label}" ]] || die "Usage: repair.command capture-reg <label>"
+  export WINEPREFIX
+  regdiff_capture_user_reg "${label}"
+}
+
+cmd_diff_reg() {
+  local old="${1:-}" new="${2:-}"
+  [[ -n "${old}" && -n "${new}" ]] || die "Usage: repair.command diff-reg <old> <new>"
+  local old_file new_file
+  old_file="$(regdiff_resolve_reg_file "${old}")" || exit 1
+  new_file="$(regdiff_resolve_reg_file "${new}")" || exit 1
+  regdiff_run_diff "${old_file}" "${new_file}"
+}
+
+cmd_recipe_from_diff() {
+  local old="${1:-}" new="${2:-}" id="${3:-}"
+  [[ -n "${old}" && -n "${new}" ]] || die "Usage: repair.command recipe-from-diff <old> <new> [id]"
+  local old_file new_file output desc recipe_path
+  old_file="$(regdiff_resolve_reg_file "${old}")" || exit 1
+  new_file="$(regdiff_resolve_reg_file "${new}")" || exit 1
+  if [[ -z "${id}" ]]; then
+    id="custom-$(regdiff_sanitize_label "${old}")-to-$(regdiff_sanitize_label "${new}")"
+  fi
+  output="$(regdiff_run_diff "${old_file}" "${new_file}")" || exit 1
+  [[ -n "${output}" ]] || die "No registry differences found."
+  desc="Registry diff from ${old} to ${new}"
+  recipe_path="${FIXES_DIR}/${id}.recipe"
+  mapfile -t cmds < <(printf '%s\n' "${output}")
+  regdiff_commands_to_recipe "${id}" "${desc}" "${cmds[@]}" > "${recipe_path}"
+  echo "Wrote ${recipe_path}"
+  echo "Review the recipe, then: ./repair.command apply-fix ${id}"
+}
+
 main() {
   local cmd="${1:-}"; shift || true
   case "${cmd}" in
@@ -216,6 +260,9 @@ main() {
       local id
       for id in "$@"; do cmd_apply_fix "${id}"; done
       ;;
+    capture-reg) cmd_capture_reg "$@" ;;
+    diff-reg) cmd_diff_reg "$@" ;;
+    recipe-from-diff) cmd_recipe_from_diff "$@" ;;
     ""|--help|-h|help) usage ;;
     *) die "Unknown command: ${cmd} (try: repair.command --help)" ;;
   esac

@@ -92,6 +92,12 @@ Defaults are the values in `run.command`.
   - Path to a user-supplied Game Porting Toolkit install, used by the `d3dmetal` backend (and by `recommended` when set). Point at the GPTK root or the folder containing its DLLs. Cosmos never downloads GPTK (Apple EULA).
 - `DXVK_PATH`
   - Path to a folder of DXVK DLLs (`d3d11.dll`, `dxgi.dll`, …), used by the experimental `dxvk` backend. DXVK on macOS needs MoltenVK.
+- `COSMOS_AUTO_DXVK`
+  - `1` downloads pinned DXVK-macOS + MoltenVK from `runtime/cosmos-runtime.json` into `~/Library/Application Support/Cosmos/Runtime/` when `DXVK_PATH` is unset (experimental `dxvk` backend). Default: `0`.
+- `COSMOS_RUNTIME_DIR`
+  - Cache directory for auto-fetched DXVK/MoltenVK (default: `${COSMOS_SUPPORT_DIR}/Runtime`).
+- `COSMOS_ALLOW_LGPL`
+  - `1` allows `DXMT_VERSION` above the MIT pin (v0.80) after reviewing [docs/LICENSING.md](docs/LICENSING.md). Default: unset (refuse LGPL DXMT).
 - `COSMOS_DETACH` (legacy alias: `MERLOT_DETACH`)
   - `1` (default) detaches Steam from the launching Terminal so the window can be closed without killing Steam.
   - `0` keeps the old foreground behavior.

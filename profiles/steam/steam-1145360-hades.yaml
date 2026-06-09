@@ -10,4 +10,6 @@ settings:
   windows_version: win10
   env:
     DXMT_CONFIG: "d3d11.preferredMaxFrameRate=120;"
-notes: "DXMT handles D3D11 well. Cap frame rate if you see tearing on ProMotion displays."
+notes: >
+  DXMT handles D3D11 well. Cap frame rate if you see tearing on ProMotion displays.
+  No dedicated umu-protonfixes steam script — tune DXMT_CONFIG before adding deps.

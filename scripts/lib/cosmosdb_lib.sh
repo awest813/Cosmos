@@ -8,6 +8,7 @@ COSMOSDB_CACHE_TTL_SECONDS="${COSMOSDB_CACHE_TTL_SECONDS:-86400}"
 APPLEGAMINGWIKI_API_URL="${COSMOS_APPLEGAMINGWIKI_API_URL:-https://applegamingwiki.com/w/api.php}"
 MACGAMINGDB_API_URL="${COSMOS_MACGAMINGDB_API_URL:-https://macgamingdb.app/api/rest}"
 PROTONDB_API_URL="${COSMOS_PROTONDB_API_URL:-https://protondb-community-api.vercel.app}"
+UMU_API_URL="${COSMOS_UMU_API_URL:-https://umu.openwinecomponents.org/umu_api.php}"
 
 cosmosdb_die() { printf 'Error: %s\n' "$1" >&2; exit 1; }
 
@@ -334,6 +335,94 @@ cosmosdb_fetch_macgamingdb() {
   printf '%s\n' "${summary}" > "${cache}"
   printf 'fetched\n'
   cat "${cache}"
+}
+
+# --- UMU database (GPL data repo; runtime API hints only) ---
+
+cosmosdb_normalize_umu() {
+  local appid="$1"
+  cosmosdb_require_python3
+  local tmp_in; tmp_in="$(mktemp "${TMPDIR:-/tmp}/cosmosdb-umu-in.XXXXXX")"
+  cat > "${tmp_in}"
+  python3 - "${appid}" "${tmp_in}" <<'PYEOF'
+import json, sys
+
+appid = sys.argv[1]
+with open(sys.argv[2], encoding="utf-8") as fh:
+    raw = json.load(fh)
+
+if not isinstance(raw, list):
+    raw = [raw] if raw else []
+
+entries = []
+for item in raw:
+    if not isinstance(item, dict):
+        continue
+    entries.append({
+        "title": item.get("title"),
+        "umu_id": item.get("umu_id"),
+        "store": item.get("store"),
+        "codename": item.get("codename"),
+        "notes": item.get("notes"),
+        "exe_string": item.get("exe_string"),
+    })
+
+title = entries[0].get("title") if entries else None
+umu_id = entries[0].get("umu_id") if entries else f"umu-{appid}"
+
+out = {
+    "source": "umu",
+    "steam_appid": int(appid),
+    "umu_id": umu_id,
+    "title": title,
+    "has_fix_database_entry": bool(entries),
+    "store_entries": entries,
+    "hint": (
+        "UMU/protonfixes may list Linux/Proton fixes for this title. "
+        "Use as a porting reference only — reimplement ideas as Cosmos YAML "
+        "recipes; do not import GPL fix scripts."
+    ),
+}
+print(json.dumps(out, indent=2, ensure_ascii=False))
+PYEOF
+  local rc=$?
+  rm -f "${tmp_in}"
+  return "${rc}"
+}
+
+cosmosdb_fetch_umu() {
+  local appid="$1"
+  local umu_id="umu-${appid}"
+  local enc_id; enc_id="$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))' "${umu_id}")"
+  local url="${UMU_API_URL}?umu_id=${enc_id}"
+  cosmosdb_require_curl
+  cosmosdb_require_python3
+  mkdir -p "${COSMOSDB_CACHE_DIR}"
+  local cache; cache="$(cosmosdb_cache_path "umu" "${appid}")"
+  if cosmosdb_cache_fresh "${cache}"; then
+    printf 'cached\n'
+    cat "${cache}"
+    return 0
+  fi
+  local tmp; tmp="$(mktemp "${TMPDIR:-/tmp}/cosmosdb-umu.XXXXXX")"
+  if ! cosmosdb_http_get "${url}" "${tmp}"; then
+    rm -f "${tmp}"
+    return 1
+  fi
+  local summary
+  if ! summary="$(cat "${tmp}" | cosmosdb_normalize_umu "${appid}")"; then
+    rm -f "${tmp}"
+    return 1
+  fi
+  rm -f "${tmp}"
+  printf '%s\n' "${summary}" > "${cache}"
+  printf 'fetched\n'
+  cat "${cache}"
+}
+
+cosmosdb_umu_parse_fixture() {
+  local appid="$1" fixture="$2"
+  cat "${fixture}" | cosmosdb_normalize_umu "${appid}"
 }
 
 # Parse wikitext from a fixture file (title on first line, ---WIKITEXT--- delimiter).

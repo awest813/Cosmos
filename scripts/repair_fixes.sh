@@ -237,6 +237,63 @@ repair_disable_retina() {
   echo "Persisted WINE_RETINA_MODE=0 for future launches."
 }
 
+repair_apply_reg_commands() {
+  local commands="${RECIPE_REG_COMMANDS:-${REG_COMMANDS:-}}"
+  [[ -n "${commands}" ]] || {
+    echo "No REG_COMMANDS set for apply_reg_commands."
+    return 1
+  }
+  repair_find_wine_bin || return 1
+  repair_require_prefix || return 1
+  python3 - "${REPAIR_WINE_BIN}" "${commands}" <<'PY'
+import shlex
+import subprocess
+import sys
+
+def split_escaped(blob: str, sep: str = "|") -> list[str]:
+    out: list[str] = []
+    cur: list[str] = []
+    i = 0
+    while i < len(blob):
+        if blob[i] == "\\" and i + 1 < len(blob) and blob[i + 1] == sep:
+            cur.append(sep)
+            i += 2
+            continue
+        if blob[i] == sep:
+            out.append("".join(cur))
+            cur = []
+            i += 1
+            continue
+        cur.append(blob[i])
+        i += 1
+    out.append("".join(cur))
+    return out
+
+wine_bin, blob = sys.argv[1], sys.argv[2]
+for line in split_escaped(blob):
+    line = line.strip()
+    if not line:
+        continue
+    if line.lower().startswith("wine "):
+        line = line[5:].lstrip()
+    try:
+        args = shlex.split(line)
+    except ValueError as exc:
+        print(f"Unparsed reg command: {line} ({exc})")
+        continue
+    if not args:
+        continue
+    proc = subprocess.run([wine_bin, *args], capture_output=True, text=True)
+    if proc.returncode == 0:
+        print(f"Applied: {' '.join(args)}")
+    else:
+        err = (proc.stderr or proc.stdout or "").strip()
+        print(f"Failed ({proc.returncode}): {' '.join(args)}")
+        if err:
+            print(err)
+PY
+}
+
 repair_dll_override() {
   [[ -n "${DLL_OVERRIDE:-}" ]] || {
     echo "Set DLL_OVERRIDE before applying (WINEDLLOVERRIDES-style, e.g. ddraw=n,b or ddraw=native,builtin)."

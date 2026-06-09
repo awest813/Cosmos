@@ -51,6 +51,7 @@ Commands:
   export-override <path> <appid> Write cosmos_configs/overrides/<appid>.env from profile.
   apply <path>                  export-override + install-deps + apply-fixes from profile.
   for-appid <appid> <cmd...>    Run show|apply using the profile matching steam_appid.
+  port-hint <steam_appid>       Print umu-protonfixes porting hints (reference only).
 
 Examples:
   profile.command list
@@ -253,6 +254,14 @@ cmd_validate() {
   log "All ${#files[@]} profile(s) valid."
 }
 
+cmd_port_hint() {
+  local appid="${1:-}"
+  [[ "${appid}" =~ ^[0-9]+$ ]] || die "Usage: profile.command port-hint <steam_appid>"
+  local hint_py="${SCRIPT_DIR}/scripts/protonfix_port_hint.py"
+  [[ -f "${hint_py}" ]] || die "Missing ${hint_py}"
+  python3 "${hint_py}" "${appid}" --repo "${SCRIPT_DIR}"
+}
+
 main() {
   local cmd="${1:-}"; shift || true
   case "${cmd}" in
@@ -272,6 +281,7 @@ main() {
         *) die "Usage: profile.command for-appid <appid> show|apply" ;;
       esac
       ;;
+    port-hint) cmd_port_hint "${1:-}" ;;
     ""|--help|-h|help) usage ;;
     *) die "Unknown command: ${cmd}" ;;
   esac
