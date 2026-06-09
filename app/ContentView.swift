@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var output = "Welcome to Cosmos\n\nNew here? Follow the setup guide below — one button per step.\nFirst-time setup takes about 10–15 minutes (downloads + Steam installer).\n\nWhen finished, launch Steam, install a Windows game, then tap Build Game Launchers."
     @State private var profiles: [SavedProfile] = []
     @State private var selectedProfileID: String?
+    @State private var profileSearchText = ""
     @State private var cosmosInstalled = false
     @State private var steamSettings = SteamSettings.defaults
     @State private var isRunning = false
@@ -45,6 +46,19 @@ struct ContentView: View {
 
     private var selectedProfile: SavedProfile? {
         profiles.first { $0.id == selectedProfileID }
+    }
+
+    /// Saved profiles narrowed by the sidebar search field. Matches name,
+    /// executable path, and Steam App ID so users with large libraries can
+    /// jump straight to a title.
+    private var filteredProfiles: [SavedProfile] {
+        let query = profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return profiles }
+        return profiles.filter { profile in
+            profile.name.localizedCaseInsensitiveContains(query)
+                || profile.path.localizedCaseInsensitiveContains(query)
+                || (profile.steamAppID?.localizedCaseInsensitiveContains(query) ?? false)
+        }
     }
 
     private var selectedBottle: Bottle? {
@@ -165,9 +179,16 @@ struct ContentView: View {
             Divider()
                 .padding(.top, 14)
 
+            // Search field — only worth showing once there are profiles to filter.
+            if !profiles.isEmpty {
+                profileSearchField
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+            }
+
             // Profile list
             List(selection: $selectedProfileID) {
-                Section("Saved Profiles") {
+                Section(profileSectionTitle) {
                     if profiles.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Label("No profiles yet", systemImage: "tray")
@@ -180,8 +201,20 @@ struct ContentView: View {
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("No saved game profiles. Run Detect Games after installing Steam.")
+                    } else if filteredProfiles.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("No matches", systemImage: "magnifyingglass")
+                                .foregroundStyle(.secondary)
+                                .font(.subheadline)
+                            Text("No saved game matches “\(profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines))”.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("No saved games match the search.")
                     } else {
-                        ForEach(profiles) { profile in
+                        ForEach(filteredProfiles) { profile in
                             profileRow(profile)
                                 .tag(profile.id)
                         }
@@ -191,6 +224,42 @@ struct ContentView: View {
             .listStyle(.sidebar)
             .disabled(isRunning)
         }
+    }
+
+    private var profileSectionTitle: String {
+        let query = profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if profiles.isEmpty || query.isEmpty {
+            return "Saved Profiles"
+        }
+        return "Saved Profiles (\(filteredProfiles.count) of \(profiles.count))"
+    }
+
+    private var profileSearchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            TextField("Search games", text: $profileSearchText)
+                .textFieldStyle(.plain)
+                .font(.subheadline)
+                .accessibilityLabel("Search saved games")
+            if !profileSearchText.isEmpty {
+                Button {
+                    profileSearchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear search")
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(Color.primary.opacity(0.06), in: Capsule())
+        .disabled(isRunning)
     }
 
     private func profileRow(_ profile: SavedProfile) -> some View {
