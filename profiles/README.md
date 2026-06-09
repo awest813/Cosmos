@@ -9,6 +9,8 @@ See [`docs/PROFILE_FORMAT.md`](../docs/PROFILE_FORMAT.md) for the full v0 schema
 ```
 profiles/
 ├── steam/        # store == steam, named steam-<appid>-<slug>.yaml
+├── itch/         # store == itch, named itch-<slug>.yaml
+├── battlenet/    # store == battlenet, named battlenet-<slug>.yaml
 └── standalone/   # store == standalone, named standalone-<slug>.yaml
 ```
 

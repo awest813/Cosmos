@@ -71,7 +71,7 @@ of an unsigned build, right-click `Cosmos` → `Open` → confirm `Open`.
    - **Launch Steam** — start Steam in a default Wine environment
    - **Detect Games** — auto-detect installed Steam games and build launchers
    - **Manage Bottles** — create isolated Wine prefixes with different backends
-   - **Add Non-Steam Games** — import EXE/MSI installers, GOG setups, or itch.io downloads
+   - **Add Non-Steam Games** — import EXE/MSI installers, GOG setups, itch.io downloads, or Battle.net games
    - **View Profiles** — open your saved game profiles in Finder
    - **View Logs** — check launch logs for troubleshooting
    - **Install/Uninstall** — manage the `/Applications/Cosmos Apps` launchers

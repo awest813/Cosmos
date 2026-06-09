@@ -179,7 +179,7 @@ validate_one() {
   [[ -n "${status}" ]] || err "missing required field: status"
   [[ -n "${backend}" ]] || err "missing required field: recommended_backend"
 
-  if [[ -n "${store}" ]] && ! in_set "${store}" steam gog epic itch standalone; then
+  if [[ -n "${store}" ]] && ! in_set "${store}" steam gog epic itch battlenet standalone; then
     err "invalid store: ${store}"
   fi
   if [[ -n "${status}" ]] && ! in_set "${status}" \
@@ -207,9 +207,9 @@ validate_one() {
     else
       err "store: steam requires numeric steam_appid"
     fi
-  elif [[ "${store}" == "standalone" ]]; then
+  elif [[ "${store}" == "standalone" || "${store}" == "itch" || "${store}" == "battlenet" ]]; then
     local exe; exe="$(profile_get_scalar "${file}" exe_path)"
-    [[ -n "${exe}" ]] || err "store: standalone requires exe_path"
+    [[ -n "${exe}" ]] || err "store: ${store} requires exe_path"
   fi
 
   # referenced recipes must exist on disk

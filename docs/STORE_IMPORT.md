@@ -21,11 +21,14 @@ Cosmos can register non-Steam Windows games as first-class `.app` launchers usin
 
 | Command | Purpose |
 | --- | --- |
-| `list` | Show standalone and Epic configs in `cosmos_configs/` |
+| `list` | Show standalone, itch, Battle.net, and Epic configs in `cosmos_configs/` |
 | `run-installer <file>` | Run `.exe` / `.msi` via `run.command --run-installer` |
 | `add-exe <path> --name <title>` | Create `standalone-<slug>.conf` |
 | `add-gog <setup.exe> --name <title>` | Run GOG offline installer, auto-find `.exe` |
-| `add-itch <folder> --name <title>` | Copy itch.io download into prefix and register |
+| `add-itch <folder> --name <title>` | Copy itch.io download into prefix; creates `itch-<slug>.conf` |
+| `install-battlenet <setup.exe>` | Install the Battle.net desktop app in the prefix |
+| `list-battlenet` | List Blizzard games detected under Program Files |
+| `add-battlenet <path\|slug> --name <title>` | Register a Battle.net game as `battlenet-<slug>.conf` |
 | `auth-epic` | Log in to Epic via `legendary auth` |
 | `list-epic` | List Windows Epic titles and installed games |
 | `add-epic <app> --name <title> [--install]` | Install/register via Legendary |
@@ -42,6 +45,29 @@ GAME_EXE_PATH="drive_c/Games/my-game/game.exe"
 COSMOS_SKIP_STEAM="1"
 ```
 
+itch.io imports use the `itch-<slug>.conf` prefix so they are easy to tell apart
+from generic standalone games:
+
+```sh
+APP_NAME="Celeste Classic (Cosmos)"
+BUNDLE_ID="com.cosmos.itch-celeste-classic"
+RUN_ENV_NAMES=( GAME_EXE_PATH COSMOS_SKIP_STEAM )
+GAME_EXE_PATH="drive_c/Games/celeste-classic/celeste.exe"
+COSMOS_SKIP_STEAM="1"
+```
+
+Battle.net imports set `BATTLENET_LAUNCHER_EXE` when the client is installed so
+Cosmos can start the agent before launching the game:
+
+```sh
+APP_NAME="StarCraft II (Cosmos)"
+BUNDLE_ID="com.cosmos.battlenet-starcraft-ii"
+RUN_ENV_NAMES=( GAME_EXE_PATH COSMOS_SKIP_STEAM BATTLENET_LAUNCHER_EXE )
+GAME_EXE_PATH="drive_c/Program Files (x86)/StarCraft II/..."
+COSMOS_SKIP_STEAM="1"
+BATTLENET_LAUNCHER_EXE="drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe"
+```
+
 Epic imports also set `LEGENDARY_APP_NAME` so Cosmos can launch through Legendary
 for online authentication:
 
@@ -54,8 +80,42 @@ COSMOS_SKIP_STEAM="1"
 LEGENDARY_APP_NAME="Sugar"
 ```
 
-Optional: add `profiles/standalone/<slug>.yaml` for known-good settings (see
-[PROFILE_FORMAT.md](PROFILE_FORMAT.md)).
+Optional: add store-specific YAML profiles for known-good settings (see
+[PROFILE_FORMAT.md](PROFILE_FORMAT.md)):
+
+- `profiles/standalone/<slug>.yaml`
+- `profiles/itch/itch-<slug>.yaml`
+- `profiles/battlenet/battlenet-<slug>.yaml`
+
+## Battle.net / Blizzard
+
+Cosmos installs the official Battle.net desktop app in your Wine prefix, detects
+common Blizzard game folders, and registers launchers that start the Battle.net
+agent when needed.
+
+### Import flow
+
+```bash
+# 1. Install the Battle.net client
+./import_game.command install-battlenet ~/Downloads/Battle.net-Setup.exe
+
+# 2. Install games through the Battle.net app (inside Wine), then list them
+./import_game.command list-battlenet
+
+# 3. Register by slug from list-battlenet, or by direct .exe path
+./import_game.command add-battlenet starcraft-ii --name "StarCraft II"
+
+# 4. Build the .app launcher
+./install_cosmos.command
+```
+
+### Notes
+
+- Online titles may require the Battle.net agent; Cosmos starts it automatically
+  when `BATTLENET_LAUNCHER_EXE` is set in the launcher config.
+- Anti-cheat and kernel-level DRM titles (e.g. Overwatch 2) may still be
+  **blocked** on macOS — check community reports before playing.
+- Use `--bottle <name>` to target a named bottle instead of the default prefix.
 
 ## Epic via Legendary (experiment)
 

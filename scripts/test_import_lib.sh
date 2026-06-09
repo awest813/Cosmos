@@ -30,4 +30,23 @@ for entry in data:
 epic_file="$(import_write_epic_config "${tmpdir}" "smb" "Super Meat Boy" "com.cosmos.epic-smb" "/Games/SMB.exe" "Sugar")"
 grep -q 'LEGENDARY_APP_NAME="Sugar"' "${epic_file}" || fail "epic config missing legendary app name"
 
+itch_file="$(import_write_itch_config "${tmpdir}" "demo" "Demo Game" "com.cosmos.itch-demo" "drive_c/Games/demo/game.exe")"
+[[ "${itch_file}" == *"/itch-demo.conf" ]] || fail "itch config wrong filename"
+grep -q 'GAME_EXE_PATH="drive_c/Games/demo/game.exe"' "${itch_file}" || fail "itch config missing exe path"
+
+bnet_file="$(import_write_battlenet_config "${tmpdir}" "sc2" "StarCraft II" "com.cosmos.battlenet-sc2" \
+  "drive_c/Program Files (x86)/StarCraft II/SC2.exe" \
+  "drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe")"
+[[ "${bnet_file}" == *"/battlenet-sc2.conf" ]] || fail "battlenet config wrong filename"
+grep -q 'BATTLENET_LAUNCHER_EXE=' "${bnet_file}" || fail "battlenet config missing launcher path"
+
+bnet_fixture="${ROOT}/scripts/fixtures/battlenet_detection"
+launcher="$(import_find_battlenet_launcher "${bnet_fixture}")"
+[[ "${launcher}" == "drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe" ]] \
+  || fail "battlenet launcher detection failed: ${launcher}"
+
+scan="$(import_scan_battlenet_games "${bnet_fixture}")"
+printf '%s' "${scan}" | grep -q $'starcraft-ii\tStarCraft II\t' \
+  || fail "battlenet game scan failed: ${scan}"
+
 printf 'OK: import_lib tests passed\n'

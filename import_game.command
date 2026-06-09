@@ -55,6 +55,11 @@ Commands:
                                 Run a GOG offline installer, then register the game.
   add-itch <folder> --name <title> [--slug <id>]
                                 Find a .exe in an itch.io download folder and register it.
+  install-battlenet <setup.exe> [--bottle <name>]
+                                Install the Battle.net desktop app in the prefix.
+  list-battlenet                  List Blizzard games detected in the prefix.
+  add-battlenet <path|slug> --name <title> [--slug <id>] [--bottle <name>]
+                                Register a Battle.net game (exe path or slug from list-battlenet).
   list-epic                       List Epic games via Legendary (Windows builds).
   auth-epic                       Authenticate Legendary with your Epic account.
   add-epic <app-name> --name <title> [--install] [--slug <id>] [--bottle <name>]
@@ -65,6 +70,9 @@ Examples:
   import_game.command add-exe "drive_c/Games/MyGame/game.exe" --name "My Game"
   import_game.command add-gog ~/Downloads/setup_foo_1.2.3.exe --name "Foo"
   import_game.command add-itch ~/Downloads/GameName --name "Game Name"
+  import_game.command install-battlenet ~/Downloads/Battle.net-Setup.exe
+  import_game.command list-battlenet
+  import_game.command add-battlenet starcraft-ii --name "StarCraft II"
   import_game.command auth-epic
   import_game.command list-epic
   import_game.command add-epic Sugar --name "Super Meat Boy" --install
@@ -83,7 +91,8 @@ legendary_die() {
 cmd_list() {
   local f
   shopt -s nullglob
-  for f in "${CONFIGS_DIR}"/standalone-*.conf "${CONFIGS_DIR}"/epic-*.conf; do
+  for f in "${CONFIGS_DIR}"/standalone-*.conf "${CONFIGS_DIR}"/itch-*.conf \
+           "${CONFIGS_DIR}"/battlenet-*.conf "${CONFIGS_DIR}"/epic-*.conf; do
     [[ -f "${f}" ]] || continue
     local name exe
     name="$(sed -n 's/^APP_NAME="\{0,1\}\(.*\) (Cosmos)"\{0,1\}$/\1/p' "${f}" | head -n1)"
@@ -193,8 +202,112 @@ cmd_add_itch() {
   local rel_exe installed
   installed="$(import_find_game_exe "${dest}")" || die "Copied files but no .exe found in ${dest}"
   rel_exe="${installed#${WINEPREFIX}/}"
-  cmd_add_exe "${rel_exe}" --name "${name}" ${slug:+--slug "${slug}"}
+  [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
+  local bundle_id="com.cosmos.itch-${slug}"
+  local file
+  file="$(import_write_itch_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${rel_exe}")"
+  log "Wrote ${file}"
   echo "Copied itch.io files to ${dest}"
+  echo "Next: ./install_cosmos.command ${file##*/}"
+}
+
+cmd_install_battlenet() {
+  local installer="${1:-}"
+  shift || true
+  local bottle=""
+  while (($#)); do
+    case "$1" in
+      --bottle) bottle="${2:-}"; shift 2 ;;
+      *) die "Unknown option: $1" ;;
+    esac
+  done
+  [[ -n "${installer}" && -f "${installer}" ]] \
+    || die "Usage: import_game.command install-battlenet <Battle.net-Setup.exe> [--bottle <name>]"
+  [[ -n "${bottle}" ]] && COSMOS_BOTTLE="${bottle}" \
+    && WINEPREFIX="$("${SCRIPT_DIR}/bottle.command" path "${COSMOS_BOTTLE}" 2>/dev/null || echo "${WINEPREFIX}")"
+  cmd_run_installer "${installer}"
+  if import_find_battlenet_launcher "${WINEPREFIX}" >/dev/null 2>&1; then
+    echo "Battle.net client installed. Install games in the client, then:"
+    echo "  ./import_game.command list-battlenet"
+    echo "  ./import_game.command add-battlenet <slug> --name \"Game Title\""
+  else
+    echo "Installer finished. After installing games in Battle.net, run list-battlenet."
+  fi
+}
+
+cmd_list_battlenet() {
+  local launcher="" line slug title exe
+  launcher="$(import_find_battlenet_launcher "${WINEPREFIX}" 2>/dev/null || true)"
+  if [[ -n "${launcher}" ]]; then
+    printf 'Battle.net launcher: %s\n\n' "${launcher}"
+  else
+    echo "Battle.net launcher not found in ${WINEPREFIX}."
+    echo "Install with: ./import_game.command install-battlenet <Battle.net-Setup.exe>"
+    echo ""
+  fi
+  log "Detected Blizzard games"
+  local found=0
+  while IFS=$'\t' read -r slug title exe; do
+    [[ -n "${slug}" ]] || continue
+    found=1
+    printf '  %-24s %-28s %s\n' "${slug}" "${title}" "${exe}"
+  done < <(import_scan_battlenet_games "${WINEPREFIX}")
+  if [[ "${found}" -eq 0 ]]; then
+    echo "  (no Blizzard game folders with .exe found)"
+    echo "Install games through the Battle.net client, then run list-battlenet again."
+  fi
+}
+
+cmd_add_battlenet() {
+  local target="${1:-}"
+  shift || true
+  local name="" slug="" bottle=""
+  while (($#)); do
+    case "$1" in
+      --name) name="${2:-}"; shift 2 ;;
+      --slug) slug="${2:-}"; shift 2 ;;
+      --bottle) bottle="${2:-}"; shift 2 ;;
+      *) die "Unknown option: $1" ;;
+    esac
+  done
+  [[ -n "${target}" ]] \
+    || die "Usage: import_game.command add-battlenet <path|slug> --name <title>"
+  [[ -n "${name}" ]] || die "--name is required"
+  [[ -n "${bottle}" ]] && COSMOS_BOTTLE="${bottle}" \
+    && WINEPREFIX="$("${SCRIPT_DIR}/bottle.command" path "${COSMOS_BOTTLE}" 2>/dev/null || echo "${WINEPREFIX}")"
+
+  local exe_path="" line match_slug match_title match_exe
+  if [[ "${target}" == drive_c/* ]]; then
+    exe_path="${target}"
+  elif [[ -f "${target}" ]]; then
+    local rel="${target#${WINEPREFIX}/}"
+    if [[ "${rel}" != "${target}" ]]; then
+      exe_path="${rel}"
+    else
+      exe_path="${target}"
+    fi
+  else
+    match_slug="$(import_slugify "${target}")"
+    while IFS=$'\t' read -r line match_title match_exe; do
+      [[ "${line}" == "${match_slug}" ]] || continue
+      exe_path="${match_exe}"
+      [[ -z "${name}" || "${name}" == "${target}" ]] && name="${match_title}"
+      break
+    done < <(import_scan_battlenet_games "${WINEPREFIX}")
+  fi
+  [[ -n "${exe_path}" ]] \
+    || die "Could not resolve Battle.net game '${target}'. Run list-battlenet or pass an .exe path."
+
+  local launcher
+  launcher="$(import_find_battlenet_launcher "${WINEPREFIX}" 2>/dev/null || true)"
+  [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
+  local bundle_id="com.cosmos.battlenet-${slug}"
+  local file
+  file="$(import_write_battlenet_config "${CONFIGS_DIR}" "${slug}" "${name}" "${bundle_id}" "${exe_path}" "${launcher}")"
+  log "Wrote ${file}"
+  [[ -n "${launcher}" ]] && echo "Battle.net launcher: ${launcher}"
+  echo "Executable:    ${exe_path}"
+  echo "Next: ./install_cosmos.command ${file##*/}"
 }
 
 cmd_list_epic() {
@@ -263,6 +376,9 @@ main() {
     run-installer) cmd_run_installer "$@" ;;
     add-gog) cmd_add_gog "$@" ;;
     add-itch) cmd_add_itch "$@" ;;
+    install-battlenet) cmd_install_battlenet "$@" ;;
+    list-battlenet) cmd_list_battlenet ;;
+    add-battlenet) cmd_add_battlenet "$@" ;;
     list-epic) cmd_list_epic ;;
     auth-epic) cmd_auth_epic ;;
     add-epic) cmd_add_epic "$@" ;;

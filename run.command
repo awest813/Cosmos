@@ -4,6 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=scripts/lib/steam_lib.sh
 source "${SCRIPT_DIR}/scripts/lib/steam_lib.sh"
+if [[ -f "${SCRIPT_DIR}/scripts/lib/import_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/import_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/import_lib.sh"
+fi
 # profile_lib powers the pre-launch compatibility heads-up (best-effort).
 if [[ -f "${SCRIPT_DIR}/scripts/lib/profile_lib.sh" ]]; then
   # shellcheck source=scripts/lib/profile_lib.sh
@@ -1183,6 +1187,51 @@ resolve_game_exe_path() {
   return 1
 }
 
+battlenet_agent_running() {
+  pgrep -if 'Battle\.net|Battle.net Agent|Agent\.exe' >/dev/null 2>&1
+}
+
+resolve_prefix_path() {
+  local path="$1"
+  [[ -n "${path}" ]] || return 1
+  if [[ "${path}" == drive_c/* ]]; then
+    printf '%s' "${WINEPREFIX}/${path}"
+    return 0
+  fi
+  if [[ -f "${path}" ]]; then
+    printf '%s' "${path}"
+    return 0
+  fi
+  if [[ -f "${WINEPREFIX}/${path}" ]]; then
+    printf '%s' "${WINEPREFIX}/${path}"
+    return 0
+  fi
+  return 1
+}
+
+ensure_battlenet_agent() {
+  local launcher_rel="${BATTLENET_LAUNCHER_EXE:-}"
+  [[ -n "${launcher_rel}" ]] || return 0
+  battlenet_agent_running && return 0
+
+  local launcher_host
+  launcher_host="$(resolve_prefix_path "${launcher_rel}" 2>/dev/null || true)"
+  [[ -f "${launcher_host}" ]] || {
+    log "BATTLENET_LAUNCHER_EXE not found (${launcher_rel}); launching game directly"
+    return 0
+  }
+
+  log "Starting Battle.net agent: ${launcher_host}"
+  nohup "${WINE_BIN}" "${launcher_host}" >/dev/null 2>&1 &
+  local waited=0
+  while (( waited < 30 )); do
+    battlenet_agent_running && return 0
+    sleep 1
+    waited=$((waited + 1))
+  done
+  log "Battle.net agent may still be starting; continuing with game launch"
+}
+
 launch_standalone_game() {
   if [[ -n "${LEGENDARY_APP_NAME:-}" ]]; then
     local leg=""
@@ -1193,6 +1242,8 @@ launch_standalone_game() {
     fi
     log "LEGENDARY_APP_NAME is set but legendary was not found; falling back to GAME_EXE_PATH"
   fi
+
+  ensure_battlenet_agent
 
   local game_exe
   game_exe="$(resolve_game_exe_path)" || die "GAME_EXE_PATH not found: ${GAME_EXE_PATH:-}"

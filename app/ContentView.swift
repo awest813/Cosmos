@@ -1147,7 +1147,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader("Add Non-Steam Games", systemImage: "plus.rectangle.on.folder.fill")
 
-            Text("Import standalone Windows games from installers, GOG offline setups, itch.io downloads, or Epic via Legendary.")
+            Text("Import standalone Windows games from installers, GOG offline setups, itch.io downloads, Battle.net / Blizzard titles, or Epic via Legendary.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1197,6 +1197,30 @@ struct ContentView: View {
                     pathPrompt: "Path to extracted itch.io game folder"
                 )
                 storeActionButton(
+                    title: "Install Battle.net",
+                    subtitle: "Blizzard client setup",
+                    systemImage: "arrow.down.circle.fill",
+                    script: "import_game.command",
+                    arguments: ["install-battlenet"],
+                    needsPath: true,
+                    pathPrompt: "Path to Battle.net-Setup.exe"
+                )
+                storeActionButton(
+                    title: "List Blizzard Games",
+                    subtitle: "Detected in prefix",
+                    systemImage: "list.bullet.rectangle",
+                    script: "import_game.command",
+                    arguments: ["list-battlenet"]
+                )
+                storeActionButton(
+                    title: "Add Blizzard Game",
+                    subtitle: "Battle.net launcher",
+                    systemImage: "gamecontroller.fill",
+                    script: "import_game.command",
+                    arguments: ["add-battlenet"],
+                    needsBattlenetSlug: true
+                )
+                storeActionButton(
                     title: "List Epic Games",
                     subtitle: "Legendary library",
                     systemImage: "list.bullet.rectangle",
@@ -1236,11 +1260,14 @@ struct ContentView: View {
         needsPath: Bool = false,
         pathPrompt: String = "",
         needsEpicAppName: Bool = false,
+        needsBattlenetSlug: Bool = false,
         forceTerminal: Bool = false
     ) -> some View {
         Button {
             if needsEpicAppName {
                 promptAndRunEpicImport(script: script, baseArguments: arguments)
+            } else if needsBattlenetSlug {
+                promptAndRunBattlenetImport(script: script, baseArguments: arguments)
             } else if needsPath {
                 promptAndRunStoreImport(script: script, baseArguments: arguments, pathPrompt: pathPrompt)
             } else if forceTerminal {
@@ -1306,6 +1333,30 @@ struct ContentView: View {
                 .replacingOccurrences(of: ".exe", with: "", options: .caseInsensitive)
             args += ["--name", fallbackName]
         }
+        runInTerminal(script: script, arguments: args, environment: bottleEnvironment())
+    }
+
+    private func promptAndRunBattlenetImport(script: String, baseArguments: [String]) {
+        let alert = NSAlert()
+        alert.messageText = "Battle.net game slug or path"
+        alert.informativeText = "Use a slug from list-battlenet (e.g. starcraft-ii) or a full .exe path inside the prefix."
+        alert.addButton(withTitle: "Register in Terminal")
+        alert.addButton(withTitle: "Cancel")
+
+        let slugField = NSTextField(frame: NSRect(x: 0, y: 28, width: 320, height: 24))
+        slugField.placeholderString = "starcraft-ii"
+        let nameField = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        nameField.placeholderString = "Display name for launcher"
+        let stack = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 56))
+        stack.addSubview(slugField)
+        stack.addSubview(nameField)
+        alert.accessoryView = stack
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let slugOrPath = slugField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !slugOrPath.isEmpty, !displayName.isEmpty else { return }
+        let args = baseArguments + [slugOrPath, "--name", displayName]
         runInTerminal(script: script, arguments: args, environment: bottleEnvironment())
     }
 

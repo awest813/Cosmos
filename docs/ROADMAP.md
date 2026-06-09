@@ -152,10 +152,12 @@ success criterion — if that sentence isn't true, the release isn't done.
 ### 0.6 — Store expansion *(complete)*
 - [x] Standalone EXE/MSI importer — `import_game.command` + `GAME_EXE_PATH` launch path
 - [x] GOG offline installers — `import_game.command add-gog`
-- [x] itch.io Windows games — `import_game.command add-itch`
+- [x] itch.io Windows games — `import_game.command add-itch` (`itch-*.conf` launchers)
+- [x] Battle.net / Blizzard — `install-battlenet`, `list-battlenet`, `add-battlenet` +
+  `BATTLENET_LAUNCHER_EXE` agent bootstrap in `run.command`
 - [x] Epic via Legendary (experiment) — `auth-epic`, `list-epic`, `add-epic` +
   `LEGENDARY_APP_NAME` launch path in `run.command`
-- [x] Dashboard **Add Non-Steam Games** section (including Epic / Legendary)
+- [x] Dashboard **Add Non-Steam Games** section (itch.io, Battle.net, Epic / Legendary)
 - **Success:** Users can add non-Steam Windows games and get the same launcher/profile experience. ✅
 
 ### 0.7 — CosmosDB *(in progress)*
