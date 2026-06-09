@@ -183,3 +183,96 @@ import_write_epic_config() {
   } > "${file}"
   printf '%s' "${file}"
 }
+
+import_write_itch_config() {
+  local configs_dir="$1" slug="$2" app_name="$3" bundle_id="$4" exe_path="$5"
+  local file="${configs_dir}/itch-${slug}.conf"
+  mkdir -p "${configs_dir}"
+  {
+    printf '# Created by import_game.command (itch.io)\n'
+    printf 'APP_NAME="%s (Cosmos)"\n' "$(import_safe_name "${app_name}")"
+    printf 'BUNDLE_ID="%s"\n' "${bundle_id}"
+    printf '\nRUN_ENV_NAMES=(\n'
+    printf '  GAME_EXE_PATH\n'
+    printf '  COSMOS_SKIP_STEAM\n'
+    printf ')\n\n'
+    printf 'GAME_EXE_PATH="%s"\n' "${exe_path}"
+    printf 'COSMOS_SKIP_STEAM="1"\n'
+  } > "${file}"
+  printf '%s' "${file}"
+}
+
+# --- Battle.net / Blizzard (roadmap 0.6+) ---
+
+import_find_battlenet_launcher() {
+  local pfx="$1"
+  local candidate
+  for candidate in \
+    "${pfx}/drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe" \
+    "${pfx}/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" \
+    "${pfx}/drive_c/Program Files/Battle.net/Battle.net Launcher.exe" \
+    "${pfx}/drive_c/Program Files/Battle.net/Battle.net.exe"; do
+    if [[ -f "${candidate}" ]]; then
+      printf '%s' "${candidate#${pfx}/}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Known Blizzard game install folder names under Program Files.
+import_battlenet_game_dirs() {
+  printf '%s\n' \
+    'StarCraft II' \
+    'Diablo III' \
+    'Diablo IV' \
+    'Hearthstone' \
+    'Heroes of the Storm' \
+    'Overwatch' \
+    'World of Warcraft' \
+    'Call of Duty'
+}
+
+# Print lines: slug<TAB>title<TAB>exe_relative_path
+import_scan_battlenet_games() {
+  local pfx="$1"
+  local root dir slug title exe
+  for root in \
+    "${pfx}/drive_c/Program Files (x86)" \
+    "${pfx}/drive_c/Program Files"; do
+    [[ -d "${root}" ]] || continue
+    while IFS= read -r dir; do
+      [[ -n "${dir}" ]] || continue
+      [[ -d "${root}/${dir}" ]] || continue
+      exe="$(import_find_game_exe "${root}/${dir}" 2>/dev/null || true)"
+      [[ -n "${exe}" ]] || continue
+      slug="$(import_slugify "${dir}")"
+      title="${dir}"
+      printf '%s\t%s\t%s\n' "${slug}" "${title}" "${exe#${pfx}/}"
+    done < <(import_battlenet_game_dirs)
+  done
+}
+
+import_write_battlenet_config() {
+  local configs_dir="$1" slug="$2" app_name="$3" bundle_id="$4" exe_path="$5" launcher_path="${6:-}"
+  local file="${configs_dir}/battlenet-${slug}.conf"
+  mkdir -p "${configs_dir}"
+  {
+    printf '# Created by import_game.command (Battle.net)\n'
+    printf 'APP_NAME="%s (Cosmos)"\n' "$(import_safe_name "${app_name}")"
+    printf 'BUNDLE_ID="%s"\n' "${bundle_id}"
+    printf '\nRUN_ENV_NAMES=(\n'
+    printf '  GAME_EXE_PATH\n'
+    printf '  COSMOS_SKIP_STEAM\n'
+    if [[ -n "${launcher_path}" ]]; then
+      printf '  BATTLENET_LAUNCHER_EXE\n'
+    fi
+    printf ')\n\n'
+    printf 'GAME_EXE_PATH="%s"\n' "${exe_path}"
+    printf 'COSMOS_SKIP_STEAM="1"\n'
+    if [[ -n "${launcher_path}" ]]; then
+      printf 'BATTLENET_LAUNCHER_EXE="%s"\n' "${launcher_path}"
+    fi
+  } > "${file}"
+  printf '%s' "${file}"
+}

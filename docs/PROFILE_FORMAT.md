@@ -11,6 +11,10 @@ by store:
 profiles/
 ├── steam/
 │   └── steam-22380-fallout-new-vegas.yaml
+├── itch/
+│   └── itch-<slug>.yaml
+├── battlenet/
+│   └── battlenet-<slug>.yaml
 └── standalone/
     └── <slug>.yaml
 ```
@@ -24,9 +28,9 @@ use `standalone-<slug>.yaml`.
 ```yaml
 id: fallout_new_vegas          # required, unique slug
 name: "Fallout: New Vegas"     # required, display name
-store: steam                   # steam | gog | epic | itch | standalone
+store: steam                   # steam | gog | epic | itch | battlenet | standalone
 steam_appid: 22380             # required when store == steam
-exe_path: ""                   # required when store == standalone (relative to bottle drive_c)
+exe_path: ""                   # required when store == itch | battlenet | standalone (relative to bottle drive_c)
 status: playable               # see status values below
 recommended_backend: dxmt      # recommended | d3dmetal | dxmt | dxvk | wined3d
 wine_version: cosmos-stable    # runtime identifier or pinned Wine version
@@ -51,9 +55,9 @@ notes: "Use launcher first, then set resolution."
 | --- | --- | --- |
 | `id` | yes | Stable unique slug; used for cross-references. |
 | `name` | yes | Human-readable title. |
-| `store` | yes | One of `steam`, `gog`, `epic`, `itch`, `standalone`. |
+| `store` | yes | One of `steam`, `gog`, `epic`, `itch`, `battlenet`, `standalone`. |
 | `steam_appid` | when `store: steam` | Steam application ID. |
-| `exe_path` | when `store: standalone` | Path to the game EXE, relative to the bottle's `drive_c`. |
+| `exe_path` | when `store: itch`, `battlenet`, or `standalone` | Path to the game EXE, relative to the bottle's `drive_c`. |
 | `status` | yes | Compatibility rating (see below). |
 | `recommended_backend` | yes | Graphics backend; see [BACKENDS.md](BACKENDS.md). |
 | `wine_version` | yes | Runtime identifier (e.g. `cosmos-stable`) or pinned version. |
