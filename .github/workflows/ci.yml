@@ -83,6 +83,12 @@ jobs:
       - name: Compatibility preflight unit tests
         run: ./scripts/test_compat_preflight.sh
 
+      - name: Rosetta lib unit tests
+        run: ./scripts/test_rosetta_lib.sh
+
+      - name: Wine lib unit tests
+        run: ./scripts/test_wine_lib.sh
+
       - name: cosmosdb lib tests
         run: ./scripts/test_cosmosdb_lib.sh
 

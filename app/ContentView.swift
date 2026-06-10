@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var profileSearchText = ""
     @State private var cosmosInstalled = false
     @State private var steamSettings = SteamSettings.defaults
+    @State private var wineRuntime = WineRuntimeStore.load()
     @State private var isRunning = false
     @State private var showResetConfirmation = false
     @State private var showUninstallConfirmation = false
@@ -434,6 +435,7 @@ struct ContentView: View {
     private var dashboardSectionContent: some View {
         switch dashboardSection {
         case .launch:
+            wineRuntimeSection
             launchSection
             steamWineSettingsSection
         case .library:
@@ -595,6 +597,15 @@ struct ContentView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
+                        if wineRuntime.needsRosetta {
+                            setupStep(
+                                done: wineRuntime.rosettaReady,
+                                title: "Install Rosetta 2",
+                                detail: wineRuntime.rosettaReady
+                                    ? "x86_64 Wine can run on Apple Silicon"
+                                    : "Required before Wine can launch on Apple Silicon"
+                            )
+                        }
                         setupStep(
                             done: cosmosInstalled,
                             title: "Install Cosmos",
@@ -718,6 +729,10 @@ struct ContentView: View {
 
     private func performNextSetupStep() {
         consoleExpanded = true
+        if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
+            runInTerminal(script: "run.command", arguments: ["--install-rosetta"])
+            return
+        }
         if !cosmosInstalled {
             runInTerminal(script: "install_cosmos.command")
             return
@@ -777,6 +792,55 @@ struct ContentView: View {
     /// Reveal a file in Finder, selecting it in its enclosing folder.
     private func revealInFinder(_ url: URL) {
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private var wineRuntimeSection: some View {
+        Group {
+            if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
+                runtimeNoticeBanner(
+                    tint: .orange,
+                    systemImage: "cpu",
+                    title: "Rosetta 2 required",
+                    message: "Cosmos downloads x86_64 Wine builds from Gcenx. Apple Silicon Macs need Rosetta 2 before Wine can run. Install Rosetta, then continue setup."
+                )
+            } else if !wineRuntime.wineInstalled {
+                runtimeNoticeBanner(
+                    tint: Color.cosmosPrimary,
+                    systemImage: "wineglass",
+                    title: "Wine not downloaded yet",
+                    message: "Run Prepare Steam bottle to download Wine \(wineRuntime.wineVersion). \(wineRuntime.translationNote)"
+                )
+            }
+        }
+    }
+
+    private func runtimeNoticeBanner(
+        tint: Color,
+        systemImage: String,
+        title: String,
+        message: String
+    ) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(tint.opacity(0.2), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
     }
 
     private var launchSection: some View {
@@ -875,10 +939,23 @@ struct ContentView: View {
                 Divider()
 
                 HStack(alignment: .top, spacing: 24) {
-                    detailRow(title: "Wine", value: steamSettings.wineVersion)
-                    detailRow(title: "Prefix status", value: steamSettings.statusText)
+                    detailRow(title: "Wine", value: wineRuntime.wineInstalled
+                        ? (wineRuntime.wineReportedVersion ?? wineRuntime.wineVersion)
+                        : "Not downloaded (v\(wineRuntime.wineVersion))")
+                    detailRow(title: "Rosetta", value: wineRuntime.rosettaLabel)
                 }
+                HStack(alignment: .top, spacing: 24) {
+                    detailRow(title: "Prefix status", value: steamSettings.statusText)
+                    detailRow(title: "CPU layer", value: wineRuntime.chipArchitecture)
+                }
+                Text(wineRuntime.translationNote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 detailRow(title: "Prefix path", value: steamSettings.prefixURL.path)
+                if wineRuntime.wineInstalled {
+                    detailRow(title: "Wine binary", value: wineRuntime.wineBinaryPath)
+                }
             }
             .cosmosCard()
         }
@@ -940,6 +1017,17 @@ struct ContentView: View {
             sectionHeader("Setup & Maintenance", systemImage: "wrench.and.screwdriver.fill")
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 168), spacing: 12)], spacing: 12) {
+                if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
+                    secondaryButton(
+                        title: "Install Rosetta 2",
+                        subtitle: "Required on Apple Silicon",
+                        systemImage: "cpu",
+                        help: "Install Rosetta 2 so x86_64 Wine can run (may ask for your password)"
+                    ) {
+                        runInTerminal(script: "run.command", arguments: ["--install-rosetta"])
+                    }
+                }
+
                 secondaryButton(title: "Install Cosmos", subtitle: "Wine & deps · Terminal", systemImage: "arrow.down.circle.fill", help: "Opens Terminal to install Wine and dependencies (may ask for your password)") {
                     runInTerminal(script: "install_cosmos.command")
                 }
@@ -2123,6 +2211,18 @@ struct ContentView: View {
 
     private var statusSummary: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if wineRuntime.needsRosetta {
+                statusRow(
+                    label: wineRuntime.rosettaLabel,
+                    icon: wineRuntime.rosettaReady ? "checkmark.circle.fill" : "cpu",
+                    color: wineRuntime.rosettaReady ? Color.green : Color.orange
+                )
+            }
+            statusRow(
+                label: wineRuntime.wineLabel,
+                icon: wineRuntime.wineInstalled ? "wineglass.fill" : "arrow.down.circle",
+                color: wineRuntime.wineInstalled ? Color.cosmosBright : Color.secondary
+            )
             statusRow(
                 label: cosmosInstalled ? "Cosmos installed" : "Cosmos required",
                 icon: cosmosInstalled ? "checkmark.circle.fill" : "arrow.down.circle",
@@ -2273,6 +2373,7 @@ struct ContentView: View {
         SteamSettingsStore.ensureOnDisk()
         cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
         steamSettings = SteamSettingsStore.load()
+        wineRuntime = WineRuntimeStore.load(wineVersion: steamSettings.wineVersion)
         profiles = loadProfiles()
         bottles = BottleStore.load()
         gameProfiles = GameProfileStore.load()

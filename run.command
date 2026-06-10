@@ -17,6 +17,14 @@ if [[ -f "${SCRIPT_DIR}/scripts/lib/runtime_lib.sh" ]]; then
   # shellcheck source=scripts/lib/runtime_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/runtime_lib.sh"
 fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/rosetta_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/rosetta_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/rosetta_lib.sh"
+fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/wine_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/wine_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/wine_lib.sh"
+fi
 
 # --- Bottle pre-load (roadmap 0.3) -------------------------------------------
 # A named bottle (COSMOS_BOTTLE) supplies an isolated Wine prefix plus default
@@ -248,6 +256,8 @@ Actions:
   --setup-steam           Prepare Wine, DXMT/backend, and Steam (no launch).
   --install-steam         Install or reinstall Steam in an existing prefix only.
   --status                 Show setup progress and the next step, then exit.
+  --runtime-status         Print machine-readable Wine/Rosetta status (key=value).
+  --install-rosetta        Install Rosetta 2 on Apple Silicon if missing, then exit.
   --compat-check <appid>   Print the curated compatibility status for a Steam
                            App ID (warns if broken/blocked), then exit.
   --game <path> [args...]  Launch a saved profile executable directly.
@@ -320,6 +330,20 @@ parse_arguments() {
         die "The $1 flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="status"
+      return 0
+      ;;
+    --runtime-status)
+      if (($# > 1)); then
+        die "The --runtime-status flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="runtime-status"
+      return 0
+      ;;
+    --install-rosetta)
+      if (($# > 1)); then
+        die "The --install-rosetta flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="install-rosetta"
       return 0
       ;;
     --compat-check)
@@ -444,19 +468,18 @@ ensure_sudo_ready() {
 
 ensure_rosetta() {
   log "Ensuring Rosetta 2"
-  if /usr/bin/arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
-    echo "Rosetta is already available. Skipping."
-    return
-  fi
-
-  ensure_sudo_ready
-  sudo softwareupdate --install-rosetta --agree-to-license
-
-  /usr/bin/arch -x86_64 /usr/bin/true >/dev/null 2>&1 || die "Rosetta installation check failed."
+  rosetta_ensure || die "Rosetta installation failed. Apple Silicon needs Rosetta 2 to run x86_64 Wine."
 }
 
 ensure_wine_installed() {
   log "Ensuring Wine ${WINE_VERSION} is installed"
+  if declare -F wine_is_installed >/dev/null 2>&1 && wine_is_installed; then
+    WINE_BIN="$(wine_resolve_bin)"
+    WINE_APP="$(wine_resolve_app)"
+    WINE_ROOT="$(wine_default_root)"
+    echo "Wine already installed at ${WINE_APP}. Skipping."
+    return
+  fi
   if [[ -x "${WINE_BIN}" ]]; then
     echo "Wine already installed at ${WINE_APP}. Skipping."
     return
@@ -1418,6 +1441,18 @@ show_status() {
   echo "  ==========================="
   [[ -n "${COSMOS_BOTTLE}" ]] && echo "  Bottle: ${COSMOS_BOTTLE}"
   echo ""
+  local rosetta_ok=0 rosetta_label=""
+  if declare -F rosetta_status_code >/dev/null 2>&1; then
+    case "$(rosetta_status_code)" in
+      available|not_required) rosetta_ok=1 ;;
+    esac
+    rosetta_label="$(rosetta_status_label)"
+  else
+    rosetta_ok=1
+    rosetta_label="Rosetta check unavailable"
+  fi
+  status_line "${rosetta_ok}" "${rosetta_label}" \
+    "$([[ "${rosetta_ok}" -eq 1 ]] && echo "x86_64 Wine runs via Rosetta on Apple Silicon" || echo "Run: ./run.command --install-rosetta")"
   status_line "${wine_ok}" "Wine ${WINE_VERSION} downloaded" \
     "$([[ "${wine_ok}" -eq 1 ]] && echo "${WINE_APP}" || echo "Downloads on first --setup-steam or --steam")"
   status_line "${prefix_ok}" "Wine prefix created" \
@@ -1434,7 +1469,9 @@ show_status() {
     [[ -n "${COSMOS_RUNTIME_DIR:-}" ]] && echo "  Runtime cache: ${COSMOS_RUNTIME_DIR}"
   fi
   echo ""
-  if [[ "${wine_ok}" -eq 0 || "${prefix_ok}" -eq 0 ]]; then
+  if [[ "${rosetta_ok}" -eq 0 ]]; then
+    echo "  Next step: ./run.command --install-rosetta"
+  elif [[ "${wine_ok}" -eq 0 || "${prefix_ok}" -eq 0 ]]; then
     echo "  Next step: ./run.command --setup-steam"
   elif [[ "${steam_ok}" -eq 0 ]]; then
     echo "  Next step: ./run.command --install-steam"
@@ -1461,6 +1498,16 @@ main() {
     profiles) open_profiles_folder; return ;;
     logs) open_logs; return ;;
     status) show_status; return ;;
+    runtime-status)
+      require_macos_arm64
+      wine_runtime_status_lines
+      return ;;
+    install-rosetta)
+      require_macos_arm64
+      log "Installing Rosetta 2"
+      rosetta_ensure || die "Rosetta installation failed"
+      echo "Rosetta 2 is ready."
+      return ;;
     reset-bottle) reset_bottle; return ;;
     setup-steam)
       log "Preparing Steam bottle (no launch)"
