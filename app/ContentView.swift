@@ -11,8 +11,6 @@ private enum CommandIntent: Equatable {
 struct ContentView: View {
     private let fileManager = FileManager.default
     private let repositoryRootURL = Self.findRepositoryRoot()
-    private let profileDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/Cosmos/Profiles", isDirectory: true)
     private let cosmosAppsURL = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
     private let consoleBottomID = "console-bottom"
 
@@ -21,6 +19,7 @@ struct ContentView: View {
     @State private var selectedProfileID: String?
     @State private var profileSearchText = ""
     @State private var cosmosInstalled = false
+    @State private var cosmosAppCount = 0
     @State private var steamSettings = SteamSettings.defaults
     @State private var graphicsSettings = GraphicsSettings.defaults
     @State private var gptkValidation = GptkValidationResult.empty
@@ -126,7 +125,7 @@ struct ContentView: View {
             openSetupHelp()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSelectSection)) { notification in
-            if let section = notification.object as? DashboardSection, isSetupComplete {
+            if let section = notification.object as? DashboardSection, isSteamReady {
                 dashboardSection = section
             }
         }
@@ -139,18 +138,18 @@ struct ContentView: View {
             }
         }
         .onChange(of: selectedBottleID) { _, newID in
-            if newID != nil, isSetupComplete {
+            if newID != nil, isSteamReady {
                 dashboardSection = .bottles
             }
         }
         .onChange(of: selectedGameProfileID) { _, newID in
-            if newID != nil, isSetupComplete {
+            if newID != nil, isSteamReady {
                 dashboardSection = .library
             }
         }
         .onChange(of: selectedProfileID) { _, newID in
             refreshCompatBadge()
-            if newID != nil, isSetupComplete {
+            if newID != nil, isSteamReady {
                 dashboardSection = .launch
             }
         }
@@ -190,12 +189,12 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
-                if isSetupComplete, let bottle = selectedBottle {
+                if isSteamReady, let bottle = selectedBottle {
                     StatusChip(
                         label: "Bottle: \(bottle.name)",
                         systemImage: "cylinder.split.1x2.fill"
                     )
-                } else if isSetupComplete {
+                } else if isSteamReady {
                     StatusChip(
                         label: "Default bottle",
                         systemImage: "cylinder.split.1x2",
@@ -282,7 +281,7 @@ struct ContentView: View {
                             Label("No profiles yet", systemImage: "tray")
                                 .foregroundStyle(.secondary)
                                 .font(.subheadline)
-                            Text(isSetupComplete ? "Run Detect Games after installing Steam to discover titles." : "Complete setup above, then build launchers to see games here.")
+                            Text(isSteamReady ? "Run Detect Games or Build Launchers to populate saved profiles." : "Complete setup above, then build launchers to see games here.")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -339,16 +338,16 @@ struct ContentView: View {
                 if let badge {
                     CosmosCompatBadge(status: badge.status, compact: true)
                 }
-                if profile.path.isEmpty {
+                if !profile.canLaunchFromDashboard {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.caption2)
                         .foregroundStyle(.orange)
-                        .help("No executable path — edit the profile config")
+                        .help("No launch method configured — edit the profile config")
                 }
             }
-            Text(profile.args.isEmpty ? profile.path : profile.args)
+            Text(profileSubtitle(profile))
                 .font(.caption)
-                .foregroundStyle(profile.path.isEmpty ? .tertiary : .secondary)
+                .foregroundStyle(profile.canLaunchFromDashboard ? .secondary : .tertiary)
                 .lineLimit(1)
         }
         .padding(.vertical, 2)
@@ -363,7 +362,7 @@ struct ContentView: View {
             } label: {
                 Label("Launch", systemImage: "play.fill")
             }
-            .disabled(profile.path.isEmpty || isRunning)
+            .disabled(!profile.canLaunchFromDashboard || isRunning)
 
             Button {
                 revealInFinder(profile.fileURL)
@@ -397,22 +396,22 @@ struct ContentView: View {
                     }
                 }
                 heroSection
-                if isSetupComplete {
+                if isSteamReady {
                     dashboardSectionPicker
                 }
                 setupAssistantSection
-                if isSetupComplete {
+                if isSteamReady {
                     dashboardSectionContent
                 } else {
                     setupLaunchHintSection
                     if showAdvancedSetupOptions {
                         steamWineSettingsSection
-                        managementGrid
+                        setupToolsGrid
                     } else {
                         newUserMaintenanceSection
                     }
                 }
-                if (!isSetupComplete || dashboardSection == .launch), let selectedProfile {
+                if (!isSteamReady || dashboardSection == .launch), let selectedProfile {
                     selectedProfileSection(selectedProfile)
                 }
                 consoleSection
@@ -452,7 +451,7 @@ struct ContentView: View {
             compatibilitySection
             repairSection
         case .tools:
-            managementGrid
+            maintenanceGrid
             storeExpansionSection
         case .bottles:
             bottlesSection
@@ -479,12 +478,21 @@ struct ContentView: View {
         return "Launcher Dashboard"
     }
 
-    private var isSetupComplete: Bool {
+    /// Wine prefix + Steam are ready; unlocks the dashboard tabs.
+    private var isSteamReady: Bool {
         setupRosettaReady
             && cosmosInstalled
             && steamSettings.isPrefixInitialized
             && steamSettings.isSteamInstalled
-            && !profiles.isEmpty
+    }
+
+    /// Saved profiles or Dock launchers exist.
+    private var hasGameLaunchers: Bool {
+        !profiles.isEmpty || cosmosAppCount > 0
+    }
+
+    private var isSetupComplete: Bool {
+        isSteamReady && hasGameLaunchers
     }
 
     /// Rosetta is step 1 on Apple Silicon; Intel hosts skip it.
@@ -506,7 +514,7 @@ struct ContentView: View {
         if cosmosInstalled { completed += 1 }
         if steamSettings.isPrefixInitialized { completed += 1 }
         if steamSettings.isSteamInstalled { completed += 1 }
-        if !profiles.isEmpty { completed += 1 }
+        if hasGameLaunchers { completed += 1 }
         return completed / Double(setupStepTotal)
     }
 
@@ -515,7 +523,7 @@ struct ContentView: View {
         if !cosmosInstalled { return setupIncludesRosetta ? 2 : 1 }
         if !steamSettings.isPrefixInitialized { return setupIncludesRosetta ? 3 : 2 }
         if !steamSettings.isSteamInstalled { return setupIncludesRosetta ? 4 : 3 }
-        if profiles.isEmpty { return setupStepTotal }
+        if !hasGameLaunchers { return setupStepTotal }
         return setupStepTotal
     }
 
@@ -538,7 +546,7 @@ struct ContentView: View {
         if !cosmosInstalled { return "Install Cosmos" }
         if !steamSettings.isPrefixInitialized { return "Prepare Steam Bottle" }
         if !steamSettings.isSteamInstalled { return "Install Steam" }
-        if profiles.isEmpty { return "Build Game Launchers" }
+        if !hasGameLaunchers { return "Build Game Launchers" }
         return "Refresh Status"
     }
 
@@ -557,7 +565,7 @@ struct ContentView: View {
                 ? "Installs Steam automatically (wizard fallback if needed)"
                 : "Opens the graphical Steam installer wizard in Terminal"
         }
-        if profiles.isEmpty {
+        if !hasGameLaunchers {
             return "Detect installed games and create Dock-friendly .app launchers"
         }
         return "Update the checklist and sidebar"
@@ -568,7 +576,7 @@ struct ContentView: View {
         if !cosmosInstalled { return "arrow.down.circle.fill" }
         if !steamSettings.isPrefixInitialized { return "externaldrive.fill.badge.checkmark" }
         if !steamSettings.isSteamInstalled { return "shippingbox.fill" }
-        if profiles.isEmpty { return "square.grid.2x2.fill" }
+        if !hasGameLaunchers { return "square.grid.2x2.fill" }
         return "arrow.clockwise"
     }
 
@@ -577,9 +585,10 @@ struct ContentView: View {
             return "Follow the setup guide below — one button per step. First-time setup takes about 10–15 minutes."
         }
         if let selectedProfile {
-            return selectedProfileHasExecutablePath
-                ? "Ready to launch this saved profile through the Wine-based shell flow."
-                : "This profile has no executable path — edit its config file or pick another profile."
+            if selectedProfileCanLaunch {
+                return "Launch via \(selectedProfile.launchMethodLabel.lowercased())."
+            }
+            return "This profile has no launch path — edit its config file or pick another profile."
         }
         if let selectedBottle {
             return "Bottle selected — adjust backend and launch Steam from the controls below."
@@ -595,8 +604,8 @@ struct ContentView: View {
                 ? "Run Install Steam to finish the unattended install, then detect games."
                 : "Run Install Steam to complete the installer wizard, then detect games."
         }
-        if profiles.isEmpty {
-            return "Steam is ready — run Detect Games to populate saved profiles."
+        if !hasGameLaunchers {
+            return "Steam is ready — run Detect Games or Build Launchers to populate saved profiles."
         }
         return "Manage Cosmos, launch Steam, and jump into saved game profiles from one place."
     }
@@ -682,11 +691,11 @@ struct ContentView: View {
                                     : "Complete the graphical Steam installer wizard")
                         )
                         setupStep(
-                            done: !profiles.isEmpty,
+                            done: hasGameLaunchers,
                             title: "Build game launchers",
-                            detail: profiles.isEmpty
-                                ? "After you install a Windows game in Steam"
-                                : "\(profiles.count) profile\(profiles.count == 1 ? "" : "s") ready"
+                            detail: hasGameLaunchers
+                                ? launcherSummaryText
+                                : "After you install a Windows game in Steam"
                         )
                     }
 
@@ -753,30 +762,29 @@ struct ContentView: View {
 
     private var setupLaunchHintSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("After setup", systemImage: "play.circle")
-            Text(steamSettings.isSteamInstalled
-                ? "Launch Steam to sign in and download a Windows game, then continue with Build Game Launchers above."
-                : "Quick Launch unlocks once Steam is installed. Use the setup guide above for the next step.")
+            sectionHeader("While setup runs", systemImage: "play.circle")
+            Text("Quick Launch and the full dashboard unlock once Steam is installed. Use the setup guide above for the next step.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if steamSettings.isSteamInstalled {
-                prominentButton(
-                    title: "Launch Steam",
-                    subtitle: "Sign in and install a Windows game",
-                    systemImage: "play.fill",
-                    help: "Open Steam in the Wine prefix"
-                ) {
-                    runCommand(script: "run.command", arguments: ["--steam"])
-                }
-            }
         }
+    }
+
+    private var launcherSummaryText: String {
+        var parts: [String] = []
+        if !profiles.isEmpty {
+            parts.append("\(profiles.count) profile\(profiles.count == 1 ? "" : "s")")
+        }
+        if cosmosAppCount > 0 {
+            parts.append("\(cosmosAppCount) Dock app\(cosmosAppCount == 1 ? "" : "s")")
+        }
+        return parts.isEmpty ? "Launchers ready" : parts.joined(separator: " · ")
     }
 
     private var newUserMaintenanceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             DisclosureGroup(isExpanded: $showAdvancedSetupOptions) {
-                managementGrid
+                setupToolsGrid
             } label: {
                 Label("More options", systemImage: "ellipsis.circle")
                     .font(.subheadline.weight(.semibold))
@@ -806,7 +814,7 @@ struct ContentView: View {
             runInTerminal(script: "run.command", arguments: ["--install-steam"])
             return
         }
-        if profiles.isEmpty {
+        if !hasGameLaunchers {
             runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
             return
         }
@@ -830,10 +838,10 @@ struct ContentView: View {
             title: "Launch Profile",
             subtitle: selectedProfileLaunchSubtitle,
             systemImage: "gamecontroller.fill",
-            disabled: !selectedProfileHasExecutablePath,
-            help: selectedProfileHasExecutablePath
-                ? "Launch the selected profile's game executable"
-                : "Select a profile with an executable path in the sidebar"
+            disabled: !selectedProfileCanLaunch,
+            help: selectedProfileCanLaunch
+                ? "Launch the selected profile (\(selectedProfile?.launchMethodLabel.lowercased() ?? ""))"
+                : "Select a profile with a launch path or Steam App ID in the sidebar"
         ) {
             guard let selectedProfile else { return }
             launchProfile(selectedProfile)
@@ -843,7 +851,7 @@ struct ContentView: View {
     /// Launch a saved profile's game executable through the Wine shell flow.
     /// Shared by the Quick Launch button and the sidebar context menu.
     private func launchProfile(_ profile: SavedProfile) {
-        guard !profile.path.isEmpty else { return }
+        guard profile.canLaunchFromDashboard else { return }
         if let appid = profile.steamAppID,
            let yaml = GameProfileStore.find(steamAppID: appid),
            yaml.isBlocked {
@@ -854,10 +862,25 @@ struct ContentView: View {
     }
 
     private func launchProfileUnchecked(_ profile: SavedProfile) {
-        guard !profile.path.isEmpty else { return }
+        guard profile.canLaunchFromDashboard else { return }
+        if !profile.path.isEmpty {
+            runCommand(
+                script: "run.command",
+                arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args),
+                intent: .gameLaunch
+            )
+            return
+        }
+        guard let appid = profile.steamAppID, !appid.isEmpty else { return }
+        var env = bottleEnvironment()
+        env["STEAM_GAME_ID"] = appid
+        if !profile.args.isEmpty {
+            env["STEAM_GAME_ARGS"] = profile.args
+        }
         runCommand(
             script: "run.command",
-            arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args),
+            arguments: ["--steam"],
+            environment: env,
             intent: .gameLaunch
         )
     }
@@ -884,8 +907,26 @@ struct ContentView: View {
         if let badge {
             parts.append("compatibility \(badge.status)")
         }
-        parts.append(profile.path.isEmpty ? "No executable path set" : profile.path)
+        if profile.canLaunchFromDashboard {
+            parts.append(profile.launchMethodLabel)
+            if !profile.path.isEmpty {
+                parts.append(profile.path)
+            } else if let appid = profile.steamAppID {
+                parts.append("App ID \(appid)")
+            }
+        } else {
+            parts.append("Not configured")
+        }
         return parts.joined(separator: ". ")
+    }
+
+    private func profileSubtitle(_ profile: SavedProfile) -> String {
+        if !profile.args.isEmpty { return profile.args }
+        if !profile.path.isEmpty { return profile.path }
+        if let appid = profile.steamAppID, !appid.isEmpty {
+            return "Steam App ID \(appid)"
+        }
+        return profile.launchMethodLabel
     }
 
     /// Reveal a file in Finder, selecting it in its enclosing folder.
@@ -1369,44 +1410,49 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Management grid
+    @ViewBuilder
+    private var gameDiscoveryButtons: some View {
+        secondaryButton(title: "Detect Games", subtitle: "List Steam library", systemImage: "magnifyingglass", help: "Scan the Steam library and list installable titles in the output pane") {
+            runCommand(script: "detect_steam_games.command", arguments: ["--list"], environment: bottleEnvironment())
+        }
 
-    private var managementGrid: some View {
-        CosmosSection(title: "Setup & Maintenance", systemImage: "wrench.and.screwdriver.fill") {
+        secondaryButton(title: "Verify Detection", subtitle: "Check install folders", systemImage: "checkmark.shield.fill", help: "List games and verify each installdir exists on disk") {
+            runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: bottleEnvironment())
+        }
+
+        secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps · Terminal", systemImage: "square.grid.2x2.fill", help: "Opens Terminal to detect games and install Spotlight launchers into Cosmos Apps") {
+            runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+        }
+    }
+
+    // MARK: - Setup tools (first-time, advanced options)
+
+    private var setupToolsGrid: some View {
+        CosmosSection(title: "Optional tools", systemImage: "wrench.and.screwdriver") {
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: CosmosSpacing.gridColumnMin), spacing: CosmosSpacing.gridGap)],
                 spacing: CosmosSpacing.gridGap
             ) {
-                if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
-                    secondaryButton(
-                        title: "Install Rosetta 2",
-                        subtitle: "Required on Apple Silicon",
-                        systemImage: "cpu",
-                        help: "Install Rosetta 2 so x86_64 Wine can run (may ask for your password)"
-                    ) {
-                        runInTerminal(script: "run.command", arguments: ["--install-rosetta"])
-                    }
+                gameDiscoveryButtons
+                secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill", help: "Reveal saved game profiles in Finder") {
+                    runCommand(script: "run.command", arguments: ["--profiles"])
                 }
+                secondaryButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass", help: "Open the most recent launch log for troubleshooting") {
+                    runCommand(script: "run.command", arguments: ["--logs"])
+                }
+            }
+        }
+    }
 
-                secondaryButton(title: "Install Cosmos", subtitle: "Wine & deps · Terminal", systemImage: "arrow.down.circle.fill", help: "Opens Terminal to install Wine and dependencies (may ask for your password)") {
-                    runInTerminal(script: "install_cosmos.command")
-                }
+    // MARK: - Maintenance grid (post-setup Tools tab)
 
-                secondaryButton(title: "Prepare Bottle", subtitle: "Wine prefix & Steam · Terminal", systemImage: "externaldrive.fill.badge.checkmark", help: "Opens Terminal to download Wine, create the prefix, install Steam, and configure the graphics backend without launching Steam") {
-                    runInTerminal(script: "run.command", arguments: ["--setup-steam"])
-                }
-
-                secondaryButton(title: "Detect Games", subtitle: "List Steam games", systemImage: "magnifyingglass", help: "Scan the Steam library and list installable titles in the output pane") {
-                    runCommand(script: "detect_steam_games.command", arguments: ["--list"], environment: bottleEnvironment())
-                }
-
-                secondaryButton(title: "Verify Detection", subtitle: "Check install folders", systemImage: "checkmark.shield.fill", help: "List games and verify each installdir exists on disk") {
-                    runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: bottleEnvironment())
-                }
-
-                secondaryButton(title: "Build Launchers", subtitle: "Detect → build apps · Terminal", systemImage: "square.grid.2x2.fill", help: "Opens Terminal to detect games and install Spotlight launchers into Cosmos Apps") {
-                    runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
-                }
+    private var maintenanceGrid: some View {
+        CosmosSection(title: "Maintenance", systemImage: "wrench.and.screwdriver.fill") {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: CosmosSpacing.gridColumnMin), spacing: CosmosSpacing.gridGap)],
+                spacing: CosmosSpacing.gridGap
+            ) {
+                gameDiscoveryButtons
 
                 if !installedCuratedProfiles.isEmpty {
                     secondaryButton(
@@ -1425,10 +1471,6 @@ struct ContentView: View {
 
                 secondaryButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass", help: "Open the most recent launch log for troubleshooting") {
                     runCommand(script: "run.command", arguments: ["--logs"])
-                }
-
-                secondaryButton(title: "Refresh", subtitle: "Reload status", systemImage: "arrow.clockwise", help: "Reload profiles, bottles, and installation status") {
-                    refreshStatus(message: "Status refreshed.")
                 }
 
                 secondaryButton(title: "Check for Updates", subtitle: "GitHub Releases", systemImage: "arrow.down.circle", help: "Compare your Cosmos version to the latest published release") {
@@ -1794,13 +1836,13 @@ struct ContentView: View {
                     pathPrompt: "Game .exe path (drive_c/... or inside prefix)"
                 )
                 storeActionButton(
-                    title: "GOG Installer",
-                    subtitle: "Offline setup.exe",
+                    title: "GOG Game",
+                    subtitle: "Setup, slug, or folder",
                     systemImage: "opticaldisc.fill",
                     script: "import_game.command",
                     arguments: ["add-gog"],
                     needsStoreTitle: true,
-                    pathPrompt: "Path to GOG setup.exe"
+                    pathPrompt: "GOG setup.exe, list-gog slug, or install folder"
                 )
                 storeActionButton(
                     title: "List GOG Games",
@@ -1867,9 +1909,19 @@ struct ContentView: View {
                 )
             }
 
-            Text("After importing, run Install Cosmos to build the .app launcher into /Applications/Cosmos Apps.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            HStack(spacing: 10) {
+                Text("After importing, run Build Launchers to create Dock icons, or use Install Cosmos for a one-shot Terminal build.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button("Build Launchers") {
+                    runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(isRunning)
+            }
         }
     }
 
@@ -2441,7 +2493,11 @@ struct ContentView: View {
             }
 
             VStack(alignment: .leading, spacing: 14) {
-                detailRow(title: "Executable", value: profile.path)
+                detailRow(title: "Launch method", value: profile.launchMethodLabel)
+                if !profile.path.isEmpty {
+                    Divider()
+                    detailRow(title: "Executable", value: profile.path)
+                }
                 Divider()
                 detailRow(title: "Arguments", value: profile.args.isEmpty ? "None" : profile.args)
                 if let appid = profile.steamAppID, !appid.isEmpty {
@@ -2474,11 +2530,13 @@ struct ContentView: View {
 
     private var selectedProfileLaunchSubtitle: String {
         guard let selectedProfile else { return "Select a profile first" }
-        return selectedProfileHasExecutablePath ? "Ready to launch" : "Set an executable path"
+        return selectedProfileCanLaunch
+            ? selectedProfile.launchMethodLabel
+            : "Configure executable or Steam App ID"
     }
 
-    private var selectedProfileHasExecutablePath: Bool {
-        selectedProfile?.path.isEmpty == false
+    private var selectedProfileCanLaunch: Bool {
+        selectedProfile?.canLaunchFromDashboard == true
     }
 
     // MARK: - Console
@@ -2689,9 +2747,9 @@ struct ContentView: View {
                 color: steamSettings.isSteamInstalled ? Color.cosmosBright : Color.secondary
             )
             statusRow(
-                label: "\(profiles.count) profile\(profiles.count == 1 ? "" : "s") saved",
+                label: hasGameLaunchers ? launcherSummaryText : "No launchers yet",
                 icon: "gamecontroller.fill",
-                color: Color.cosmosPrimary.opacity(0.8)
+                color: hasGameLaunchers ? Color.cosmosPrimary.opacity(0.8) : Color.secondary
             )
             statusRow(
                 label: bottles.isEmpty
@@ -2827,10 +2885,11 @@ struct ContentView: View {
     private func refreshStatus(message: String? = nil) {
         SteamSettingsStore.ensureOnDisk()
         cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
+        cosmosAppCount = SavedProfileStore.countCosmosApps()
         steamSettings = SteamSettingsStore.load()
         reloadGraphicsSettings()
         wineRuntime = WineRuntimeStore.load(wineVersion: steamSettings.wineVersion)
-        profiles = loadProfiles()
+        profiles = SavedProfileStore.load()
         bottles = BottleStore.load()
         gameProfiles = GameProfileStore.load()
         dependencyRecipes = RecipeStore.loadDependencies()
@@ -2861,63 +2920,6 @@ struct ContentView: View {
         resolvedCompatBadge = CosmosBadgeStore.resolve(
             steamAppID: appid,
             curated: selectedGameProfile ?? GameProfileStore.find(steamAppID: appid)
-        )
-    }
-
-    private func loadProfiles() -> [SavedProfile] {
-        let profileURLs = (try? fileManager.contentsOfDirectory(at: profileDirectoryURL, includingPropertiesForKeys: nil)) ?? []
-
-        return profileURLs
-            .filter { $0.pathExtension == "conf" }
-            .compactMap(loadProfile)
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
-    private func loadProfile(from fileURL: URL) -> SavedProfile? {
-        guard let contents = try? String(contentsOf: fileURL, encoding: .utf8) else {
-            return nil
-        }
-
-        var name = fileURL.deletingPathExtension().lastPathComponent
-        var path = ""
-        var args = ""
-        var steamAppID: String?
-
-        for line in contents.split(whereSeparator: \.isNewline) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty,
-                  !trimmed.hasPrefix("["),
-                  let separatorIndex = trimmed.firstIndex(of: "=") else {
-                continue
-            }
-
-            let key = String(trimmed[..<separatorIndex]).trimmingCharacters(in: .whitespaces)
-            let value = trimmed[trimmed.index(after: separatorIndex)...]
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\" "))
-
-            switch key {
-            case "name":
-                if !value.isEmpty {
-                    name = value
-                }
-            case "path":
-                path = value
-            case "args":
-                args = value
-            case "STEAM_GAME_ID":
-                steamAppID = value
-            default:
-                break
-            }
-        }
-
-        return SavedProfile(
-            id: fileURL.lastPathComponent,
-            name: name,
-            path: path,
-            args: args,
-            steamAppID: steamAppID,
-            fileURL: fileURL
         )
     }
 
@@ -3155,15 +3157,6 @@ struct ContentView: View {
         return nil
     }
 
-}
-
-private struct SavedProfile: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let path: String
-    let args: String
-    let steamAppID: String?
-    let fileURL: URL
 }
 
 extension Notification.Name {

@@ -57,13 +57,12 @@ Usage: import_game.command <command> [args]
 
 Commands:
   list                          List non-Steam launcher configs.
-  list-gog                        List GOG games detected in the prefix.
+  list-gog                        List GOG games detected under drive_c/GOG Games.
   add-exe <path> --name <title> [--slug <id>] [--bottle <name>]
                                 Register an installed .exe as a Cosmos launcher.
   run-installer <file>        Run a Windows .exe/.msi installer in the prefix.
   add-gog <setup|slug|path> --name <title> [--slug <id>] [--bottle <name>]
                                 Run a GOG offline installer or register an installed game.
-  list-gog                        List GOG games detected under drive_c/GOG Games.
   add-itch <folder> --name <title> [--slug <id>]
                                 Find a .exe in an itch.io download folder and register it.
   install-battlenet <setup.exe> [--bottle <name>]
