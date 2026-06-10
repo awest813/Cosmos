@@ -11,5 +11,6 @@ settings:
 dependencies:
   - vcrun2015
 notes: >
+  Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam.
   Vulkan/D3D12 title. Set GPTK_PATH and use d3dmetal for best results. First launch
   compiles shaders for several minutes. Lower settings on base MacBook Air models.

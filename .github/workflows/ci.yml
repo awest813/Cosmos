@@ -59,6 +59,12 @@ jobs:
       - name: Profile library unit tests
         run: ./scripts/test_profile_lib.sh
 
+      - name: Thread sync lib unit tests
+        run: ./scripts/test_sync_lib.sh
+
+      - name: GPTK validation lib unit tests
+        run: ./scripts/test_gptk_lib.sh
+
       - name: Profile schema validation tests
         run: ./scripts/test_profiles.sh
 

@@ -11,5 +11,6 @@ settings:
 dependencies:
   - vcrun2019
 notes: >
+  Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam.
   Demanding Unreal Engine 5 / D3D12 title. Requires GPTK_PATH and d3dmetal backend.
   Lower ray tracing and texture quality. Long first-launch shader compile is normal.

@@ -16,6 +16,9 @@ struct ContentView: View {
     @State private var profileSearchText = ""
     @State private var cosmosInstalled = false
     @State private var steamSettings = SteamSettings.defaults
+    @State private var graphicsSettings = GraphicsSettings.defaults
+    @State private var gptkValidation = GptkValidationResult.empty
+    @State private var showAdvancedGraphics = false
     @State private var wineRuntime = WineRuntimeStore.load()
     @State private var isRunning = false
     @State private var showResetConfirmation = false
@@ -419,6 +422,7 @@ struct ContentView: View {
             wineRuntimeSection
             launchSection
             steamWineSettingsSection
+            performanceGraphicsSection
         case .library:
             curatedProfilesSection
             compatibilitySection
@@ -938,6 +942,268 @@ struct ContentView: View {
             }
             .cosmosCard()
         }
+    }
+
+    // MARK: - Performance & graphics (Phase E)
+
+    private var performanceGraphicsSection: some View {
+        CosmosSection(
+            title: "Performance & Graphics",
+            systemImage: "speedometer",
+            caption: "Thread sync, D3D12 (GPTK), and advanced DXMT / MoltenVK tuning for the default Steam bottle."
+        ) {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Thread sync")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                        .textCase(.uppercase)
+                    Picker("Thread sync", selection: syncModeBinding) {
+                        ForEach(GraphicsSettings.syncModeOptions, id: \.self) { mode in
+                            Text(mode).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(isRunning)
+                    Text(graphicsSettings.syncModeLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
+                gptkSetupCard
+
+                DisclosureGroup(isExpanded: $showAdvancedGraphics) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("DXMT channel")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                                .textCase(.uppercase)
+                            Picker("DXMT channel", selection: dxmtChannelBinding) {
+                                Text("Stable (MIT)").tag("stable")
+                                Text("Experimental (LGPL)").tag("experimental")
+                            }
+                            .pickerStyle(.segmented)
+                            .disabled(isRunning)
+                            Text(graphicsSettings.dxmtChannel == "experimental"
+                                ? "Pins DXMT 0.81+ and sets COSMOS_ALLOW_LGPL=1. Review docs/LICENSING.md before use."
+                                : "Uses the pinned runtime manifest (default DXMT 0.74).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Toggle(isOn: metalFXBinding) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("MetalFX upscaling (DXMT)")
+                                    .font(.subheadline.weight(.medium))
+                                Text("Appends d3d11.metalFxUpscale=1 to DXMT_CONFIG. Experimental — game-dependent.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(isRunning)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("MoltenVK preset (DXVK path)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                                .textCase(.uppercase)
+                            Picker("MoltenVK preset", selection: moltenvkPresetBinding) {
+                                Text("Default").tag("default")
+                                Text("Performance").tag("performance")
+                                Text("Compatibility").tag("compatibility")
+                            }
+                            .pickerStyle(.segmented)
+                            .disabled(isRunning)
+                            Text("Sets MVK_CONFIG_* env vars when using the experimental DXVK backend.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.top, 8)
+                } label: {
+                    Text("Advanced graphics options")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary)
+                }
+            }
+            .cosmosCard()
+        }
+    }
+
+    private var gptkSetupCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("D3D12 — Game Porting Toolkit")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if gptkValidation.valid {
+                    Label("Valid", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                } else if graphicsSettings.gptkConfigured {
+                    Label("Invalid", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                }
+            }
+            Text("Apple's GPTK is not bundled. Download from developer.apple.com, then point Cosmos at the install folder for D3D12 titles (Cyberpunk, Elden Ring, etc.).")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                TextField("GPTK_PATH", text: gptkPathBinding)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.caption)
+                    .disabled(isRunning)
+                Button("Browse…") { browseForGptkPath() }
+                    .disabled(isRunning)
+            }
+
+            if !gptkValidation.errorMessage.isEmpty, !gptkValidation.valid {
+                Text(gptkValidation.errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if gptkValidation.valid {
+                Text("Found \(gptkValidation.dllCount) DLL(s) in \(gptkValidation.dllDirectory)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    validateGptkPath()
+                } label: {
+                    Label("Validate", systemImage: "checkmark.shield")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning || !graphicsSettings.gptkConfigured)
+
+                Button {
+                    saveGptkPathAndTest()
+                } label: {
+                    Label("Save & Test Steam", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.cosmosPrimary)
+                .disabled(isRunning || !gptkValidation.valid)
+
+                Button {
+                    openRepositoryDoc(
+                        relativePath: "docs/BACKENDS.md",
+                        bundleName: "BACKENDS.md",
+                        fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
+                    )
+                } label: {
+                    Label("Guide", systemImage: "book")
+                }
+                .buttonStyle(.bordered)
+            }
+            .font(.subheadline)
+        }
+    }
+
+    private var syncModeBinding: Binding<String> {
+        Binding(
+            get: { graphicsSettings.syncMode },
+            set: { applyGraphicsSetting(key: "COSMOS_SYNC_MODE", value: $0) }
+        )
+    }
+
+    private var dxmtChannelBinding: Binding<String> {
+        Binding(
+            get: { graphicsSettings.dxmtChannel },
+            set: { applyGraphicsSetting(key: "COSMOS_DXMT_CHANNEL", value: $0) }
+        )
+    }
+
+    private var moltenvkPresetBinding: Binding<String> {
+        Binding(
+            get: { graphicsSettings.moltenvkPreset },
+            set: { applyGraphicsSetting(key: "COSMOS_MVK_PRESET", value: $0) }
+        )
+    }
+
+    private var metalFXBinding: Binding<Bool> {
+        Binding(
+            get: { graphicsSettings.metalFXEnabled },
+            set: { applyGraphicsSetting(key: "COSMOS_METALFX", value: $0 ? "1" : "0") }
+        )
+    }
+
+    private var gptkPathBinding: Binding<String> {
+        Binding(
+            get: { graphicsSettings.gptkPath },
+            set: { graphicsSettings.gptkPath = $0 }
+        )
+    }
+
+    private func applyGraphicsSetting(key: String, value: String) {
+        do {
+            try SteamSettingsStore.set(key: key, value: value)
+            reloadGraphicsSettings()
+            let message = "Saved \(key). Changes apply on the next launch."
+            output = message + "\n\n" + output
+            showBanner(kind: .success, message: message)
+        } catch {
+            let message = "Could not save \(key): \(error.localizedDescription)"
+            output = message + "\n\n" + output
+            showBanner(kind: .failure, message: message)
+        }
+    }
+
+    private func reloadGraphicsSettings() {
+        graphicsSettings = GraphicsSettingsStore.loadSteam()
+        if graphicsSettings.gptkConfigured {
+            gptkValidation = GraphicsSettingsStore.validateGptkPath(
+                graphicsSettings.gptkPath,
+                repositoryRoot: repositoryRootURL
+            )
+        } else {
+            gptkValidation = .empty
+        }
+    }
+
+    private func browseForGptkPath() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Select your Game Porting Toolkit install folder"
+        panel.prompt = "Choose"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        graphicsSettings.gptkPath = url.path
+        validateGptkPath()
+    }
+
+    private func validateGptkPath() {
+        let path = graphicsSettings.gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else {
+            gptkValidation = .empty
+            return
+        }
+        gptkValidation = GraphicsSettingsStore.validateGptkPath(path, repositoryRoot: repositoryRootURL)
+    }
+
+    private func saveGptkPathAndTest() {
+        let path = graphicsSettings.gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { return }
+        applyGraphicsSetting(key: "GPTK_PATH", value: path)
+        if steamSettings.backend == "dxmt" {
+            applySteamSetting(key: "COSMOS_BACKEND", value: "d3dmetal")
+        }
+        runCommand(
+            script: "run.command",
+            arguments: ["--steam"],
+            environment: ["GPTK_PATH": path, "COSMOS_BACKEND": "d3dmetal"]
+        )
     }
 
     private var steamBackendBinding: Binding<String> {
@@ -1821,6 +2087,18 @@ struct ContentView: View {
             }
             .disabled(isRunning)
 
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Thread sync")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                    .textCase(.uppercase)
+                Picker("Thread sync", selection: bottleSyncBinding(for: bottle)) {
+                    ForEach(GraphicsSettings.syncModeOptions, id: \.self) { Text($0).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .disabled(isRunning)
+            }
+
             HStack(alignment: .top, spacing: 24) {
                 detailRow(title: "Wine", value: bottle.wineVersion)
                 detailRow(title: "Status", value: bottle.statusText)
@@ -1943,6 +2221,16 @@ struct ContentView: View {
                 let current = bottle.retinaEnabled ? "1" : "0"
                 guard flag != current else { return }
                 runCommand(script: "bottle.command", arguments: ["set", bottle.name, "WINE_RETINA_MODE", flag])
+            }
+        )
+    }
+
+    private func bottleSyncBinding(for bottle: Bottle) -> Binding<String> {
+        Binding(
+            get: { selectedBottle?.syncMode ?? bottle.syncMode },
+            set: { newValue in
+                guard newValue != bottle.syncMode else { return }
+                runCommand(script: "bottle.command", arguments: ["set", bottle.name, "COSMOS_SYNC_MODE", newValue])
             }
         )
     }
@@ -2128,18 +2416,26 @@ struct ContentView: View {
     }
 
     private func openSetupHelp() {
+        openRepositoryDoc(
+            relativePath: "docs/STEAM_SETUP.md",
+            bundleName: "STEAM_SETUP.md",
+            fallbackMessage: "Setup guide not found. See docs/STEAM_SETUP.md in the Cosmos repository."
+        )
+    }
+
+    private func openRepositoryDoc(relativePath: String, bundleName: String, fallbackMessage: String) {
         let candidates: [URL] = [
-            repositoryRootURL?.appendingPathComponent("docs/STEAM_SETUP.md"),
-            Bundle.main.resourceURL?.appendingPathComponent("docs/STEAM_SETUP.md"),
-            Bundle.main.resourceURL?.appendingPathComponent("STEAM_SETUP.md"),
+            repositoryRootURL?.appendingPathComponent(relativePath),
+            Bundle.main.resourceURL?.appendingPathComponent(relativePath),
+            Bundle.main.resourceURL?.appendingPathComponent(bundleName),
         ].compactMap { $0 }
 
         for url in candidates where fileManager.fileExists(atPath: url.path) {
             NSWorkspace.shared.open(url)
-            output = "Opened setup guide: \(url.path)\n\n" + output
+            output = "Opened guide: \(url.path)\n\n" + output
             return
         }
-        output = "Setup guide not found. See docs/STEAM_SETUP.md in the Cosmos repository.\n\n" + output
+        output = "\(fallbackMessage)\n\n" + output
     }
 
     private func copyOutputToClipboard() {
@@ -2325,6 +2621,7 @@ struct ContentView: View {
         SteamSettingsStore.ensureOnDisk()
         cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
         steamSettings = SteamSettingsStore.load()
+        reloadGraphicsSettings()
         wineRuntime = WineRuntimeStore.load(wineVersion: steamSettings.wineVersion)
         profiles = loadProfiles()
         bottles = BottleStore.load()

@@ -11,5 +11,6 @@ settings:
 dependencies:
   - vcrun2015
 notes: >
+  Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam.
   Vulkan/D3D12 shooter. Set GPTK_PATH and use d3dmetal for best results. Ray tracing
   is expensive on Mac — disable it for smoother frame rates.

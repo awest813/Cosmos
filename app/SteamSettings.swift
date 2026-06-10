@@ -155,10 +155,24 @@ enum SteamSettingsStore {
             guard windowsOptions.contains(value) else {
                 throw SteamSettingsError.invalidValue("WINDOWS_VERSION must be empty or one of: winxp, win7, win8, win10, win11")
             }
-        case "WINE_RETINA_MODE", "COSMOS_DETACH", "COSMOS_STEAM_SILENT":
+        case "WINE_RETINA_MODE", "COSMOS_DETACH", "COSMOS_STEAM_SILENT", "COSMOS_METALFX":
             guard value == "0" || value == "1" else {
                 throw SteamSettingsError.invalidValue("\(key) must be 0 or 1")
             }
+        case "COSMOS_SYNC_MODE":
+            guard GraphicsSettings.syncModeOptions.contains(value) else {
+                throw SteamSettingsError.invalidValue("COSMOS_SYNC_MODE must be off, esync, or msync")
+            }
+        case "COSMOS_DXMT_CHANNEL":
+            guard GraphicsSettings.dxmtChannelOptions.contains(value) else {
+                throw SteamSettingsError.invalidValue("COSMOS_DXMT_CHANNEL must be stable or experimental")
+            }
+        case "COSMOS_MVK_PRESET":
+            guard GraphicsSettings.moltenvkPresetOptions.contains(value) else {
+                throw SteamSettingsError.invalidValue("COSMOS_MVK_PRESET must be default, performance, or compatibility")
+            }
+        case "GPTK_PATH":
+            break
         case "WINEPREFIX", "COSMOS_BOTTLE":
             throw SteamSettingsError.invalidKey("\(key) is managed by Cosmos")
         default:

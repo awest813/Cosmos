@@ -11,5 +11,6 @@ settings:
 dependencies:
   - vcrun2015
 notes: >
+  Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam.
   FromSoftware D3D11 title. Set GPTK_PATH and try d3dmetal if DXMT stutters.
   Install vcrun2015 for missing-runtime errors. Online play may be unreliable.

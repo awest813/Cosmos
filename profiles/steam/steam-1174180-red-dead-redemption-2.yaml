@@ -11,6 +11,7 @@ settings:
 dependencies:
   - vcrun2019
 notes: >
+  Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam.
   Heavy Vulkan/D3D12 title. Requires GPTK_PATH and d3dmetal backend. Lower
   quality presets and use FSR. Single-player works with long first-launch shader
   compile. Red Dead Online uses Rockstar anti-cheat and is blocked on macOS through

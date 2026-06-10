@@ -61,6 +61,27 @@ COSMOS_BACKEND = recommended | dxmt | d3dmetal | dxvk | wined3d
   `WINEDLLOVERRIDES=…=b`; no downloads. Broadest compatibility, slowest — a
   fallback when nothing else works.
 
+### Thread sync (Phase E)
+
+Set `COSMOS_SYNC_MODE` in `steam.conf`, a bottle's `bottle.conf`, or a per-game
+override:
+
+| Mode | Wine env | Use when |
+| --- | --- | --- |
+| `off` | (none) | Default |
+| `esync` | `WINEESYNC=1` | Multiplayer / lower CPU overhead |
+| `msync` | `WINEMSYNC=1` | Experimental newer sync path |
+
+The dashboard **Performance & Graphics** section exposes this for the default Steam
+bottle; per-bottle pickers live under **Bottles**.
+
+### D3D12 / GPTK setup
+
+D3D12 titles need Apple's Game Porting Toolkit (not redistributed). Use the dashboard
+**D3D12 — Game Porting Toolkit** card: browse to your install, **Validate**, then
+**Save & Test Steam**. Set `COSMOS_BACKEND=d3dmetal` (or `recommended` with
+`GPTK_PATH` set).
+
 > A dedicated bottle per backend is recommended so native DLLs from different
 > backends don't accumulate in one `system32`. The 0.3 bottle manager and a UI
 > backend picker build on this selector.

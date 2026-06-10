@@ -10,4 +10,4 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2015
-notes: "Heavy Vulkan/D3D12 title. Set GPTK_PATH to your Apple Game Porting Toolkit install and use the d3dmetal backend. DXMT may work for lighter scenes but d3dmetal is recommended."
+notes: "Heavy Vulkan/D3D12 title. Set GPTK_PATH to your Apple Game Porting Toolkit install and use the d3dmetal backend. DXMT may work for lighter scenes but d3dmetal is recommended. Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam."

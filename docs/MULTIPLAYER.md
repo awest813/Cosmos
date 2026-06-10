@@ -33,7 +33,7 @@ tags:
 anti_cheat: none
 multiplayer_notes: "Apply fix_steam_networking if socket errors appear in logs."
 settings:
-  esync: true   # exported as WINEESYNC=1 in overrides/<appid>.env
+  sync_mode: esync   # or legacy esync: true — exports COSMOS_SYNC_MODE in overrides/<appid>.env
 fixes:
   - fix_steam_networking
 ```

@@ -37,7 +37,8 @@ wine_version: cosmos-stable    # runtime identifier or pinned Wine version
 settings:
   retina: false                # Wine Mac Driver RetinaMode
   windows_version: win10       # winxp | win7 | win8 | win10 | win11
-  esync: true
+  esync: true                  # legacy; prefer sync_mode below
+  sync_mode: esync             # off | esync | msync (exports COSMOS_SYNC_MODE)
   env:                         # extra environment variables passed to the runtime
     DXMT_CONFIG: "d3d11.preferredMaxFrameRate=60;"
 dependencies:                  # winetricks-style; resolved against recipes/dependencies/
@@ -68,7 +69,8 @@ notes: "Use launcher first, then set resolution."
 | `wine_version` | yes | Runtime identifier (e.g. `cosmos-stable`) or pinned version. |
 | `settings.retina` | no | Toggle Wine Retina mode (default `false`). |
 | `settings.windows_version` | no | Reported Windows version. |
-| `settings.esync` | no | Enable esync. |
+| `settings.esync` | no | Legacy boolean; exports `COSMOS_SYNC_MODE=esync` when true. |
+| `settings.sync_mode` | no | `off`, `esync`, or `msync` — thread sync for netcode/performance (Phase E). |
 | `settings.env` | no | Map of extra environment variables. |
 | `dependencies` | no | List of dependency recipe IDs from `recipes/dependencies/`. |
 | `fixes` | no | List of fix recipe IDs from `recipes/fixes/`. |
