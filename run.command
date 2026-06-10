@@ -1593,7 +1593,11 @@ main() {
     return $?
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "sync-steam" ]]; then
+    if [[ -n "${COSMOS_BOTTLE:-}" ]]; then
+      export COSMOS_STEAM_SNAPSHOT="${COSMOS_SUPPORT_DIR}/steam-library.${COSMOS_BOTTLE}.snapshot"
+    fi
     COSMOS_ALLOW_USER_APPS="${COSMOS_ALLOW_USER_APPS:-1}" \
+      COSMOS_SYNC_FULL=1 \
       "${SCRIPT_DIR}/detect_steam_games.command" --sync
     return $?
   fi

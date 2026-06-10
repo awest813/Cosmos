@@ -37,7 +37,9 @@ struct ContentView: View {
     @State private var profilePreferences = ProfilePreferencesStore.load()
     @State private var sidebarProfileFilter: SidebarProfileFilter = .all
     @State private var lastSteamLibraryCheck: Date?
+    @State private var steamLibraryCheckInFlight = false
     @State private var pendingNewSteamGames = 0
+    @State private var pendingRemovedSteamGames = 0
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -174,8 +176,11 @@ struct ContentView: View {
             checkSteamLibraryForNewGames(autoSync: true)
         }
         .onChange(of: isSetupComplete) { complete in
-            if complete && !showSetupCompleteBanner {
-                showSetupCompleteBanner = true
+            if complete {
+                if !showSetupCompleteBanner {
+                    showSetupCompleteBanner = true
+                }
+                checkSteamLibraryForNewGames(autoSync: true)
             }
         }
         .onChange(of: selectedBottleID) { _, newID in
@@ -995,34 +1000,48 @@ struct ContentView: View {
         )
     }
 
-    private func steamLibraryEnvironment(seedOnly: Bool = false) -> [String: String] {
+    private func steamDetectionEnvironment() -> [String: String] {
         var env = bottleEnvironment()
+        env["COSMOS_STEAM_SNAPSHOT"] = SteamLibraryMonitor.snapshotURL(bottleName: selectedBottle?.name).path
+        return env
+    }
+
+    private func steamLibraryEnvironment(seedOnly: Bool = false) -> [String: String] {
+        var env = steamDetectionEnvironment()
         env["COSMOS_ALLOW_USER_APPS"] = "1"
         if seedOnly {
             env["COSMOS_SYNC_SEED_ONLY"] = "1"
+        } else {
+            env["COSMOS_SYNC_FULL"] = "1"
         }
         return env
     }
 
     private func checkSteamLibraryForNewGames(autoSync: Bool) {
-        guard isSteamReady, !isRunning, pendingTerminalJobID == nil else { return }
+        guard isSteamReady, !isRunning, !steamLibraryCheckInFlight, pendingTerminalJobID == nil else { return }
         if let lastSteamLibraryCheck,
            Date().timeIntervalSince(lastSteamLibraryCheck) < steamLibraryCheckInterval {
             return
         }
 
         guard let detectScript = resolveScript("detect_steam_games.command") else { return }
-        let env = bottleEnvironment()
-        let snapshotURL = SteamLibraryMonitor.snapshotURL()
+        let env = steamDetectionEnvironment()
+        let bottleName = selectedBottle?.name
+        let snapshotURL = SteamLibraryMonitor.snapshotURL(bottleName: bottleName)
+        steamLibraryCheckInFlight = true
         DispatchQueue.global(qos: .utility).async {
-            guard let games = SteamLibraryMonitor.listInstalledGames(detectScript: detectScript, environment: env) else {
-                return
-            }
-            let snapshotExists = FileManager.default.fileExists(atPath: snapshotURL.path)
-            let snapshot = SteamLibraryMonitor.loadSnapshotAppIDs()
-            let newGames = SteamLibraryMonitor.newGames(comparedTo: snapshot, current: games)
+            let games = SteamLibraryMonitor.listInstalledGames(detectScript: detectScript, environment: env)
             DispatchQueue.main.async {
+                steamLibraryCheckInFlight = false
                 lastSteamLibraryCheck = Date()
+                guard let games else { return }
+
+                let snapshotExists = FileManager.default.fileExists(atPath: snapshotURL.path)
+                let snapshot = SteamLibraryMonitor.loadSnapshotAppIDs(bottleName: bottleName)
+                let currentIDs = Set(games.map(\.appID))
+                let newGames = SteamLibraryMonitor.newGames(comparedTo: snapshot, current: games)
+                pendingRemovedSteamGames = snapshotExists ? snapshot.subtracting(currentIDs).count : 0
+
                 if !snapshotExists {
                     pendingNewSteamGames = 0
                     if autoSync && isSetupComplete {
@@ -1030,30 +1049,44 @@ struct ContentView: View {
                     }
                     return
                 }
+
                 pendingNewSteamGames = newGames.count
-                guard newGames.count > 0 else { return }
+
                 if autoSync && isSetupComplete {
-                    syncSteamLibrary(announce: false)
-                } else {
+                    if newGames.count > 0 || pendingRemovedSteamGames > 0 {
+                        syncSteamLibrary(announce: false)
+                    }
+                    return
+                }
+
+                if newGames.count > 0 {
                     showNewSteamGamesBanner(count: newGames.count)
+                } else if pendingRemovedSteamGames > 0 {
+                    showSteamCleanupBanner(count: pendingRemovedSteamGames)
                 }
             }
         }
     }
 
     private func syncSteamLibrary(announce: Bool, seedOnly: Bool = false) {
-        guard !isRunning, let detectScript = resolveScript("detect_steam_games.command") else { return }
-        isRunning = true
+        guard !isRunning, pendingTerminalJobID == nil else { return }
         if announce {
-            beginCommandOutput()
-            output = "Running: detect_steam_games.command --sync\n\n"
+            runCommand(
+                script: "detect_steam_games.command",
+                arguments: ["--sync"],
+                environment: steamLibraryEnvironment(seedOnly: seedOnly),
+                intent: .setup
+            )
+            return
         }
+        guard let detectScript = resolveScript("detect_steam_games.command") else { return }
+        isRunning = true
         let env = steamLibraryEnvironment(seedOnly: seedOnly)
         DispatchQueue.global(qos: .userInitiated).async {
             let result = SteamLibraryMonitor.syncNewGames(detectScript: detectScript, environment: env)
             DispatchQueue.main.async {
                 isRunning = false
-                applySteamLibrarySyncResult(result, announce: announce, seedOnly: seedOnly)
+                applySteamLibrarySyncResult(result, announce: false, seedOnly: seedOnly)
             }
         }
     }
@@ -1088,6 +1121,7 @@ struct ContentView: View {
 
         if result.newCount > 0 {
             pendingNewSteamGames = 0
+            pendingRemovedSteamGames = 0
             refreshStatus(message: "Synced \(result.newCount) new game(s).")
             if announce {
                 showBanner(
@@ -1100,6 +1134,7 @@ struct ContentView: View {
 
         if result.removedCount > 0 {
             pendingNewSteamGames = 0
+            pendingRemovedSteamGames = 0
             refreshStatus(message: "Removed \(result.removedCount) uninstalled game(s).")
             if announce {
                 let dockNote = " Dock apps in Cosmos Apps may need manual removal or a full rebuild."
@@ -1111,16 +1146,42 @@ struct ContentView: View {
             return
         }
 
+        if pendingNewSteamGames > 0, announce {
+            showBanner(
+                kind: .info,
+                message: "No new launchers were built — titles may already have curated configs or native-only installs."
+            )
+        }
+
         pendingNewSteamGames = 0
+        pendingRemovedSteamGames = 0
         refreshStatus()
     }
 
     private func showSteamSyncFailureBanner(ifAnnounced announce: Bool) {
-        guard announce else { return }
+        if announce {
+            showBanner(
+                kind: .failure,
+                message: "Steam library sync failed.",
+                actions: steamSyncTerminalActions()
+            )
+        } else {
+            showBanner(
+                kind: .info,
+                message: "Background Steam library sync failed. Open Tools → Sync Steam Library to retry."
+            )
+        }
+    }
+
+    private func showSteamCleanupBanner(count: Int) {
         showBanner(
-            kind: .failure,
-            message: "Steam library sync failed.",
-            actions: steamSyncTerminalActions()
+            kind: .info,
+            message: "\(count) uninstalled Steam game\(count == 1 ? "" : "s") detected.",
+            actions: [
+                CommandBannerAction(title: "Sync Library", systemImage: "arrow.triangle.2.circlepath") {
+                    syncSteamLibrary(announce: true)
+                },
+            ]
         )
     }
 
@@ -1800,21 +1861,21 @@ struct ContentView: View {
             buildLaunchers()
         }
 
-        secondaryButton(
-            title: "Sync Steam Library",
-            subtitle: "New installs only",
-            systemImage: "arrow.triangle.2.circlepath",
-            help: "Build launchers for newly installed Steam games since the last sync"
-        ) {
-            syncSteamLibrary(announce: true)
-        }
-
         if pendingNewSteamGames > 0 {
             secondaryButton(
                 title: "Sync New Games",
                 subtitle: "\(pendingNewSteamGames) detected",
                 systemImage: "arrow.triangle.2.circlepath",
                 help: "Build launchers for newly installed Steam games only"
+            ) {
+                syncSteamLibrary(announce: true)
+            }
+        } else {
+            secondaryButton(
+                title: "Sync Steam Library",
+                subtitle: "New installs only",
+                systemImage: "arrow.triangle.2.circlepath",
+                help: "Build launchers for newly installed Steam games since the last sync"
             ) {
                 syncSteamLibrary(announce: true)
             }
@@ -3191,6 +3252,19 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .disabled(isRunning)
                 .help("Build launchers for newly installed Steam games")
+            } else if pendingRemovedSteamGames > 0, isSetupComplete {
+                Button {
+                    syncSteamLibrary(announce: true)
+                } label: {
+                    statusRow(
+                        label: "\(pendingRemovedSteamGames) uninstalled — tap to clean up",
+                        icon: "trash.circle",
+                        color: .orange
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunning)
+                .help("Remove launcher configs for uninstalled Steam games")
             }
             statusRow(
                 label: bottles.isEmpty
@@ -3801,19 +3875,32 @@ struct ContentView: View {
                 let succeeded = exitCode == 0
                 output += succeeded ? "\nDone." : "\nExited with status \(exitCode)."
                 if succeeded {
-                    if script == "detect_steam_games.command" {
-                        pendingNewSteamGames = 0
-                    }
-                    if intent == .diagnose,
-                       let summary = CommandOutputParser.diagnoseSummary(from: output),
-                       (CommandOutputParser.suggestedFixCount(from: output) ?? 0) > 0 {
-                        showBanner(
-                            kind: .info,
-                            message: summary,
-                            actions: failureRecoveryActions(includeLogs: true, includeRepair: true)
+                    if script == "detect_steam_games.command",
+                       arguments.contains("--sync") {
+                        let syncResult = SteamLibraryMonitor.SyncResult(
+                            status: SteamLibraryMonitor.parseSyncStatus(from: output) ?? "current",
+                            newCount: SteamLibraryMonitor.parseSyncNewCount(from: output) ?? 0,
+                            removedCount: SteamLibraryMonitor.parseSyncRemovedCount(from: output) ?? 0,
+                            exitCode: 0,
+                            output: output
                         )
-                    } else if !chain {
-                        showBanner(kind: .success, message: successMessage(for: intent))
+                        applySteamLibrarySyncResult(syncResult, announce: true, seedOnly: false)
+                    } else {
+                        if script == "detect_steam_games.command" {
+                            pendingNewSteamGames = 0
+                            pendingRemovedSteamGames = 0
+                        }
+                        if intent == .diagnose,
+                           let summary = CommandOutputParser.diagnoseSummary(from: output),
+                           (CommandOutputParser.suggestedFixCount(from: output) ?? 0) > 0 {
+                            showBanner(
+                                kind: .info,
+                                message: summary,
+                                actions: failureRecoveryActions(includeLogs: true, includeRepair: true)
+                            )
+                        } else if !chain {
+                            showBanner(kind: .success, message: successMessage(for: intent))
+                        }
                     }
                 } else {
                     let failureMessage = CommandOutputParser.failureMessage(

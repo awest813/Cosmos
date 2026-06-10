@@ -19,8 +19,13 @@ enum SteamLibraryMonitor {
         }
     }
 
-    static func snapshotURL() -> URL {
-        CosmosPaths.supportDirectory.appendingPathComponent("steam-library.snapshot")
+    static func snapshotURL(bottleName: String? = nil) -> URL {
+        let name = bottleName ?? ProcessInfo.processInfo.environment["COSMOS_BOTTLE"]
+        if let name, !name.isEmpty {
+            return CosmosPaths.supportDirectory
+                .appendingPathComponent("steam-library.\(name).snapshot")
+        }
+        return CosmosPaths.supportDirectory.appendingPathComponent("steam-library.snapshot")
     }
 
     /// List installed Steam games as JSON via detect_steam_games.command --list --json.
@@ -70,8 +75,8 @@ enum SteamLibraryMonitor {
         }
     }
 
-    static func loadSnapshotAppIDs() -> Set<String> {
-        let url = snapshotURL()
+    static func loadSnapshotAppIDs(bottleName: String? = nil) -> Set<String> {
+        let url = snapshotURL(bottleName: bottleName)
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return Set(
             text.split(whereSeparator: \.isNewline)

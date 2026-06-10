@@ -68,8 +68,7 @@ struct SteamSettings: Equatable {
 
 enum SteamSettingsStore {
     static var supportDirectoryURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Cosmos", isDirectory: true)
+        CosmosPaths.supportDirectory
     }
 
     static var logsDirectoryURL: URL {

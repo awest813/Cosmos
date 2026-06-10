@@ -15,6 +15,11 @@ json="$(
 )" || fail "fixture --list --json failed"
 printf '%s\n' "${json}" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, list) and len(d) >= 1'
 
+# --sync without snapshot requires COSMOS_SYNC_FULL or COSMOS_SYNC_SEED_ONLY.
+if "${ROOT}/detect_steam_games.command" --sync 2>/dev/null; then
+  fail "expected --sync without snapshot to fail without COSMOS_SYNC_FULL"
+fi
+
 # First sync without snapshot seeds when COSMOS_SYNC_SEED_ONLY=1.
 mkdir -p "${support}/cosmos_configs"
 seed_out="$(
@@ -27,7 +32,8 @@ printf '%s\n' "${seed_out}" | grep -q '^sync_status=seeded$' || fail "expected s
 printf '999\n' > "${support}/steam-library.snapshot"
 
 out="$(
-  COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 COSMOS_CONFIGS_DIR="${support}/cosmos_configs" \
+  COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 COSMOS_SYNC_FULL=1 \
+    COSMOS_CONFIGS_DIR="${support}/cosmos_configs" \
     "${ROOT}/detect_steam_games.command" --sync 2>/dev/null
 )" || fail "fixture --sync failed"
 printf '%s\n' "${out}" | grep -q '^sync_status=updated$' || fail "expected sync_status=updated"
@@ -43,7 +49,7 @@ APP_NAME="Removed Game"
 EOF
 printf '730\n570\n440\n999\n252490\n' > "${support}/steam-library.snapshot"
 prune_out="$(
-  COSMOS_CONFIGS_DIR="${configs}" COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 \
+  COSMOS_CONFIGS_DIR="${configs}" COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 COSMOS_SYNC_FULL=1 \
     "${ROOT}/detect_steam_games.command" --sync 2>/dev/null
 )" || fail "fixture --sync prune failed"
 [[ ! -f "${configs}/steam-12345-removed-game.conf" ]] || fail "expected stale config to be pruned"
@@ -51,7 +57,7 @@ printf '%s\n' "${prune_out}" | grep -q '^sync_removed=1$' || fail "expected sync
 
 # Up-to-date library reports current with zero changes.
 current_out="$(
-  COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 COSMOS_CONFIGS_DIR="${configs}" \
+  COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 COSMOS_SYNC_FULL=1 COSMOS_CONFIGS_DIR="${configs}" \
     "${ROOT}/detect_steam_games.command" --sync 2>/dev/null
 )" || fail "fixture --sync current failed"
 printf '%s\n' "${current_out}" | grep -q '^sync_status=current$' || fail "expected sync_status=current"

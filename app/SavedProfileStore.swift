@@ -12,13 +12,11 @@ enum SavedProfileStore {
     ]
 
     static func profilesDirectory() -> URL {
-        fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Cosmos/Profiles", isDirectory: true)
+        CosmosPaths.profilesDirectory
     }
 
     static func configsDirectory() -> URL {
-        let support = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Cosmos/cosmos_configs", isDirectory: true)
+        let support = CosmosPaths.configsDirectory
         if fileManager.fileExists(atPath: support.path) {
             return support
         }

@@ -46,7 +46,7 @@ flowchart TD
   B -.->|GAP| B1[Compile from source / Gatekeeper]
   C -.->|GAP| C1[Rosetta + Wine status buried]
   E -.->|GAP| E1[Terminal for detect/build]
-  F -.->|GAP| F1[No compat badge in sidebar]
+  F -.->|GAP| F1[Signed DMG releases]
   H -.->|GAP| H1[Overlay off / anti-cheat opaque]
   I -.->|GAP| I1[Many fixes need Terminal]
 ```
@@ -94,8 +94,8 @@ flowchart TD
 
 | Gap | User impact | Status | Plan |
 | --- | --- | --- | --- |
-| ~21 curated profiles on main (target 100+) | Most games “unknown” | **PR #36** → 105 profiles | Merge PR #36; keep growing library |
-| Badge not on sidebar saved profiles | User launches blocked game unaware | Badge on Compatibility tab only | Show `CosmosBadge` on each `profileRow` |
+| Curated profile library | Most games “unknown” without YAML | **105** shipped profiles | Keep growing library |
+| Badge not on sidebar saved profiles | User launches blocked game unaware | `CosmosCompatBadge` on each `profileRow` | **Done** |
 | Anti-cheat titles not in library | Surprise bans / wasted installs | Destiny 2 only on main; **PR #36/39** add more | Blocked profiles + pre-launch `compat_preflight` (shipped) |
 | No “search ProtonDB before buy” in Store | Research friction | `cosmosdb.command lookup` exists | “Check compatibility” field on Welcome tab |
 | Profile drafts leak into counts (fixed on PR branches) | Duplicate validation noise | Fixed in PR #38/#39 polish | Merge polish commits |

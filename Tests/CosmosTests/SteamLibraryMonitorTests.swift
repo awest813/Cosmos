@@ -56,5 +56,9 @@ final class SteamLibraryMonitorTests: XCTestCase {
             SteamLibraryMonitor.snapshotURL().path,
             support.appendingPathComponent("steam-library.snapshot").path
         )
+        XCTAssertEqual(
+            SteamLibraryMonitor.snapshotURL(bottleName: "Main").path,
+            support.appendingPathComponent("steam-library.Main.snapshot").path
+        )
     }
 }

@@ -40,6 +40,14 @@ enum CosmosPaths {
         CosmosBadgeStore.communityGamesDirectory()
     }
 
+    static var profilesDirectory: URL {
+        supportDirectory.appendingPathComponent("Profiles", isDirectory: true)
+    }
+
+    static var configsDirectory: URL {
+        supportDirectory.appendingPathComponent("cosmos_configs", isDirectory: true)
+    }
+
     /// Writable user-data root (`~/Library/Application Support/Cosmos`, or `COSMOS_SUPPORT_DIR`).
     static var supportDirectory: URL {
         if let override = ProcessInfo.processInfo.environment["COSMOS_SUPPORT_DIR"], !override.isEmpty {
