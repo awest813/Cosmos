@@ -8,5 +8,10 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+tags:
+  - online
+  - pvp
+anti_cheat: battleye
+multiplayer_notes: "BattlEye blocks Wine. Online play is not supported on macOS through Cosmos."
 notes: >
   Blocked by BattlEye. ARK: Survival Evolved detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.
