@@ -28,6 +28,12 @@ final class GraphicsSettingsTests: XCTestCase {
         XCTAssertEqual(result.dllDirectory, "/GPTK/lib")
     }
 
+    func testExperimentalChannelNormalizesToLatest() {
+        let stored = ["COSMOS_DXMT_CHANNEL": "experimental"]
+        let settings = GraphicsSettingsStore.load(from: stored)
+        XCTAssertEqual(settings.dxmtChannel, "latest")
+    }
+
     func testParseGptkValidationFailure() {
         let output = """
         valid=0

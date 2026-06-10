@@ -92,7 +92,10 @@ validate_setting() {
       [[ " off esync msync " == *" ${val} "* ]] || die "COSMOS_SYNC_MODE must be off, esync, or msync."
       ;;
     COSMOS_DXMT_CHANNEL)
-      [[ " stable experimental " == *" ${val} "* ]] || die "COSMOS_DXMT_CHANNEL must be stable or experimental."
+      [[ " stable latest experimental " == *" ${val} "* ]] || die "COSMOS_DXMT_CHANNEL must be stable or latest."
+      ;;
+    COSMOS_ALLOW_LGPL)
+      [[ "${val}" == "0" || "${val}" == "1" ]] || die "COSMOS_ALLOW_LGPL must be 0 or 1."
       ;;
     COSMOS_MVK_PRESET)
       [[ " default performance compatibility " == *" ${val} "* ]] || die "COSMOS_MVK_PRESET must be default, performance, or compatibility."

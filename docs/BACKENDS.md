@@ -92,6 +92,7 @@ D3D12 titles need Apple's Game Porting Toolkit (not redistributed). Use the dash
   Cosmos must **not** bundle or download it — users point Cosmos at their own
   install obtained from developer.apple.com.
 - **DXMT, DXVK, MoltenVK, WineD3D** are open source and may be bundled where their
-  licenses allow. Cosmos pins **DXMT 0.74** by default; newer DXMT releases use
-  **LGPL** — see [LICENSING.md](LICENSING.md).
+  licenses allow. Cosmos pins **DXMT 0.80** by default; the **Latest (LGPL)**
+  channel tracks newer releases — see [LICENSING.md](LICENSING.md) and
+  `runtime/DXMT-SOURCE-OFFER.txt`.
 </content>

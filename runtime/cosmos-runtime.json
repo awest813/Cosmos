@@ -1,7 +1,7 @@
 {
   "schema": "cosmos-runtime-1.0",
-  "version": "1.0.0-preview",
-  "description": "Pinned Cosmos Runtime stack for Wine-on-macOS (roadmap 1.0).",
+  "version": "1.1.0-preview",
+  "description": "Pinned Cosmos Runtime stack for Wine-on-macOS (roadmap 1.0). DXMT 0.80+ with LGPL adoption.",
   "components": {
     "wine": {
       "version": "11.8",
@@ -10,11 +10,16 @@
       "install_subdir": "wine-{version}"
     },
     "dxmt": {
-      "version": "0.74",
+      "version": "0.80",
       "license": "MIT",
       "mit_max_version": "0.80",
-      "url": "https://github.com/3Shain/dxmt/releases/download/v0.74/dxmt-v0.74-builtin.tar.gz",
-      "install_subdir": "DXMT"
+      "latest_version": "0.81",
+      "latest_license": "LGPL-3.0-or-later",
+      "url": "https://github.com/3Shain/dxmt/releases/download/v0.80/dxmt-v0.80-builtin.tar.gz",
+      "latest_url": "https://github.com/3Shain/dxmt/releases/download/v0.81/dxmt-v0.81-builtin.tar.gz",
+      "install_subdir": "DXMT",
+      "source_url": "https://github.com/3Shain/dxmt",
+      "source_offer": "runtime/DXMT-SOURCE-OFFER.txt"
     },
     "dxvk_macos": {
       "version": "1.10.3-20230507-repack",
@@ -31,6 +36,7 @@
   },
   "defaults": {
     "runtime_dir_name": "Runtime",
-    "dxmt_mit_max_version": "0.80"
+    "dxmt_mit_max_version": "0.80",
+    "cosmos_allow_lgpl": true
   }
 }

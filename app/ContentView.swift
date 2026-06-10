@@ -983,14 +983,14 @@ struct ContentView: View {
                                 .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
                                 .textCase(.uppercase)
                             Picker("DXMT channel", selection: dxmtChannelBinding) {
-                                Text("Stable (MIT)").tag("stable")
-                                Text("Experimental (LGPL)").tag("experimental")
+                                Text("Pinned (0.80)").tag("stable")
+                                Text("Latest (LGPL)").tag("latest")
                             }
                             .pickerStyle(.segmented)
                             .disabled(isRunning)
-                            Text(graphicsSettings.dxmtChannel == "experimental"
-                                ? "Pins DXMT 0.81+ and sets COSMOS_ALLOW_LGPL=1. Review docs/LICENSING.md before use."
-                                : "Uses the pinned runtime manifest (default DXMT 0.74).")
+                            Text(graphicsSettings.dxmtChannel == "latest"
+                                ? "Tracks the newest DXMT from the runtime manifest (LGPL). Source offer: runtime/DXMT-SOURCE-OFFER.txt."
+                                : "Uses the pinned runtime manifest (DXMT 0.80, MIT).")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)

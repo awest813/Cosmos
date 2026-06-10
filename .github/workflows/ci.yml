@@ -65,6 +65,9 @@ jobs:
       - name: GPTK validation lib unit tests
         run: ./scripts/test_gptk_lib.sh
 
+      - name: Graphics lib unit tests
+        run: ./scripts/test_graphics_lib.sh
+
       - name: Profile schema validation tests
         run: ./scripts/test_profiles.sh
 

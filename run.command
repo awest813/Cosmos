@@ -148,7 +148,7 @@ sanitize_steam_settings() {
     COSMOS_SYNC_MODE="$(cosmos_sync_mode_normalize "${COSMOS_SYNC_MODE:-off}")"
   fi
   case "${COSMOS_DXMT_CHANNEL:-stable}" in
-    stable|experimental) ;;
+    stable|latest|experimental) ;;
     *) COSMOS_DXMT_CHANNEL="stable" ;;
   esac
   case "${COSMOS_METALFX:-0}" in 0|1) ;; *) COSMOS_METALFX=0 ;; esac
@@ -175,8 +175,8 @@ if declare -F runtime_load_manifest >/dev/null 2>&1; then
 fi
 
 WINE_VERSION="${WINE_VERSION:-11.8}"
-# Pinned for MIT license on release artifacts; see runtime/cosmos-runtime.json and docs/LICENSING.md.
-DXMT_VERSION="${DXMT_VERSION:-0.74}"
+# Pinned in runtime/cosmos-runtime.json (0.80 MIT; Latest channel may use LGPL 0.81+).
+DXMT_VERSION="${DXMT_VERSION:-0.80}"
 
 if declare -F runtime_assert_dxmt_license >/dev/null 2>&1; then
   runtime_assert_dxmt_license || exit 1

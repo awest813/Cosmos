@@ -6,7 +6,7 @@ for full policy.
 | Component | Version (pinned) | License |
 | --- | --- | --- |
 | Wine (Gcenx macOS builds) | see `cosmos-runtime.json` | Wine upstream |
-| DXMT | ≤ 0.80 (MIT pin) | MIT through v0.80; LGPL after |
+| DXMT | 0.80 (pinned); latest channel may fetch 0.81+ | MIT through v0.80; LGPL after — see `DXMT-SOURCE-OFFER.txt` |
 | DXVK-macOS (Gcenx) | see manifest | Zlib |
 | MoltenVK (Khronos) | see manifest | Apache-2.0 |
 

@@ -17,7 +17,7 @@ struct GraphicsSettings: Equatable {
     )
 
     static let syncModeOptions = ["off", "esync", "msync"]
-    static let dxmtChannelOptions = ["stable", "experimental"]
+    static let dxmtChannelOptions = ["stable", "latest"]
     static let moltenvkPresetOptions = ["default", "performance", "compatibility"]
 
     var syncModeLabel: String {
@@ -57,9 +57,11 @@ enum GraphicsSettingsStore {
             settings.syncMode = "msync"
         }
         settings.gptkPath = stored["GPTK_PATH"] ?? ""
-        if let channel = stored["COSMOS_DXMT_CHANNEL"],
-           GraphicsSettings.dxmtChannelOptions.contains(channel) {
-            settings.dxmtChannel = channel
+        if let channel = stored["COSMOS_DXMT_CHANNEL"] {
+            let normalized = channel == "experimental" ? "latest" : channel
+            if GraphicsSettings.dxmtChannelOptions.contains(normalized) {
+                settings.dxmtChannel = normalized
+            }
         }
         settings.metalFXEnabled = stored["COSMOS_METALFX"] == "1"
         if let preset = stored["COSMOS_MVK_PRESET"],

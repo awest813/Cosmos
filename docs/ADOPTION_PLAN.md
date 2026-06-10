@@ -49,7 +49,7 @@ Complete before importing data or vendoring new trees.
 | [winemactricks-json](https://github.com/...) | Confirm MIT; note attribution in `recipes/dependencies/README.md` | Docs |
 | [wineregdiff](https://github.com/...) | Confirm MIT | Docs |
 | UMU API data repo | GPL-3.0 — runtime API only, no bulk copy | Policy doc |
-| DXMT ≥ v0.80 | LGPL trap — stay pinned at v0.74 until bundle strategy decided | Already in LICENSING.md |
+| DXMT ≥ v0.81 | LGPL adopted — pin 0.80 default, Latest channel for 0.81+ | `runtime/DXMT-SOURCE-OFFER.txt` |
 
 **Exit criteria:** `docs/LICENSING.md` updated with every new upstream; no
 imports from projects without a verified SPDX identifier.
@@ -285,8 +285,8 @@ not MIT — document notices.
 | Component | License | 1.0 action |
 | --- | --- | --- |
 | [Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds) | Wine upstream terms | Pin version; bundle in Cosmos Runtime tarball |
-| DXMT ≤ v0.74 | MIT | Keep pin; bundle with license file |
-| DXMT ≥ v0.80 | LGPL | Do not upgrade without LGPL compliance plan |
+| DXMT 0.80 | MIT (last MIT release) | Default pinned runtime |
+| DXMT ≥ v0.81 | LGPL | Adopted; source offer in runtime bundle |
 | [Gcenx/DXVK-macOS](https://github.com/Gcenx/DXVK-macOS) | Zlib | Auto-download when `COSMOS_BACKEND=dxvk` experimental |
 | [MoltenVK](https://github.com/KhronosGroup/MoltenVK) | Apache-2.0 | Bundle as DXVK backend dep; NOTICE file |
 | Winetricks | LGPL | Continue external invoke; optional bundle later |
@@ -299,8 +299,8 @@ not MIT — document notices.
   `~/Library/Application Support/Cosmos/Runtime/` (`scripts/lib/runtime_lib.sh`).
 - [x] Offline installer build embeds pinned MIT stack binaries (`stage_offline_runtime.command`,
   `CosmosRuntime.tar.xz` in DMG, auto-extract in `run.command`).
-- [x] LGPL gate in CI: `scripts/test_runtime_lib.sh` fails if `DXMT_VERSION` > 0.80
-  without `COSMOS_ALLOW_LGPL=1`; `run.command` enforces the same at startup.
+- [x] LGPL adopted: `COSMOS_ALLOW_LGPL` defaults to 1; opt out with `=0`. CI verifies
+  gate in `scripts/test_runtime_lib.sh`; source offer in `runtime/DXMT-SOURCE-OFFER.txt`.
 
 **Phase 5 exit criteria:** Single downloadable Cosmos Runtime; backend auto-fetch
 for DXVK path; license notices in app bundle.

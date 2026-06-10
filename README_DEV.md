@@ -71,7 +71,7 @@ Defaults are the values in `run.command`.
   - Wine build version to download (default: `11.8`)
   - Must exist as a `wine-devel-${WINE_VERSION}-osx64.tar.xz` asset in the [Gcenx macOS Wine builds](https://github.com/Gcenx/macOS_Wine_builds/releases). Gcenx prunes older releases periodically, so this default will need bumping over time.
 - `DXMT_VERSION`
-  - DXMT release version to download (default: `0.74`)
+  - DXMT release version to download (default: `0.80` from manifest; Latest channel uses 0.81+ LGPL)
 - `WINE_ROOT`
   - Where Wine is extracted (default: `~/wine-$WINE_VERSION`)
 - `WINEPREFIX`
@@ -97,7 +97,7 @@ Defaults are the values in `run.command`.
 - `COSMOS_RUNTIME_DIR`
   - Cache directory for auto-fetched DXVK/MoltenVK (default: `${COSMOS_SUPPORT_DIR}/Runtime`).
 - `COSMOS_ALLOW_LGPL`
-  - `1` allows `DXMT_VERSION` above the MIT pin (v0.80) after reviewing [docs/LICENSING.md](docs/LICENSING.md). Default: unset (refuse LGPL DXMT).
+  - `1` (default from manifest) allows LGPL DXMT above the MIT pin (v0.80). Set `0` to refuse.
 - `COSMOS_USE_BUNDLED_RUNTIME`
   - `1` (default) extracts Wine + DXMT from `cosmos-runtime-offline.tar.xz` in the app/DMG before network download. Set `0` to always fetch from GitHub.
 - `COSMOS_OFFLINE_RUNTIME_TARBALL`

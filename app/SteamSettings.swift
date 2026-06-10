@@ -102,6 +102,8 @@ enum SteamSettingsStore {
             "WINDOWS_VERSION=\"\"",
             "WINE_VERSION=\"11.8\"",
             "COSMOS_LAUNCH_LOG=\"\(defaultLaunchLogURL.path)\"",
+            "COSMOS_ALLOW_LGPL=\"1\"",
+            "COSMOS_DXMT_CHANNEL=\"stable\"",
         ]
         let body = lines.joined(separator: "\n") + "\n"
         try? body.write(to: confURL, atomically: true, encoding: .utf8)
@@ -164,8 +166,13 @@ enum SteamSettingsStore {
                 throw SteamSettingsError.invalidValue("COSMOS_SYNC_MODE must be off, esync, or msync")
             }
         case "COSMOS_DXMT_CHANNEL":
-            guard GraphicsSettings.dxmtChannelOptions.contains(value) else {
-                throw SteamSettingsError.invalidValue("COSMOS_DXMT_CHANNEL must be stable or experimental")
+            let normalized = value == "experimental" ? "latest" : value
+            guard GraphicsSettings.dxmtChannelOptions.contains(normalized) else {
+                throw SteamSettingsError.invalidValue("COSMOS_DXMT_CHANNEL must be stable or latest")
+            }
+        case "COSMOS_ALLOW_LGPL":
+            guard value == "0" || value == "1" else {
+                throw SteamSettingsError.invalidValue("COSMOS_ALLOW_LGPL must be 0 or 1")
             }
         case "COSMOS_MVK_PRESET":
             guard GraphicsSettings.moltenvkPresetOptions.contains(value) else {

@@ -4,11 +4,17 @@
 cosmos_dxmt_channel_apply() {
   local channel="${COSMOS_DXMT_CHANNEL:-stable}"
   case "${channel}" in
-    experimental)
-      DXMT_VERSION="${DXMT_VERSION:-0.81}"
+    latest|experimental)
+      # "experimental" kept for backward compatibility with Phase E steam.conf values.
+      COSMOS_DXMT_CHANNEL="latest"
+      DXMT_VERSION="${DXMT_VERSION:-${RUNTIME_DXMT_LATEST_VERSION:-0.81}}"
       export DXMT_VERSION
       export COSMOS_ALLOW_LGPL="${COSMOS_ALLOW_LGPL:-1}"
-      DXMT_URL="${DXMT_URL:-https://github.com/3Shain/dxmt/releases/download/v${DXMT_VERSION}/dxmt-v${DXMT_VERSION}-builtin.tar.gz}"
+      if [[ -n "${RUNTIME_DXMT_LATEST_URL:-}" ]]; then
+        DXMT_URL="${DXMT_URL:-${RUNTIME_DXMT_LATEST_URL}}"
+      else
+        DXMT_URL="${DXMT_URL:-https://github.com/3Shain/dxmt/releases/download/v${DXMT_VERSION}/dxmt-v${DXMT_VERSION}-builtin.tar.gz}"
+      fi
       export DXMT_URL
       ;;
     stable|"") ;;
