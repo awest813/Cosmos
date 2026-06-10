@@ -37,7 +37,7 @@ enum UpdateChecker {
         task.standardError = FileHandle.nullDevice
 
         let semaphore = DispatchSemaphore(value: 0)
-        var exitCode = -1
+        var exitCode: Int32 = -1
         task.terminationHandler = { process in
             exitCode = process.terminationStatus
             semaphore.signal()
@@ -57,7 +57,7 @@ enum UpdateChecker {
 
         let data = outPipe.fileHandleForReading.readDataToEndOfFile()
         guard exitCode == 0 || exitCode == 2 else { return nil }
-        return parse(jsonData: data, exitCode: exitCode)
+        return parse(jsonData: data, exitCode: Int(exitCode))
     }
 
     private static func resolveCheckScript(near runScript: URL) -> URL? {

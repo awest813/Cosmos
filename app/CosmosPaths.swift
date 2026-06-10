@@ -40,11 +40,13 @@ enum CosmosPaths {
         CosmosBadgeStore.communityGamesDirectory()
     }
 
-    static var profilesDirectory: URL {
+    /// User-authored profiles under Application Support (or `COSMOS_SUPPORT_DIR`).
+    static var userProfilesDirectory: URL {
         supportDirectory.appendingPathComponent("Profiles", isDirectory: true)
     }
 
-    static var configsDirectory: URL {
+    /// Generated/imported launcher configs under Application Support.
+    static var userConfigsDirectory: URL {
         supportDirectory.appendingPathComponent("cosmos_configs", isDirectory: true)
     }
 

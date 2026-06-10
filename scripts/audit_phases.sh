@@ -15,11 +15,11 @@ count_shipped_steam() {
 }
 
 count_with_fixes() {
-  rg -l '^fixes:' "${PROFILES_STEAM}"/*.yaml 2>/dev/null | wc -l | tr -d ' '
+  grep -l '^fixes:' "${PROFILES_STEAM}"/*.yaml 2>/dev/null | wc -l | tr -d ' '
 }
 
 count_blocked() {
-  rg -l '^status: blocked' "${PROFILES_STEAM}"/*.yaml 2>/dev/null | wc -l | tr -d ' '
+  grep -l '^status: blocked' "${PROFILES_STEAM}"/*.yaml 2>/dev/null | wc -l | tr -d ' '
 }
 
 count_multiplayer_tagged() {

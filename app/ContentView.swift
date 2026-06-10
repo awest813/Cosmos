@@ -183,17 +183,17 @@ struct ContentView: View {
                 checkSteamLibraryForNewGames(autoSync: true)
             }
         }
-        .onChange(of: selectedBottleID) { _, newID in
+        .onChange(of: selectedBottleID) { newID in
             if newID != nil, isSteamReady {
                 dashboardSection = .bottles
             }
         }
-        .onChange(of: selectedGameProfileID) { _, newID in
+        .onChange(of: selectedGameProfileID) { newID in
             if newID != nil, isSteamReady {
                 dashboardSection = .library
             }
         }
-        .onChange(of: selectedProfileID) { _, newID in
+        .onChange(of: selectedProfileID) { newID in
             refreshCompatBadge()
             if newID != nil, isSteamReady {
                 dashboardSection = .launch
@@ -2611,8 +2611,8 @@ struct ContentView: View {
             }
         }
         .cosmosCard()
-        .onChange(of: activeSteamAppID) { _, _ in refreshCompatBadge() }
-        .onChange(of: selectedGameProfileID) { _, _ in refreshCompatBadge() }
+        .onChange(of: activeSteamAppID) { _ in refreshCompatBadge() }
+        .onChange(of: selectedGameProfileID) { _ in refreshCompatBadge() }
     }
 
     private static let cosmosStatusOptions = [

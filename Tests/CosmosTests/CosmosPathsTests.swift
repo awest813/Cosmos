@@ -18,7 +18,7 @@ final class CosmosPathsTests: XCTestCase {
 
     func testSupportDirectoryOverride() {
         XCTAssertEqual(CosmosPaths.supportDirectory.path, supportDir.path)
-        XCTAssertEqual(CosmosPaths.profilesDirectory.path, supportDir.appendingPathComponent("Profiles").path)
-        XCTAssertEqual(CosmosPaths.configsDirectory.path, supportDir.appendingPathComponent("cosmos_configs").path)
+        XCTAssertEqual(CosmosPaths.userProfilesDirectory.path, supportDir.appendingPathComponent("Profiles").path)
+        XCTAssertEqual(CosmosPaths.userConfigsDirectory.path, supportDir.appendingPathComponent("cosmos_configs").path)
     }
 }
