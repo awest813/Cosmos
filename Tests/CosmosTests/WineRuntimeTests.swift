@@ -48,5 +48,36 @@ final class WineRuntimeTests: XCTestCase {
         )
         XCTAssertFalse(status.needsRosetta)
         XCTAssertTrue(status.rosettaReady)
+        XCTAssertTrue(status.canStartWineLaunch)
+        XCTAssertEqual(status.platformDisplayName, "Intel")
+        XCTAssertTrue(status.translationNote.contains("without Rosetta"))
+    }
+
+    func testIntelHostLaunchReadyWhenWineInstalled() {
+        let status = WineRuntimeStatus(
+            chipArchitecture: "x86_64",
+            rosettaCode: "not_required",
+            wineVersion: "11.8",
+            wineInstalled: true,
+            wineRootPath: "/tmp/wine",
+            wineBinaryPath: "/tmp/wine/bin/wine",
+            wineReportedVersion: "wine-11.8"
+        )
+        XCTAssertTrue(status.isLaunchReady)
+        XCTAssertEqual(status.platformDisplayName, "Intel")
+    }
+
+    func testAppleSiliconPlatformLabel() {
+        let status = WineRuntimeStatus(
+            chipArchitecture: "arm64",
+            rosettaCode: "available",
+            wineVersion: "11.8",
+            wineInstalled: true,
+            wineRootPath: "/tmp/wine",
+            wineBinaryPath: "/tmp/wine/bin/wine",
+            wineReportedVersion: nil
+        )
+        XCTAssertEqual(status.platformDisplayName, "Apple Silicon")
+        XCTAssertTrue(status.canStartWineLaunch)
     }
 }

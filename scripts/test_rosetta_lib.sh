@@ -23,4 +23,13 @@ else
   rosetta_needs_translation && fail "non-arm64 host should not need translation"
 fi
 
-printf 'OK: rosetta_lib tests passed (arch=%s code=%s)\n' "${arch}" "${code}"
+if [[ "${arch}" == "arm64" || "${arch}" == "x86_64" ]]; then
+  cosmos_host_supported || fail "supported arch should pass cosmos_host_supported"
+else
+  cosmos_host_supported && fail "unsupported arch should fail cosmos_host_supported"
+fi
+
+label_platform="$(cosmos_host_platform_label)"
+[[ -n "${label_platform}" ]] || fail "cosmos_host_platform_label empty"
+
+printf 'OK: rosetta_lib tests passed (arch=%s code=%s platform=%s)\n' "${arch}" "${code}" "${label_platform}"

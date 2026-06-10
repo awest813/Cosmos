@@ -5,6 +5,22 @@ rosetta_host_arch() {
   uname -m 2>/dev/null || printf 'unknown'
 }
 
+# Cosmos supports Apple Silicon (arm64) and Intel (x86_64) Macs.
+cosmos_host_supported() {
+  case "$(rosetta_host_arch)" in
+    arm64|x86_64) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+cosmos_host_platform_label() {
+  case "$(rosetta_host_arch)" in
+    arm64) printf 'Apple Silicon' ;;
+    x86_64) printf 'Intel' ;;
+    *) printf '%s' "$(rosetta_host_arch)" ;;
+  esac
+}
+
 # True when Cosmos must run x86_64 Wine under Rosetta (Apple Silicon hosts).
 rosetta_needs_translation() {
   [[ "$(rosetta_host_arch)" == "arm64" ]]

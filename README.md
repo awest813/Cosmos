@@ -1,12 +1,12 @@
 # Cosmos
 
-**Play Windows Steam games on Apple Silicon Macs — with one-click launchers, curated profiles, and a graphical dashboard.**
+**Play Windows Steam games on Mac — with one-click launchers, curated profiles, and a graphical dashboard.**
 
 Cosmos is a macOS game compatibility layer: it downloads Wine, sets up a Steam bottle, translates DirectX via Metal (DXMT by default), detects your library, and builds Dock-friendly `.app` launchers. No Terminal required for the happy path.
 
 | | |
 |---|---|
-| **Platform** | Apple Silicon Macs only (M1/M2/M3/M4) |
+| **Platform** | Apple Silicon (M1–M4) and Intel Macs (x86_64) |
 | **macOS** | 11+ for scripts · **13+** for the desktop app (15 Sequoia tested) |
 | **Status** | Milestone **0.7** — **105** curated profiles, repair engine, CosmosDB, multiplayer docs ([MULTIPLAYER.md](docs/MULTIPLAYER.md)); Phases A–E of [user gaps plan](docs/PLAN.md) complete |
 | **Developers** | See [README_DEV.md](README_DEV.md) for scripts, env vars, and architecture |
@@ -288,11 +288,11 @@ More: [docs/BACKENDS.md](docs/BACKENDS.md) · [README_DEV.md](README_DEV.md)
 
 **Supported**
 
-- Apple Silicon Mac (M-series) — Intel Macs are **not** supported
+- Apple Silicon Mac (M-series) or Intel Mac (x86_64)
 - macOS 11+ (scripts) · macOS 13+ (desktop app)
-- Rosetta 2 (installed automatically if missing)
+- Rosetta 2 on Apple Silicon only (installed automatically if missing; not required on Intel)
 
-**Tested:** M1 Max / M2 Pro, macOS Sequoia 15.7.4
+**Tested:** M1 Max / M2 Pro, macOS Sequoia 15.7.4 · Intel paths are supported but less frequently exercised in CI
 
 **Rough disk usage**
 

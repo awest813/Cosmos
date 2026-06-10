@@ -11,9 +11,10 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
 
 - Checks platform:
   - macOS only
-  - Apple Silicon (`arm64`) only
-- Ensures Rosetta 2 is available:
-  - triggers `sudo` because Rosetta installation may be required
+  - Apple Silicon (`arm64`) or Intel (`x86_64`)
+- Ensures Rosetta 2 on Apple Silicon when needed:
+  - Intel hosts skip Rosetta (`rosetta_status_code` → `not_required`)
+  - triggers `sudo` on Apple Silicon because Rosetta installation may be required
 - Downloads and extracts Wine:
   - Wine builds are downloaded from Gcenx macOS Wine builds
   - default Wine version is controlled by `WINE_VERSION`

@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Host Wine/Rosetta readiness for the dashboard sidebar and launch gating.
@@ -16,8 +17,21 @@ struct WineRuntimeStatus: Equatable {
         rosettaCode == "available" || rosettaCode == "not_required"
     }
 
+    /// Rosetta (on Apple Silicon) is satisfied — Wine may still download on first launch.
+    var canStartWineLaunch: Bool {
+        rosettaReady
+    }
+
     var isLaunchReady: Bool {
         rosettaReady && wineInstalled
+    }
+
+    var platformDisplayName: String {
+        switch chipArchitecture {
+        case "arm64": return "Apple Silicon"
+        case "x86_64": return "Intel"
+        default: return chipArchitecture
+        }
     }
 
     var rosettaLabel: String {
@@ -130,6 +144,9 @@ enum WineRuntimeStore {
     }
 
     private static func hostArchitecture() -> String {
+        if let runtime = machineArchitectureFromSysctl() {
+            return runtime
+        }
 #if arch(arm64)
         return "arm64"
 #elseif arch(x86_64)
@@ -137,6 +154,23 @@ enum WineRuntimeStore {
 #else
         return "unknown"
 #endif
+    }
+
+    /// Prefer sysctl hw.machine over compile-time arch (handles translated binaries).
+    private static func machineArchitectureFromSysctl() -> String? {
+        var size = 0
+        guard sysctlbyname("hw.machine", nil, &size, nil, 0) == 0, size > 0 else {
+            return nil
+        }
+        var machine = [CChar](repeating: 0, count: size)
+        guard sysctlbyname("hw.machine", &machine, &size, nil, 0) == 0 else {
+            return nil
+        }
+        let arch = String(cString: machine)
+        switch arch {
+        case "arm64", "x86_64": return arch
+        default: return nil
+        }
     }
 
     private static func rosettaInstalled() -> Bool {
