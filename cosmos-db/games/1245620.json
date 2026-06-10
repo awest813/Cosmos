@@ -1,0 +1,12 @@
+{
+  "schema": "cosmosdb-community-v0",
+  "steam_appid": 1245620,
+  "title": "Elden Ring",
+  "status": "bronze",
+  "recommended_backend": "d3dmetal",
+  "windows_version": "win10",
+  "report_count": 1,
+  "sources": ["community", "curated-profile"],
+  "notes": "Demanding D3D12 title. Requires GPTK_PATH and d3dmetal backend; expect reduced performance vs Windows.",
+  "updated_at": "2026-06-10T00:00:00Z"
+}

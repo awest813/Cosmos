@@ -1,0 +1,15 @@
+id: divinity_original_sin_2
+name: "Divinity: Original Sin 2"
+store: steam
+steam_appid: 435150
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Larian CRPG with couch and online co-op. DXMT handles D3D11. Long load times on large
+  saves are normal. Install vcrun2015 for missing-runtime errors.

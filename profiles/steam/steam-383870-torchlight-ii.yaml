@@ -1,0 +1,16 @@
+id: torchlight_ii
+name: "Torchlight II"
+store: steam
+steam_appid: 383870
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2010
+  - d3dx9
+notes: >
+  Classic action RPG with online co-op. DXMT plus vcrun2010/d3dx9 for the older
+  engine. Mod-heavy saves increase load times.

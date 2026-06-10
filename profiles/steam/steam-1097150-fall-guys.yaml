@@ -1,0 +1,12 @@
+id: fall_guys
+name: "Fall Guys"
+store: steam
+steam_appid: 1097150
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. Fall Guys detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

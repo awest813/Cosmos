@@ -1,0 +1,12 @@
+{
+  "schema": "cosmosdb-community-v0",
+  "steam_appid": 1966720,
+  "title": "Lethal Company",
+  "status": "gold",
+  "recommended_backend": "dxmt",
+  "windows_version": "win10",
+  "report_count": 1,
+  "sources": ["community", "curated-profile"],
+  "notes": "Lightweight Unity multiplayer. DXMT is sufficient for co-op sessions.",
+  "updated_at": "2026-06-10T00:00:00Z"
+}

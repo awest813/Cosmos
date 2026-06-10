@@ -1,0 +1,12 @@
+id: hell_let_loose
+name: "Hell Let Loose"
+store: steam
+steam_appid: 686810
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. Hell Let Loose detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

@@ -1,0 +1,15 @@
+id: raft
+name: "Raft"
+store: steam
+steam_appid: 648800
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Unity co-op survival. DXMT is sufficient for D3D11. Online raft sessions need
+  stable Steam networking in the prefix.

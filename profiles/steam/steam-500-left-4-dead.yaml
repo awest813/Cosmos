@@ -1,0 +1,13 @@
+id: left_4_dead
+name: "Left 4 Dead"
+store: steam
+steam_appid: 500
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Original Source engine co-op shooter. Same DXMT preset family as Left 4 Dead 2.
+  Online co-op works when Steam networking is healthy in the prefix.

@@ -1,0 +1,13 @@
+id: counter_strike_source
+name: "Counter-Strike: Source"
+store: steam
+steam_appid: 240
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Classic Source multiplayer. DXMT handles D3D9 paths. Expect higher input latency
+  than native for competitive play.

@@ -1,0 +1,12 @@
+id: ark_survival_ascended
+name: "ARK: Survival Ascended"
+store: steam
+steam_appid: 2399830
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. ARK: Survival Ascended detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

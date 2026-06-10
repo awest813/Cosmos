@@ -1,0 +1,15 @@
+id: no_mans_sky
+name: "No Man's Sky"
+store: steam
+steam_appid: 275850
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Vulkan/D3D12 title. Set GPTK_PATH and use d3dmetal for best results. First launch
+  compiles shaders for several minutes. Lower settings on base MacBook Air models.

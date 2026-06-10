@@ -1,0 +1,15 @@
+id: deep_rock_galactic
+name: "Deep Rock Galactic"
+store: steam
+steam_appid: 548430
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Unreal Engine 4 co-op shooter. DXMT for D3D11 missions. Install vcrun2015 if the
+  launcher reports missing runtimes. Four-player co-op needs stable Steam networking.

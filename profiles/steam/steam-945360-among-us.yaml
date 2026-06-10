@@ -1,0 +1,12 @@
+id: among_us
+name: "Among Us"
+store: steam
+steam_appid: 945360
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Very lightweight Unity title. DXMT with default settings is enough for smooth play.

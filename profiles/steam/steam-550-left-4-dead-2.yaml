@@ -1,0 +1,13 @@
+id: left_4_dead_2
+name: "Left 4 Dead 2"
+store: steam
+steam_appid: 550
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Classic Source engine title. DXMT handles D3D9 paths reliably. Online co-op works
+  when Steam networking is healthy in the prefix.

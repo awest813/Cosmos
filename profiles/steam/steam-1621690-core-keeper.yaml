@@ -1,0 +1,13 @@
+id: core_keeper
+name: "Core Keeper"
+store: steam
+steam_appid: 1621690
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Pixel-art mining co-op. DXMT is sufficient for D3D11. Host worlds via Steam invites;
+  eight-player sessions need a stable connection.

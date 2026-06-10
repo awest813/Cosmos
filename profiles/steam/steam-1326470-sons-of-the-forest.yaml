@@ -1,0 +1,15 @@
+id: sons_of_the_forest
+name: "Sons of the Forest"
+store: steam
+steam_appid: 1326470
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+notes: >
+  Unity sequel with heavier assets than The Forest. DXMT for D3D11; try d3dmetal
+  with GPTK_PATH if you hit D3D12-only paths. Co-op requires stable networking.

@@ -1,0 +1,15 @@
+id: satisfactory
+name: "Satisfactory"
+store: steam
+steam_appid: 526870
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+notes: >
+  Unreal Engine factory builder. DXMT handles D3D11 well. Large factories stress
+  CPU translation before graphics — cap view distance on Apple Silicon base models.

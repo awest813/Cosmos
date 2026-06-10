@@ -1,0 +1,13 @@
+id: enter_the_gungeon
+name: "Enter the Gungeon"
+store: steam
+steam_appid: 311690
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Bullet-hell roguelike from the Binding of Isaac lineage. DXMT with default settings
+  runs smoothly. Couch co-op works with controllers mapped in Wine.

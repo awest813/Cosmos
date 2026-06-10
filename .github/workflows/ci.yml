@@ -62,6 +62,9 @@ jobs:
       - name: Profile schema validation tests
         run: ./scripts/test_profiles.sh
 
+      - name: Anti-cheat profile audit tests
+        run: ./scripts/test_anticheat_profiles.sh
+
       - name: Repair diagnose unit tests
         run: ./scripts/test_repair_diagnose.sh
 

@@ -1,0 +1,16 @@
+id: bioshock
+name: "BioShock"
+store: steam
+steam_appid: 7670
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2010
+  - d3dx9
+notes: >
+  Unreal Engine 2.5 classic. Install vcrun2010 and d3dx9 for missing DirectX errors.
+  DXMT for D3D9 rendering. Disable Retina if menus look blurry on HiDPI displays.

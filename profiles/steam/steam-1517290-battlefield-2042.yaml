@@ -1,0 +1,12 @@
+id: battlefield_2042
+name: "Battlefield 2042"
+store: steam
+steam_appid: 1517290
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by EA Anti-Cheat. Battlefield 2042 detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

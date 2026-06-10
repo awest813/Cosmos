@@ -1,0 +1,13 @@
+id: rimworld
+name: "RimWorld"
+store: steam
+steam_appid: 294100
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Lightweight Unity colony sim. Runs well on DXMT with no extra dependencies.
+  Large mod lists may increase load times.

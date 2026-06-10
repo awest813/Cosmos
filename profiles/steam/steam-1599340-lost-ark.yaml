@@ -1,0 +1,12 @@
+id: lost_ark
+name: "Lost Ark"
+store: steam
+steam_appid: 1599340
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. Lost Ark detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

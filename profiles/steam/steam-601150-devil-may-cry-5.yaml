@@ -1,0 +1,15 @@
+id: devil_may_cry_5
+name: "Devil May Cry 5"
+store: steam
+steam_appid: 601150
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Capcom RE Engine on D3D11. DXMT handles combat scenes well. Cap frame rate if
+  you see tearing on ProMotion displays.

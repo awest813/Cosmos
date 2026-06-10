@@ -1,0 +1,15 @@
+id: hogwarts_legacy
+name: "Hogwarts Legacy"
+store: steam
+steam_appid: 990080
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+notes: >
+  Demanding Unreal Engine 5 / D3D12 title. Requires GPTK_PATH and d3dmetal backend.
+  Lower ray tracing and texture quality. Long first-launch shader compile is normal.

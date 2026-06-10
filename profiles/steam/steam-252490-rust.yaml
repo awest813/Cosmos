@@ -13,4 +13,6 @@ tags:
   - pvp
 anti_cheat: eac
 multiplayer_notes: "Easy Anti-Cheat blocks Wine. Do not attempt to join official servers."
-notes: "Blocked by Easy Anti-Cheat. Community servers with EAC disabled are outside Cosmos scope."
+notes: >
+  Blocked by Easy Anti-Cheat. Rust detects Wine/Proton and will not allow online
+  play through Cosmos. Listed here so the launcher warns before you try.

@@ -1,0 +1,13 @@
+id: undertale
+name: "Undertale"
+store: steam
+steam_appid: 391540
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Lightweight GameMaker-style RPG. DXMT is more than enough. No extra dependencies
+  required for the base game.

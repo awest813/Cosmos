@@ -1,0 +1,15 @@
+id: counter_strike_2
+name: "Counter-Strike 2"
+store: steam
+steam_appid: 730
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+notes: >
+  Source 2 title with D3D11 paths. DXMT works for casual play; competitive latency
+  may be higher than native Windows. Install vcrun2019 for missing-runtime errors.

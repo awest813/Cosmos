@@ -50,11 +50,9 @@ enum GameProfileStore {
             return []
         }
 
+        let shippedStores: Set<String> = ["steam", "gog", "itch", "battlenet", "standalone"]
         var profiles: [GameProfile] = []
-        for storeDir in storeDirs {
-            if storeDir.lastPathComponent == "drafts" {
-                continue
-            }
+        for storeDir in storeDirs where shippedStores.contains(storeDir.lastPathComponent) {
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: storeDir.path, isDirectory: &isDirectory),
                   isDirectory.boolValue else {

@@ -13,4 +13,6 @@ tags:
   - pvp
 anti_cheat: battleye
 multiplayer_notes: "BattlEye blocks Wine. Online play is not supported on macOS through Cosmos."
-notes: "Blocked by BattlEye anti-cheat. Listed for pre-launch warning only."
+notes: >
+  Blocked by BattlEye anti-cheat. PUBG detects Wine/Proton and will not allow
+  online play through Cosmos. Listed here so the launcher warns before you try.

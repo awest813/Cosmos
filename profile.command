@@ -58,6 +58,7 @@ Commands:
   port-hint <steam_appid>       Print umu-protonfixes porting hints (reference only).
   seed-deps [--dry-run] [--appid <id>]
                                 Merge winemactricks map deps/fixes into profiles.
+  anticheat-audit               Verify blocked profiles match scripts/data/anticheat-blocklist.json.
   export-reg <path-or-id> [label]
                                 Snapshot WINEPREFIX/user.reg (wineregdiff workflow).
 
@@ -318,6 +319,12 @@ cmd_port_hint() {
   python3 "${hint_py}" "${appid}" --repo "${SCRIPT_DIR}"
 }
 
+cmd_anticheat_audit() {
+  local py="${SCRIPT_DIR}/scripts/anticheat_profile_audit.py"
+  [[ -f "${py}" ]] || die "Missing ${py}"
+  python3 "${py}" --repo "${SCRIPT_DIR}"
+}
+
 main() {
   local cmd="${1:-}"; shift || true
   case "${cmd}" in
@@ -338,6 +345,7 @@ main() {
       esac
       ;;
     port-hint) cmd_port_hint "${1:-}" ;;
+    anticheat-audit) cmd_anticheat_audit ;;
     seed-deps) shift; cmd_seed_deps "$@" ;;
     export-reg) cmd_export_reg "${1:-}" "${2:-}" ;;
     ""|--help|-h|help) usage ;;

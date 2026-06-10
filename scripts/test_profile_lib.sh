@@ -48,7 +48,7 @@ profile_has_multiplayer_tag "${ROOT}/profiles/steam/steam-105600-terraria.yaml" 
   || fail "terraria should have multiplayer tag"
 
 count="$(profile_shipped_paths "${ROOT}/profiles" | wc -l | tr -d ' ')"
-(( count >= 20 )) || fail "expected at least 20 shipped profiles, found ${count}"
+(( count >= 50 )) || fail "expected at least 50 shipped profiles, found ${count}"
 
 listed="$(profile_shipped_paths "${ROOT}/profiles" | grep -c '/drafts/' || true)"
 (( listed == 0 )) || fail "profile_shipped_paths must not include drafts/"

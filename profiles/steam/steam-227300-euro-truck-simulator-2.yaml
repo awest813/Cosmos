@@ -1,0 +1,15 @@
+id: euro_truck_simulator_2
+name: "Euro Truck Simulator 2"
+store: steam
+steam_appid: 227300
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  SCS engine on D3D11. DXMT is a good default. Install vcrun2015 if the launcher
+  reports missing Visual C++ runtimes. Wheel/controller support depends on macOS HID.

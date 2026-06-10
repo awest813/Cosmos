@@ -1,0 +1,12 @@
+id: ark_survival_evolved
+name: "ARK: Survival Evolved"
+store: steam
+steam_appid: 346110
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by BattlEye. ARK: Survival Evolved detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

@@ -1,0 +1,15 @@
+id: dark_souls_iii
+name: "Dark Souls III"
+store: steam
+steam_appid: 374320
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  FromSoftware D3D11 title. Set GPTK_PATH and try d3dmetal if DXMT stutters.
+  Install vcrun2015 for missing-runtime errors. Online play may be unreliable.

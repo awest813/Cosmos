@@ -13,4 +13,6 @@ tags:
   - pvp
 anti_cheat: eac
 multiplayer_notes: "Easy Anti-Cheat blocks Wine/Proton. Do not launch — account bans are possible."
-notes: "Blocked by Easy Anti-Cheat. Listed so Cosmos warns before launch."
+notes: >
+  Blocked by Easy Anti-Cheat. Apex Legends detects Wine/Proton and will not allow
+  online play through Cosmos. Listed here so the launcher warns before you try.

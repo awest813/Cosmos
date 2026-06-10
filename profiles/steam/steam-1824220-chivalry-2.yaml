@@ -1,0 +1,12 @@
+id: chivalry_2
+name: "Chivalry 2"
+store: steam
+steam_appid: 1824220
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. Chivalry 2 detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

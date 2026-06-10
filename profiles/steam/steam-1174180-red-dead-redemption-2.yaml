@@ -1,0 +1,17 @@
+id: red_dead_redemption_2
+name: "Red Dead Redemption 2"
+store: steam
+steam_appid: 1174180
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+notes: >
+  Heavy Vulkan/D3D12 title. Requires GPTK_PATH and d3dmetal backend. Lower
+  quality presets and use FSR. Single-player works with long first-launch shader
+  compile. Red Dead Online uses Rockstar anti-cheat and is blocked on macOS through
+  Cosmos — do not expect online play to work.

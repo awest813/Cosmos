@@ -1,0 +1,13 @@
+id: project_zomboid
+name: "Project Zomboid"
+store: steam
+steam_appid: 108600
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Lightweight Java/LWJGL title launched via Steam. DXMT is sufficient. Multiplayer
+  needs stable networking; mod-heavy saves increase RAM use.

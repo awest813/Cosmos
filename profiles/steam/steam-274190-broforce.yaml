@@ -1,0 +1,13 @@
+id: broforce
+name: "Broforce"
+store: steam
+steam_appid: 274190
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  2D co-op action platformer. DXMT is sufficient. Four-player mayhem works best with
+  controllers; map buttons in Wine if triggers misbehave.

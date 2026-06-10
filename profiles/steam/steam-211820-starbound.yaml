@@ -1,0 +1,13 @@
+id: starbound
+name: "Starbound"
+store: steam
+steam_appid: 211820
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Lightweight 2D sandbox. DXMT with default settings is sufficient. Mod-heavy saves
+  may increase load times.

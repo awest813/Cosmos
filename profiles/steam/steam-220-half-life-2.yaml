@@ -1,0 +1,13 @@
+id: half_life_2
+name: "Half-Life 2"
+store: steam
+steam_appid: 220
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Source engine classic. DXMT is sufficient. If mods require newer runtimes, apply
+  vcrun2010 via the repair panel.

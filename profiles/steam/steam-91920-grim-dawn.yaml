@@ -1,0 +1,16 @@
+id: grim_dawn
+name: "Grim Dawn"
+store: steam
+steam_appid: 91920
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2010
+  - d3dx9
+notes: >
+  Titan Quest–engine ARPG. DXMT for D3D9/D3D11 paths. Install vcrun2010 and d3dx9
+  for older runtime errors. LAN co-op works when both players use Wine Steam.

@@ -1,0 +1,13 @@
+id: overcooked_2
+name: "Overcooked! 2"
+store: steam
+steam_appid: 728880
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Lightweight Unity party co-op. DXMT with default settings is enough for smooth
+  local and online play. Controller support depends on macOS HID mapping.

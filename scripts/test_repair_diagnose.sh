@@ -43,7 +43,12 @@ export COSMOS_PROFILE_APPID=962130
 unset COSMOS_UMU_HINT_FIXTURE
 repair_diagnose_umu_hints
 [[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:grounded-mscoree-fix "* ]] \
-  || fail "expected winemactricks fix from UMU map for Grounded"
+  && fail "umu hints should not re-suggest fixes already in the curated profile"
+repair_diagnose_reset
+export COSMOS_PROFILE_APPID=962130
+repair_diagnose_profile_hints
+[[ "${DIAG_SEEN}" == *"|profile-962130|"* ]] \
+  || fail "expected curated profile note for Grounded"
 
 # UMU suggests deps not already in curated profile (Cyberpunk has vcrun2015, not vcrun2019).
 repair_diagnose_reset

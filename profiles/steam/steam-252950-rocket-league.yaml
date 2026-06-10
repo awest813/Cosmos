@@ -1,0 +1,12 @@
+id: rocket_league
+name: "Rocket League"
+store: steam
+steam_appid: 252950
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. Rocket League detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.
