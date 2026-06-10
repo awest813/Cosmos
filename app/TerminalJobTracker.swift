@@ -20,13 +20,7 @@ enum TerminalJobTracker {
     }
 
     static var jobsDirectory: URL {
-        if let support = ProcessInfo.processInfo.environment["COSMOS_SUPPORT_DIR"], !support.isEmpty {
-            return URL(fileURLWithPath: support, isDirectory: true)
-                .appendingPathComponent("terminal-jobs", isDirectory: true)
-        }
-        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support", isDirectory: true)
-        return base.appendingPathComponent("Cosmos/terminal-jobs", isDirectory: true)
+        CosmosPaths.supportDirectory.appendingPathComponent("terminal-jobs", isDirectory: true)
     }
 
     static func makeJobID() -> String {

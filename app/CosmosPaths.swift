@@ -40,6 +40,16 @@ enum CosmosPaths {
         CosmosBadgeStore.communityGamesDirectory()
     }
 
+    /// Writable user-data root (`~/Library/Application Support/Cosmos`, or `COSMOS_SUPPORT_DIR`).
+    static var supportDirectory: URL {
+        if let override = ProcessInfo.processInfo.environment["COSMOS_SUPPORT_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support", isDirectory: true)
+        return base.appendingPathComponent("Cosmos", isDirectory: true)
+    }
+
     /// Path to pass to `profile.command apply` (relative to cosmos root).
     static func profileCommandPath(for fileURL: URL) -> String? {
         guard let root = cosmosRoot() else { return nil }

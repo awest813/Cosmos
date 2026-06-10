@@ -6,7 +6,7 @@ private typealias CommandIntent = CommandFailureContext
 
 struct ContentView: View {
     private let fileManager = FileManager.default
-    private let repositoryRootURL = Self.findRepositoryRoot()
+    private let repositoryRootURL = CosmosPaths.cosmosRoot()
     private let consoleBottomID = "console-bottom"
     private let steamLibraryCheckInterval: TimeInterval = 300
 
@@ -979,23 +979,29 @@ struct ContentView: View {
             return
         }
         if !hasGameLaunchers {
-            buildLaunchers(full: true)
+            buildLaunchers()
             return
         }
         refreshStatus(message: "Setup looks complete.")
     }
 
-    /// Build or sync Dock launchers in the embedded console (no Terminal unless sudo is required).
-    private func buildLaunchers(full: Bool) {
-        var env = bottleEnvironment()
-        env["COSMOS_ALLOW_USER_APPS"] = "1"
-        let args = full ? ["--install"] : ["--sync"]
+    /// Build Dock launchers in the embedded console (no Terminal unless sudo is required).
+    private func buildLaunchers() {
         runCommand(
             script: "detect_steam_games.command",
-            arguments: args,
-            environment: env,
+            arguments: ["--install"],
+            environment: steamLibraryEnvironment(),
             intent: .setup
         )
+    }
+
+    private func steamLibraryEnvironment(seedOnly: Bool = false) -> [String: String] {
+        var env = bottleEnvironment()
+        env["COSMOS_ALLOW_USER_APPS"] = "1"
+        if seedOnly {
+            env["COSMOS_SYNC_SEED_ONLY"] = "1"
+        }
+        return env
     }
 
     private func checkSteamLibraryForNewGames(autoSync: Bool) {
@@ -1042,11 +1048,7 @@ struct ContentView: View {
             beginCommandOutput()
             output = "Running: detect_steam_games.command --sync\n\n"
         }
-        var env = bottleEnvironment()
-        env["COSMOS_ALLOW_USER_APPS"] = "1"
-        if seedOnly {
-            env["COSMOS_SYNC_SEED_ONLY"] = "1"
-        }
+        let env = steamLibraryEnvironment(seedOnly: seedOnly)
         DispatchQueue.global(qos: .userInitiated).async {
             let result = SteamLibraryMonitor.syncNewGames(detectScript: detectScript, environment: env)
             DispatchQueue.main.async {
@@ -1062,13 +1064,7 @@ struct ContentView: View {
         seedOnly: Bool
     ) {
         guard let result else {
-            if announce {
-                showBanner(
-                    kind: .failure,
-                    message: "Steam library sync failed.",
-                    actions: steamSyncTerminalActions()
-                )
-            }
+            showSteamSyncFailureBanner(ifAnnounced: announce)
             return
         }
 
@@ -1077,13 +1073,7 @@ struct ContentView: View {
         }
 
         guard result.succeeded else {
-            if announce {
-                showBanner(
-                    kind: .failure,
-                    message: "Steam library sync failed.",
-                    actions: steamSyncTerminalActions()
-                )
-            }
+            showSteamSyncFailureBanner(ifAnnounced: announce)
             refreshStatus()
             return
         }
@@ -1096,7 +1086,6 @@ struct ContentView: View {
             return
         }
 
-        let removed = SteamLibraryMonitor.parseSyncRemovedCount(from: result.output) ?? 0
         if result.newCount > 0 {
             pendingNewSteamGames = 0
             refreshStatus(message: "Synced \(result.newCount) new game(s).")
@@ -1109,14 +1098,14 @@ struct ContentView: View {
             return
         }
 
-        if removed > 0 {
+        if result.removedCount > 0 {
             pendingNewSteamGames = 0
-            refreshStatus(message: "Removed \(removed) uninstalled game(s).")
+            refreshStatus(message: "Removed \(result.removedCount) uninstalled game(s).")
             if announce {
                 let dockNote = " Dock apps in Cosmos Apps may need manual removal or a full rebuild."
                 showBanner(
                     kind: .info,
-                    message: "Removed \(removed) launcher config\(removed == 1 ? "" : "s") for uninstalled games.\(dockNote)"
+                    message: "Removed \(result.removedCount) launcher config\(result.removedCount == 1 ? "" : "s") for uninstalled games.\(dockNote)"
                 )
             }
             return
@@ -1126,15 +1115,22 @@ struct ContentView: View {
         refreshStatus()
     }
 
+    private func showSteamSyncFailureBanner(ifAnnounced announce: Bool) {
+        guard announce else { return }
+        showBanner(
+            kind: .failure,
+            message: "Steam library sync failed.",
+            actions: steamSyncTerminalActions()
+        )
+    }
+
     private func steamSyncTerminalActions() -> [CommandBannerAction] {
         [
             CommandBannerAction(title: "Run in Terminal", systemImage: "terminal.fill") {
-                var env = bottleEnvironment()
-                env["COSMOS_ALLOW_USER_APPS"] = "1"
                 runInTerminal(
                     script: "detect_steam_games.command",
                     arguments: ["--sync"],
-                    environment: env,
+                    environment: steamLibraryEnvironment(),
                     intent: .setup
                 )
             },
@@ -1150,7 +1146,7 @@ struct ContentView: View {
                     syncSteamLibrary(announce: true)
                 },
                 CommandBannerAction(title: "Build All", systemImage: "square.grid.2x2.fill") {
-                    buildLaunchers(full: true)
+                    buildLaunchers()
                 },
             ]
         )
@@ -1801,7 +1797,7 @@ struct ContentView: View {
         }
 
         secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps", systemImage: "square.grid.2x2.fill", help: "Detect games and install Spotlight launchers into Cosmos Apps") {
-            buildLaunchers(full: true)
+            buildLaunchers()
         }
 
         secondaryButton(
@@ -2329,7 +2325,7 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button("Build Launchers") {
-                    buildLaunchers(full: true)
+                    buildLaunchers()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -3865,25 +3861,6 @@ struct ContentView: View {
             showBanner(kind: .failure, message: message)
             refreshStatus()
         }
-    }
-
-    private static func findRepositoryRoot() -> URL? {
-        let fileManager = FileManager.default
-        var candidate = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-
-        while candidate.path != "/" {
-            if fileManager.fileExists(atPath: candidate.appendingPathComponent("run.command").path) {
-                return candidate
-            }
-            candidate.deleteLastPathComponent()
-        }
-
-        let currentDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
-        if fileManager.fileExists(atPath: currentDirectory.appendingPathComponent("run.command").path) {
-            return currentDirectory
-        }
-
-        return nil
     }
 
 }

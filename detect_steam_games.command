@@ -112,6 +112,10 @@ Usage: detect_steam_games.command [--list|--write|--install|--verify|--sync] [--
   --verify    Run scripts/verify_steam_detection.command after listing.
   --json      With --list, print machine-readable JSON to stdout.
 
+Environment (sync):
+  COSMOS_SYNC_SEED_ONLY=1  With --sync and no snapshot yet, record App IDs only
+                           (no configs or launchers). Used for background auto-sync.
+
 Partial installs (downloads in progress) are skipped by default. Set
 COSMOS_DETECT_INCLUDE_PARTIAL=1 to include them.
 
@@ -651,8 +655,6 @@ main() {
     written=$((written + 1))
   done
 
-  prune_orphan_icons
-
   if [[ "${MODE}" == "sync" ]]; then
     local removed
     removed="$(prune_uninstalled_generated "${appids[@]}")"
@@ -683,6 +685,8 @@ main() {
     printf 'sync_removed=%s\n' "${removed}"
     return
   fi
+
+  prune_orphan_icons
 
   log "Wrote ${written} generated config(s); skipped ${skipped} curated."
   steam_refresh_library

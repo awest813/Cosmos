@@ -10,6 +10,7 @@ enum SteamLibraryMonitor {
     struct SyncResult: Equatable {
         let status: String
         let newCount: Int
+        let removedCount: Int
         let exitCode: Int32
         let output: String
 
@@ -19,15 +20,7 @@ enum SteamLibraryMonitor {
     }
 
     static func snapshotURL() -> URL {
-        let base: URL
-        if let override = ProcessInfo.processInfo.environment["COSMOS_SUPPORT_DIR"], !override.isEmpty {
-            base = URL(fileURLWithPath: override, isDirectory: true)
-        } else {
-            base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-                ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support", isDirectory: true)
-            return base.appendingPathComponent("Cosmos/steam-library.snapshot")
-        }
-        return base.appendingPathComponent("steam-library.snapshot")
+        CosmosPaths.supportDirectory.appendingPathComponent("steam-library.snapshot")
     }
 
     /// List installed Steam games as JSON via detect_steam_games.command --list --json.
@@ -129,7 +122,14 @@ enum SteamLibraryMonitor {
         let output = String(data: data, encoding: .utf8) ?? ""
         let status = parseSyncStatus(from: output) ?? (exitCode == 0 ? "current" : "failed")
         let newCount = parseSyncNewCount(from: output) ?? 0
-        return SyncResult(status: status, newCount: newCount, exitCode: exitCode, output: output)
+        let removedCount = parseSyncRemovedCount(from: output) ?? 0
+        return SyncResult(
+            status: status,
+            newCount: newCount,
+            removedCount: removedCount,
+            exitCode: exitCode,
+            output: output
+        )
     }
 
     /// Match runCommand: drop inherited COSMOS_BOTTLE so the selected bottle wins.

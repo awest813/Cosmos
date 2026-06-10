@@ -29,11 +29,32 @@ final class SteamLibraryMonitorTests: XCTestCase {
     }
 
     func testSyncResultSucceeded() {
-        let ok = SteamLibraryMonitor.SyncResult(status: "updated", newCount: 1, exitCode: 0, output: "")
+        let ok = SteamLibraryMonitor.SyncResult(
+            status: "updated", newCount: 1, removedCount: 0, exitCode: 0, output: ""
+        )
         XCTAssertTrue(ok.succeeded)
-        let failed = SteamLibraryMonitor.SyncResult(status: "failed", newCount: 0, exitCode: 1, output: "")
+        let failed = SteamLibraryMonitor.SyncResult(
+            status: "failed", newCount: 0, removedCount: 0, exitCode: 1, output: ""
+        )
         XCTAssertFalse(failed.succeeded)
-        let seeded = SteamLibraryMonitor.SyncResult(status: "seeded", newCount: 0, exitCode: 0, output: "")
+        let seeded = SteamLibraryMonitor.SyncResult(
+            status: "seeded", newCount: 0, removedCount: 0, exitCode: 0, output: ""
+        )
         XCTAssertTrue(seeded.succeeded)
+    }
+
+    func testSnapshotURLUsesSupportDirectory() throws {
+        let support = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cosmos-snapshot-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        setenv("COSMOS_SUPPORT_DIR", support.path, 1)
+        defer {
+            unsetenv("COSMOS_SUPPORT_DIR")
+            try? FileManager.default.removeItem(at: support)
+        }
+        XCTAssertEqual(
+            SteamLibraryMonitor.snapshotURL().path,
+            support.appendingPathComponent("steam-library.snapshot").path
+        )
     }
 }

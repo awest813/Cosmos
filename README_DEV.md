@@ -350,14 +350,15 @@ INSTALL=1 scripts/build_cosmos_app.command  # also copy it into /Applications
 
 - **Build Cosmos app (SwiftPM)** — `swift build` (debug + release) on a macOS
   runner, so a dashboard that doesn't compile can't reach `main`.
-- **Shell script syntax** — `bash -n` over every `*.command`/`*.sh`.
+- **Shell script syntax + unit tests** — `./scripts/test_all.sh` (bash syntax, fixture
+  tests, CLI smoke including `--sync-steam`).
+- **Bundle smoke** (macOS) — builds `Cosmos.app`, runs `audit_release.sh`, ad-hoc DMG.
 
 Run the same checks locally before pushing:
 
 ```bash
-swift build                                                   # compile check
-find . -type f \( -name '*.command' -o -name '*.sh' \) -print0 \
-  | xargs -0 -n1 bash -n                                      # shell syntax
+./scripts/test_all.sh                                         # shell suite (+ swift if installed)
+swift build                                                   # compile check (macOS)
 ```
 
 `build_cosmos_app.command` compiles via SwiftPM, then assembles a
