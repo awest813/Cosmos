@@ -67,6 +67,22 @@ enum CommandOutputParser {
         return ("…(earlier output trimmed)…\n\(header)\n…\n" + tail, true)
     }
 
+    /// Summary from `repair.command apply-suggested` output.
+    static func applySuggestedSummary(from output: String) -> String? {
+        let pattern = #"Applied (\d+) suggestion"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(
+                in: output,
+                range: NSRange(output.startIndex..., in: output)
+              ),
+              match.numberOfRanges > 1,
+              let range = Range(match.range(at: 1), in: output),
+              let count = Int(output[range]) else {
+            return nil
+        }
+        return "Applied \(count) safe fix\(count == 1 ? "" : "es"). Retry the launch."
+    }
+
     static func failureMessage(
         exitCode: Int32,
         intent: CommandFailureContext,

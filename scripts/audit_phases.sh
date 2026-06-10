@@ -94,5 +94,19 @@ pass "update check script present"
 [[ -f "${ROOT}/runtime/cosmos-runtime.json" ]] || fail "missing runtime/cosmos-runtime.json"
 pass "runtime manifest present"
 
+for required in \
+  app/SavedProfileStore.swift \
+  app/CommandOutputParser.swift \
+  app/WineRuntime.swift \
+  scripts/test_all.sh; do
+  [[ -f "${ROOT}/${required}" ]] || fail "missing ${required}"
+  pass "present: ${required}"
+done
+
+if ! rg -q 'require_supported_macos' "${ROOT}/run.command" 2>/dev/null; then
+  fail "run.command missing require_supported_macos (Intel + Apple Silicon gate)"
+fi
+pass "dual-platform gate in run.command"
+
 echo ""
 echo "OK: phase metric audit passed (${fix_recipes_n} fix + ${dep_recipes_n} dep recipes)"

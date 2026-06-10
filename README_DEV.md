@@ -15,6 +15,9 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
 - Ensures Rosetta 2 on Apple Silicon when needed:
   - Intel hosts skip Rosetta (`rosetta_status_code` → `not_required`)
   - triggers `sudo` on Apple Silicon because Rosetta installation may be required
+- Dashboard embedded launches set `COSMOS_DETACH=0` so exit codes and `Error:` lines surface in-app
+- `CommandOutputParser` (Swift) extracts `die()` messages and diagnose summaries for failure banners
+- `SavedProfileStore` merges `~/Library/Application Support/Cosmos/Profiles/` and `cosmos_configs/`
 - Downloads and extracts Wine:
   - Wine builds are downloaded from Gcenx macOS Wine builds
   - default Wine version is controlled by `WINE_VERSION`

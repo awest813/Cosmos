@@ -5,7 +5,7 @@ A user-facing gap analysis and prioritized plan for closing the distance between
 today**. This complements [ROADMAP.md](ROADMAP.md) (engineering milestones) and
 [PROTON_GAP_ANALYSIS.md](PROTON_GAP_ANALYSIS.md) (technical comparison).
 
-**Last reviewed:** 2026-06-10 · **Baseline:** `main` (Phases A–E shipped; Phase F in progress)
+**Last reviewed:** 2026-06-10 · **Baseline:** `main` (Phases A–E shipped; Phase F in progress; post-0.7 polish on launch/errors/Intel)
 
 ---
 
@@ -18,10 +18,10 @@ dashboard. Users who complete setup can launch Windows Steam games from the Dock
 The remaining gaps are mostly **depth, discoverability, and distribution** —
 not missing plumbing. Users feel friction in four places:
 
-1. **Getting started** — compile the app, Terminal for `sudo`, Rosetta not surfaced in setup (until PR #38).
+1. **Getting started** — compile the app, Terminal for `sudo`; Rosetta is step 1 on Apple Silicon (Intel skips it).
 2. **Knowing before they buy/launch** — compatibility badges and anti-cheat warnings exist but are not prominent in the game library.
 3. **When something breaks** — diagnose is strong; in-app one-click repair still routes through Terminal for many actions.
-4. **Online / multiplayer expectations** — no co-op tags, networking fixes, or honest anti-cheat messaging in the UI (until PR #39).
+4. **Online / multiplayer expectations** — co-op tags and blocked titles ship; overlay remains off by design.
 
 Structural limits (anti-cheat runtime, Steam overlay, CPU translation on Apple
 Silicon) cannot be fully closed; the plan focuses on **honest UX** and **tractable
@@ -56,10 +56,10 @@ flowchart TD
 | **Discover** | “Works like Proton on Mac” | README accurate but long; no single “will my game work?” page | Medium |
 | **Install** | Double-click DMG, drag to Applications | `build_cosmos_app.command` + unsigned/ad-hoc DMG optional | **High** |
 | **Setup** | One guided flow, no Terminal | 4-step assistant; Terminal for Wine/Steam/sudo | **High** |
-| **Rosetta** | Automatic on Apple Silicon | Manual `softwareupdate` or PR #38 dashboard step | Medium → Low (PR #38) |
-| **Library** | See Playable / Blocked before launch | Badges on Compatibility tab; not on sidebar game list | **High** |
+| **Rosetta** | Automatic on Apple Silicon | Dashboard step 1 + Install Rosetta button; Terminal for `sudo` | Low |
+| **Library** | See Playable / Blocked before launch | Sidebar badges + blocked pre-launch dialog | Low |
 | **Launch** | Click game icon, play | `.app` launchers work; backend/profile often manual | Low |
-| **Multiplayer** | Co-op / online “just works” | Works for many titles; overlay disabled; anti-cheat blocks unlabeled on main | Medium → Low (PR #39) |
+| **Multiplayer** | Co-op / online “just works” | Works for many titles; overlay disabled; blocked titles labeled | Medium |
 | **Fix failure** | One-click suggested fixes | Diagnose + Apply Suggested; some fixes need env vars | Medium |
 | **Updates** | App + runtime auto-update | Manual re-clone / rebuild | Medium |
 | **Non-Steam** | Same experience as Steam | itch/Battle.net/Epic experimental | Low–Medium |
@@ -82,9 +82,12 @@ flowchart TD
 | Gap | User impact | Status | Plan |
 | --- | --- | --- | --- |
 | Terminal required for setup | Breaks “no Terminal” promise | By design for `sudo` | Embedded privileged helper or clearer “Terminal is normal” copy |
-| Rosetta not in setup checklist (main) | Wine fails mysteriously on arm64 | **PR #38** adds sidebar + install button | Merge PR #38; add Rosetta to step 1 on arm64 |
-| Wine download invisible in UI (main) | Users don’t know if Wine is fetching | **PR #38** `WineRuntimeStore` | Merge PR #38 |
-| Setup complete = “has launchers” | Users with Steam but no detected games stuck at step 4 | Current logic | Optional “skip” when Steam installed but library empty |
+| Rosetta not in setup checklist | Wine fails mysteriously on arm64 | Step 1 on Apple Silicon; sidebar status | **Done** |
+| Wine download invisible in UI | Users don’t know if Wine is fetching | `WineRuntimeStore` in sidebar | **Done** |
+| Intel Mac unsupported | x86_64 hosts blocked at script gate | `require_supported_macos` (arm64 + x86_64) | **Done** |
+| Steam configs missing from sidebar | Detect writes `cosmos_configs/` only | `SavedProfileStore` merges both dirs | **Done** |
+| Dashboard launch fails for Steam-only configs | `--game` needs executable path | `--steam` + `STEAM_GAME_ID` fallback | **Done** |
+| Setup complete = “has launchers” | Users with Steam but no detected games stuck at step 4 | Dashboard unlocks after Steam; “complete” needs profiles or Dock apps | **Shipped** — `isSteamReady` vs `hasGameLaunchers` |
 | No estimated time after step 1 | Anxiety on slow networks | “10–15 min” copy exists | Per-step time hints (Wine ~5 min, Steam ~3 min) |
 
 ### 3. Compatibility visibility (ProtonDB moment)
@@ -122,7 +125,8 @@ flowchart TD
 
 | Gap | User impact | Status | Plan |
 | --- | --- | --- | --- |
-| Diagnose requires log file awareness | Users don’t know where logs are | `--logs` + dashboard button | Auto-diagnose after failed launch |
+| Diagnose requires log file awareness | Users don’t know where logs are | `--logs` + dashboard button; auto-diagnose on launch failure | **Done** (Terminal setup steps still manual) |
+| Generic exit-code failure banners | Users see “status 1” not the real error | `CommandOutputParser` + Apply Suggested actions | **Done** for embedded commands |
 | `set_backend` / `disable_intro_video` not auto-applied | Suggested fixes need manual env | `apply-suggested` whitelist | Expand safe auto-apply set carefully |
 | Few profiles reference `fixes:` | Profiles don’t trigger repairs | 3 on main; more on PR #36 | Wire fixes into top 20 played titles |
 | winemactricks corpus tiny | Missing DLL/runtime recipes | Import pipeline ready | Quarterly `import_winemactricks.sh --sync` |
@@ -148,16 +152,13 @@ flowchart TD
 
 ---
 
-## Open PRs — what each closes for users
+## Recent polish (post Phase E, pending merge to `main`)
 
-| PR | Branch | User gaps closed |
+| Area | Shipped on branch | User outcome |
 | --- | --- | --- |
-| [#36](https://github.com/awest813/Cosmos/pull/36) | `cursor/game-profiles-e778` | 105-game library; anti-cheat blocklist; audit tooling; drafts excluded from shipped list |
-| [#37](https://github.com/awest813/Cosmos/pull/37) | `cursor/ui-cohesion-e778` | Unified dashboard design; consistent buttons/sections/tiles |
-| [#38](https://github.com/awest813/Cosmos/pull/38) | `cursor/wine-rosetta-e778` | Rosetta + Wine status in sidebar; Install Rosetta; setup gating |
-| [#39](https://github.com/awest813/Cosmos/pull/39) | `cursor/steam-fixes-multiplayer-e778` | Multiplayer tags; networking fixes; esync export; blocked MP titles |
-
-**Suggested merge order:** #38 → #39 → #36 → #37 (runtime foundations → multiplayer → content → UI polish).
+| Steam launch + sidebar | `cursor/steam-launch-gui-6803` | Detected games appear before Dock build; Steam `applaunch` from dashboard |
+| Intel + Silicon | `cursor/intel-silicon-support-6803` | Intel Macs supported; Rosetta gated on Apple Silicon only |
+| Error surfacing | `cursor/error-handling-6803` | Parsed `Error:` lines; diagnose + Apply Suggested on launch failure |
 
 ---
 
@@ -193,6 +194,8 @@ flowchart TD
 
 - [x] Rosetta as explicit step 1 on arm64 (5-step progress on Apple Silicon)
 - [x] In-app “Open logs” after failed setup step (embedded commands; Terminal steps documented)
+- [x] Dashboard unlocks when Steam is ready (not blocked until launchers exist)
+- [x] `SavedProfileStore` merges `Profiles/` + `cosmos_configs/` in sidebar
 - [x] Post-detect “Apply recommended profile” batch action (`profile.command apply-installed` + dashboard CTA)
 - [x] README quick-start points to DMG when release exists
 
@@ -205,6 +208,9 @@ flowchart TD
 - [x] Expand `fixes:` on top 30 profiles (SSL, networking, intro skip, retina) — **34** profiles
 - [x] Log fixtures + diagnose patterns for top failure modes (6 repair fixtures + UMU hint fixture)
 - [x] Auto-diagnose on non-zero launch exit (dashboard chains `repair.command diagnose`)
+- [x] Parsed script errors in failure banners (`CommandOutputParser`)
+- [x] Apply Suggested / Diagnose recovery actions on launch failure
+- [x] Foreground dashboard launches (`COSMOS_DETACH=0`) for reliable exit codes
 - [x] `winemactricks` sync job in CI (`import_winemactricks.sh --sync --dry-run` + recipe growth)
 
 **Success metric:** `repair.command apply-suggested` resolves majority of first-launch Steam client failures.
@@ -254,7 +260,7 @@ flowchart TD
 | Profiles with `fixes:` | **34** | 30+ ✅ |
 | Blocked anti-cheat profiles | **25** | 25+ ✅ |
 | Multiplayer-tagged profiles | **30** (`online`/`co-op`/`pvp`/`lan`) | 15+ ✅ |
-| Fix recipes | **25** | 25+ ✅ |
+| Fix recipes | **26** | 25+ ✅ |
 | Setup steps requiring Terminal | 4/5 (Rosetta + install still Terminal) | 2/4 (stretch: 0/4) |
 | Sidebar compat badge | **Yes** | Yes ✅ |
 | Signed DMG release | No (ad-hoc only) | Yes |
@@ -269,7 +275,7 @@ flowchart TD
 | [ROADMAP.md](ROADMAP.md) | Engineering milestones (0.x → 1.0) |
 | [PROTON_GAP_ANALYSIS.md](PROTON_GAP_ANALYSIS.md) | Technical Proton comparison |
 | [ADOPTION_PLAN.md](ADOPTION_PLAN.md) | Open-source integration phases |
-| `MULTIPLAYER.md` (PR #39) | Online/co-op expectations |
+| [MULTIPLAYER.md](MULTIPLAYER.md) | Online/co-op expectations |
 | [BACKENDS.md](BACKENDS.md) | Graphics backend user guide |
 | [STEAM_SETUP.md](STEAM_SETUP.md) | Manual fallback path |
 
