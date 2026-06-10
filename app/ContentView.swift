@@ -3113,6 +3113,7 @@ struct ContentView: View {
     }
 
     private func watchTerminalJob(jobID: String, displayedCommand: String, intent: CommandIntent) {
+        TerminalJobTracker.cancelPoll(jobID: jobID)
         TerminalJobTracker.poll(jobID: jobID) { exitCode in
             deliverTerminalJobResult(
                 jobID: jobID,
@@ -3164,7 +3165,9 @@ struct ContentView: View {
         if let pendingTerminalJobID, pendingTerminalJobID != jobID {
             return
         }
+        guard TerminalJobTracker.claimDelivery(jobID: jobID) else { return }
         pendingTerminalJobID = nil
+        TerminalJobTracker.cancelPoll(jobID: jobID)
         defer {
             TerminalJobTracker.cleanup(jobID: jobID)
             TerminalJobTracker.clearTrackedJob()
@@ -3187,8 +3190,9 @@ struct ContentView: View {
         refreshStatus()
         if succeeded {
             showBanner(kind: .success, message: successMessage(for: intent))
-            if autoContinueSetup, intent == .setup, !isSetupComplete {
+            if autoContinueSetup, intent == .setup, !isSetupComplete, !isRunning, pendingTerminalJobID == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    guard !isRunning, pendingTerminalJobID == nil, !isSetupComplete else { return }
                     performNextSetupStep()
                 }
             }

@@ -24,6 +24,8 @@ pass "check_updates --install flag present"
 for script in check_updates.sh install_update.sh terminal_wrap.sh; do
   [[ -x "${ROOT}/scripts/${script}" ]] || fail "missing scripts/${script}"
 done
+[[ -f "${ROOT}/scripts/lib/release_lib.sh" ]] || fail "missing scripts/lib/release_lib.sh"
+[[ -f "${ROOT}/scripts/fixtures/github_release_latest.json" ]] || fail "missing release fixture"
 pass "update + terminal helper scripts executable"
 
 [[ -f "${ROOT}/app/cosmos.entitlements" ]] || fail "missing app/cosmos.entitlements"

@@ -67,7 +67,7 @@ check "detached no-retry returns 0" "${rc}" "0"
 
 # 5. Detached healthy process survives the grace window: rc 0, no recovery.
 RECOVER_CALLS=0; COSMOS_DETACH=1; COSMOS_LAUNCH_RETRIES=1; COSMOS_LAUNCH_GRACE=2
-rc=0; run_launch_cmd "healthy" 1 sleep 5 >/dev/null 2>&1 || rc=$?
+rc=0; run_launch_cmd "healthy" 1 sleep 4 >/dev/null 2>&1 || rc=$?
 check "detached healthy returns 0" "${rc}" "0"
 check "detached healthy skips recovery" "${RECOVER_CALLS}" "0"
 

@@ -19,6 +19,20 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertTrue(status?.updateAvailable == true)
     }
 
+    func testParsesJSONWithTrailingNoiseFailsSafely() {
+        let json = """
+        {
+          "app_version": "0.7.1",
+          "runtime_version": "1.1.0-preview",
+          "latest_release": "0.7.1",
+          "status": "current"
+        }
+        not-json
+        """.data(using: .utf8)!
+
+        XCTAssertNil(UpdateChecker.parse(jsonData: json, exitCode: 0))
+    }
+
     func testParsesCurrentJSON() {
         let json = """
         {

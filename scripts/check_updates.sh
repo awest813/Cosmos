@@ -4,9 +4,12 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib/release_lib.sh
+source "${ROOT}/scripts/lib/release_lib.sh"
+
 VERSION_FILE="${ROOT}/VERSION"
 RUNTIME_MANIFEST="${ROOT}/runtime/cosmos-runtime.json"
-REPO="${COSMOS_GITHUB_REPO:-awest813/Cosmos}"
+REPO="$(release_lib_repo)"
 
 # When running from Cosmos.app/Contents/Resources, Info.plist holds the bundle version.
 bundle_info_plist() {
@@ -50,12 +53,7 @@ local_runtime() {
 }
 
 fetch_latest_release_tag() {
-  local api="https://api.github.com/repos/${REPO}/releases/latest"
-  if ! command -v curl >/dev/null 2>&1; then
-    return 1
-  fi
-  curl -fsSL --max-time 15 -H 'Accept: application/vnd.github+json' "${api}" 2>/dev/null \
-    | python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("tag_name") or "").lstrip("v"))' 2>/dev/null
+  release_lib_latest_tag
 }
 
 usage() {
@@ -64,8 +62,10 @@ Check whether a newer Cosmos release is published on GitHub.
 
 Usage: scripts/check_updates.sh [--json] [--install]
 
-  --json     Print machine-readable JSON
+  --json     Print machine-readable JSON (stdout only)
   --install  Download and install Cosmos.dmg when a newer release exists
+
+Set COSMOS_RELEASE_FIXTURE to a GitHub /releases/latest JSON file for offline tests.
 
 Exit 0 when up to date or release lookup unavailable; exit 2 when a newer release exists.
 EOF

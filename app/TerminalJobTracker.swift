@@ -6,6 +6,7 @@ enum TerminalJobTracker {
     private static let fileManager = FileManager.default
     private static let trackedJobIDKey = "com.cosmos.pendingTerminalJobID"
     private static let trackedJobLabelKey = "com.cosmos.pendingTerminalJobLabel"
+    private static var pollTokens: [String: UUID] = [:]
 
     struct TrackedJob: Equatable {
         let id: String
@@ -19,6 +20,10 @@ enum TerminalJobTracker {
     }
 
     static var jobsDirectory: URL {
+        if let support = ProcessInfo.processInfo.environment["COSMOS_SUPPORT_DIR"], !support.isEmpty {
+            return URL(fileURLWithPath: support, isDirectory: true)
+                .appendingPathComponent("terminal-jobs", isDirectory: true)
+        }
         let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support", isDirectory: true)
         return base.appendingPathComponent("Cosmos/terminal-jobs", isDirectory: true)
@@ -34,6 +39,10 @@ enum TerminalJobTracker {
 
     static func exitFileURL(for jobID: String) -> URL {
         jobsDirectory.appendingPathComponent("\(jobID).exit")
+    }
+
+    private static func deliveredFileURL(for jobID: String) -> URL {
+        jobsDirectory.appendingPathComponent("\(jobID).delivered")
     }
 
     static func saveTrackedJob(id: String, label: String) {
@@ -53,9 +62,19 @@ enum TerminalJobTracker {
     }
 
     static func cleanup(jobID: String) {
-        for suffix in ["exit", "state", "meta"] {
+        cancelPoll(jobID: jobID)
+        for suffix in ["exit", "state", "meta", "delivered"] {
             try? fileManager.removeItem(at: jobsDirectory.appendingPathComponent("\(jobID).\(suffix)"))
         }
+    }
+
+    /// Returns true only for the first caller that claims delivery for this job.
+    static func claimDelivery(jobID: String) -> Bool {
+        let url = deliveredFileURL(for: jobID)
+        if fileManager.fileExists(atPath: url.path) {
+            return false
+        }
+        return fileManager.createFile(atPath: url.path, contents: Data("1".utf8), attributes: nil)
     }
 
     static func readLabel(jobID: String) -> String? {
@@ -100,11 +119,18 @@ enum TerminalJobTracker {
             .filter { $0.pathExtension == "exit" }
             .compactMap { url -> CompletedJob? in
                 let id = url.deletingPathExtension().lastPathComponent
+                if fileManager.fileExists(atPath: deliveredFileURL(for: id).path) {
+                    return nil
+                }
                 guard let exitCode = readExitCode(jobID: id) else { return nil }
                 let label = readLabel(jobID: id) ?? loadTrackedJob()?.label ?? id
                 return CompletedJob(id: id, label: label, exitCode: exitCode)
             }
             .sorted { $0.id < $1.id }
+    }
+
+    static func cancelPoll(jobID: String) {
+        pollTokens.removeValue(forKey: jobID)
     }
 
     /// Poll until the job writes its exit file or the timeout elapses.
@@ -114,13 +140,18 @@ enum TerminalJobTracker {
         timeout: TimeInterval = 3600,
         onComplete: @escaping (Int?) -> Void
     ) {
+        let token = UUID()
+        pollTokens[jobID] = token
         let deadline = Date().addingTimeInterval(timeout)
         func tick() {
+            guard pollTokens[jobID] == token else { return }
             if let code = readExitCode(jobID: jobID) {
+                pollTokens.removeValue(forKey: jobID)
                 onComplete(code)
                 return
             }
             if Date() >= deadline {
+                pollTokens.removeValue(forKey: jobID)
                 onComplete(nil)
                 return
             }

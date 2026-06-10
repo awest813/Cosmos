@@ -4,7 +4,10 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-REPO="${COSMOS_GITHUB_REPO:-awest813/Cosmos}"
+# shellcheck source=scripts/lib/release_lib.sh
+source "${ROOT}/scripts/lib/release_lib.sh"
+
+REPO="$(release_lib_repo)"
 ASSET_NAME="${COSMOS_UPDATE_ASSET:-Cosmos.dmg}"
 TARGET_APP="/Applications/Cosmos.app"
 
@@ -23,6 +26,8 @@ Usage: scripts/install_update.sh [--dry-run]
 
 Quits a running Cosmos.app when possible, downloads Cosmos.dmg from the latest
 GitHub Release, and copies Cosmos.app into /Applications (sudo only if needed).
+
+Set COSMOS_RELEASE_FIXTURE for offline --dry-run tests.
 EOF
 }
 
@@ -35,13 +40,10 @@ while (($#)); do
   esac
 done
 
-fetch_release_json() {
-  curl -fsSL --max-time 30 -H 'Accept: application/vnd.github+json' \
-    "https://api.github.com/repos/${REPO}/releases/latest"
-}
+release_json="$(release_lib_fetch_json 2>/dev/null || true)"
+[[ -n "${release_json}" ]] || die "Could not fetch latest release metadata for ${REPO}."
 
-asset_url="$(fetch_release_json \
-  | COSMOS_UPDATE_ASSET="${ASSET_NAME}" python3 -c 'import json,sys,os
+asset_url="$(printf '%s' "${release_json}" | COSMOS_UPDATE_ASSET="${ASSET_NAME}" python3 -c 'import json,sys,os
 name=os.environ["COSMOS_UPDATE_ASSET"]
 data=json.load(sys.stdin)
 for a in data.get("assets",[]):
@@ -52,8 +54,7 @@ for a in data.get("assets",[]):
 
 [[ -n "${asset_url}" ]] || die "No ${ASSET_NAME} asset found on the latest GitHub Release for ${REPO}."
 
-tag="$(fetch_release_json \
-  | python3 -c 'import json,sys; print((json.load(sys.stdin).get("tag_name") or "").lstrip("v"))' 2>/dev/null || true)"
+tag="$(printf '%s' "${release_json}" | python3 -c 'import json,sys; print((json.load(sys.stdin).get("tag_name") or "").lstrip("v"))' 2>/dev/null || true)"
 log "Latest release: ${tag:-unknown} (${ASSET_NAME})"
 
 if (( dry_run )); then
@@ -76,7 +77,7 @@ trap cleanup EXIT
 
 dmg_path="${tmpdir}/${ASSET_NAME}"
 log "Downloading ${asset_url}"
-curl -fL --progress-bar --max-time 600 -o "${dmg_path}" "${asset_url}"
+curl -fL --progress-bar --max-time 600 --retry 2 --retry-delay 2 -o "${dmg_path}" "${asset_url}"
 
 log "Mounting ${ASSET_NAME}"
 attach_out="$(hdiutil attach -nobrowse -readonly -plist "${dmg_path}")"

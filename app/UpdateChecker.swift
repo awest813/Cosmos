@@ -26,10 +26,22 @@ enum UpdateChecker {
         task.executableURL = checkScript
         task.arguments = ["--json"]
         task.currentDirectoryURL = checkScript.deletingLastPathComponent()
+        if let fixture = ProcessInfo.processInfo.environment["COSMOS_RELEASE_FIXTURE"] {
+            var env = ProcessInfo.processInfo.environment
+            env["COSMOS_RELEASE_FIXTURE"] = fixture
+            task.environment = env
+        }
 
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
+        let outPipe = Pipe()
+        task.standardOutput = outPipe
+        task.standardError = FileHandle.nullDevice
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var exitCode = -1
+        task.terminationHandler = { process in
+            exitCode = process.terminationStatus
+            semaphore.signal()
+        }
 
         do {
             try task.run()
@@ -37,21 +49,13 @@ enum UpdateChecker {
             return nil
         }
 
-        let group = DispatchGroup()
-        group.enter()
-        var exitCode = -1
-        task.terminationHandler = { process in
-            exitCode = process.terminationStatus
-            group.leave()
-        }
-
-        let waitResult = group.wait(timeout: .now() + timeout)
-        if waitResult == .timedOut {
+        if semaphore.wait(timeout: .now() + timeout) == .timedOut {
             task.terminate()
+            _ = semaphore.wait(timeout: .now() + 2)
             return nil
         }
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
         guard exitCode == 0 || exitCode == 2 else { return nil }
         return parse(jsonData: data, exitCode: exitCode)
     }

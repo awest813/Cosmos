@@ -27,6 +27,7 @@ UNIT_TESTS=(
   scripts/test_import_winemactricks.sh
   scripts/test_profile_apply_installed.sh
   scripts/test_check_updates.sh
+  scripts/test_release_lib.sh
   scripts/test_terminal_wrap.sh
   scripts/test_install_update.sh
   scripts/audit_phases.sh
@@ -64,8 +65,9 @@ log "winemactricks upstream sync (dry-run)"
 log "CLI smoke: profile validate"
 ./profile.command validate >/dev/null
 
-log "CLI smoke: check-update"
-./run.command --check-update >/dev/null || true
+log "CLI smoke: check-update (fixture)"
+COSMOS_RELEASE_FIXTURE="${ROOT}/scripts/fixtures/github_release_latest.json" \
+  ./run.command --check-update >/dev/null || true
 
 log "CLI smoke: apply-installed dry-run (fixture prefix)"
 WINEPREFIX="${ROOT}/scripts/fixtures/steam_detection/wineprefix" \

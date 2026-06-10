@@ -1,0 +1,14 @@
+{
+  "tag_name": "v99.0.0-fixture",
+  "name": "Cosmos 99.0.0-fixture",
+  "assets": [
+    {
+      "name": "Cosmos.dmg",
+      "browser_download_url": "https://example.com/fixtures/Cosmos.dmg"
+    },
+    {
+      "name": "Cosmos.dmg.sha256",
+      "browser_download_url": "https://example.com/fixtures/Cosmos.dmg.sha256"
+    }
+  ]
+}
