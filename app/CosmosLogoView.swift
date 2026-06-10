@@ -1,15 +1,5 @@
 import SwiftUI
 
-// MARK: - Brand colours
-extension Color {
-    /// Deep indigo that matches the "Cosmos" wordmark in the logo.
-    static let cosmosPrimary = Color(red: 0.18, green: 0.07, blue: 0.56)
-    /// Bright violet used for the swirling light streaks.
-    static let cosmosBright  = Color(red: 0.58, green: 0.18, blue: 0.90)
-    /// Darker background fill for the galaxy disc.
-    static let cosmosDark    = Color(red: 0.08, green: 0.01, blue: 0.20)
-}
-
 // MARK: - Logo mark
 /// A SwiftUI recreation of the Cosmos galaxy / black-hole logo mark.
 struct CosmosLogoMark: View {

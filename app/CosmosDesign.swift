@@ -125,12 +125,22 @@ struct CosmosCard: ViewModifier {
             .padding(CosmosSpacing.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                Color.cosmosPrimary.opacity(prominent ? 0.07 : 0.05),
+                prominent
+                    ? Color.cosmosPrimary.opacity(0.08)
+                    : Color.cosmosCardFill,
                 in: RoundedRectangle(cornerRadius: CosmosSpacing.cardRadius)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: CosmosSpacing.cardRadius)
-                    .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
+                    .strokeBorder(
+                        prominent ? Color.cosmosPrimary.opacity(0.22) : Color.cosmosCardBorder,
+                        lineWidth: 1
+                    )
+            )
+            .shadow(
+                color: Color.cosmosPrimary.opacity(prominent ? 0.08 : 0.04),
+                radius: prominent ? 10 : 6,
+                y: 2
             )
     }
 }
@@ -151,13 +161,13 @@ struct CosmosSelectableSurface: ViewModifier {
             .padding(CosmosSpacing.tilePadding)
             .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
             .background(
-                isSelected ? Color.cosmosPrimary.opacity(0.10) : Color.primary.opacity(0.04),
+                isSelected ? Color.cosmosPrimary.opacity(0.12) : Color.cosmosTileFill,
                 in: RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius)
                     .strokeBorder(
-                        isSelected ? Color.cosmosPrimary.opacity(0.5) : Color.cosmosPrimary.opacity(0.10),
+                        isSelected ? Color.cosmosBright.opacity(0.55) : Color.cosmosCardBorder,
                         lineWidth: isSelected ? 1.5 : 1
                     )
             )
@@ -311,10 +321,10 @@ struct CosmosActionTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(CosmosSpacing.tilePadding - 2)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius))
+        .background(Color.cosmosTileFill, in: RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius))
         .overlay(
             RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius)
-                .strokeBorder(Color.cosmosPrimary.opacity(0.10), lineWidth: 1)
+                .strokeBorder(Color.cosmosCardBorder, lineWidth: 1)
         )
         .hoverBrighten()
     }
@@ -393,6 +403,147 @@ enum CuratedProfileFilter: String, CaseIterable, Identifiable {
     }
 }
 
+/// Pill filter chip for curated profile grids and similar toggles.
+struct CosmosFilterChip: View {
+    let label: String
+    let isSelected: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background(chipBackground, in: Capsule())
+                .foregroundStyle(isSelected ? Color.white : Color.secondary)
+                .overlay(
+                    Capsule()
+                        .strokeBorder(
+                            isSelected ? Color.clear : Color.cosmosCardBorder,
+                            lineWidth: 1
+                        )
+                )
+        }
+        .buttonStyle(CosmosButtonStyle())
+        .hoverBrighten()
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var chipBackground: some View {
+        if isSelected {
+            CosmosGradients.primaryButton
+        } else {
+            Color.cosmosTileFill
+        }
+    }
+}
+
+/// Horizontal tab bar for post-setup dashboard sections (replaces plain segmented control).
+struct CosmosDashboardTabBar: View {
+    @Binding var selection: DashboardSection
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(DashboardSection.allCases) { section in
+                let isSelected = selection == section
+                Button {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        selection = section
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: section.systemImage)
+                            .font(.caption.weight(.semibold))
+                        Text(section.rawValue)
+                            .font(.subheadline.weight(isSelected ? .semibold : .medium))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity)
+                    .background(tabBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
+                    .foregroundStyle(isSelected ? Color.white : Color.secondary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
+                            .strokeBorder(
+                                isSelected ? Color.clear : Color.cosmosCardBorder,
+                                lineWidth: 1
+                            )
+                    )
+                }
+                .buttonStyle(CosmosButtonStyle())
+                .hoverBrighten()
+                .accessibilityLabel(section.rawValue)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Dashboard section")
+    }
+
+    @ViewBuilder
+    private func tabBackground(isSelected: Bool) -> some View {
+        if isSelected {
+            CosmosGradients.primaryButton
+        } else {
+            Color.cosmosTileFill
+        }
+    }
+}
+
+/// Branded search field for the sidebar profile list.
+struct CosmosSearchField: View {
+    let placeholder: String
+    @Binding var text: String
+    var disabled: Bool = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(Color.cosmosPrimary.opacity(0.65))
+                .font(.caption.weight(.semibold))
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .font(.subheadline)
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear search")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.cosmosTileFill, in: Capsule())
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.cosmosCardBorder, lineWidth: 1)
+        )
+        .disabled(disabled)
+    }
+}
+
+/// Terminal-style log output panel.
+struct CosmosConsolePanel<Content: View>: View {
+    var minHeight: CGFloat = 140
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        content()
+            .frame(minHeight: minHeight)
+            .background(Color.cosmosConsoleBackground, in: RoundedRectangle(cornerRadius: CosmosSpacing.cardRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: CosmosSpacing.cardRadius)
+                    .strokeBorder(Color.cosmosBright.opacity(0.15), lineWidth: 1)
+            )
+    }
+}
+
 /// Compact chip for toolbar status (active bottle, running task).
 struct StatusChip: View {
     let label: String
@@ -404,7 +555,14 @@ struct StatusChip: View {
             .font(.caption.weight(.medium))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(tint.opacity(0.12), in: Capsule())
+            .background(
+                tint.opacity(0.14),
+                in: Capsule()
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(tint.opacity(0.22), lineWidth: 1)
+            )
             .foregroundStyle(tint)
             .help(label)
     }

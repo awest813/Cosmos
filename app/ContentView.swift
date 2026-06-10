@@ -247,12 +247,15 @@ struct ContentView: View {
             VStack(spacing: 6) {
                 CosmosLogo(markSize: 64)
                 Text("Apple Silicon Launcher")
-                    .font(.caption)
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.6)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
             .padding(.horizontal, 16)
+            .background(CosmosGradients.sidebarHeader)
 
             Divider()
 
@@ -307,8 +310,10 @@ struct ContentView: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
             .disabled(isRunning)
         }
+        .cosmosSidebarBackground()
     }
 
     private var profileSectionTitle: String {
@@ -320,31 +325,8 @@ struct ContentView: View {
     }
 
     private var profileSearchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .font(.caption)
-            TextField("Search games", text: $profileSearchText)
-                .textFieldStyle(.plain)
-                .font(.subheadline)
-                .accessibilityLabel("Search saved games")
-            if !profileSearchText.isEmpty {
-                Button {
-                    profileSearchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
-                .help("Clear search")
-                .accessibilityLabel("Clear search")
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity)
-        .background(Color.primary.opacity(0.06), in: Capsule())
-        .disabled(isRunning)
+        CosmosSearchField(placeholder: "Search games", text: $profileSearchText, disabled: isRunning)
+            .accessibilityLabel("Search saved games")
     }
 
     private func profileRow(_ profile: SavedProfile) -> some View {
@@ -439,21 +421,13 @@ struct ContentView: View {
             .frame(maxWidth: 1000, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .cosmosContentBackground()
     }
 
-    /// Segmented navigation for the post-setup dashboard — one focus area at a time.
+    /// Tab navigation for the post-setup dashboard — one focus area at a time.
     private var dashboardSectionPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Picker("Section", selection: $dashboardSection) {
-                ForEach(DashboardSection.allCases) { section in
-                    Label(section.rawValue, systemImage: section.systemImage)
-                        .tag(section)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .accessibilityLabel("Dashboard section")
+        VStack(alignment: .leading, spacing: 10) {
+            CosmosDashboardTabBar(selection: $dashboardSection)
 
             HStack(spacing: 8) {
                 Text(dashboardSection.subtitle)
@@ -488,8 +462,8 @@ struct ContentView: View {
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(heroTitle)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.cosmosPrimary)
+                .font(CosmosTypography.heroTitle)
+                .foregroundStyle(CosmosGradients.heroTitle)
             Text(heroSubtitle)
                 .font(.title3)
                 .foregroundStyle(.secondary)
@@ -654,7 +628,8 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                         ProgressView(value: setupProgress)
-                            .tint(Color.cosmosPrimary)
+                            .tint(Color.cosmosBright)
+                            .scaleEffect(y: 1.35, anchor: .center)
                     }
 
                     prominentButton(
@@ -1536,28 +1511,18 @@ struct ContentView: View {
     }
 
     private func curatedProfileFilterChip(_ filter: CuratedProfileFilter) -> some View {
-        let isSelected = curatedProfileFilter == filter
-        return Button {
+        CosmosFilterChip(
+            label: filter.label,
+            isSelected: curatedProfileFilter == filter
+        ) {
             curatedProfileFilter = filter
             if let id = selectedGameProfileID,
                !filteredGameProfiles.contains(where: { $0.id == id }) {
                 selectedGameProfileID = nil
             }
-        } label: {
-            Text(filter.label)
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    isSelected ? Color.cosmosPrimary.opacity(0.18) : Color.primary.opacity(0.06),
-                    in: Capsule()
-                )
-                .foregroundStyle(isSelected ? Color.cosmosPrimary : .secondary)
         }
-        .buttonStyle(.plain)
         .disabled(isRunning)
         .accessibilityLabel("\(filter.label) filter")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func curatedProfileCard(_ profile: GameProfile) -> some View {
@@ -2586,21 +2551,21 @@ struct ContentView: View {
             }
 
             ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(output)
-                            .font(.system(.body, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                            .foregroundStyle(Color(red: 0.85, green: 0.80, blue: 1.0))
-                        Color.clear
-                            .frame(height: 1)
-                            .id(consoleBottomID)
+                CosmosConsolePanel(minHeight: isSetupComplete ? 220 : 140) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(output)
+                                .font(CosmosTypography.monoBody)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .foregroundStyle(Color.cosmosConsoleText)
+                            Color.clear
+                                .frame(height: 1)
+                                .id(consoleBottomID)
+                        }
+                        .padding(16)
                     }
-                    .padding(16)
                 }
-                .frame(minHeight: isSetupComplete ? 220 : 140)
-                .background(Color(red: 0.07, green: 0.03, blue: 0.16), in: RoundedRectangle(cornerRadius: 16))
                 .onChange(of: output) { _ in
                     if reduceMotion {
                         proxy.scrollTo(consoleBottomID, anchor: .bottom)
@@ -2830,11 +2795,11 @@ struct ContentView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
+            .background(Color.cosmosTileFill, in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
                     .strokeBorder(
-                        destructive ? Color.red.opacity(0.2) : Color.cosmosPrimary.opacity(0.12),
+                        destructive ? Color.red.opacity(0.25) : Color.cosmosCardBorder,
                         lineWidth: 1
                     )
             )

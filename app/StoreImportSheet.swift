@@ -45,7 +45,7 @@ struct StoreImportSheet: View {
         VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
             Text(request.title)
                 .font(.title2.weight(.bold))
-                .foregroundStyle(Color.cosmosPrimary)
+                .foregroundStyle(CosmosGradients.heroTitle)
 
             Text(request.message)
                 .font(.subheadline)
@@ -88,6 +88,7 @@ struct StoreImportSheet: View {
         }
         .padding(20)
         .frame(width: 460)
+        .background(Color.cosmosContentBackground)
         .onAppear {
             focusedField = request.fields.first?.id
         }
