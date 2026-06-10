@@ -10,5 +10,6 @@ settings:
   windows_version: win10
 notes: >
   Demanding D3D12 title. Set GPTK_PATH to your Apple Game Porting Toolkit install
-  and use the d3dmetal backend. Expect reduced performance vs Windows; lower
-  settings and disable ray tracing for smoother play.
+  and use the d3dmetal backend. Single-player works with reduced performance.
+  Online co-op and invasions use Easy Anti-Cheat and are blocked on macOS through
+  Cosmos — do not expect multiplayer to work.

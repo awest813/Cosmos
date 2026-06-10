@@ -12,4 +12,5 @@ dependencies:
   - vcrun2015
 notes: >
   DXMT handles the D3D11 renderer. Install vcrun2015 if you see missing-runtime
-  errors. Online play (GTA Online) may have issues; story mode is the reliable path.
+  errors. Story mode is the reliable path. GTA Online uses Rockstar anti-cheat and
+  is blocked or unstable on macOS through Wine — expect online play to fail.

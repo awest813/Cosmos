@@ -1,0 +1,12 @@
+id: squad
+name: "Squad"
+store: steam
+steam_appid: 393380
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. Squad detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

@@ -1,0 +1,12 @@
+id: call_of_duty_modern_warfare_ii
+name: "Call of Duty: Modern Warfare II"
+store: steam
+steam_appid: 1938090
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Ricochet Anti-Cheat. Call of Duty: Modern Warfare II detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

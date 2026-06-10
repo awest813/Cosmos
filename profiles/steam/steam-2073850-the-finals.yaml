@@ -1,0 +1,12 @@
+id: the_finals
+name: "THE FINALS"
+store: steam
+steam_appid: 2073850
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. THE FINALS detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

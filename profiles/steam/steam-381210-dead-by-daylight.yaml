@@ -1,0 +1,12 @@
+id: dead_by_daylight
+name: "Dead by Daylight"
+store: steam
+steam_appid: 381210
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. Dead by Daylight detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.

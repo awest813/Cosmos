@@ -1,0 +1,146 @@
+{
+  "schema": "cosmos-anticheat-blocklist-v1",
+  "description": "Kernel anti-cheat catalog for Cosmos profile audits. scope=full requires status:blocked profiles; scope=online_only allows single-player but online is blocked.",
+  "by_appid": {
+    "1085660": {
+      "title": "Destiny 2",
+      "anticheat": "bungie",
+      "scope": "full"
+    },
+    "1172470": {
+      "title": "Apex Legends",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "252490": {
+      "title": "Rust",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "578080": {
+      "title": "PUBG: BATTLEGROUNDS",
+      "anticheat": "battleye",
+      "scope": "full"
+    },
+    "359550": {
+      "title": "Tom Clancy's Rainbow Six Siege",
+      "anticheat": "battleye",
+      "scope": "full"
+    },
+    "346110": {
+      "title": "ARK: Survival Evolved",
+      "anticheat": "battleye",
+      "scope": "full"
+    },
+    "2399830": {
+      "title": "ARK: Survival Ascended",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "221100": {
+      "title": "DayZ",
+      "anticheat": "battleye",
+      "scope": "full"
+    },
+    "594650": {
+      "title": "Hunt: Showdown",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "381210": {
+      "title": "Dead by Daylight",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "1063730": {
+      "title": "New World",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "1599340": {
+      "title": "Lost Ark",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "686810": {
+      "title": "Hell Let Loose",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "393380": {
+      "title": "Squad",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "924970": {
+      "title": "Back 4 Blood",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "2073850": {
+      "title": "THE FINALS",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "581320": {
+      "title": "Insurgency: Sandstorm",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "1824220": {
+      "title": "Chivalry 2",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "252950": {
+      "title": "Rocket League",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "1097150": {
+      "title": "Fall Guys",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "1517290": {
+      "title": "Battlefield 2042",
+      "anticheat": "ea_anticheat",
+      "scope": "full"
+    },
+    "1938090": {
+      "title": "Call of Duty: Modern Warfare II",
+      "anticheat": "ricochet",
+      "scope": "full"
+    },
+    "2519060": {
+      "title": "Call of Duty: Modern Warfare III",
+      "anticheat": "ricochet",
+      "scope": "full"
+    },
+    "1172620": {
+      "title": "Sea of Thieves",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "513710": {
+      "title": "SCUM",
+      "anticheat": "easy_anti_cheat",
+      "scope": "full"
+    },
+    "1245620": {
+      "title": "Elden Ring",
+      "anticheat": "easy_anti_cheat",
+      "scope": "online_only"
+    },
+    "271590": {
+      "title": "Grand Theft Auto V",
+      "anticheat": "rockstar",
+      "scope": "online_only"
+    },
+    "1174180": {
+      "title": "Red Dead Redemption 2",
+      "anticheat": "rockstar",
+      "scope": "online_only"
+    }
+  }
+}

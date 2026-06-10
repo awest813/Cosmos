@@ -1,0 +1,12 @@
+id: back_4_blood
+name: "Back 4 Blood"
+store: steam
+steam_appid: 924970
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Blocked by Easy Anti-Cheat. Back 4 Blood detects Wine/Proton and will not allow online play through Cosmos. Listed here so the launcher warns before you try.
