@@ -606,11 +606,14 @@ main() {
   fi
 
   if [[ "${MODE}" == "sync" && ! -f "${SNAPSHOT_FILE}" ]]; then
-    snapshot_save_ids "${appids[@]}"
-    printf 'sync_status=seeded\n'
-    printf 'sync_new=0\n'
-    echo "Initialized Steam library snapshot (${#appids[@]} game(s))."
-    return
+    if [[ "${COSMOS_SYNC_SEED_ONLY:-0}" == "1" ]]; then
+      snapshot_save_ids "${appids[@]}"
+      printf 'sync_status=seeded\n'
+      printf 'sync_new=0\n'
+      printf 'sync_removed=0\n'
+      echo "Initialized Steam library snapshot (${#appids[@]} game(s))."
+      return
+    fi
   fi
 
   mkdir -p "${CONFIGS_DIR}"

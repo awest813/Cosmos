@@ -64,4 +64,18 @@ enum ProfilePreferencesStore {
     static func isFavorite(profileID: String, in preferences: Preferences) -> Bool {
         preferences.favoriteIDs.contains(profileID)
     }
+
+    /// Drop favorites/recent entries whose profile configs were removed.
+    static func prune(validProfileIDs: Set<String>) -> Preferences {
+        var prefs = load()
+        let prunedFavorites = prefs.favoriteIDs.filter { validProfileIDs.contains($0) }
+        let prunedRecent = prefs.recentIDs.filter { validProfileIDs.contains($0) }
+        guard prunedFavorites != prefs.favoriteIDs || prunedRecent != prefs.recentIDs else {
+            return prefs
+        }
+        prefs.favoriteIDs = prunedFavorites
+        prefs.recentIDs = prunedRecent
+        try? save(prefs)
+        return prefs
+    }
 }

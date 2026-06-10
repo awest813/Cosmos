@@ -236,6 +236,9 @@ flowchart TD
 - [x] 100+ shipped profiles (**105** Steam YAMLs; drafts excluded)
 - [x] Auto-update **check** (`run.command --check-update` + dashboard)
 - [x] Auto-update **install** (`run.command --install-update` + dashboard; shell-based DMG installer)
+- [x] Sidebar **Favorites / Recent** + filter chips; deduplicated catalog at scale
+- [x] Incremental Steam sync (`detect_steam_games.command --sync`, `run.command --sync-steam`; auto-check on launch)
+- [x] Embedded **Build Launchers** / sync (Terminal only when `sudo` needed)
 - [ ] Community profile merge workflow (drafts + `suggest-profile`; manual review)
 - [ ] Optional: Console mode (controller grid) — roadmap “later”
 

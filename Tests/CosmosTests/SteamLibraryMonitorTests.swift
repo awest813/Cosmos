@@ -27,4 +27,13 @@ final class SteamLibraryMonitorTests: XCTestCase {
         XCTAssertEqual(SteamLibraryMonitor.parseSyncNewCount(from: output), 2)
         XCTAssertEqual(SteamLibraryMonitor.parseSyncRemovedCount(from: output), 1)
     }
+
+    func testSyncResultSucceeded() {
+        let ok = SteamLibraryMonitor.SyncResult(status: "updated", newCount: 1, exitCode: 0, output: "")
+        XCTAssertTrue(ok.succeeded)
+        let failed = SteamLibraryMonitor.SyncResult(status: "failed", newCount: 0, exitCode: 1, output: "")
+        XCTAssertFalse(failed.succeeded)
+        let seeded = SteamLibraryMonitor.SyncResult(status: "seeded", newCount: 0, exitCode: 0, output: "")
+        XCTAssertTrue(seeded.succeeded)
+    }
 }

@@ -10,7 +10,12 @@ enum SteamLibraryMonitor {
     struct SyncResult: Equatable {
         let status: String
         let newCount: Int
+        let exitCode: Int32
         let output: String
+
+        var succeeded: Bool {
+            exitCode == 0 && status != "failed"
+        }
     }
 
     static func snapshotURL() -> URL {
@@ -33,16 +38,14 @@ enum SteamLibraryMonitor {
         task.executableURL = scriptURL
         task.arguments = ["--list", "--json"]
         task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
-        var env = ProcessInfo.processInfo.environment
-        for (key, value) in environment { env[key] = value }
-        task.environment = env
+        task.environment = mergedEnvironment(environment)
 
         let pipe = Pipe()
         task.standardOutput = pipe
         task.standardError = pipe
 
         let semaphore = DispatchSemaphore(value: 0)
-        var exitCode = -1
+        var exitCode: Int32 = -1
         task.terminationHandler = { process in
             exitCode = process.terminationStatus
             semaphore.signal()
@@ -96,17 +99,16 @@ enum SteamLibraryMonitor {
         task.executableURL = scriptURL
         task.arguments = ["--sync"]
         task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
-        var env = ProcessInfo.processInfo.environment
+        var env = environment
         env["COSMOS_ALLOW_USER_APPS"] = "1"
-        for (key, value) in environment { env[key] = value }
-        task.environment = env
+        task.environment = mergedEnvironment(env)
 
         let pipe = Pipe()
         task.standardOutput = pipe
         task.standardError = pipe
 
         let semaphore = DispatchSemaphore(value: 0)
-        var exitCode = -1
+        var exitCode: Int32 = -1
         task.terminationHandler = { process in
             exitCode = process.terminationStatus
             semaphore.signal()
@@ -127,7 +129,17 @@ enum SteamLibraryMonitor {
         let output = String(data: data, encoding: .utf8) ?? ""
         let status = parseSyncStatus(from: output) ?? (exitCode == 0 ? "current" : "failed")
         let newCount = parseSyncNewCount(from: output) ?? 0
-        return SyncResult(status: status, newCount: newCount, output: output)
+        return SyncResult(status: status, newCount: newCount, exitCode: exitCode, output: output)
+    }
+
+    /// Match runCommand: drop inherited COSMOS_BOTTLE so the selected bottle wins.
+    private static func mergedEnvironment(_ overrides: [String: String]) -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        env.removeValue(forKey: "COSMOS_BOTTLE")
+        for (key, value) in overrides {
+            env[key] = value
+        }
+        return env
     }
 
     static func parseSyncStatus(from output: String) -> String? {

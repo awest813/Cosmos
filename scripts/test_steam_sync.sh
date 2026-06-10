@@ -15,10 +15,19 @@ json="$(
 )" || fail "fixture --list --json failed"
 printf '%s\n' "${json}" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, list) and len(d) >= 1'
 
+# First sync without snapshot seeds when COSMOS_SYNC_SEED_ONLY=1.
+mkdir -p "${support}/cosmos_configs"
+seed_out="$(
+  COSMOS_SYNC_SEED_ONLY=1 COSMOS_CONFIGS_DIR="${support}/cosmos_configs" \
+    "${ROOT}/detect_steam_games.command" --sync 2>/dev/null
+)" || fail "fixture --sync seed failed"
+printf '%s\n' "${seed_out}" | grep -q '^sync_status=seeded$' || fail "expected sync_status=seeded"
+[[ -f "${support}/steam-library.snapshot" ]] || fail "expected snapshot after seed"
+
 printf '999\n' > "${support}/steam-library.snapshot"
 
 out="$(
-  COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 \
+  COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 COSMOS_CONFIGS_DIR="${support}/cosmos_configs" \
     "${ROOT}/detect_steam_games.command" --sync 2>/dev/null
 )" || fail "fixture --sync failed"
 printf '%s\n' "${out}" | grep -q '^sync_status=updated$' || fail "expected sync_status=updated"
@@ -39,6 +48,13 @@ prune_out="$(
 )" || fail "fixture --sync prune failed"
 [[ ! -f "${configs}/steam-12345-removed-game.conf" ]] || fail "expected stale config to be pruned"
 printf '%s\n' "${prune_out}" | grep -q '^sync_removed=1$' || fail "expected sync_removed=1"
+
+# Up-to-date library reports current with zero changes.
+current_out="$(
+  COSMOS_SYNC_DRY_RUN=1 COSMOS_ALLOW_USER_APPS=1 COSMOS_CONFIGS_DIR="${configs}" \
+    "${ROOT}/detect_steam_games.command" --sync 2>/dev/null
+)" || fail "fixture --sync current failed"
+printf '%s\n' "${current_out}" | grep -q '^sync_status=current$' || fail "expected sync_status=current"
 
 rm -rf "${support}"
 printf 'OK: steam sync tests passed\n'

@@ -313,10 +313,11 @@ Two execution paths, picked per action:
   environment for detection, repair, and profile commands.
 - **Terminal** (`runInTerminal`): asks Terminal.app (via `osascript … do script`)
   to run the script. Used for actions that need `sudo` or interactive prompts the
-  piped runner can't provide — **Install Cosmos**, **First-time setup** (in-app guide), **Full guided setup** (`setup.command`), **Prepare Bottle** (`run.command --setup-steam`), **Build Launchers**
-  (`detect_steam_games.command --install`), and **Uninstall**. The dashboard
+  piped runner can't provide — **Install Cosmos**, **First-time setup** (in-app guide), **Full guided setup** (`setup.command`), **Prepare Bottle** (`run.command --setup-steam`), and **Uninstall**. The dashboard
   launches Terminal and returns; the user completes any password/confirmation
-  prompts there, then taps **Refresh**.
+  prompts there, then taps **Refresh**. **Build Launchers** and **Sync Steam Library**
+  use the embedded console (`runCommand` → `detect_steam_games.command --install` /
+  `--sync`); a **Run in Terminal** recovery action appears if install needs `sudo`.
 
 ### Where configs live (dev vs installed app)
 
@@ -396,7 +397,12 @@ Modes:
 ./detect_steam_games.command --write      # refresh generated configs (this is the default)
 ./detect_steam_games.command            # same as --write
 ./detect_steam_games.command --install   # refresh configs, then build all launchers
+./detect_steam_games.command --sync      # incremental: new games only (+ prune removed)
 ```
+
+`--sync` tracks installed App IDs in `~/Library/Application Support/Cosmos/steam-library.snapshot`.
+Set `COSMOS_SYNC_SEED_ONLY=1` to initialize the snapshot without building launchers
+(background auto-sync on first launch). Manual sync from the dashboard omits that flag.
 
 Re-running refreshes the generated set (stale configs for uninstalled games are
 removed). After `--write`, run `./install_cosmos.command` to build the `.app`

@@ -29,4 +29,12 @@ final class ProfilePreferencesStoreTests: XCTestCase {
         var prefs = ProfilePreferencesStore.recordRecentLaunch(profileID: "a.conf")
         XCTAssertEqual(prefs.recentIDs.prefix(2).map { String($0) }, ["a.conf", "b.conf"])
     }
+
+    func testPruneStaleProfileIDs() {
+        _ = ProfilePreferencesStore.toggleFavorite(profileID: "gone.conf")
+        _ = ProfilePreferencesStore.recordRecentLaunch(profileID: "keep.conf")
+        let prefs = ProfilePreferencesStore.prune(validProfileIDs: ["keep.conf"])
+        XCTAssertFalse(ProfilePreferencesStore.isFavorite(profileID: "gone.conf", in: prefs))
+        XCTAssertEqual(prefs.recentIDs, ["keep.conf"])
+    }
 }

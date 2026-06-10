@@ -114,16 +114,16 @@ Cosmos.app is a single-window launcher with a sidebar (saved games) and a main p
 |---------|-----------------|
 | **Launch** | Quick Launch (Steam + selected profile), Steam Wine settings (backend, Windows version, Retina) |
 | **Games** | Curated YAML profiles, compatibility lookup & reports, repair & dependencies |
-| **Tools** | Maintenance (detect, build launchers, logs, reset), non-Steam game import |
+| **Tools** | Maintenance (detect, build/sync launchers, logs, reset), non-Steam game import |
 | **Bottles** | Create isolated prefixes, switch backends, launch Steam per bottle |
 
-**Sidebar** — search and select saved game profiles; context menu to launch, reveal config, or copy executable path.
+**Sidebar** — search saved games; **Favorites** (star a title) and **Recent** sections; filter chips (All / Favorites / Recent) for large libraries. New Steam installs surface in the status summary with a one-tap sync. Context menu to launch, reveal config, or copy executable path.
 
 **Output panel** — live log for embedded commands; copy/clear; banners with parsed errors and **Apply Suggested** / **Diagnose** shortcuts on launch failure.
 
 **Launch** — saved profiles launch via direct `.exe` path or Steam `applaunch` when only a Steam App ID is configured.
 
-Privileged steps (install, prepare bottle, build launchers, uninstall) open **Terminal.app** because they may need `sudo` or interactive prompts.
+Privileged steps (install Cosmos, prepare bottle, uninstall) open **Terminal.app** when they need `sudo` or interactive prompts. **Build Launchers** and **Sync Steam Library** run in the embedded console when possible (`~/Applications/Cosmos Apps`); Terminal is offered if install fails.
 
 ---
 
@@ -145,6 +145,7 @@ If macOS blocks a script: right-click → **Open** → confirm.
 ./run.command --setup-steam       # Prepare prefix without launching
 ./run.command --status            # Setup checklist / doctor
 ./run.command --logs              # Open latest launch log
+./run.command --sync-steam        # Build launchers for newly installed games only
 ./run.command --game "<path>"     # Launch a saved profile executable
 ```
 
@@ -154,7 +155,7 @@ If macOS blocks a script: right-click → **Open** → confirm.
 |--------|---------|
 | `run.command` | Wine prefix, Steam install, game launch |
 | `bottle.command` | Isolated bottles (create, set, launch, reset) |
-| `detect_steam_games.command` | Scan Steam library, build configs & launchers |
+| `detect_steam_games.command` | Scan Steam library; `--install` (full) or `--sync` (incremental) |
 | `install_cosmos.command` | Install `/Applications/Cosmos Apps` bundles |
 | `profile.command` | Apply curated YAML game profiles |
 | `repair.command` | Diagnose logs, install deps, apply fixes |

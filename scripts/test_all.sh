@@ -70,6 +70,13 @@ log "CLI smoke: check-update (fixture)"
 COSMOS_RELEASE_FIXTURE="${ROOT}/scripts/fixtures/github_release_latest.json" \
   ./run.command --check-update >/dev/null || true
 
+log "CLI smoke: sync-steam dry-run (fixture prefix)"
+COSMOS_SUPPORT_DIR="${TMPDIR:-/tmp}/cosmos-sync-steam-smoke-$$" \
+  COSMOS_CONFIGS_DIR="${COSMOS_SUPPORT_DIR}/cosmos_configs" \
+  COSMOS_SYNC_DRY_RUN=1 WINEPREFIX="${ROOT}/scripts/fixtures/steam_detection/wineprefix" \
+  ./run.command --sync-steam >/dev/null
+rm -rf "${COSMOS_SUPPORT_DIR:-}"
+
 log "CLI smoke: apply-installed dry-run (fixture prefix)"
 WINEPREFIX="${ROOT}/scripts/fixtures/steam_detection/wineprefix" \
   ./profile.command apply-installed --dry-run >/dev/null
