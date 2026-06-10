@@ -298,6 +298,77 @@ struct CosmosActionTile: View {
     }
 }
 
+/// Compatibility status pill — sidebar rows, curated cards, and the Compatibility tab.
+struct CosmosCompatBadge: View {
+    let status: String
+    var compact: Bool = false
+
+    var body: some View {
+        Text(status.capitalized)
+            .font(compact ? .caption2.weight(.semibold) : .caption.weight(.semibold))
+            .padding(.horizontal, compact ? 6 : 8)
+            .padding(.vertical, compact ? 2 : 4)
+            .background(Self.color(for: status).opacity(0.15), in: Capsule())
+            .foregroundStyle(Self.color(for: status))
+            .lineLimit(1)
+            .accessibilityLabel("Compatibility \(status)")
+    }
+
+    static func color(for status: String) -> Color {
+        switch status.lowercased() {
+        case "platinum", "gold": return .green
+        case "silver", "playable": return Color.cosmosPrimary
+        case "bronze": return .orange
+        case "broken", "blocked": return .red
+        default: return .secondary
+        }
+    }
+}
+
+/// Filter chips for the curated YAML profile grid (Phase B library visibility).
+enum CuratedProfileFilter: String, CaseIterable, Identifiable {
+    case all
+    case coOp = "co-op"
+    case online
+    case blocked
+    case dxmt
+    case d3dmetal
+    case recommended
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "All"
+        case .coOp: return "Co-op"
+        case .online: return "Online"
+        case .blocked: return "Blocked"
+        case .dxmt: return "DXMT"
+        case .d3dmetal: return "D3D Metal"
+        case .recommended: return "Recommended"
+        }
+    }
+
+    func matches(_ profile: GameProfile) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .coOp:
+            return profile.tags.contains("co-op")
+        case .online:
+            return profile.tags.contains("online")
+        case .blocked:
+            return profile.status == "blocked"
+        case .dxmt:
+            return profile.recommendedBackend == "dxmt"
+        case .d3dmetal:
+            return profile.recommendedBackend == "d3dmetal"
+        case .recommended:
+            return profile.recommendedBackend == "recommended"
+        }
+    }
+}
+
 /// Compact chip for toolbar status (active bottle, running task).
 struct StatusChip: View {
     let label: String

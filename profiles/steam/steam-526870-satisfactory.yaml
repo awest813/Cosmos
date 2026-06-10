@@ -10,6 +10,8 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2019
+fixes:
+  - fix_steam_networking
 notes: >
   Unreal Engine factory builder. DXMT handles D3D11 well. Large factories stress
   CPU translation before graphics — cap view distance on Apple Silicon base models.

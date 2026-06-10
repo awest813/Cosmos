@@ -8,4 +8,6 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_ssl
 notes: "Lightweight 2D title — works out of the box on DXMT."

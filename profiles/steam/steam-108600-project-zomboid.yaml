@@ -8,6 +8,8 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_networking
 notes: >
   Lightweight Java/LWJGL title launched via Steam. DXMT is sufficient. Multiplayer
   needs stable networking; mod-heavy saves increase RAM use.

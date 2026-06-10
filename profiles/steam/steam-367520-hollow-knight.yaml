@@ -8,4 +8,6 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - force_borderless
 notes: "Use borderless windowed mode in-game if fullscreen misbehaves on macOS."

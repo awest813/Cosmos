@@ -8,6 +8,8 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_networking
 notes: >
   Lightweight 2D sandbox. DXMT with default settings is sufficient. Mod-heavy saves
   may increase load times.

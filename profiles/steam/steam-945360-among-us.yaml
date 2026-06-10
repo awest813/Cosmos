@@ -8,5 +8,7 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_networking
 notes: >
   Very lightweight Unity title. DXMT with default settings is enough for smooth play.

@@ -10,6 +10,8 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2015
+fixes:
+  - fix_steam_networking
 notes: >
   Submarine co-op sim with heavy simulation. DXMT for D3D11. Dedicated servers and
   player-hosted sessions need stable networking; CPU load rises with large subs.

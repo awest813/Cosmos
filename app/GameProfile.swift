@@ -35,6 +35,25 @@ struct GameProfile: Identifiable, Hashable {
     var multiplayerTagLabel: String {
         tags.isEmpty ? "" : tags.joined(separator: " · ")
     }
+
+    var isBlocked: Bool {
+        status.lowercased() == "blocked"
+    }
+
+    var blockedLaunchMessage: String {
+        var parts = ["\(name) is marked blocked on macOS."]
+        if !antiCheat.isEmpty, antiCheat != "none" {
+            parts.append("Anti-cheat: \(antiCheat.uppercased()).")
+        }
+        if !multiplayerNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append(multiplayerNotes)
+        } else if !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append(notes)
+        } else {
+            parts.append("Launching may waste time or risk account issues — use Compatibility for details.")
+        }
+        return parts.joined(separator: " ")
+    }
 }
 
 enum GameProfileStore {

@@ -8,6 +8,8 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_networking
 notes: >
   Lightweight Unity multiplayer. DXMT is sufficient. Online co-op requires a stable
   connection; host lag is usually network-related, not graphics.

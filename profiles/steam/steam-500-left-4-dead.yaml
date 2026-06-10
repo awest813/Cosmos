@@ -8,6 +8,8 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_networking
 notes: >
   Original Source engine co-op shooter. Same DXMT preset family as Left 4 Dead 2.
   Online co-op works when Steam networking is healthy in the prefix.
