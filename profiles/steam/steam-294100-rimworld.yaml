@@ -8,6 +8,8 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_networking
 notes: >
   Lightweight Unity colony sim. Runs well on DXMT with no extra dependencies.
   Large mod lists may increase load times.

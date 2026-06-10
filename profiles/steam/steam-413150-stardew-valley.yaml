@@ -9,6 +9,9 @@ settings:
   retina: false
   windows_version: win10
   esync: true
+fixes:
+  - fix_steam_networking
+  - disable_retina
 tags:
   - co-op
   - online

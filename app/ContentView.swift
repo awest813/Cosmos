@@ -36,6 +36,8 @@ struct ContentView: View {
     @State private var cosmosReportStatus = "playable"
     @State private var cosmosReportNote = ""
     @State private var resolvedCompatBadge: ResolvedBadge?
+    @State private var curatedProfileFilter: CuratedProfileFilter = .all
+    @State private var pendingBlockedLaunch: SavedProfile?
 
     @State private var bottles: [Bottle] = []
     @State private var selectedBottleID: String?
@@ -73,6 +75,18 @@ struct ContentView: View {
 
     private var selectedGameProfile: GameProfile? {
         gameProfiles.first { $0.id == selectedGameProfileID }
+    }
+
+    private var filteredGameProfiles: [GameProfile] {
+        guard curatedProfileFilter != .all else { return gameProfiles }
+        return gameProfiles.filter { curatedProfileFilter.matches($0) }
+    }
+
+    private var curatedProfileFilterCaption: String {
+        guard curatedProfileFilter != .all else {
+            return "\(gameProfiles.count) profiles"
+        }
+        return "\(filteredGameProfiles.count) of \(gameProfiles.count) match “\(curatedProfileFilter.label)”"
     }
 
     /// Active Steam App ID from the launcher config or curated YAML profile selection.
@@ -126,8 +140,33 @@ struct ContentView: View {
             }
         }
         .onChange(of: selectedProfileID) { _, newID in
+            refreshCompatBadge()
             if newID != nil, isSetupComplete {
                 dashboardSection = .launch
+            }
+        }
+        .confirmationDialog(
+            "Launch blocked title?",
+            isPresented: Binding(
+                get: { pendingBlockedLaunch != nil },
+                set: { if !$0 { pendingBlockedLaunch = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Launch Anyway", role: .destructive) {
+                if let profile = pendingBlockedLaunch {
+                    pendingBlockedLaunch = nil
+                    launchProfileUnchecked(profile)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingBlockedLaunch = nil
+            }
+        } message: {
+            if let profile = pendingBlockedLaunch,
+               let appid = profile.steamAppID,
+               let yaml = GameProfileStore.find(steamAppID: appid) {
+                Text(yaml.blockedLaunchMessage)
             }
         }
         .sheet(item: $storeImportRequest) { request in
@@ -300,10 +339,15 @@ struct ContentView: View {
     }
 
     private func profileRow(_ profile: SavedProfile) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        let badge = sidebarCompatBadge(for: profile)
+        return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Text(profile.name)
                     .font(.headline)
+                    .lineLimit(1)
+                if let badge {
+                    CosmosCompatBadge(status: badge.status, compact: true)
+                }
                 if profile.path.isEmpty {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.caption2)
@@ -319,7 +363,7 @@ struct ContentView: View {
         .padding(.vertical, 2)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(profile.name). \(profile.path.isEmpty ? "No executable path set" : profile.path)")
+        .accessibilityLabel(sidebarProfileAccessibilityLabel(profile, badge: badge))
         .accessibilityAddTraits(profile.id == selectedProfileID ? .isSelected : [])
         .contextMenu {
             Button {
@@ -635,6 +679,15 @@ struct ContentView: View {
                         }
                         .buttonStyle(.bordered)
 
+                        if steamSettings.isSteamInstalled {
+                            Button {
+                                openMultiplayerHelp()
+                            } label: {
+                                Label("Multiplayer", systemImage: "person.2.fill")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
                         Button {
                             runCommand(script: "run.command", arguments: ["--logs"])
                         } label: {
@@ -764,10 +817,39 @@ struct ContentView: View {
     /// Shared by the Quick Launch button and the sidebar context menu.
     private func launchProfile(_ profile: SavedProfile) {
         guard !profile.path.isEmpty else { return }
+        if let appid = profile.steamAppID,
+           let yaml = GameProfileStore.find(steamAppID: appid),
+           yaml.isBlocked {
+            pendingBlockedLaunch = profile
+            return
+        }
+        launchProfileUnchecked(profile)
+    }
+
+    private func launchProfileUnchecked(_ profile: SavedProfile) {
+        guard !profile.path.isEmpty else { return }
         runCommand(
             script: "run.command",
             arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args)
         )
+    }
+
+    private func sidebarCompatBadge(for profile: SavedProfile) -> ResolvedBadge? {
+        guard let appid = profile.steamAppID, !appid.isEmpty else { return nil }
+        let resolved = CosmosBadgeStore.resolve(
+            steamAppID: appid,
+            curated: GameProfileStore.find(steamAppID: appid)
+        )
+        return resolved.isKnown ? resolved : nil
+    }
+
+    private func sidebarProfileAccessibilityLabel(_ profile: SavedProfile, badge: ResolvedBadge?) -> String {
+        var parts = [profile.name]
+        if let badge {
+            parts.append("compatibility \(badge.status)")
+        }
+        parts.append(profile.path.isEmpty ? "No executable path set" : profile.path)
+        return parts.joined(separator: ". ")
     }
 
     /// Reveal a file in Finder, selecting it in its enclosing folder.
@@ -1080,12 +1162,31 @@ struct ContentView: View {
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
             } else {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 200), spacing: CosmosSpacing.gridGap)],
-                    spacing: CosmosSpacing.gridGap
-                ) {
-                    ForEach(gameProfiles) { profile in
-                        curatedProfileCard(profile)
+                VStack(alignment: .leading, spacing: 10) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(CuratedProfileFilter.allCases) { filter in
+                                curatedProfileFilterChip(filter)
+                            }
+                        }
+                    }
+                    Text(curatedProfileFilterCaption)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if filteredGameProfiles.isEmpty {
+                        Text("No profiles match this filter. Try All or another chip.")
+                            .font(.subheadline)
+                            .foregroundStyle(.tertiary)
+                    } else {
+                        LazyVGrid(
+                            columns: [GridItem(.adaptive(minimum: 200), spacing: CosmosSpacing.gridGap)],
+                            spacing: CosmosSpacing.gridGap
+                        ) {
+                            ForEach(filteredGameProfiles) { profile in
+                                curatedProfileCard(profile)
+                            }
+                        }
                     }
                 }
             }
@@ -1094,6 +1195,31 @@ struct ContentView: View {
                 curatedProfileControls(profile)
             }
         }
+    }
+
+    private func curatedProfileFilterChip(_ filter: CuratedProfileFilter) -> some View {
+        let isSelected = curatedProfileFilter == filter
+        return Button {
+            curatedProfileFilter = filter
+            if let id = selectedGameProfileID,
+               !filteredGameProfiles.contains(where: { $0.id == id }) {
+                selectedGameProfileID = nil
+            }
+        } label: {
+            Text(filter.label)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    isSelected ? Color.cosmosPrimary.opacity(0.18) : Color.primary.opacity(0.06),
+                    in: Capsule()
+                )
+                .foregroundStyle(isSelected ? Color.cosmosPrimary : .secondary)
+        }
+        .buttonStyle(.plain)
+        .disabled(isRunning)
+        .accessibilityLabel("\(filter.label) filter")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func curatedProfileCard(_ profile: GameProfile) -> some View {
@@ -1111,11 +1237,7 @@ struct ContentView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.cosmosBright)
                     Spacer()
-                    Text(profile.statusLabel)
-                        .font(.caption2.weight(.medium))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.cosmosPrimary.opacity(0.12), in: Capsule())
+                    CosmosCompatBadge(status: profile.statusLabel, compact: true)
                 }
                 HStack(spacing: 8) {
                     if !profile.steamAppID.isEmpty {
@@ -1571,12 +1693,7 @@ struct ContentView: View {
 
                 if let badge = resolvedCompatBadge, badge.isKnown {
                     HStack(spacing: 8) {
-                        Text(badge.status.capitalized)
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(badgeColor(badge.status).opacity(0.15), in: Capsule())
-                            .foregroundStyle(badgeColor(badge.status))
+                        CosmosCompatBadge(status: badge.status)
                         Text("via \(badge.source.replacingOccurrences(of: "_", with: " "))")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -1962,10 +2079,14 @@ struct ContentView: View {
     }
 
     private func selectedProfileSection(_ profile: SavedProfile) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let curated = profile.steamAppID.flatMap { GameProfileStore.find(steamAppID: $0) }
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 sectionHeader("Selected Launcher", systemImage: "gamecontroller.fill")
                 Spacer()
+                if let curated, let badge = sidebarCompatBadge(for: profile) {
+                    CosmosCompatBadge(status: badge.status)
+                }
                 Button {
                     revealInFinder(profile.fileURL)
                 } label: {
@@ -1975,6 +2096,15 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.cosmosPrimary)
                 .help("Show this profile's config file in Finder")
+            }
+
+            if let curated, curated.isBlocked {
+                CosmosNoticeBanner(
+                    tint: .red,
+                    systemImage: "exclamationmark.octagon.fill",
+                    title: "Blocked on macOS",
+                    message: curated.blockedLaunchMessage
+                )
             }
 
             VStack(alignment: .leading, spacing: 14) {
@@ -1990,10 +2120,9 @@ struct ContentView: View {
             }
             .cosmosCard()
 
-            if let appid = profile.steamAppID, !appid.isEmpty,
-               let yaml = GameProfileStore.find(steamAppID: appid) {
+            if let yaml = curated, !yaml.isBlocked {
                 HStack {
-                    Text("Curated preset available: \(yaml.name)")
+                    Text("Curated preset: \(yaml.name) · \(yaml.recommendedBackend) backend")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -2128,18 +2257,34 @@ struct ContentView: View {
     }
 
     private func openSetupHelp() {
+        openRepositoryDoc(
+            relativePath: "docs/STEAM_SETUP.md",
+            bundleName: "STEAM_SETUP.md",
+            fallbackMessage: "Setup guide not found. See docs/STEAM_SETUP.md in the Cosmos repository."
+        )
+    }
+
+    private func openMultiplayerHelp() {
+        openRepositoryDoc(
+            relativePath: "docs/MULTIPLAYER.md",
+            bundleName: "MULTIPLAYER.md",
+            fallbackMessage: "Multiplayer guide not found. See docs/MULTIPLAYER.md in the Cosmos repository."
+        )
+    }
+
+    private func openRepositoryDoc(relativePath: String, bundleName: String, fallbackMessage: String) {
         let candidates: [URL] = [
-            repositoryRootURL?.appendingPathComponent("docs/STEAM_SETUP.md"),
-            Bundle.main.resourceURL?.appendingPathComponent("docs/STEAM_SETUP.md"),
-            Bundle.main.resourceURL?.appendingPathComponent("STEAM_SETUP.md"),
+            repositoryRootURL?.appendingPathComponent(relativePath),
+            Bundle.main.resourceURL?.appendingPathComponent(relativePath),
+            Bundle.main.resourceURL?.appendingPathComponent(bundleName),
         ].compactMap { $0 }
 
         for url in candidates where fileManager.fileExists(atPath: url.path) {
             NSWorkspace.shared.open(url)
-            output = "Opened setup guide: \(url.path)\n\n" + output
+            output = "Opened guide: \(url.path)\n\n" + output
             return
         }
-        output = "Setup guide not found. See docs/STEAM_SETUP.md in the Cosmos repository.\n\n" + output
+        output = "\(fallbackMessage)\n\n" + output
     }
 
     private func copyOutputToClipboard() {
@@ -2358,16 +2503,6 @@ struct ContentView: View {
             steamAppID: appid,
             curated: selectedGameProfile ?? GameProfileStore.find(steamAppID: appid)
         )
-    }
-
-    private func badgeColor(_ status: String) -> Color {
-        switch status.lowercased() {
-        case "platinum", "gold": return .green
-        case "silver", "playable": return Color.cosmosPrimary
-        case "bronze": return .orange
-        case "broken", "blocked": return .red
-        default: return .secondary
-        }
     }
 
     private func loadProfiles() -> [SavedProfile] {

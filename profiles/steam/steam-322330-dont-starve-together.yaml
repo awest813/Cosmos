@@ -8,6 +8,8 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_networking
 notes: >
   Klei co-op survival. DXMT handles the 2D renderer well. Host or join worlds over
   Steam networking; lag is usually network-related, not graphics.

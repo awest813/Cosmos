@@ -8,6 +8,8 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+fixes:
+  - fix_steam_networking
 notes: >
   Pixel-art mining co-op. DXMT is sufficient for D3D11. Host worlds via Steam invites;
   eight-player sessions need a stable connection.

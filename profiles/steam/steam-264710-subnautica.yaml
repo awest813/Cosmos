@@ -10,6 +10,8 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2015
+fixes:
+  - disable_intro_video
 notes: >
   Unity underwater survival. DXMT works well. First launch may compile shaders for
   a few minutes. Lower water quality on base MacBook Air models.

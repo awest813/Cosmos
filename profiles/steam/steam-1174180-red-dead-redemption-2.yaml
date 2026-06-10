@@ -10,6 +10,8 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2019
+fixes:
+  - disable_intro_video
 notes: >
   Heavy Vulkan/D3D12 title. Requires GPTK_PATH and d3dmetal backend. Lower
   quality presets and use FSR. Single-player works with long first-launch shader

@@ -11,5 +11,7 @@ settings:
   esync: true
   env:
     DXMT_CONFIG: "d3d11.preferredMaxFrameRate=60;"
+fixes:
+  - fix_steam_networking
 notes: "Frame rate capped to 60 via DXMT. Migrated from the original Merlot preset."
 </content>

@@ -10,6 +10,8 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2015
+fixes:
+  - disable_intro_video
 notes: >
   DXMT handles the D3D11 renderer. Install vcrun2015 if you see missing-runtime
   errors. Story mode is the reliable path. GTA Online uses Rockstar anti-cheat and

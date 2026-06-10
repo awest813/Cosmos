@@ -10,6 +10,8 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2010
+fixes:
+  - fix_steam_networking
 tags:
   - co-op
   - online
