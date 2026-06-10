@@ -314,6 +314,7 @@ Removes `/Applications/Cosmos Apps`, Wine prefixes, and downloaded runtimes. Doe
 | Doc | Contents |
 |-----|----------|
 | [README_DEV.md](README_DEV.md) | Script internals, env vars, CI, app architecture |
+| [docs/PLAN.md](docs/PLAN.md) | User gaps and prioritized product plan |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Milestones and what's next |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layered design (UI, profile, runtime, graphics, launcher) |
 | [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md) | Manual Steam / prefix setup |
