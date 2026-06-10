@@ -4,10 +4,16 @@ import SwiftUI
 
 enum CosmosSpacing {
     static let section: CGFloat = 28
+    static let contentPadding: CGFloat = 28
     static let cardPadding: CGFloat = 18
     static let cardRadius: CGFloat = 16
     static let buttonRadius: CGFloat = 14
+    static let tileRadius: CGFloat = 12
     static let gridGap: CGFloat = 12
+    static let sectionInner: CGFloat = 12
+    static let tilePadding: CGFloat = 12
+    static let gridColumnMin: CGFloat = 168
+    static let compactGridColumnMin: CGFloat = 150
 }
 
 // MARK: - Section navigation
@@ -70,6 +76,36 @@ struct CommandBanner: Identifiable {
     let message: String
 }
 
+// MARK: - Interaction styling
+
+/// Press feedback for custom dashboard buttons.
+struct CosmosButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1.0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+/// Subtle brighten-on-hover for pointer feedback on macOS.
+struct HoverBrighten: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .brightness(isHovering && !reduceMotion ? 0.06 : 0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+            .onHover { isHovering = $0 }
+    }
+}
+
+extension View {
+    func hoverBrighten() -> some View { modifier(HoverBrighten()) }
+}
+
 // MARK: - View modifiers
 
 /// Standard Cosmos card surface used across settings panels and detail blocks.
@@ -97,37 +133,168 @@ extension View {
     }
 }
 
+/// Shared selectable tile surface for profile, bottle, and grid cards.
+struct CosmosSelectableSurface: ViewModifier {
+    let isSelected: Bool
+    var minHeight: CGFloat = 72
+
+    func body(content: Content) -> some View {
+        content
+            .padding(CosmosSpacing.tilePadding)
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+            .background(
+                isSelected ? Color.cosmosPrimary.opacity(0.10) : Color.primary.opacity(0.04),
+                in: RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius)
+                    .strokeBorder(
+                        isSelected ? Color.cosmosPrimary.opacity(0.5) : Color.cosmosPrimary.opacity(0.10),
+                        lineWidth: isSelected ? 1.5 : 1
+                    )
+            )
+            .hoverBrighten()
+    }
+}
+
+extension View {
+    func cosmosSelectableSurface(isSelected: Bool, minHeight: CGFloat = 72) -> some View {
+        modifier(CosmosSelectableSurface(isSelected: isSelected, minHeight: minHeight))
+    }
+}
+
 // MARK: - Reusable views
+
+/// Tinted notice banner shared by command feedback, setup completion, and inline warnings.
+struct CosmosNoticeBanner: View {
+    let tint: Color
+    let systemImage: String
+    let title: String?
+    let message: String
+    var onDismiss: (() -> Void)?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: CosmosSpacing.sectionInner) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 4) {
+                if let title {
+                    Text(title)
+                        .font(.headline)
+                }
+                Text(message)
+                    .font(title == nil ? .subheadline : .subheadline)
+                    .foregroundStyle(title == nil ? .primary : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            if let onDismiss {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Dismiss")
+                .accessibilityLabel("Dismiss notification")
+            }
+        }
+        .padding(14)
+        .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
+                .strokeBorder(tint.opacity(0.2), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+    }
+}
 
 struct CommandBannerView: View {
     let banner: CommandBanner
     var onDismiss: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: banner.kind.icon)
-                .font(.title3)
-                .foregroundStyle(banner.kind.tint)
-            Text(banner.message)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            Button(action: onDismiss) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Dismiss")
-            .accessibilityLabel("Dismiss notification")
-        }
-        .padding(14)
-        .background(banner.kind.tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(banner.kind.tint.opacity(0.2), lineWidth: 1)
+        CosmosNoticeBanner(
+            tint: banner.kind.tint,
+            systemImage: banner.kind.icon,
+            title: nil,
+            message: banner.message,
+            onDismiss: onDismiss
         )
-        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Section header + optional caption + body, with optional card wrapper.
+struct CosmosSection<Content: View>: View {
+    let title: String
+    let systemImage: String
+    var caption: String? = nil
+    var inCard: Bool = false
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CosmosSpacing.sectionInner) {
+            Label(title, systemImage: systemImage)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Color.cosmosPrimary)
+            if let caption {
+                Text(caption)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Group {
+                if inCard {
+                    content().cosmosCard()
+                } else {
+                    content()
+                }
+            }
+        }
+    }
+}
+
+/// Uppercase label for nested groups inside a section (e.g. Dependencies, Fixes).
+struct CosmosSubsectionLabel: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color.cosmosPrimary.opacity(0.75))
+            .textCase(.uppercase)
+    }
+}
+
+/// Compact action tile for repair recipes, store import, and similar grids.
+struct CosmosActionTile: View {
+    let title: String
+    let subtitle: String
+    var systemImage: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let systemImage {
+                Label(title, systemImage: systemImage)
+                    .font(.caption.weight(.semibold))
+            } else {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+            }
+            Text(subtitle)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(CosmosSpacing.tilePadding - 2)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius)
+                .strokeBorder(Color.cosmosPrimary.opacity(0.10), lineWidth: 1)
+        )
+        .hoverBrighten()
     }
 }
 

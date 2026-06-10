@@ -195,11 +195,8 @@ struct ContentView: View {
     private var sidebarContent: some View {
         VStack(alignment: .center, spacing: 0) {
             // Logo header
-            VStack(spacing: 10) {
-                CosmosLogoMark(size: 64)
-                Text("Cosmos")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.cosmosPrimary)
+            VStack(spacing: 6) {
+                CosmosLogo(markSize: 64)
                 Text("Apple Silicon Launcher")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -214,22 +211,6 @@ struct ContentView: View {
             statusSummary
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-
-            if !isSetupComplete {
-                Button {
-                    performNextSetupStep()
-                } label: {
-                    Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.cosmosPrimary)
-                .disabled(isRunning)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .help(setupPrimarySubtitle)
-            }
 
             Divider()
                 .padding(.top, 14)
@@ -395,12 +376,12 @@ struct ContentView: View {
                         newUserMaintenanceSection
                     }
                 }
-                if let selectedProfile {
+                if (!isSetupComplete || dashboardSection == .launch), let selectedProfile {
                     selectedProfileSection(selectedProfile)
                 }
                 consoleSection
             }
-            .padding(28)
+            .padding(CosmosSpacing.contentPadding)
             .frame(maxWidth: 1000, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -780,14 +761,12 @@ struct ContentView: View {
     }
 
     private var launchSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Quick Launch", systemImage: "bolt.fill")
-
+        CosmosSection(title: "Quick Launch", systemImage: "bolt.fill", inCard: true) {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 14) {
+                HStack(spacing: CosmosSpacing.sectionInner + 2) {
                     quickLaunchButtons
                 }
-                VStack(spacing: 14) {
+                VStack(spacing: CosmosSpacing.sectionInner + 2) {
                     quickLaunchButtons
                 }
             }
@@ -936,10 +915,11 @@ struct ContentView: View {
     // MARK: - Management grid
 
     private var managementGrid: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Setup & Maintenance", systemImage: "wrench.and.screwdriver.fill")
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 168), spacing: 12)], spacing: 12) {
+        CosmosSection(title: "Setup & Maintenance", systemImage: "wrench.and.screwdriver.fill") {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: CosmosSpacing.gridColumnMin), spacing: CosmosSpacing.gridGap)],
+                spacing: CosmosSpacing.gridGap
+            ) {
                 secondaryButton(title: "Install Cosmos", subtitle: "Wine & deps · Terminal", systemImage: "arrow.down.circle.fill", help: "Opens Terminal to install Wine and dependencies (may ask for your password)") {
                     runInTerminal(script: "install_cosmos.command")
                 }
@@ -1002,20 +982,20 @@ struct ContentView: View {
     // MARK: - Curated profiles (YAML)
 
     private var curatedProfilesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Curated Game Profiles", systemImage: "doc.text.fill")
-
-            Text("Known-good YAML recipes (roadmap 0.4). Apply writes overrides and runs winetricks/fixes.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
+        CosmosSection(
+            title: "Curated Game Profiles",
+            systemImage: "doc.text.fill",
+            caption: "Known-good YAML recipes (roadmap 0.4). Apply writes overrides and runs winetricks/fixes."
+        ) {
             if gameProfiles.isEmpty {
                 Text("No profiles found in profiles/. Rebuild the app bundle or run from the repository checkout.")
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 200), spacing: CosmosSpacing.gridGap)],
+                    spacing: CosmosSpacing.gridGap
+                ) {
                     ForEach(gameProfiles) { profile in
                         curatedProfileCard(profile)
                     }
@@ -1062,19 +1042,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .background(
-                isSelected ? Color.cosmosPrimary.opacity(0.10) : Color.primary.opacity(0.04),
-                in: RoundedRectangle(cornerRadius: 12)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(
-                        isSelected ? Color.cosmosPrimary.opacity(0.5) : Color.clear,
-                        lineWidth: 1.5
-                    )
-            )
+            .cosmosSelectableSurface(isSelected: isSelected)
         }
         .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
@@ -1143,15 +1111,13 @@ struct ContentView: View {
     // MARK: - Repair
 
     private var repairSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Repair & Dependencies", systemImage: "bandage.fill")
-
-            Text("Winetricks installs may take several minutes. Requires brew install winetricks.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 12) {
+        CosmosSection(
+            title: "Repair & Dependencies",
+            systemImage: "bandage.fill",
+            caption: "Winetricks installs may take several minutes. Requires brew install winetricks.",
+            inCard: true
+        ) {
+            HStack(spacing: CosmosSpacing.gridGap) {
                 Button {
                     runCommand(
                         script: "repair.command",
@@ -1161,6 +1127,7 @@ struct ContentView: View {
                 } label: {
                     Label("Diagnose Logs", systemImage: "stethoscope")
                 }
+                .buttonStyle(.bordered)
                 .disabled(isRunning)
                 .help("Scan the launch log and prefix for common issues, then suggest fixes")
 
@@ -1173,36 +1140,34 @@ struct ContentView: View {
                 } label: {
                     Label("Apply Suggested", systemImage: "wand.and.stars")
                 }
+                .buttonStyle(.bordered)
                 .disabled(isRunning)
                 .help("Diagnose and auto-apply safe dependency/fix recipes")
-            }
 
-            if let profile = selectedGameProfile,
-               profile.dependencyCount > 0 || profile.fixCount > 0 {
-                Button {
-                    runCommand(
-                        script: "profile.command",
-                        arguments: ["for-appid", profile.steamAppID, "apply"],
-                        environment: bottleEnvironment()
-                    )
-                } label: {
-                    Label("Apply Profile Repairs", systemImage: "arrow.down.circle")
+                if let profile = selectedGameProfile,
+                   profile.dependencyCount > 0 || profile.fixCount > 0 {
+                    Button {
+                        runCommand(
+                            script: "profile.command",
+                            arguments: ["for-appid", profile.steamAppID, "apply"],
+                            environment: bottleEnvironment()
+                        )
+                    } label: {
+                        Label("Apply Profile Repairs", systemImage: "arrow.down.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isRunning || profile.steamAppID.isEmpty)
+                    .help("Install this profile's winetricks dependencies and fixes")
                 }
-                .disabled(isRunning || profile.steamAppID.isEmpty)
-                .help("Install this profile's winetricks dependencies and fixes")
             }
 
             if !dependencyRecipes.isEmpty {
-                Text("Dependencies")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.cosmosPrimary.opacity(0.8))
+                CosmosSubsectionLabel(title: "Dependencies")
                 recipeButtonGrid(dependencyRecipes, prefix: "install-dep")
             }
 
             if !fixRecipes.isEmpty {
-                Text("Fixes")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.cosmosPrimary.opacity(0.8))
+                CosmosSubsectionLabel(title: "Fixes")
                     .padding(.top, 4)
                 recipeButtonGrid(fixRecipes, prefix: "apply-fix")
             }
@@ -1210,7 +1175,10 @@ struct ContentView: View {
     }
 
     private func recipeButtonGrid(_ recipes: [RepairRecipe], prefix: String) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: CosmosSpacing.compactGridColumnMin), spacing: CosmosSpacing.gridGap)],
+            spacing: CosmosSpacing.gridGap
+        ) {
             ForEach(recipes) { recipe in
                 Button {
                     runCommand(
@@ -1219,20 +1187,9 @@ struct ContentView: View {
                         environment: bottleEnvironment()
                     )
                 } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(recipe.id)
-                            .font(.caption.weight(.semibold))
-                        Text(recipe.description)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                    CosmosActionTile(title: recipe.id, subtitle: recipe.description)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(CosmosButtonStyle())
                 .disabled(isRunning)
                 .help(recipe.description)
             }
@@ -1242,15 +1199,15 @@ struct ContentView: View {
     // MARK: - Store expansion (0.6)
 
     private var storeExpansionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Add Non-Steam Games", systemImage: "plus.rectangle.on.folder.fill")
-
-            Text("Import standalone Windows games from installers, GOG offline setups, itch.io downloads, Battle.net / Blizzard titles, or Epic via Legendary.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 8)], spacing: 8) {
+        CosmosSection(
+            title: "Add Non-Steam Games",
+            systemImage: "plus.rectangle.on.folder.fill",
+            caption: "Import standalone Windows games from installers, GOG offline setups, itch.io downloads, Battle.net / Blizzard titles, or Epic via Legendary."
+        ) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 180), spacing: CosmosSpacing.gridGap)],
+                spacing: CosmosSpacing.gridGap
+            ) {
                 storeActionButton(
                     title: "List Imports",
                     subtitle: "Standalone configs",
@@ -1434,18 +1391,9 @@ struct ContentView: View {
                 runCommand(script: script, arguments: arguments, environment: bottleEnvironment())
             }
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Label(title, systemImage: systemImage)
-                    .font(.caption.weight(.semibold))
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+            CosmosActionTile(title: title, subtitle: subtitle, systemImage: systemImage)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
     }
 
@@ -1485,14 +1433,12 @@ struct ContentView: View {
     // MARK: - CosmosDB
 
     private var compatibilitySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Compatibility", systemImage: "chart.bar.doc.horizontal")
-
-            Text("Hints from ProtonDB, AppleGamingWiki, MacGamingDB, and the community DB. Local reports capture your macOS results.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
+        CosmosSection(
+            title: "Compatibility",
+            systemImage: "chart.bar.doc.horizontal",
+            caption: "Hints from ProtonDB, AppleGamingWiki, MacGamingDB, and the community DB. Local reports capture your macOS results.",
+            inCard: true
+        ) {
             if let appid = activeSteamAppID {
                 detailRow(title: "Steam App ID", value: appid)
 
@@ -1516,12 +1462,13 @@ struct ContentView: View {
                     }
                 }
 
-                HStack(spacing: 12) {
+                HStack(spacing: CosmosSpacing.gridGap) {
                     Button {
                         runCommand(script: "cosmosdb.command", arguments: ["lookup", appid])
                     } label: {
                         Label("Compatibility Lookup", systemImage: "globe")
                     }
+                    .buttonStyle(.bordered)
                     .disabled(isRunning)
 
                     Button {
@@ -1529,6 +1476,7 @@ struct ContentView: View {
                     } label: {
                         Label("Sync Community DB", systemImage: "arrow.triangle.2.circlepath")
                     }
+                    .buttonStyle(.bordered)
                     .disabled(isRunning)
 
                     if selectedGameProfile != nil {
@@ -1541,6 +1489,7 @@ struct ContentView: View {
                         } label: {
                             Label("Apply YAML Profile", systemImage: "doc.text.fill")
                         }
+                        .buttonStyle(.bordered)
                         .disabled(isRunning)
                     } else {
                         Button {
@@ -1548,6 +1497,7 @@ struct ContentView: View {
                         } label: {
                             Label("Suggest Profile Draft", systemImage: "doc.badge.plus")
                         }
+                        .buttonStyle(.bordered)
                         .disabled(isRunning)
                     }
                 }
@@ -1693,20 +1643,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 86, alignment: .leading)
-            .background(
-                (isSelected ? Color.cosmosPrimary.opacity(0.10) : Color.primary.opacity(0.04)),
-                in: RoundedRectangle(cornerRadius: 14)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(
-                        isSelected ? Color.cosmosPrimary.opacity(0.55) : Color.cosmosPrimary.opacity(0.12),
-                        lineWidth: isSelected ? 2 : 1
-                    )
-            )
-            .hoverBrighten()
+            .cosmosSelectableSurface(isSelected: isSelected, minHeight: 86)
         }
         .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
@@ -2016,14 +1953,12 @@ struct ContentView: View {
             }
 
             if outputWasTrimmed {
-                HStack(spacing: 6) {
-                    Image(systemName: "scissors")
-                        .font(.caption)
-                    Text("Earlier log lines were trimmed to keep the view responsive. Copy output to save the full log.")
-                        .font(.caption)
-                }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 4)
+                CosmosNoticeBanner(
+                    tint: .secondary,
+                    systemImage: "scissors",
+                    title: nil,
+                    message: "Earlier log lines were trimmed to keep the view responsive. Copy output to save the full log."
+                )
             }
 
             ScrollViewReader { proxy in
@@ -2056,35 +1991,13 @@ struct ContentView: View {
     }
 
     private var setupCompleteBanner: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "party.popper.fill")
-                .font(.title2)
-                .foregroundStyle(Color.green)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Setup complete")
-                    .font(.headline)
-                Text("Launch Steam or pick a saved profile in the sidebar. Game launchers are in /Applications/Cosmos Apps.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-            Button {
-                showSetupCompleteBanner = false
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Dismiss")
-        }
-        .padding(16)
-        .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(Color.green.opacity(0.2), lineWidth: 1)
+        CosmosNoticeBanner(
+            tint: .green,
+            systemImage: "party.popper.fill",
+            title: "Setup complete",
+            message: "Launch Steam or pick a saved profile in the sidebar. Game launchers are in /Applications/Cosmos Apps.",
+            onDismiss: { showSetupCompleteBanner = false }
         )
-        .accessibilityElement(children: .combine)
     }
 
     private func openSetupHelp() {
@@ -2240,9 +2153,9 @@ struct ContentView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
             .overlay(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
                     .strokeBorder(
                         destructive ? Color.red.opacity(0.2) : Color.cosmosPrimary.opacity(0.12),
                         lineWidth: 1
@@ -2570,37 +2483,6 @@ private struct SavedProfile: Identifiable, Hashable {
     let args: String
     let steamAppID: String?
     let fileURL: URL
-}
-
-// MARK: - Interaction styling
-
-/// Press feedback for the dashboard's custom buttons, which would otherwise be
-/// inert under `.buttonStyle(.plain)`.
-private struct CosmosButtonStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1.0)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
-    }
-}
-
-/// Subtle brighten-on-hover for pointer feedback on macOS.
-private struct HoverBrighten: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isHovering = false
-
-    func body(content: Content) -> some View {
-        content
-            .brightness(isHovering && !reduceMotion ? 0.06 : 0)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
-            .onHover { isHovering = $0 }
-    }
-}
-
-private extension View {
-    func hoverBrighten() -> some View { modifier(HoverBrighten()) }
 }
 
 extension Notification.Name {
