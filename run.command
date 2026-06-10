@@ -552,7 +552,9 @@ ensure_wine_installed() {
   fi
 
   mkdir -p "${WINE_ROOT}"
-  curl -L --fail --retry 5 --retry-delay 1 "${WINE_URL}" | tar xJf - -C "${WINE_ROOT}"
+  if ! curl -L --fail --retry 5 --retry-delay 1 "${WINE_URL}" | tar xJf - -C "${WINE_ROOT}"; then
+    die "Wine download failed. Check your network connection and try again."
+  fi
   [[ -x "${WINE_BIN}" ]] || die "Wine binary not found after extraction: ${WINE_BIN}"
 }
 
@@ -907,7 +909,10 @@ ensure_dxmt_installed() {
   local tmp_dir
   tmp_dir="$(mktemp -d /tmp/dxmt.XXXXXX)"
 
-  curl -L --fail --retry 5 --retry-delay 1 "${DXMT_URL}" | tar xzf - -C "${tmp_dir}"
+  if ! curl -L --fail --retry 5 --retry-delay 1 "${DXMT_URL}" | tar xzf - -C "${tmp_dir}"; then
+    rm -rf "${tmp_dir}"
+    die "DXMT download failed. Check your network connection and try again."
+  fi
 
   local payload_dir=""
   if [[ -d "${tmp_dir}/i386-windows" && -d "${tmp_dir}/x86_64-windows" && -d "${tmp_dir}/x86_64-unix" ]]; then
