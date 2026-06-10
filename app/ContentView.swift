@@ -3644,7 +3644,7 @@ struct ContentView: View {
             }
         } else {
             let failureMessage = CommandOutputParser.failureMessage(
-                exitCode: exitCode,
+                exitCode: Int32(exitCode),
                 intent: intent,
                 output: output
             )

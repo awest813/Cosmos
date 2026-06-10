@@ -108,7 +108,7 @@ for required in \
   pass "present: ${required}"
 done
 
-if ! rg -q 'require_supported_macos' "${ROOT}/run.command" 2>/dev/null; then
+if ! grep -q 'require_supported_macos' "${ROOT}/run.command" 2>/dev/null; then
   fail "run.command missing require_supported_macos (Intel + Apple Silicon gate)"
 fi
 pass "dual-platform gate in run.command"
