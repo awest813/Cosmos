@@ -25,7 +25,9 @@ wine_is_installed || fail "expected wine installed in temp root"
 
 lines="$(wine_runtime_status_lines)"
 echo "${lines}" | grep -q '^chip=' || fail "missing chip line"
+echo "${lines}" | grep -q '^rosetta=' || fail "missing rosetta line"
 echo "${lines}" | grep -q '^wine_installed=1' || fail "missing wine_installed"
+echo "${lines}" | grep -q '^wine_bin=' || fail "missing wine_bin line"
 
 rm -rf "${WINE_ROOT}"
 unset WINE_ROOT WINE_VERSION

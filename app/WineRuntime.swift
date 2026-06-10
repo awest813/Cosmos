@@ -41,6 +41,10 @@ struct WineRuntimeStatus: Equatable {
         }
         return "Native x86_64 host — Wine runs without Rosetta."
     }
+
+    var summaryAccessibilityLabel: String {
+        [wineLabel, rosettaLabel, chipArchitecture].joined(separator: ", ")
+    }
 }
 
 enum WineRuntimeStore {

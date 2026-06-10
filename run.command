@@ -1492,16 +1492,17 @@ main() {
     compat_preflight "${COMPAT_CHECK_APPID}" verbose
     return
   fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "runtime-status" ]]; then
+    wine_runtime_status_lines
+    return
+  fi
   require_macos_arm64
   [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"
   case "${COSMOS_LAUNCH_MODE}" in
     profiles) open_profiles_folder; return ;;
     logs) open_logs; return ;;
     status) show_status; return ;;
-    runtime-status)
-      require_macos_arm64
-      wine_runtime_status_lines
-      return ;;
+    runtime-status) wine_runtime_status_lines; return ;;
     install-rosetta)
       require_macos_arm64
       log "Installing Rosetta 2"

@@ -39,6 +39,9 @@ enum GameProfileStore {
 
         var profiles: [GameProfile] = []
         for storeDir in storeDirs {
+            if storeDir.lastPathComponent == "drafts" {
+                continue
+            }
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: storeDir.path, isDirectory: &isDirectory),
                   isDirectory.boolValue else {
