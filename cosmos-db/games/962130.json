@@ -1,0 +1,12 @@
+{
+  "schema": "cosmosdb-community-v0",
+  "steam_appid": 962130,
+  "title": "Grounded",
+  "status": "gold",
+  "recommended_backend": "dxmt",
+  "windows_version": "win10",
+  "report_count": 1,
+  "sources": ["community", "curated-profile", "winemactricks"],
+  "notes": "Apply grounded-mscoree-fix for Unity black-screen during loading. DXMT for D3D11.",
+  "updated_at": "2026-06-10T00:00:00Z"
+}
