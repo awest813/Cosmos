@@ -81,7 +81,7 @@ log "CLI smoke: apply-installed dry-run (fixture prefix)"
 WINEPREFIX="${ROOT}/scripts/fixtures/steam_detection/wineprefix" \
   ./profile.command apply-installed --dry-run >/dev/null
 
-if command -v swift >/dev/null 2>&1; then
+if [[ "$(uname -s)" == "Darwin" ]] && command -v swift >/dev/null 2>&1; then
   log "swift build (debug)"
   swift build
   log "swift build (release)"
@@ -89,7 +89,7 @@ if command -v swift >/dev/null 2>&1; then
   log "swift test"
   swift test
 else
-  printf 'SKIP: swift not installed — run swift build && swift test on macOS 13+\n'
+  printf 'SKIP: swift build/test requires macOS (AppKit) — covered by the macos-14 CI job\n'
 fi
 
 log "All tests passed"
