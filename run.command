@@ -25,6 +25,18 @@ if [[ -f "${SCRIPT_DIR}/scripts/lib/wine_lib.sh" ]]; then
   # shellcheck source=scripts/lib/wine_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/wine_lib.sh"
 fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/sync_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/sync_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/sync_lib.sh"
+fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/gptk_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/gptk_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/gptk_lib.sh"
+fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/graphics_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/graphics_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/graphics_lib.sh"
+fi
 
 # --- Bottle pre-load (roadmap 0.3) -------------------------------------------
 # A named bottle (COSMOS_BOTTLE) supplies an isolated Wine prefix plus default
@@ -132,12 +144,30 @@ sanitize_steam_settings() {
     ""|winxp|win7|win8|win10|win11) ;;
     *) WINDOWS_VERSION="" ;;
   esac
+  if declare -F cosmos_sync_mode_normalize >/dev/null 2>&1; then
+    COSMOS_SYNC_MODE="$(cosmos_sync_mode_normalize "${COSMOS_SYNC_MODE:-off}")"
+  fi
+  case "${COSMOS_DXMT_CHANNEL:-stable}" in
+    stable|latest|experimental) ;;
+    *) COSMOS_DXMT_CHANNEL="stable" ;;
+  esac
+  case "${COSMOS_METALFX:-0}" in 0|1) ;; *) COSMOS_METALFX=0 ;; esac
+  case "${COSMOS_MVK_PRESET:-default}" in
+    default|performance|compatibility) ;;
+    *) COSMOS_MVK_PRESET="default" ;;
+  esac
 }
 
 load_bottle
 ensure_steam_conf
 load_steam_conf
 sanitize_steam_settings
+if declare -F cosmos_graphics_env_apply >/dev/null 2>&1; then
+  cosmos_graphics_env_apply
+fi
+if declare -F cosmos_sync_mode_apply >/dev/null 2>&1; then
+  cosmos_sync_mode_apply
+fi
 # -----------------------------------------------------------------------------
 
 if declare -F runtime_load_manifest >/dev/null 2>&1; then
@@ -145,8 +175,8 @@ if declare -F runtime_load_manifest >/dev/null 2>&1; then
 fi
 
 WINE_VERSION="${WINE_VERSION:-11.8}"
-# Pinned for MIT license on release artifacts; see runtime/cosmos-runtime.json and docs/LICENSING.md.
-DXMT_VERSION="${DXMT_VERSION:-0.74}"
+# Pinned in runtime/cosmos-runtime.json (0.80 MIT; Latest channel may use LGPL 0.81+).
+DXMT_VERSION="${DXMT_VERSION:-0.80}"
 
 if declare -F runtime_assert_dxmt_license >/dev/null 2>&1; then
   runtime_assert_dxmt_license || exit 1
@@ -260,6 +290,7 @@ Actions:
   --install-rosetta        Install Rosetta 2 on Apple Silicon if missing, then exit.
   --compat-check <appid>   Print the curated compatibility status for a Steam
                            App ID (warns if broken/blocked), then exit.
+  --validate-gptk <path>   Validate a user-supplied GPTK install (key=value), then exit.
   --game <path> [args...]  Launch a saved profile executable directly.
   --run-installer <file>   Run a Windows .exe/.msi installer in the prefix.
   --profiles               Open the saved profiles folder in Finder and exit.
@@ -355,6 +386,17 @@ parse_arguments() {
       fi
       COMPAT_CHECK_APPID="$2"
       COSMOS_LAUNCH_MODE="compat-check"
+      return 0
+      ;;
+    --validate-gptk)
+      if (($# < 2)); then
+        die "Missing required path for --validate-gptk."
+      fi
+      if (($# > 2)); then
+        die "The --validate-gptk flag accepts only one path."
+      fi
+      GPTK_VALIDATE_PATH="$2"
+      COSMOS_LAUNCH_MODE="validate-gptk"
       return 0
       ;;
     --reset-bottle)
@@ -903,31 +945,12 @@ resolve_backend() {
   esac
 }
 
-find_gptk_dll_dir() {
-  local root="$1"
-  local candidates=(
-    "${root}"
-    "${root}/redist/lib/external"
-    "${root}/lib/external"
-    "${root}/lib"
-    "${root}/Libraries"
-  )
-  local c
-  for c in "${candidates[@]}"; do
-    if [[ -f "${c}/d3d11.dll" ]]; then
-      printf '%s\n' "${c}"
-      return 0
-    fi
-  done
-  return 1
-}
-
 ensure_gptk_installed() {
   log "Installing GPTK DLLs into the Wine prefix"
   [[ -d "${GPTK_PATH}" ]] || die "GPTK_PATH is not a directory: ${GPTK_PATH}"
 
   local src
-  if ! src="$(find_gptk_dll_dir "${GPTK_PATH}")"; then
+  if ! src="$(gptk_find_dll_dir "${GPTK_PATH}")"; then
     die "Could not find d3d11.dll under GPTK_PATH=${GPTK_PATH}. Obtain the Game Porting Toolkit from developer.apple.com and point GPTK_PATH at the root (or directly at the folder containing the DLLs)."
   fi
 
@@ -1169,8 +1192,12 @@ launch_steam() {
   if [[ -n "${WINE_VIRTUAL_DESKTOP:-}" && "${WINE_VIRTUAL_DESKTOP}" != "0" ]]; then
     echo "Virtual desktop: ${WINE_VIRTUAL_DESKTOP_NAME:-cosmos-steam} @ ${WINE_VIRTUAL_DESKTOP}"
   fi
-  if [[ "${WINEESYNC:-}" == "1" ]]; then
+  if declare -F cosmos_sync_mode_label >/dev/null 2>&1; then
+    echo "Thread sync: $(cosmos_sync_mode_label)"
+  elif [[ "${WINEESYNC:-}" == "1" ]]; then
     echo "Thread sync: esync enabled (WINEESYNC=1)"
+  elif [[ "${WINEMSYNC:-}" == "1" ]]; then
+    echo "Thread sync: msync enabled (WINEMSYNC=1)"
   fi
   if [[ -n "${STEAM_GAME_ID:-}" ]]; then
     compat_preflight "${STEAM_GAME_ID}"
@@ -1466,7 +1493,12 @@ show_status() {
     "$([[ "${profiles_count}" -gt 0 ]] && echo "${profiles_count} profile(s) in ${PROFILE_DIRECTORY}" || echo "Run ./detect_steam_games.command --install after installing a game")"
 
   echo ""
-  echo "  Backend: ${COSMOS_BACKEND}   Windows: ${WINDOWS_VERSION:-Wine default}   Retina: $([[ "${WINE_RETINA_MODE}" == "1" ]] && echo on || echo off)   Install: $([[ "${COSMOS_STEAM_SILENT}" == "1" ]] && echo silent || echo wizard)"
+  local sync_label="off"
+  if declare -F cosmos_sync_mode_label >/dev/null 2>&1; then
+    sync_label="$(cosmos_sync_mode_label)"
+  fi
+  echo "  Backend: ${COSMOS_BACKEND}   Windows: ${WINDOWS_VERSION:-Wine default}   Retina: $([[ "${WINE_RETINA_MODE}" == "1" ]] && echo on || echo off)   Sync: ${sync_label}"
+  echo "  Install: $([[ "${COSMOS_STEAM_SILENT}" == "1" ]] && echo silent || echo wizard)   GPTK: ${GPTK_PATH:-not set}   DXMT channel: ${COSMOS_DXMT_CHANNEL:-stable}"
   if [[ -n "${RUNTIME_MANIFEST_VERSION:-}" ]]; then
     echo "  Runtime manifest: ${RUNTIME_MANIFEST_VERSION} (DXMT ${DXMT_VERSION}, Wine ${WINE_VERSION})"
     [[ -n "${COSMOS_RUNTIME_DIR:-}" ]] && echo "  Runtime cache: ${COSMOS_RUNTIME_DIR}"
@@ -1494,6 +1526,13 @@ main() {
   if [[ "${COSMOS_LAUNCH_MODE}" == "compat-check" ]]; then
     compat_preflight "${COMPAT_CHECK_APPID}" verbose
     return
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "validate-gptk" ]]; then
+    if declare -F gptk_validate_path >/dev/null 2>&1; then
+      gptk_validate_path "${GPTK_VALIDATE_PATH}"
+      return $?
+    fi
+    die "GPTK validation is unavailable (gptk_lib.sh not loaded)."
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "runtime-status" ]]; then
     wine_runtime_status_lines

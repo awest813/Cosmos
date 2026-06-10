@@ -17,30 +17,31 @@ assert data["schema"] == "cosmos-runtime-1.0"
 for key in ("wine", "dxmt", "dxvk_macos", "moltenvk"):
     assert key in data["components"], key
     assert data["components"][key].get("url"), key
-assert data["components"]["dxmt"]["version"] == "0.74"
+assert data["components"]["dxmt"]["version"] == "0.80"
+assert data["defaults"].get("cosmos_allow_lgpl") is True
 PY
 
 # shellcheck source=scripts/lib/runtime_lib.sh
 export SCRIPT_DIR="${ROOT}"
 source "${ROOT}/scripts/lib/runtime_lib.sh"
 
-unset WINE_VERSION DXMT_VERSION WINE_URL DXMT_URL RUNTIME_MANIFEST_LOADED
+unset WINE_VERSION DXMT_VERSION WINE_URL DXMT_URL RUNTIME_MANIFEST_LOADED COSMOS_ALLOW_LGPL
 runtime_load_manifest || fail "runtime_load_manifest failed"
 [[ "${RUNTIME_MANIFEST_LOADED:-}" == "1" ]] || fail "manifest not loaded"
 [[ "${WINE_VERSION}" == "11.8" ]] || fail "expected WINE_VERSION from manifest"
-[[ "${DXMT_VERSION}" == "0.74" ]] || fail "expected DXMT_VERSION from manifest"
+[[ "${DXMT_VERSION}" == "0.80" ]] || fail "expected DXMT_VERSION from manifest"
+[[ "${COSMOS_ALLOW_LGPL:-}" == "1" ]] || fail "manifest should default COSMOS_ALLOW_LGPL=1"
 
-export DXMT_VERSION="0.74"
-unset COSMOS_ALLOW_LGPL
-runtime_assert_dxmt_license || fail "0.74 should pass MIT gate"
+export DXMT_VERSION="0.80"
+runtime_assert_dxmt_license || fail "0.80 should pass license gate"
 
 export DXMT_VERSION="0.81"
-if runtime_assert_dxmt_license 2>/dev/null; then
-  fail "DXMT 0.81 should fail without COSMOS_ALLOW_LGPL"
-fi
+runtime_assert_dxmt_license || fail "0.81 should pass with default COSMOS_ALLOW_LGPL=1"
 
-export COSMOS_ALLOW_LGPL=1
-runtime_assert_dxmt_license || fail "0.81 should pass with COSMOS_ALLOW_LGPL=1"
+export COSMOS_ALLOW_LGPL=0
+if runtime_assert_dxmt_license 2>/dev/null; then
+  fail "DXMT 0.81 should fail when COSMOS_ALLOW_LGPL=0"
+fi
 
 bash "${ROOT}/scripts/test_offline_runtime.sh" || fail "offline runtime tests failed"
 

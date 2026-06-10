@@ -1,0 +1,22 @@
+DXMT — LGPL source offer (Cosmos Runtime)
+
+Cosmos may download and cache DXMT (Direct3D→Metal translation for Wine on macOS)
+as part of the Cosmos Runtime. DXMT releases after v0.80 are licensed under the
+GNU Lesser General Public License (LGPL).
+
+Upstream project: https://github.com/3Shain/dxmt
+
+Corresponding source for the DXMT version pinned in runtime/cosmos-runtime.json
+is available from the upstream repository and release tags at:
+
+  https://github.com/3Shain/dxmt/releases
+
+To obtain source for a specific DXMT version installed on your Mac, match the
+version shown by:
+
+  ./run.command --status
+
+with the release tag at the URL above (for example, v0.81).
+
+Cosmos itself is MIT-licensed. Third-party runtime components retain their own
+licenses — see runtime/NOTICE.md and docs/LICENSING.md.

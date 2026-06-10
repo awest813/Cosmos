@@ -15,13 +15,15 @@ dependencies.
 ## DXMT
 
 - Pinned in `runtime/cosmos-runtime.json` and loaded by `run.command` (`DXMT_VERSION`,
-  default **0.74**).
-- Releases **after v0.80** moved from MIT to **LGPL**. `run.command` and CI refuse
-  `DXMT_VERSION` above the manifest pin unless `COSMOS_ALLOW_LGPL=1`.
-- Before upgrading past the MIT pin:
-  - Read [3Shain/dxmt licensing discussion](https://github.com/3Shain/dxmt/releases).
-  - If you ship DXMT inside Cosmos artifacts, comply with LGPL (source offer,
-    license notice) or stay on the last MIT release.
+  default **0.80**).
+- Releases **after v0.80** are **LGPL**. Cosmos adopts LGPL DXMT for the runtime
+  (maintainer-approved): `COSMOS_ALLOW_LGPL` defaults to **1** from the manifest.
+  Opt out with `COSMOS_ALLOW_LGPL=0` to refuse versions above the MIT pin (v0.80).
+- **LGPL compliance** when bundling or caching DXMT:
+  - Include `runtime/NOTICE.md` and `runtime/DXMT-SOURCE-OFFER.txt` in distributions.
+  - Corresponding source: [3Shain/dxmt releases](https://github.com/3Shain/dxmt/releases).
+- Dashboard **DXMT channel**: **Pinned (0.80)** uses the MIT release; **Latest (LGPL)**
+  tracks `latest_version` in the manifest (currently 0.81 when published).
 - Download URLs: `https://github.com/3Shain/dxmt/releases`
 
 ## Wine (Gcenx macOS builds)

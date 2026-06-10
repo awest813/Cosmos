@@ -85,8 +85,20 @@ validate_setting() {
     WINDOWS_VERSION)
       [[ "${VALID_WINDOWS}" == *" ${val} "* ]] || die "WINDOWS_VERSION must be one of:${VALID_WINDOWS}"
       ;;
-    WINE_RETINA_MODE|COSMOS_DETACH)
+    WINE_RETINA_MODE|COSMOS_DETACH|COSMOS_METALFX)
       [[ "${val}" == "0" || "${val}" == "1" ]] || die "${key} must be 0 or 1."
+      ;;
+    COSMOS_SYNC_MODE)
+      [[ " off esync msync " == *" ${val} "* ]] || die "COSMOS_SYNC_MODE must be off, esync, or msync."
+      ;;
+    COSMOS_DXMT_CHANNEL)
+      [[ " stable latest experimental " == *" ${val} "* ]] || die "COSMOS_DXMT_CHANNEL must be stable or latest."
+      ;;
+    COSMOS_ALLOW_LGPL)
+      [[ "${val}" == "0" || "${val}" == "1" ]] || die "COSMOS_ALLOW_LGPL must be 0 or 1."
+      ;;
+    COSMOS_MVK_PRESET)
+      [[ " default performance compatibility " == *" ${val} "* ]] || die "COSMOS_MVK_PRESET must be default, performance, or compatibility."
       ;;
     WINEPREFIX|COSMOS_BOTTLE)
       die "${key} is managed by Cosmos and cannot be set on a bottle."

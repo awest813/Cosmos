@@ -8,7 +8,7 @@ Versioned, pinned stack for Wine-on-macOS. Manifest:
 | Component | Default version | License |
 | --- | --- | --- |
 | Wine (Gcenx) | 11.8 | Wine upstream |
-| DXMT | 0.74 | MIT (≤ 0.80) |
+| DXMT | 0.80 (pinned); 0.81+ via Latest channel | MIT through v0.80; LGPL after |
 | DXVK-macOS | 1.10.3-20230507-repack | Zlib |
 | MoltenVK | 1.2.8 | Apache-2.0 |
 
@@ -27,16 +27,19 @@ Downloads DXVK-macOS + MoltenVK into:
 
 and sets `DXVK_PATH` + Vulkan ICD paths automatically.
 
-## DXMT LGPL gate
+## DXMT LGPL (adopted)
 
-DXMT releases after v0.80 are LGPL. CI and `run.command` refuse `DXMT_VERSION`
-above the manifest pin unless:
+DXMT releases after v0.80 are LGPL. Cosmos **defaults to allowing LGPL DXMT**
+(`COSMOS_ALLOW_LGPL=1` from `runtime/cosmos-runtime.json`). The dashboard
+**Latest (LGPL)** channel tracks `components.dxmt.latest_version` in the manifest.
+
+To refuse LGPL versions above the MIT pin (v0.80):
 
 ```bash
-export COSMOS_ALLOW_LGPL=1
+export COSMOS_ALLOW_LGPL=0
 ```
 
-See [LICENSING.md](LICENSING.md).
+Source offer: `runtime/DXMT-SOURCE-OFFER.txt`. See [LICENSING.md](LICENSING.md).
 
 ## Overrides
 

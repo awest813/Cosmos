@@ -11,6 +11,7 @@ settings:
 dependencies:
   - vcrun2015
 notes: >
+  Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam.
   Demanding D3D12 game. Requires GPTK_PATH and d3dmetal backend. Lower ray tracing
   and use FSR. UMU database lists this title (umu-1091500) — check
   ./cosmosdb.command lookup 1091500 umu for fix metadata to port. Expect reduced

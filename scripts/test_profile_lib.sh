@@ -39,7 +39,7 @@ grep -q 'COSMOS_BACKEND=dxmt' "${tmpdir}/250900.env" || fail "override missing b
 grep -q 'DXMT_CONFIG=' "${tmpdir}/250900.env" || fail "override missing DXMT_CONFIG"
 
 profile_export_override_to "${PROFILE}" "250900" "${tmpdir}/250900-esync.env"
-grep -q 'WINEESYNC=1' "${tmpdir}/250900-esync.env" || fail "override missing WINEESYNC for esync profile"
+grep -q 'COSMOS_SYNC_MODE=esync' "${tmpdir}/250900-esync.env" || fail "override missing COSMOS_SYNC_MODE=esync for esync profile"
 
 tags="$(profile_list_tags "${ROOT}/profiles/steam/steam-105600-terraria.yaml" | tr '\n' ' ')"
 [[ "${tags}" == *"co-op"* && "${tags}" == *"online"* ]] || fail "expected co-op/online tags on terraria"

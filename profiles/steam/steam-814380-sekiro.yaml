@@ -11,5 +11,6 @@ settings:
 dependencies:
   - vcrun2015
 notes: >
+  Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam.
   Demanding FromSoftware action title. GPTK_PATH + d3dmetal recommended.
   Frame pacing matters for parry timing — lower settings on base MacBook models.

@@ -9,6 +9,7 @@ settings:
   retina: false
   windows_version: win10
 notes: >
+  Dashboard → Launch → Performance & Graphics → D3D12 (GPTK) validates GPTK_PATH and can test Steam.
   Demanding D3D12 title. Set GPTK_PATH to your Apple Game Porting Toolkit install
   and use the d3dmetal backend. Single-player works with reduced performance.
   Online co-op and invasions use Easy Anti-Cheat and are blocked on macOS through

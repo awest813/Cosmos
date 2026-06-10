@@ -175,17 +175,23 @@ profile_export_override_to() {
   appid="${appid:-$(profile_get_scalar "${file}" steam_appid)}"
   [[ "${appid}" =~ ^[0-9]+$ ]] || return 1
   mkdir -p "$(dirname -- "${out}")"
-  local backend windows retina esync
+  local backend windows retina sync_mode esync
   backend="$(profile_get_scalar "${file}" recommended_backend)"
   windows="$(profile_get_scalar "${file}" settings.windows_version)"
   retina="$(profile_get_scalar "${file}" settings.retina)"
+  sync_mode="$(profile_get_scalar "${file}" settings.sync_mode)"
   esync="$(profile_get_scalar "${file}" settings.esync)"
+  if [[ -z "${sync_mode}" && ( "${esync}" == "1" || "${esync}" == "true" ) ]]; then
+    sync_mode="esync"
+  fi
   {
     printf '# Generated from %s\n' "${file}"
     [[ -n "${backend}" ]] && printf 'COSMOS_BACKEND=%s\n' "${backend}"
     [[ -n "${windows}" ]] && printf 'WINDOWS_VERSION=%s\n' "${windows}"
     [[ "${retina}" == "1" || "${retina}" == "true" ]] && printf 'WINE_RETINA_MODE=1\n'
-    [[ "${esync}" == "1" || "${esync}" == "true" ]] && printf 'WINEESYNC=1\n'
+    case "${sync_mode}" in
+      esync|msync) printf 'COSMOS_SYNC_MODE=%s\n' "${sync_mode}" ;;
+    esac
     local k v
     for k in DXMT_CONFIG STEAM_GAME_ARGS WINEDLLOVERRIDES; do
       v="$(profile_get_env_line "${file}" "${k}")"

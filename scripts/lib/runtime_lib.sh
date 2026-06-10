@@ -51,7 +51,10 @@ def emit(key, val):
 
 emit("RUNTIME_MANIFEST_LOADED", "1")
 emit("RUNTIME_MANIFEST_VERSION", data.get("version", ""))
-emit("RUNTIME_DXMT_MIT_MAX", (data.get("defaults") or {}).get("dxmt_mit_max_version", "0.80"))
+defaults = data.get("defaults") or {}
+emit("RUNTIME_DXMT_MIT_MAX", defaults.get("dxmt_mit_max_version", "0.80"))
+if defaults.get("cosmos_allow_lgpl") and not os.environ.get("COSMOS_ALLOW_LGPL"):
+    emit("COSMOS_ALLOW_LGPL", "1")
 
 wine = comps.get("wine") or {}
 dxmt = comps.get("dxmt") or {}
@@ -67,6 +70,14 @@ if dxmt.get("version") and not os.environ.get("DXMT_VERSION"):
     emit("DXMT_VERSION", dxmt["version"])
 if dxmt.get("url") and not os.environ.get("DXMT_URL"):
     emit("DXMT_URL", dxmt["url"])
+if dxmt.get("latest_version"):
+    emit("RUNTIME_DXMT_LATEST_VERSION", dxmt["latest_version"])
+if dxmt.get("latest_url"):
+    emit("RUNTIME_DXMT_LATEST_URL", dxmt["latest_url"])
+if dxmt.get("license"):
+    emit("RUNTIME_DXMT_LICENSE", dxmt["license"])
+if dxmt.get("latest_license"):
+    emit("RUNTIME_DXMT_LATEST_LICENSE", dxmt["latest_license"])
 
 emit("RUNTIME_DXVK_VERSION", dxvk.get("version", ""))
 emit("RUNTIME_DXVK_URL", dxvk.get("url", ""))
@@ -85,9 +96,11 @@ PY
 }
 
 runtime_assert_dxmt_license() {
-  local ver="${DXMT_VERSION:-0.74}"
+  local ver="${DXMT_VERSION:-0.80}"
   local max="${RUNTIME_DXMT_MIT_MAX:-0.80}"
-  [[ "${COSMOS_ALLOW_LGPL:-0}" == "1" ]] && return 0
+  # LGPL DXMT is approved for Cosmos Runtime (see docs/LICENSING.md). Opt out with
+  # COSMOS_ALLOW_LGPL=0 to refuse versions above the MIT pin.
+  [[ "${COSMOS_ALLOW_LGPL:-1}" == "1" ]] && return 0
   python3 - "${ver}" "${max}" <<'PY' || return 1
 import sys
 
@@ -273,7 +286,7 @@ runtime_install_wine_from_offline_bundle() {
 
 runtime_install_dxmt_from_offline_bundle() {
   local dxmt_root="${DXMT_ROOT:-$HOME/DXMT}"
-  local dxmt_ver="${DXMT_VERSION:-0.74}"
+  local dxmt_ver="${DXMT_VERSION:-0.80}"
   local bundle src
   bundle="$(runtime_offline_cache_dir)"
   src="${bundle}/dxmt-${dxmt_ver}"

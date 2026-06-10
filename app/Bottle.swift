@@ -20,6 +20,14 @@ struct Bottle: Identifiable, Hashable {
         windowsVersion.isEmpty ? "Wine default" : windowsVersion
     }
     var retinaEnabled: Bool { settings["WINE_RETINA_MODE"] == "1" }
+    var syncMode: String {
+        if let mode = settings["COSMOS_SYNC_MODE"], GraphicsSettings.syncModeOptions.contains(mode) {
+            return mode
+        }
+        if settings["WINEESYNC"] == "1" { return "esync" }
+        if settings["WINEMSYNC"] == "1" { return "msync" }
+        return "off"
+    }
 
     var statusText: String {
         guard isInitialized else { return "Not created" }
