@@ -1,0 +1,13 @@
+id: half_life
+name: "Half-Life"
+store: steam
+steam_appid: 70
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  GoldSrc classic. DXMT handles the older renderer. GoldSrc multiplayer is legacy;
+  single-player and LAN are the reliable paths on macOS.

@@ -1,0 +1,13 @@
+id: half_life_2_episode_two
+name: "Half-Life 2: Episode Two"
+store: steam
+steam_appid: 420
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Source engine episodic finale. DXMT preset matches Half-Life 2. Co-op mods may
+  need manual STEAM_GAME_ARGS if they ship separate binaries.

@@ -1,0 +1,15 @@
+id: castle_crashers
+name: "Castle Crashers"
+store: steam
+steam_appid: 204360
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - d3dx9
+notes: >
+  Classic 2D beat-'em-up with four-player co-op. Install d3dx9 for older DirectX
+  dependencies. DXMT handles XNA-era rendering at 60 fps.

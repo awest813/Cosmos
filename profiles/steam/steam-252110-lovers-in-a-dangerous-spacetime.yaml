@@ -1,0 +1,13 @@
+id: lovers_in_a_dangerous_spacetime
+name: "Lovers in a Dangerous Spacetime"
+store: steam
+steam_appid: 252110
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Colorful 2D co-op spaceship game. DXMT is more than enough. Best with controllers
+  on the couch — map buttons in Wine gamepad settings if needed.

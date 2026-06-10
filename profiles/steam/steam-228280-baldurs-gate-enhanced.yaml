@@ -1,0 +1,13 @@
+id: baldurs_gate_enhanced
+name: "Baldur's Gate: Enhanced Edition"
+store: steam
+steam_appid: 228280
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Enhanced Infinity Engine CRPG. DXMT is sufficient for the 2D/isometric renderer.
+  Couch co-op via hotseat works; online depends on Beamdog networking in Wine.

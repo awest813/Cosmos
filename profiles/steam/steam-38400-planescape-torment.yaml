@@ -1,0 +1,13 @@
+id: planescape_torment
+name: "Planescape: Torment: Enhanced Edition"
+store: steam
+steam_appid: 38400
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Classic isometric RPG remaster. Lightweight 2D — DXMT with default settings runs
+  smoothly. Mods from Beamdog may need manual prefix paths.

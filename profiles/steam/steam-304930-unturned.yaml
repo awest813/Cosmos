@@ -1,0 +1,13 @@
+id: unturned
+name: "Unturned"
+store: steam
+steam_appid: 304930
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Free-to-play Unity survival co-op. DXMT handles the low-poly renderer well. Server
+  browser and friend joins need stable Steam networking in the prefix.

@@ -1,0 +1,13 @@
+id: shovel_knight
+name: "Shovel Knight: Treasure Trove"
+store: steam
+steam_appid: 250760
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Retro 2D platformer. DXMT handles the renderer without extra dependencies.
+  Runs at locked 60 fps on Apple Silicon.

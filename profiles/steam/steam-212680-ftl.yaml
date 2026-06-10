@@ -1,0 +1,13 @@
+id: ftl
+name: "FTL: Faster Than Light"
+store: steam
+steam_appid: 212680
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Classic roguelike spaceship sim. Very lightweight 2D — DXMT with default settings
+  is plenty. Mod support via Steam Workshop may need manual prefix paths.

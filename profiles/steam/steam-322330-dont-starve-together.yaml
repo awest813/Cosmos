@@ -1,0 +1,13 @@
+id: dont_starve_together
+name: "Don't Starve Together"
+store: steam
+steam_appid: 322330
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Klei co-op survival. DXMT handles the 2D renderer well. Host or join worlds over
+  Steam networking; lag is usually network-related, not graphics.
