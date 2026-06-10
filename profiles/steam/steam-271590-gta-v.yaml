@@ -1,0 +1,15 @@
+id: gta_v
+name: "Grand Theft Auto V"
+store: steam
+steam_appid: 271590
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  DXMT handles the D3D11 renderer. Install vcrun2015 if you see missing-runtime
+  errors. Online play (GTA Online) may have issues; story mode is the reliable path.

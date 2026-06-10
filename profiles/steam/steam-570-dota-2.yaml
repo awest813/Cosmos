@@ -1,0 +1,13 @@
+id: dota_2
+name: "Dota 2"
+store: steam
+steam_appid: 570
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Source 2 MOBA. DXMT handles D3D11 rendering. Expect higher input latency than
+  native; fine for casual matches, not ideal for high-MMR ranked play.

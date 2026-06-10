@@ -1,0 +1,15 @@
+id: cuphead
+name: "Cuphead"
+store: steam
+steam_appid: 268910
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - d3dx9
+notes: >
+  2D D3D9/XNA-style title. Install d3dx9 if you see missing DirectX errors.
+  DXMT handles the renderer well at 60 fps.

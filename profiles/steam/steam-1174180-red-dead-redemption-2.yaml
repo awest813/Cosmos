@@ -1,0 +1,15 @@
+id: red_dead_redemption_2
+name: "Red Dead Redemption 2"
+store: steam
+steam_appid: 1174180
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+notes: >
+  Heavy Vulkan/D3D12 title. Requires GPTK_PATH and d3dmetal backend. Lower
+  quality presets and use FSR. Long initial shader compile on first launch is normal.

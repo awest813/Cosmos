@@ -1,0 +1,15 @@
+id: palworld
+name: "Palworld"
+store: steam
+steam_appid: 1623730
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+notes: >
+  Unreal Engine title. DXMT works for D3D11 paths; try d3dmetal with GPTK_PATH if
+  you hit D3D12-only features. Dedicated servers and co-op need stable networking.

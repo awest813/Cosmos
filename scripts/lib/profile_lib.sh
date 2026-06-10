@@ -2,6 +2,22 @@
 # Minimal YAML profile reader for Cosmos v0 profiles (no PyYAML required).
 # Supports top-level scalar keys and settings.* scalars used by profile.command.
 
+# Store subfolders that ship curated profiles (excludes profiles/drafts/).
+PROFILE_SHIPPED_STORES=(steam gog itch battlenet standalone)
+
+# Print one shipped profile path per line under ${root}/ (never drafts/).
+profile_shipped_paths() {
+  local root="$1" store f
+  shopt -s nullglob
+  for store in "${PROFILE_SHIPPED_STORES[@]}"; do
+    [[ -d "${root}/${store}" ]] || continue
+    for f in "${root}/${store}"/*.yaml "${root}/${store}"/*.yml; do
+      [[ -f "${f}" ]] && printf '%s\n' "${f}"
+    done
+  done
+  shopt -u nullglob
+}
+
 profile_get_scalar() {
   local file="$1" key="$2"
   awk -v want="${key}" '
@@ -74,16 +90,13 @@ profile_list_fixes() {
 profile_find_by_appid() {
   local root="$1" appid="$2"
   local f
-  shopt -s nullglob
-  for f in "${root}"/*/*.yaml "${root}"/*/*.yml; do
-    [[ -f "${f}" ]] || continue
+  while IFS= read -r f; do
+    [[ -n "${f}" ]] || continue
     if grep -qE "^steam_appid:[[:space:]]*${appid}[[:space:]]*$" "${f}" 2>/dev/null; then
       printf '%s\n' "${f}"
-      shopt -u nullglob
       return 0
     fi
-  done
-  shopt -u nullglob
+  done < <(profile_shipped_paths "${root}")
   return 1
 }
 

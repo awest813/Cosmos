@@ -102,15 +102,13 @@ resolve_profile() {
 
 cmd_list() {
   local f store appid name
-  shopt -s nullglob
-  for f in "${PROFILES_DIR}"/*/*.yaml "${PROFILES_DIR}"/*/*.yml; do
-    [[ -f "${f}" ]] || continue
+  while IFS= read -r f; do
+    [[ -n "${f}" ]] || continue
     store="$(profile_get_scalar "${f}" store)"
     appid="$(profile_get_scalar "${f}" steam_appid)"
     name="$(profile_get_scalar "${f}" name)"
     printf '  %-8s %-10s %s\n' "${appid:-"—"}" "${store:-"?"}" "${name:-"${f}"}"
-  done
-  shopt -u nullglob
+  done < <(profile_shipped_paths "${PROFILES_DIR}")
 }
 
 cmd_show() {
@@ -257,9 +255,9 @@ cmd_validate() {
     local f; f="$(resolve_profile "${target}")" || die "Profile not found: ${target}"
     files=("${f}")
   else
-    shopt -s nullglob
-    files=("${PROFILES_DIR}"/*/*.yaml "${PROFILES_DIR}"/*/*.yml)
-    shopt -u nullglob
+    while IFS= read -r f; do
+      [[ -n "${f}" ]] && files+=("${f}")
+    done < <(profile_shipped_paths "${PROFILES_DIR}")
   fi
   [[ "${#files[@]}" -gt 0 ]] || die "No profiles found under ${PROFILES_DIR}"
 

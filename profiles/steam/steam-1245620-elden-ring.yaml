@@ -1,0 +1,14 @@
+id: elden_ring
+name: "Elden Ring"
+store: steam
+steam_appid: 1245620
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Demanding D3D12 title. Set GPTK_PATH to your Apple Game Porting Toolkit install
+  and use the d3dmetal backend. Expect reduced performance vs Windows; lower
+  settings and disable ray tracing for smoother play.

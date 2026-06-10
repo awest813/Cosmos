@@ -8,6 +8,8 @@ set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 PROFILE_CMD="${ROOT}/profile.command"
+# shellcheck source=scripts/lib/profile_lib.sh
+source "${ROOT}/scripts/lib/profile_lib.sh"
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
@@ -33,5 +35,5 @@ if "${PROFILE_CMD}" validate "${tmp}" >/dev/null 2>&1; then
   fail "validator accepted a broken profile"
 fi
 
-count="$(find "${ROOT}/profiles" -name '*.yaml' -o -name '*.yml' | wc -l | tr -d ' ')"
-printf 'OK: all %s profiles passed schema validation\n' "${count}"
+count="$(profile_shipped_paths "${ROOT}/profiles" | wc -l | tr -d ' ')"
+printf 'OK: all %s shipped profiles passed schema validation\n' "${count}"

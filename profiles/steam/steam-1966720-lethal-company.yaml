@@ -1,0 +1,13 @@
+id: lethal_company
+name: "Lethal Company"
+store: steam
+steam_appid: 1966720
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Lightweight Unity multiplayer. DXMT is sufficient. Online co-op requires a stable
+  connection; host lag is usually network-related, not graphics.

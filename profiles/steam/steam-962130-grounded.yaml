@@ -1,0 +1,15 @@
+id: grounded
+name: "Grounded"
+store: steam
+steam_appid: 962130
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+fixes:
+  - grounded-mscoree-fix
+notes: >
+  Apply the mscoree.dll override fix if you see a black screen during loading.
+  Unity title — DXMT handles D3D11 well. Online co-op needs a stable network.
