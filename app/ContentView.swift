@@ -35,6 +35,7 @@ struct ContentView: View {
     @State private var pendingTerminalJobID: String?
     @State private var updateAvailable = false
     @State private var profilePreferences = ProfilePreferencesStore.load()
+    @State private var sidebarProfileFilter: SidebarProfileFilter = .all
     @State private var lastSteamLibraryCheck: Date?
     @State private var pendingNewSteamGames = 0
 
@@ -99,6 +100,17 @@ struct ContentView: View {
         }.filter { !favorites.contains($0.id) }
     }
 
+    /// Saved profiles not already shown under Favorites or Recent.
+    private var pinnedProfileIDs: Set<String> {
+        Set(profilePreferences.favoriteIDs + profilePreferences.recentIDs)
+    }
+
+    private var catalogProfiles: [SavedProfile] {
+        profiles
+            .filter { !pinnedProfileIDs.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     private var selectedBottle: Bottle? {
         bottles.first { $0.id == selectedBottleID }
     }
@@ -138,6 +150,9 @@ struct ContentView: View {
             refreshStatus()
             resumeTerminalJobs()
             checkForUpdatesSilently()
+            if isSetupComplete {
+                checkSteamLibraryForNewGames(autoSync: true)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRefreshStatus)) { _ in
             refreshStatus(message: "Status refreshed.")
@@ -297,6 +312,12 @@ struct ContentView: View {
                 profileSearchField
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
+
+                if !isSearchingProfiles {
+                    sidebarProfileFilterChips
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                }
             }
 
             // Profile list
@@ -312,30 +333,57 @@ struct ContentView: View {
                             }
                         }
                     }
+                } else if profiles.isEmpty {
+                    Section("Saved Profiles") {
+                        sidebarEmptyProfilesRow
+                    }
                 } else {
-                    if !favoriteProfiles.isEmpty {
+                    switch sidebarProfileFilter {
+                    case .all:
+                        if !favoriteProfiles.isEmpty {
+                            Section("Favorites") {
+                                ForEach(favoriteProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
+                            }
+                        }
+                        if !recentProfiles.isEmpty {
+                            Section("Recent") {
+                                ForEach(recentProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
+                            }
+                        }
+                        if !catalogProfiles.isEmpty {
+                            Section(profileSectionTitle) {
+                                ForEach(catalogProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
+                            }
+                        }
+                    case .favorites:
                         Section("Favorites") {
-                            ForEach(favoriteProfiles) { profile in
-                                profileRow(profile)
-                                    .tag(profile.id)
+                            if favoriteProfiles.isEmpty {
+                                sidebarEmptyFilterRow
+                            } else {
+                                ForEach(favoriteProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
                             }
                         }
-                    }
-                    if !recentProfiles.isEmpty {
+                    case .recent:
                         Section("Recent") {
-                            ForEach(recentProfiles) { profile in
-                                profileRow(profile)
-                                    .tag(profile.id)
-                            }
-                        }
-                    }
-                    Section(profileSectionTitle) {
-                        if profiles.isEmpty {
-                            sidebarEmptyProfilesRow
-                        } else {
-                            ForEach(profiles) { profile in
-                                profileRow(profile)
-                                    .tag(profile.id)
+                            if recentProfiles.isEmpty {
+                                sidebarEmptyFilterRow
+                            } else {
+                                ForEach(recentProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
                             }
                         }
                     }
@@ -349,10 +397,24 @@ struct ContentView: View {
     }
 
     private var profileSectionTitle: String {
-        if profiles.isEmpty {
-            return "Saved Profiles"
+        "All Games (\(catalogProfiles.count))"
+    }
+
+    private var sidebarProfileFilterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(SidebarProfileFilter.allCases) { filter in
+                    CosmosFilterChip(
+                        label: filter.label,
+                        isSelected: sidebarProfileFilter == filter
+                    ) {
+                        sidebarProfileFilter = filter
+                    }
+                    .disabled(isRunning)
+                    .accessibilityLabel("\(filter.label) sidebar filter")
+                }
+            }
         }
-        return "All Games (\(profiles.count))"
     }
 
     private var sidebarEmptyProfilesRow: some View {
@@ -383,6 +445,31 @@ struct ContentView: View {
         .accessibilityLabel("No saved games match the search.")
     }
 
+    private var sidebarEmptyFilterRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Nothing here yet", systemImage: "tray")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            Text(sidebarFilterEmptyCaption)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(sidebarFilterEmptyCaption)
+    }
+
+    private var sidebarFilterEmptyCaption: String {
+        switch sidebarProfileFilter {
+        case .all:
+            return "No saved game profiles."
+        case .favorites:
+            return "Star a game in the sidebar to pin it here."
+        case .recent:
+            return "Launch a game to see it in Recent."
+        }
+    }
+
     private var profileSearchField: some View {
         CosmosSearchField(placeholder: "Search games", text: $profileSearchText, disabled: isRunning)
             .accessibilityLabel("Search saved games")
@@ -390,17 +477,22 @@ struct ContentView: View {
 
     private func profileRow(_ profile: SavedProfile) -> some View {
         let badge = sidebarCompatBadge(for: profile)
+        let isFavorite = ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences)
         return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Text(profile.name)
                     .font(.headline)
                     .lineLimit(1)
-                if ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences) {
-                    Image(systemName: "star.fill")
+                Button {
+                    profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: profile.id)
+                } label: {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
                         .font(.caption2)
-                        .foregroundStyle(.yellow)
-                        .accessibilityLabel("Favorite")
+                        .foregroundStyle(isFavorite ? .yellow : .secondary.opacity(0.55))
                 }
+                .buttonStyle(.plain)
+                .help(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                 if let badge {
                     CosmosCompatBadge(status: badge.status, compact: true)
                 }
@@ -951,15 +1043,26 @@ struct ContentView: View {
                     isRunning = false
                     if let result {
                         output += result.output
+                        let removed = SteamLibraryMonitor.parseSyncRemovedCount(from: result.output) ?? 0
                         if result.newCount > 0 {
                             refreshStatus(message: "Synced \(result.newCount) new game(s).")
                             showBanner(
                                 kind: .success,
                                 message: "Added \(result.newCount) new launcher\(result.newCount == 1 ? "" : "s") from Steam."
                             )
+                        } else if removed > 0 {
+                            refreshStatus(message: "Removed \(removed) uninstalled game(s).")
+                            showBanner(
+                                kind: .info,
+                                message: "Removed \(removed) launcher config\(removed == 1 ? "" : "s") for uninstalled games."
+                            )
                         }
                     } else {
-                        showBanner(kind: .failure, message: "Steam library sync failed.")
+                        showBanner(
+                            kind: .failure,
+                            message: "Steam library sync failed.",
+                            actions: steamSyncTerminalActions()
+                        )
                     }
                 } else if let result, result.newCount > 0 {
                     refreshStatus(message: "Synced \(result.newCount) new game(s).")
@@ -967,6 +1070,21 @@ struct ContentView: View {
                 pendingNewSteamGames = 0
             }
         }
+    }
+
+    private func steamSyncTerminalActions() -> [CommandBannerAction] {
+        [
+            CommandBannerAction(title: "Run in Terminal", systemImage: "terminal.fill") {
+                var env = bottleEnvironment()
+                env["COSMOS_ALLOW_USER_APPS"] = "1"
+                runInTerminal(
+                    script: "detect_steam_games.command",
+                    arguments: ["--sync"],
+                    environment: env,
+                    intent: .setup
+                )
+            },
+        ]
     }
 
     private func showNewSteamGamesBanner(count: Int) {
@@ -1627,6 +1745,15 @@ struct ContentView: View {
 
         secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps", systemImage: "square.grid.2x2.fill", help: "Detect games and install Spotlight launchers into Cosmos Apps") {
             buildLaunchers(full: true)
+        }
+
+        secondaryButton(
+            title: "Sync Steam Library",
+            subtitle: "New installs only",
+            systemImage: "arrow.triangle.2.circlepath",
+            help: "Build launchers for newly installed Steam games since the last sync"
+        ) {
+            syncSteamLibrary(announce: true)
         }
 
         if pendingNewSteamGames > 0 {
@@ -3175,10 +3302,13 @@ struct ContentView: View {
         )
     }
 
-    /// Pass the selected bottle into CLI tools that honor COSMOS_BOTTLE.
+    /// Pass the selected bottle into CLI tools that honor COSMOS_BOTTLE / WINEPREFIX.
     private func bottleEnvironment() -> [String: String] {
         guard let bottle = selectedBottle else { return [:] }
-        return ["COSMOS_BOTTLE": bottle.name]
+        return [
+            "COSMOS_BOTTLE": bottle.name,
+            "WINEPREFIX": bottle.prefixURL.path,
+        ]
     }
 
     // Locate a helper script, preferring a copy bundled into the app's
@@ -3608,6 +3738,9 @@ struct ContentView: View {
                 let succeeded = exitCode == 0
                 output += succeeded ? "\nDone." : "\nExited with status \(exitCode)."
                 if succeeded {
+                    if script == "detect_steam_games.command" {
+                        pendingNewSteamGames = 0
+                    }
                     if intent == .diagnose,
                        let summary = CommandOutputParser.diagnoseSummary(from: output),
                        (CommandOutputParser.suggestedFixCount(from: output) ?? 0) > 0 {
@@ -3628,13 +3761,18 @@ struct ContentView: View {
                     let needsLogs = intent == .setup || intent == .gameLaunch
                     let needsRepair = intent == .gameLaunch
                     if !chain {
+                        var actions = failureRecoveryActions(
+                            includeLogs: needsLogs,
+                            includeRepair: needsRepair
+                        )
+                        if script == "detect_steam_games.command",
+                           arguments.contains(where: { $0 == "--sync" || $0 == "--install" }) {
+                            actions.append(contentsOf: steamSyncTerminalActions())
+                        }
                         showBanner(
                             kind: .failure,
                             message: failureMessage,
-                            actions: failureRecoveryActions(
-                                includeLogs: needsLogs,
-                                includeRepair: needsRepair
-                            )
+                            actions: actions
                         )
                     }
                     if intent == .gameLaunch {

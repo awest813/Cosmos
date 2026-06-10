@@ -357,6 +357,23 @@ struct CosmosCompatBadge: View {
     }
 }
 
+/// Sidebar list filter for saved game profiles (favorites / recent / full catalog).
+enum SidebarProfileFilter: String, CaseIterable, Identifiable {
+    case all
+    case favorites
+    case recent
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "All"
+        case .favorites: return "Favorites"
+        case .recent: return "Recent"
+        }
+    }
+}
+
 /// Filter chips for the curated YAML profile grid (Phase B library visibility).
 enum CuratedProfileFilter: String, CaseIterable, Identifiable {
     case all

@@ -141,10 +141,19 @@ enum SteamLibraryMonitor {
     }
 
     static func parseSyncNewCount(from output: String) -> Int? {
+        parseSyncIntegerField("sync_new", from: output)
+    }
+
+    static func parseSyncRemovedCount(from output: String) -> Int? {
+        parseSyncIntegerField("sync_removed", from: output)
+    }
+
+    private static func parseSyncIntegerField(_ field: String, from output: String) -> Int? {
+        let prefix = "\(field)="
         for line in output.split(whereSeparator: \.isNewline) {
             let text = String(line)
-            if text.hasPrefix("sync_new=") {
-                return Int(text.dropFirst("sync_new=".count))
+            if text.hasPrefix(prefix) {
+                return Int(text.dropFirst(prefix.count))
             }
         }
         return nil

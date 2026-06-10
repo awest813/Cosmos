@@ -1592,6 +1592,11 @@ main() {
     "${SCRIPT_DIR}/scripts/check_updates.sh" --install
     return $?
   fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "sync-steam" ]]; then
+    COSMOS_ALLOW_USER_APPS="${COSMOS_ALLOW_USER_APPS:-1}" \
+      "${SCRIPT_DIR}/detect_steam_games.command" --sync
+    return $?
+  fi
   require_supported_macos
   [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"
   case "${COSMOS_LAUNCH_MODE}" in

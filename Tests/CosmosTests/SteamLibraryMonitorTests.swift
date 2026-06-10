@@ -22,8 +22,9 @@ final class SteamLibraryMonitorTests: XCTestCase {
     }
 
     func testParseSyncStatus() {
-        let output = "sync_status=updated\nsync_new=2\n"
+        let output = "sync_status=updated\nsync_new=2\nsync_removed=1\n"
         XCTAssertEqual(SteamLibraryMonitor.parseSyncStatus(from: output), "updated")
         XCTAssertEqual(SteamLibraryMonitor.parseSyncNewCount(from: output), 2)
+        XCTAssertEqual(SteamLibraryMonitor.parseSyncRemovedCount(from: output), 1)
     }
 }
