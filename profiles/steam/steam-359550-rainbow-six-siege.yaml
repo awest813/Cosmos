@@ -1,0 +1,16 @@
+id: rainbow_six_siege
+name: "Tom Clancy's Rainbow Six Siege"
+store: steam
+steam_appid: 359550
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+tags:
+  - online
+  - pvp
+anti_cheat: battleye
+multiplayer_notes: "BattlEye blocks Wine. Ranked and casual online modes will not work."
+notes: "Blocked by BattlEye. Listed so the launcher warns before you try."

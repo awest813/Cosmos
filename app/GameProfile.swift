@@ -9,6 +9,9 @@ struct GameProfile: Identifiable, Hashable {
     let status: String
     let recommendedBackend: String
     let notes: String
+    let tags: [String]
+    let antiCheat: String
+    let multiplayerNotes: String
     let dependencyCount: Int
     let fixCount: Int
     let fileURL: URL
@@ -21,6 +24,16 @@ struct GameProfile: Identifiable, Hashable {
 
     var hasNotes: Bool {
         !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var hasMultiplayerInfo: Bool {
+        !tags.isEmpty
+            || !antiCheat.isEmpty
+            || !multiplayerNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var multiplayerTagLabel: String {
+        tags.isEmpty ? "" : tags.joined(separator: " · ")
     }
 }
 
@@ -79,6 +92,9 @@ enum GameProfileStore {
         let status = scalar(in: text, key: "status") ?? "playable"
         let backend = scalar(in: text, key: "recommended_backend") ?? "recommended"
         let notes = scalar(in: text, key: "notes") ?? ""
+        let tags = listItems(in: text, section: "tags")
+        let antiCheat = scalar(in: text, key: "anti_cheat") ?? ""
+        let multiplayerNotes = scalar(in: text, key: "multiplayer_notes") ?? ""
         let deps = listItems(in: text, section: "dependencies")
         let fixes = listItems(in: text, section: "fixes")
         let relative = CosmosPaths.profileCommandPath(for: url) ?? url.path
@@ -90,6 +106,9 @@ enum GameProfileStore {
             status: status,
             recommendedBackend: backend,
             notes: notes,
+            tags: tags,
+            antiCheat: antiCheat,
+            multiplayerNotes: multiplayerNotes,
             dependencyCount: deps.count,
             fixCount: fixes.count,
             fileURL: url,

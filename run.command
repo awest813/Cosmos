@@ -1169,6 +1169,9 @@ launch_steam() {
   if [[ -n "${WINE_VIRTUAL_DESKTOP:-}" && "${WINE_VIRTUAL_DESKTOP}" != "0" ]]; then
     echo "Virtual desktop: ${WINE_VIRTUAL_DESKTOP_NAME:-cosmos-steam} @ ${WINE_VIRTUAL_DESKTOP}"
   fi
+  if [[ "${WINEESYNC:-}" == "1" ]]; then
+    echo "Thread sync: esync enabled (WINEESYNC=1)"
+  fi
   if [[ -n "${STEAM_GAME_ID:-}" ]]; then
     compat_preflight "${STEAM_GAME_ID}"
     echo "Launching Steam game ${STEAM_GAME_ID}..."

@@ -10,4 +10,10 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2010
+tags:
+  - co-op
+  - online
+  - lan
+anti_cheat: none
+multiplayer_notes: "Co-op and LAN work out of the box; use in-game lobby or direct connect."
 notes: "Classic Source engine title. Runs reliably on DXMT with win10 reported version."

@@ -8,6 +8,15 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+  esync: true
 dependencies:
   - vcrun2010
+fixes:
+  - fix_steam_networking
+tags:
+  - co-op
+  - online
+  - lan
+anti_cheat: none
+multiplayer_notes: "Steam friends and LAN work; apply fix_steam_networking if socket errors appear in logs."
 notes: "Install vcrun2010 via Apply Profile if the game fails to start. XNA/Mono runtime is bundled with the game."

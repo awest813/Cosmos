@@ -1149,6 +1149,11 @@ struct ContentView: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+                if !profile.multiplayerTagLabel.isEmpty {
+                    Text(profile.multiplayerTagLabel)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(Color.cosmosBright.opacity(0.9))
+                }
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
@@ -1166,6 +1171,18 @@ struct ContentView: View {
         }
         .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
+        .accessibilityLabel(curatedProfileAccessibilityLabel(profile, isSelected: isSelected))
+    }
+
+    private func curatedProfileAccessibilityLabel(_ profile: GameProfile, isSelected: Bool) -> String {
+        var parts = [profile.name, profile.statusLabel, profile.recommendedBackend]
+        if !profile.multiplayerTagLabel.isEmpty {
+            parts.append(profile.multiplayerTagLabel)
+        }
+        if isSelected {
+            parts.append("selected")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func curatedProfileControls(_ profile: GameProfile) -> some View {
@@ -1184,6 +1201,28 @@ struct ContentView: View {
                     title: "Recipes",
                     value: "\(profile.dependencyCount) dependencies, \(profile.fixCount) fixes"
                 )
+            }
+            if profile.hasMultiplayerInfo {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Multiplayer")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    if !profile.multiplayerTagLabel.isEmpty {
+                        Text(profile.multiplayerTagLabel)
+                            .font(.subheadline.weight(.medium))
+                    }
+                    if !profile.antiCheat.isEmpty, profile.antiCheat != "none" {
+                        Text("Anti-cheat: \(profile.antiCheat)")
+                            .font(.subheadline)
+                            .foregroundStyle(profile.status == "blocked" ? .red : .primary)
+                    }
+                    if !profile.multiplayerNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(profile.multiplayerNotes)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
             if profile.hasNotes {
                 VStack(alignment: .leading, spacing: 4) {

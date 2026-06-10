@@ -1,0 +1,16 @@
+id: pubg
+name: "PUBG: BATTLEGROUNDS"
+store: steam
+steam_appid: 578080
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+tags:
+  - online
+  - pvp
+anti_cheat: battleye
+multiplayer_notes: "BattlEye blocks Wine. Online play is not supported on macOS through Cosmos."
+notes: "Blocked by BattlEye anti-cheat. Listed for pre-launch warning only."

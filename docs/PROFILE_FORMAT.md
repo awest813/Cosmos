@@ -46,6 +46,11 @@ dependencies:                  # winetricks-style; resolved against recipes/depe
 fixes:                         # resolved against recipes/fixes/
   - disable_intro_video
   - force_borderless
+tags:                          # optional multiplayer / play-mode labels
+  - co-op
+  - online
+anti_cheat: none               # none | eac | battleye | vac | custom
+multiplayer_notes: "Friends join via Steam; overlay is disabled in Cosmos."
 notes: "Use launcher first, then set resolution."
 ```
 
@@ -67,6 +72,9 @@ notes: "Use launcher first, then set resolution."
 | `settings.env` | no | Map of extra environment variables. |
 | `dependencies` | no | List of dependency recipe IDs from `recipes/dependencies/`. |
 | `fixes` | no | List of fix recipe IDs from `recipes/fixes/`. |
+| `tags` | no | Play-mode labels: `co-op`, `online`, `lan`, `pvp`. Shown in the dashboard. |
+| `anti_cheat` | no | `none`, `eac`, `battleye`, `vac`, or `custom`. Use with `status: blocked` for unsupported titles. |
+| `multiplayer_notes` | no | Short online/co-op guidance (firewall, invites, LAN). |
 | `notes` | no | Free-text guidance shown in the UI. |
 
 ### Status values
@@ -80,9 +88,11 @@ Matches the CosmosDB rating scale:
 - `broken` — does not work
 - `blocked` — anti-cheat / DRM / AVX / etc.
 
+For multiplayer metadata and online-play guidance, see [MULTIPLAYER.md](MULTIPLAYER.md).
+
 ## Validation
 
-Run `./profile.command validate` to lint every profile (or
+Run `./profile.command validate` to lint every shipped profile (or
 `./profile.command validate <path-or-id>` for one). It checks that the required
 fields are present, that `store`, `status`, `recommended_backend`, and
 `settings.windows_version` use allowed values, that `store: steam` profiles have

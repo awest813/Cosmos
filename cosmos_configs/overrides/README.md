@@ -45,8 +45,12 @@ Rules:
 
 Recognized runtime variables include `COSMOS_BACKEND` (`recommended` | `dxmt` |
 `d3dmetal` | `dxvk` | `wined3d`), `DXMT_CONFIG`, `STEAM_GAME_ARGS`,
-`WINE_RETINA_MODE`, `WINE_MOUSE_WARP_OVERRIDE`, `GPTK_PATH`, `DXVK_PATH`, and any
+`WINE_RETINA_MODE`, `WINEESYNC` (thread sync for netcode-heavy titles),
+`WINEDLLOVERRIDES`, `WINE_MOUSE_WARP_OVERRIDE`, `GPTK_PATH`, `DXVK_PATH`, and any
 other environment variable honored by `run.command`.
+
+Curated profiles with `settings.esync: true` export `WINEESYNC=1` automatically when
+you run `./profile.command apply`.
 
 Files in this folder are not committed by default (other than this README and the
 `*.example`); they are your local machine's settings.

@@ -8,4 +8,9 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+tags:
+  - online
+  - pvp
+anti_cheat: custom
+multiplayer_notes: "Do not attempt online play — Bungie anti-cheat detects Wine and may ban accounts."
 notes: "Blocked by Bungie's anti-cheat. Destiny 2 detects Wine/Proton and bans accounts that play this way, so there is no supported path to run it on macOS through Cosmos. Listed here so the launcher warns before you try."

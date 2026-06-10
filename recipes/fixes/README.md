@@ -24,6 +24,7 @@ include `SOURCE=winemactricks:<id>` and may set `DLL_OVERRIDE` directly (no env 
 ./repair.command list-fixes
 ./repair.command apply-fix grounded-mscoree-fix
 ./repair.command apply-fix kill_wine
+./repair.command apply-fix ddraw-override
 DLL_OVERRIDE="ddraw=n,b" ./repair.command apply-fix dll_override
 STEAM_APPID=22380 ./repair.command apply-fix disable_intro_video
 COSMOS_FORCE=1 ./repair.command apply-fix rebuild_prefix
@@ -51,6 +52,9 @@ COSMOS_BACKEND=wined3d ./repair.command apply-fix set_backend
 | `fix_steam_ssl` | Copy macOS CA bundle into prefix (`cacert.pem`) |
 | `grounded-mscoree-fix` | Set `mscoree=n` (winemactricks-json; Unity/.NET black screen) |
 | `apply_reg_commands` | Run pipe-separated `wine reg …` lines from `REG_COMMANDS` |
+| `fix_steam_networking` | `steamnetworkingsockets` + `winmm` DLL overrides for online play |
+| `ddraw-override` | Preset `ddraw=n,b` (DirectDraw / legacy fullscreen) |
+| `clear_steam_download_cache` | Remove stuck `downloading/` and `depotcache/` folders |
 
 ### Registry diff → recipe (wineregdiff)
 

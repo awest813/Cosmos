@@ -13,6 +13,7 @@ dependencies:
   - d3dx9
 fixes:
   - disable_retina
+  - disable_intro_video
 notes: >
   Same Creation Engine family as Skyrim SE. Disable intro videos in the launcher
   if startup hangs. Protonfix reference (GPL): Bethesda titles may swap the game

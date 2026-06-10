@@ -1,0 +1,6 @@
+TYPE=fix
+ID=ddraw-override
+DESCRIPTION=Set ddraw=n,b (DirectDraw / legacy fullscreen fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=ddraw=n,b

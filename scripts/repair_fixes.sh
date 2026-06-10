@@ -211,6 +211,25 @@ repair_clear_steam_caches() {
   (( removed )) || echo "No Steam cache directories found to clear."
 }
 
+repair_clear_steam_download_cache() {
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local removed=0 dir
+  for dir in \
+    "${pfx}/drive_c/Program Files (x86)/Steam/steamapps/downloading" \
+    "${pfx}/drive_c/Program Files/Steam/steamapps/downloading" \
+    "${pfx}/drive_c/Program Files (x86)/Steam/depotcache" \
+    "${pfx}/drive_c/Program Files/Steam/depotcache" \
+    "${pfx}/drive_c/Program Files (x86)/Steam/appcache/stats" \
+    "${pfx}/drive_c/Program Files/Steam/appcache/stats"; do
+    if [[ -d "${dir}" ]]; then
+      rm -rf "${dir}"
+      echo "Removed ${dir}"
+      removed=$((removed + 1))
+    fi
+  done
+  (( removed )) || echo "No Steam download/depot cache directories found to clear."
+}
+
 repair_set_windows_version() {
   [[ -n "${WINDOWS_VERSION:-}" ]] || {
     echo "Set WINDOWS_VERSION (winxp|win7|win8|win10|win11) before applying this fix."

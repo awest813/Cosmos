@@ -12,6 +12,7 @@ dependencies:
   - vcrun2015
 fixes:
   - disable_retina
+  - disable_intro_video
 notes: >
   Creation Engine D3D11 game. Use the in-game launcher to set resolution.
   Protonfix reference (GPL): may swap SkyrimSELauncher.exe for skse64_loader.exe

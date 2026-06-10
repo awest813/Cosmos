@@ -1,0 +1,5 @@
+TYPE=fix
+ID=clear_steam_download_cache
+DESCRIPTION=Remove stuck Steam download folders and depot cache under the prefix
+ACTION=script
+SCRIPT=clear_steam_download_cache

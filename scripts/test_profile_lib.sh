@@ -38,9 +38,18 @@ profile_export_override_to "${PROFILE}" "250900" "${tmpdir}/250900.env"
 grep -q 'COSMOS_BACKEND=dxmt' "${tmpdir}/250900.env" || fail "override missing backend"
 grep -q 'DXMT_CONFIG=' "${tmpdir}/250900.env" || fail "override missing DXMT_CONFIG"
 
+profile_export_override_to "${PROFILE}" "250900" "${tmpdir}/250900-esync.env"
+grep -q 'WINEESYNC=1' "${tmpdir}/250900-esync.env" || fail "override missing WINEESYNC for esync profile"
+
+tags="$(profile_list_tags "${ROOT}/profiles/steam/steam-105600-terraria.yaml" | tr '\n' ' ')"
+[[ "${tags}" == *"co-op"* && "${tags}" == *"online"* ]] || fail "expected co-op/online tags on terraria"
+
+profile_has_multiplayer_tag "${ROOT}/profiles/steam/steam-105600-terraria.yaml" \
+  || fail "terraria should have multiplayer tag"
+
 count="$(profile_shipped_paths "${ROOT}/profiles" | wc -l | tr -d ' ')"
 (( count >= 20 )) || fail "expected at least 20 shipped profiles, found ${count}"
+
 listed="$(profile_shipped_paths "${ROOT}/profiles" | grep -c '/drafts/' || true)"
 (( listed == 0 )) || fail "profile_shipped_paths must not include drafts/"
-
 printf 'OK: profile_lib tests passed (%s shipped profiles)\n' "${count}"

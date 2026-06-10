@@ -10,4 +10,11 @@ settings:
   windows_version: win10
 dependencies:
   - vcrun2015
+fixes:
+  - fix_steam_networking
+tags:
+  - co-op
+  - online
+anti_cheat: none
+multiplayer_notes: "Host/join via lobby; apply fix_steam_networking if friends cannot connect. Voice chat uses in-game systems."
 notes: "Unity title. Install vcrun2015 if you see a missing-runtime error. Online play requires stable network; expect occasional shader stutter on first load."
