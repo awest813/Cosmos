@@ -42,7 +42,7 @@ struct StoreImportSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
             Text(request.title)
                 .font(.title2.weight(.bold))
                 .foregroundStyle(Color.cosmosPrimary)
