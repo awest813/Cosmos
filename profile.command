@@ -54,6 +54,8 @@ Commands:
                                 and check referenced recipes exist.
   export-override <path> <appid> Write cosmos_configs/overrides/<appid>.env from profile.
   apply <path>                  export-override + install-deps + apply-fixes from profile.
+  apply-installed [--dry-run] [--include-blocked]
+                                Apply shipped profiles for each installed Steam game.
   for-appid <appid> <cmd...>    Run show|apply using the profile matching steam_appid.
   port-hint <steam_appid>       Print umu-protonfixes porting hints (reference only).
   seed-deps [--dry-run] [--appid <id>]
@@ -325,6 +327,54 @@ cmd_anticheat_audit() {
   python3 "${py}" --repo "${SCRIPT_DIR}"
 }
 
+cmd_apply_installed() {
+  local dry=0 include_blocked=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) dry=1; shift ;;
+      --include-blocked) include_blocked=1; shift ;;
+      *) die "Usage: profile.command apply-installed [--dry-run] [--include-blocked]" ;;
+    esac
+  done
+
+  local detect="${SCRIPT_DIR}/detect_steam_games.command"
+  [[ -x "${detect}" ]] || die "Missing ${detect}"
+
+  local -a appids=()
+  local line appid
+  while IFS= read -r line; do
+    [[ "${line}" =~ ^[[:space:]]*([0-9]+)[[:space:]] ]] || continue
+    appid="${BASH_REMATCH[1]}"
+    appids+=("${appid}")
+  done < <("${detect}" --list 2>/dev/null || true)
+
+  ((${#appids[@]} > 0)) || die "No installed Steam games detected. Install a Windows game in Steam, then run detect_steam_games.command."
+
+  local applied=0 skipped=0 no_profile=0 pf status name
+  for appid in "${appids[@]}"; do
+    pf="$(profile_find_by_appid "${PROFILES_DIR}" "${appid}" 2>/dev/null)" || {
+      no_profile=$((no_profile + 1))
+      continue
+    }
+    status="$(profile_get_scalar "${pf}" status)"
+    name="$(profile_get_scalar "${pf}" name)"
+    if [[ "${include_blocked}" -eq 0 && "${status}" == "blocked" ]]; then
+      log "Skip ${appid} ${name:-?} (blocked profile)"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    if (( dry )); then
+      log "Would apply ${pf##*/} (${name:-?})"
+    else
+      log "Applying ${pf##*/} (${name:-?})"
+      cmd_apply "${pf}" || true
+    fi
+    applied=$((applied + 1))
+  done
+
+  log "Batch apply complete: ${applied} curated profile(s)${dry:+ (dry run)}; ${skipped} blocked skipped; ${no_profile} without a shipped profile."
+}
+
 main() {
   local cmd="${1:-}"; shift || true
   case "${cmd}" in
@@ -333,6 +383,7 @@ main() {
     validate) cmd_validate "${1:-}" ;;
     export-override) cmd_export_override "${1:-}" "${2:-}" ;;
     apply) cmd_apply "${1:-}" ;;
+    apply-installed) cmd_apply_installed "$@" ;;
     for-appid)
       local appid="${1:-}"; shift
       local pf

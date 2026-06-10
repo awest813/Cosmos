@@ -70,10 +70,18 @@ enum CommandBannerKind {
     }
 }
 
+struct CommandBannerAction: Identifiable {
+    let id = UUID()
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+}
+
 struct CommandBanner: Identifiable {
     let id = UUID()
     let kind: CommandBannerKind
     let message: String
+    var actions: [CommandBannerAction] = []
 }
 
 // MARK: - Interaction styling
@@ -214,13 +222,27 @@ struct CommandBannerView: View {
     var onDismiss: () -> Void
 
     var body: some View {
-        CosmosNoticeBanner(
-            tint: banner.kind.tint,
-            systemImage: banner.kind.icon,
-            title: nil,
-            message: banner.message,
-            onDismiss: onDismiss
-        )
+        VStack(alignment: .leading, spacing: CosmosSpacing.sectionInner) {
+            CosmosNoticeBanner(
+                tint: banner.kind.tint,
+                systemImage: banner.kind.icon,
+                title: nil,
+                message: banner.message,
+                onDismiss: onDismiss
+            )
+            if !banner.actions.isEmpty {
+                HStack(spacing: 10) {
+                    ForEach(banner.actions) { item in
+                        Button {
+                            item.action()
+                        } label: {
+                            Label(item.title, systemImage: item.systemImage)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+        }
     }
 }
 

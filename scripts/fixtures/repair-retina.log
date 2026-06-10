@@ -1,0 +1,3 @@
+wine: RetinaMode enabled for display
+err: hidpi scaling mismatch in window manager
+HiDPI framebuffer size does not match backing store

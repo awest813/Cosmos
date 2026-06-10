@@ -1,0 +1,3 @@
+game.exe: playing intro bink video
+err:video Failed to decode FMV sequence during startup
+wine: intro cinematic stuck at black screen
