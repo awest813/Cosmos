@@ -10,13 +10,15 @@ Metal-based D3D translation backend, per-game profiles, store integration
 
 ## Where we are today
 
-This repository has completed milestone **0.2 (Game launchers)**. It ships a set
-of `.command` bash scripts plus a SwiftUI `.app` dashboard that downloads Wine
-(Gcenx builds), creates a Steam Wine prefix, installs Steam, enables DXMT (or an
-opt-in Apple GPTK / D3DMetal path), auto-detects installed Steam games, and
-generates per-game `.app` bundles (with icons from Steam artwork) from
-`cosmos_configs/*.conf`. The dashboard can detect and build those launchers in
-one click, routing privileged steps through Terminal.
+This repository has completed milestone **0.7 (CosmosDB + runtime manifest)**.
+It ships `.command` bash scripts plus a SwiftUI `.app` dashboard that downloads
+Wine (Gcenx builds), creates a Steam Wine prefix, installs Steam, enables DXMT
+(or an opt-in Apple GPTK / D3DMetal path), auto-detects installed Steam games,
+and generates per-game `.app` bundles (with icons from Steam artwork) from
+`cosmos_configs/*.conf`. The dashboard merges detected Steam configs into the
+sidebar, launches games via executable path or Steam `applaunch`, surfaces
+parsed command errors with repair shortcuts, and supports **Apple Silicon and
+Intel** Macs — routing privileged steps through Terminal when `sudo` is required.
 
 In Cosmos terms, the existing code already covers slices of the **Runtime**,
 **Graphics**, **Profile**, and **Launcher** layers (see
@@ -58,7 +60,7 @@ success criterion — if that sentence isn't true, the release isn't done.
   `app/cosmos/CosmosLauncher`, `cosmos_configs/`, `cosmos.env`), app bundle names
   (`Cosmos Apps`, `Steam (Cosmos).app`), bundle IDs (`com.cosmos.*`), and
   `COSMOS_*` env vars with `MERLOT_*` back-compat aliases
-- [x] Apple Silicon / Intel detection + Rosetta check
+- [x] Apple Silicon + Intel Mac support; Rosetta check on arm64 only
 - [x] macOS version check (`require_macos_version`, min major via `COSMOS_MIN_MACOS_MAJOR`)
 - [x] Wine runtime download/selection (`WINE_VERSION`)
 - [x] Default Steam bottle creation + Steam install + "Launch Steam"

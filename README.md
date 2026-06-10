@@ -8,7 +8,7 @@ Cosmos is a macOS game compatibility layer: it downloads Wine, sets up a Steam b
 |---|---|
 | **Platform** | Apple Silicon (M1–M4) and Intel Macs (x86_64) |
 | **macOS** | 11+ for scripts · **13+** for the desktop app (15 Sequoia tested) |
-| **Status** | Milestone **0.7** — **105** curated profiles, repair engine, CosmosDB, multiplayer docs ([MULTIPLAYER.md](docs/MULTIPLAYER.md)); Phases A–E of [user gaps plan](docs/PLAN.md) complete |
+| **Status** | Milestone **0.7.1** — **105** curated profiles, repair engine, CosmosDB, Intel + Apple Silicon, parsed error recovery; Phases A–E of [user gaps plan](docs/PLAN.md) complete |
 | **Developers** | See [README_DEV.md](README_DEV.md) for scripts, env vars, and architecture |
 
 > **Upgrading from Merlot?** Your Wine prefix and saved profiles are reused. `MERLOT_*` environment variables still work; `uninstall.command` also removes the legacy `Merlot Apps` folder.
@@ -108,18 +108,20 @@ After Steam starts, you can close Terminal — Steam runs detached by default (`
 
 ## The dashboard
 
-Cosmos.app is a single-window launcher with a sidebar (saved games) and a main panel organized into sections (**⌘1–4** to switch after setup):
+Cosmos.app is a single-window launcher with a sidebar (saved games) and a main panel organized into sections (**⌘1–4** to switch once Steam is ready):
 
 | Section | What you can do |
 |---------|-----------------|
 | **Launch** | Quick Launch (Steam + selected profile), Steam Wine settings (backend, Windows version, Retina) |
 | **Games** | Curated YAML profiles, compatibility lookup & reports, repair & dependencies |
-| **Tools** | Setup & maintenance (detect, verify, logs, reset), non-Steam game import |
+| **Tools** | Maintenance (detect, build launchers, logs, reset), non-Steam game import |
 | **Bottles** | Create isolated prefixes, switch backends, launch Steam per bottle |
 
 **Sidebar** — search and select saved game profiles; context menu to launch, reveal config, or copy executable path.
 
-**Output panel** — live log for embedded commands; copy/clear; banners for success, failure, and Terminal handoff.
+**Output panel** — live log for embedded commands; copy/clear; banners with parsed errors and **Apply Suggested** / **Diagnose** shortcuts on launch failure.
+
+**Launch** — saved profiles launch via direct `.exe` path or Steam `applaunch` when only a Steam App ID is configured.
 
 Privileged steps (install, prepare bottle, build launchers, uninstall) open **Terminal.app** because they may need `sudo` or interactive prompts.
 
@@ -269,7 +271,9 @@ Guide: [docs/STORE_IMPORT.md](docs/STORE_IMPORT.md).
 | Problem | What to try |
 |---------|-------------|
 | Steam won't start | Dashboard → **Open Logs**, or `~/Library/Application Support/Cosmos/logs/steam-launch.log`. Manual setup: [docs/STEAM_SETUP.md](docs/STEAM_SETUP.md) |
-| Game crashes | Switch backend (Bottles or Steam Wine settings); run **Diagnose Logs** + **Apply Suggested** |
+| Game crashes | Failure banner may offer **Apply Suggested**; or **Tools → Games → Diagnose Logs** |
+| Command shows “exit 1” | Scroll the output panel — Cosmos surfaces `Error:` lines from scripts when present |
+| Setup stuck after Terminal | Click **Refresh** (⌘R) or run `./run.command --status` |
 | macOS blocks scripts/app | Right-click → **Open** → confirm (unsigned dev build) |
 | Rosetta prompt | Allow — Cosmos needs Rosetta 2 on Apple Silicon |
 | Empty game list | Install a Windows game in Steam, then **Build Game Launchers** |

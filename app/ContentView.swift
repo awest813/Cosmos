@@ -1775,7 +1775,8 @@ struct ContentView: View {
                     runCommand(
                         script: "repair.command",
                         arguments: ["apply-suggested"],
-                        environment: repairEnvironment()
+                        environment: repairEnvironment(),
+                        intent: .diagnose
                     )
                 } label: {
                     Label("Apply Suggested", systemImage: "wand.and.stars")
@@ -3050,7 +3051,15 @@ struct ContentView: View {
             """
             showBanner(
                 kind: .info,
-                message: "Running in Terminal — complete prompts there, then refresh status (⌘R)."
+                message: "Running in Terminal — complete prompts there, then refresh status (⌘R).",
+                actions: [
+                    CommandBannerAction(title: "Check Status", systemImage: "list.bullet.rectangle") {
+                        runCommand(script: "run.command", arguments: ["--status"])
+                    },
+                    CommandBannerAction(title: "Open Logs", systemImage: "doc.text.magnifyingglass") {
+                        openLatestLogs()
+                    },
+                ]
             )
         } catch {
             let message = "Could not open Terminal: \(error.localizedDescription)"
@@ -3072,7 +3081,8 @@ struct ContentView: View {
         case .gameLaunch:
             return "Launch finished. If the game or Steam did not appear, open Logs or run Diagnose."
         case .diagnose:
-            return CommandOutputParser.diagnoseSummary(from: output)
+            return CommandOutputParser.applySuggestedSummary(from: output)
+                ?? CommandOutputParser.diagnoseSummary(from: output)
                 ?? "Diagnosis complete — see output below."
         case .setup:
             return "Setup step finished successfully."
