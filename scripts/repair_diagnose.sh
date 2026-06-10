@@ -207,6 +207,12 @@ repair_diagnose_scan_log() {
   Try: ./repair.command apply-fix clear_steam_caches"
   fi
 
+  if printf '%s' "${blob}" | grep -Eiq 'download.*stuck|depot.*fail|content server|Error downloading|disk write error'; then
+    repair_diagnose_suggest fix clear_steam_download_cache \
+      "[steam] Steam download or depot cache issues detected
+  Try: ./repair.command apply-fix clear_steam_download_cache"
+  fi
+
   if printf '%s' "${blob}" | grep -Eiq 'SingletonLock|single.instance|already running|--silent'; then
     repair_diagnose_suggest fix clear_steam_caches \
       "[steam] Steam may be stuck on Chromium single-instance lock
@@ -244,9 +250,23 @@ repair_diagnose_scan_log() {
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'ddraw|DirectDraw'; then
-    repair_diagnose_note fix-ddraw \
+    repair_diagnose_suggest fix ddraw-override \
       "[graphics] DirectDraw / ddraw issues detected
-  Try: DLL_OVERRIDE='ddraw=n,b' ./repair.command apply-fix dll_override"
+  Try: ./repair.command apply-fix ddraw-override"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'steamnetworkingsockets|SteamNetworking|failed to bind socket|WSAStartup|UDP.*fail|connection timed out|NAT traversal'; then
+    repair_diagnose_suggest fix fix_steam_networking \
+      "[multiplayer] Steam networking / socket errors detected
+  Try: ./repair.command apply-fix fix_steam_networking"
+    repair_diagnose_note multiplayer-firewall \
+      "[multiplayer] If friends cannot connect, check macOS firewall and router port forwarding"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'EasyAntiCheat|BattlEye|anti-cheat|anticheat|Ricochet|VAC.*ban|cannot run under Wine|cannot run under Proton'; then
+    repair_diagnose_note multiplayer-anticheat \
+      "[multiplayer] Anti-cheat blocked this title on macOS/Wine
+  Tip: check the curated profile status (blocked) before retrying — account bans are possible"
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'GPTK_PATH|Game Porting Toolkit|d3dmetal.*not|Could not find d3d11\.dll under GPTK'; then
@@ -368,7 +388,7 @@ repair_suggestion_is_auto_applicable() {
   local token="$1"
   case "${token}" in
     dep:*) return 0 ;;
-    fix:kill_wine|fix:clear_steam_caches|fix:disable_retina|fix:fix_steam_ssl|fix:install_steamwebhelper_wrapper|fix:reinstall_steam|fix:seed_japanese_fonts|fix:grounded-mscoree-fix)
+    fix:kill_wine|fix:clear_steam_caches|fix:clear_steam_download_cache|fix:disable_retina|fix:fix_steam_ssl|fix:fix_steam_networking|fix:ddraw-override|fix:install_steamwebhelper_wrapper|fix:reinstall_steam|fix:seed_japanese_fonts|fix:grounded-mscoree-fix)
       return 0
       ;;
     *) return 1 ;;

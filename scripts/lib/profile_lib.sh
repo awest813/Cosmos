@@ -71,6 +71,22 @@ profile_list_fixes() {
   awk '/^fixes:/{flag=1;next} /^[a-zA-Z_]/ && flag{exit} flag && /^  - /{sub(/^  - /,""); gsub(/["'\'']/, ""); print}' "${file}"
 }
 
+profile_list_tags() {
+  local file="$1"
+  awk '/^tags:/{flag=1;next} /^[a-zA-Z_]/ && flag{exit} flag && /^  - /{sub(/^  - /,""); gsub(/["'\'']/, ""); print}' "${file}"
+}
+
+profile_has_multiplayer_tag() {
+  local file="$1" tag
+  while IFS= read -r tag; do
+    [[ -n "${tag}" ]] || continue
+    case "${tag}" in
+      co-op|online|lan|pvp) return 0 ;;
+    esac
+  done < <(profile_list_tags "${file}")
+  return 1
+}
+
 profile_find_by_appid() {
   local root="$1" appid="$2"
   local f
@@ -146,17 +162,19 @@ profile_export_override_to() {
   appid="${appid:-$(profile_get_scalar "${file}" steam_appid)}"
   [[ "${appid}" =~ ^[0-9]+$ ]] || return 1
   mkdir -p "$(dirname -- "${out}")"
-  local backend windows retina
+  local backend windows retina esync
   backend="$(profile_get_scalar "${file}" recommended_backend)"
   windows="$(profile_get_scalar "${file}" settings.windows_version)"
   retina="$(profile_get_scalar "${file}" settings.retina)"
+  esync="$(profile_get_scalar "${file}" settings.esync)"
   {
     printf '# Generated from %s\n' "${file}"
     [[ -n "${backend}" ]] && printf 'COSMOS_BACKEND=%s\n' "${backend}"
     [[ -n "${windows}" ]] && printf 'WINDOWS_VERSION=%s\n' "${windows}"
     [[ "${retina}" == "1" || "${retina}" == "true" ]] && printf 'WINE_RETINA_MODE=1\n'
+    [[ "${esync}" == "1" || "${esync}" == "true" ]] && printf 'WINEESYNC=1\n'
     local k v
-    for k in DXMT_CONFIG STEAM_GAME_ARGS; do
+    for k in DXMT_CONFIG STEAM_GAME_ARGS WINEDLLOVERRIDES; do
       v="$(profile_get_env_line "${file}" "${k}")"
       [[ -n "${v}" ]] && printf '%s=%s\n' "${k}" "${v}"
     done

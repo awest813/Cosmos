@@ -1,0 +1,6 @@
+TYPE=fix
+ID=fix_steam_networking
+DESCRIPTION=Apply common Steam Networking / winmm DLL overrides for online play
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=steamnetworkingsockets=n,b;winmm=n,b

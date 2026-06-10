@@ -124,8 +124,15 @@ cmd_show() {
   printf '  recommended_backend: %s\n' "$(profile_get_scalar "${file}" recommended_backend)"
   printf '  windows_version:     %s\n' "$(profile_get_scalar "${file}" settings.windows_version)"
   printf '  retina:              %s\n' "$(profile_get_scalar "${file}" settings.retina)"
+  printf '  esync:               %s\n' "$(profile_get_scalar "${file}" settings.esync)"
+  local tags; tags="$(profile_list_tags "${file}" | tr '\n' ' ')"
+  [[ -n "${tags}" ]] && printf '  tags:                %s\n' "${tags}"
+  local anti_cheat; anti_cheat="$(profile_get_scalar "${file}" anti_cheat)"
+  [[ -n "${anti_cheat}" ]] && printf '  anti_cheat:          %s\n' "${anti_cheat}"
+  local mp_notes; mp_notes="$(profile_get_scalar "${file}" multiplayer_notes)"
+  [[ -n "${mp_notes}" ]] && printf '  multiplayer_notes:   %s\n' "${mp_notes}"
   echo "  settings.env:"
-  local env_keys="DXMT_CONFIG STEAM_GAME_ARGS COSMOS_BACKEND"
+  local env_keys="DXMT_CONFIG STEAM_GAME_ARGS COSMOS_BACKEND WINEDLLOVERRIDES"
   local k v
   for k in ${env_keys}; do
     v="$(profile_get_env_line "${file}" "${k}")"
@@ -246,6 +253,18 @@ validate_one() {
     [[ -f "${SCRIPT_DIR}/recipes/fixes/${fix}.recipe" ]] \
       || err "unknown fix recipe: ${fix}"
   done < <(profile_list_fixes "${file}")
+
+  local tag
+  while IFS= read -r tag; do
+    [[ -n "${tag}" ]] || continue
+    in_set "${tag}" co-op online lan pvp \
+      || err "invalid tag: ${tag} (allowed: co-op, online, lan, pvp)"
+  done < <(profile_list_tags "${file}")
+
+  local anti_cheat; anti_cheat="$(profile_get_scalar "${file}" anti_cheat)"
+  if [[ -n "${anti_cheat}" ]] && ! in_set "${anti_cheat}" none eac battleye vac custom; then
+    err "invalid anti_cheat: ${anti_cheat}"
+  fi
 
   return "${errs}"
 }

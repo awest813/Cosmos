@@ -8,6 +8,7 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+  esync: true
   env:
     DXMT_CONFIG: "d3d11.preferredMaxFrameRate=60;"
 notes: "Frame rate capped to 60 via DXMT. Migrated from the original Merlot preset."

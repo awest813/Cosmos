@@ -46,6 +46,11 @@ dependencies:                  # winetricks-style; resolved against recipes/depe
 fixes:                         # resolved against recipes/fixes/
   - disable_intro_video
   - force_borderless
+tags:                          # optional multiplayer / play-mode labels
+  - co-op
+  - online
+anti_cheat: none               # none | eac | battleye | vac | custom
+multiplayer_notes: "Friends join via Steam; overlay is disabled in Cosmos."
 notes: "Use launcher first, then set resolution."
 ```
 
@@ -67,6 +72,9 @@ notes: "Use launcher first, then set resolution."
 | `settings.env` | no | Map of extra environment variables. |
 | `dependencies` | no | List of dependency recipe IDs from `recipes/dependencies/`. |
 | `fixes` | no | List of fix recipe IDs from `recipes/fixes/`. |
+| `tags` | no | Play-mode labels: `co-op`, `online`, `lan`, `pvp`. Shown in the dashboard. |
+| `anti_cheat` | no | `none`, `eac`, `battleye`, `vac`, or `custom`. Use with `status: blocked` for unsupported titles. |
+| `multiplayer_notes` | no | Short online/co-op guidance (firewall, invites, LAN). |
 | `notes` | no | Free-text guidance shown in the UI. |
 
 ### Status values

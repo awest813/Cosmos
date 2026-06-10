@@ -53,4 +53,15 @@ repair_diagnose_umu_hints
 [[ " ${DIAG_SUGGESTIONS[*]} " == *" dep:vcrun2019 "* ]] \
   || fail "expected vcrun2019 when not in profile"
 
+repair_diagnose_reset
+repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-networking.log"
+[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:fix_steam_networking "* ]] \
+  || fail "expected fix:fix_steam_networking from networking fixture"
+
+repair_diagnose_reset
+repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-eac.log"
+(( ${#DIAG_SUGGESTIONS[@]} == 0 )) || fail "anti-cheat fixture should not suggest auto fixes"
+repair_suggestion_is_auto_applicable fix:fix_steam_networking || fail "fix_steam_networking should be auto-applicable"
+repair_suggestion_is_auto_applicable fix:ddraw-override || fail "ddraw-override should be auto-applicable"
+
 printf 'OK: repair diagnose tests passed\n'

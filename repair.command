@@ -114,6 +114,7 @@ cmd_apply_fix() {
   case "${RECIPE_SCRIPT}" in
     kill_wine) repair_kill_wine ;;
     clear_steam_caches) repair_clear_steam_caches ;;
+    clear_steam_download_cache) repair_clear_steam_download_cache ;;
     set_windows_version) repair_set_windows_version ;;
     disable_retina) repair_disable_retina ;;
     dll_override) repair_dll_override ;;

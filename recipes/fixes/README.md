@@ -51,6 +51,9 @@ COSMOS_BACKEND=wined3d ./repair.command apply-fix set_backend
 | `fix_steam_ssl` | Copy macOS CA bundle into prefix (`cacert.pem`) |
 | `grounded-mscoree-fix` | Set `mscoree=n` (winemactricks-json; Unity/.NET black screen) |
 | `apply_reg_commands` | Run pipe-separated `wine reg …` lines from `REG_COMMANDS` |
+| `fix_steam_networking` | `steamnetworkingsockets` + `winmm` DLL overrides for online play |
+| `ddraw-override` | Preset `ddraw=n,b` (DirectDraw / legacy fullscreen) |
+| `clear_steam_download_cache` | Remove stuck `downloading/` and `depotcache/` folders |
 
 ### Registry diff → recipe (wineregdiff)
 

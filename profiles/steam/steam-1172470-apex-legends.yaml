@@ -1,0 +1,16 @@
+id: apex_legends
+name: "Apex Legends"
+store: steam
+steam_appid: 1172470
+status: blocked
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+tags:
+  - online
+  - pvp
+anti_cheat: eac
+multiplayer_notes: "Easy Anti-Cheat blocks Wine/Proton. Do not launch — account bans are possible."
+notes: "Blocked by Easy Anti-Cheat. Listed so Cosmos warns before launch."
