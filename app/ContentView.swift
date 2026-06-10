@@ -2,11 +2,7 @@ import Foundation
 import AppKit
 import SwiftUI
 
-private enum CommandIntent: Equatable {
-    case general
-    case diagnose
-    case gameLaunch
-}
+private typealias CommandIntent = CommandFailureContext
 
 struct ContentView: View {
     private let fileManager = FileManager.default
@@ -865,11 +861,12 @@ struct ContentView: View {
         guard profile.canLaunchFromDashboard else { return }
         guard ensureRosettaForWineLaunch() else { return }
         if !profile.path.isEmpty {
-            runCommand(
-                script: "run.command",
-                arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args),
-                intent: .gameLaunch
-            )
+        runCommand(
+            script: "run.command",
+            arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args),
+            environment: dashboardLaunchEnvironment(),
+            intent: .gameLaunch
+        )
             return
         }
         guard let appid = profile.steamAppID, !appid.isEmpty else { return }
@@ -881,7 +878,7 @@ struct ContentView: View {
         runCommand(
             script: "run.command",
             arguments: ["--steam"],
-            environment: env,
+            environment: dashboardLaunchEnvironment(extra: env),
             intent: .gameLaunch
         )
     }
@@ -917,7 +914,12 @@ struct ContentView: View {
             runInTerminal(script: "run.command", arguments: ["--install-rosetta"])
             return
         }
-        runCommand(script: "run.command", arguments: ["--steam"])
+        runCommand(
+            script: "run.command",
+            arguments: ["--steam"],
+            environment: dashboardLaunchEnvironment(),
+            intent: .gameLaunch
+        )
     }
 
     private func applyInstalledCuratedProfiles() {
@@ -1523,7 +1525,7 @@ struct ContentView: View {
         }
         .confirmationDialog("Reset the Steam bottle?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
             Button("Reset Bottle", role: .destructive) {
-                runCommand(script: "run.command", arguments: ["--reset-bottle", "--force"])
+                runCommand(script: "run.command", arguments: ["--reset-bottle", "--force"], intent: .setup)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -1759,7 +1761,8 @@ struct ContentView: View {
                     runCommand(
                         script: "repair.command",
                         arguments: ["diagnose"],
-                        environment: repairEnvironment()
+                        environment: repairEnvironment(),
+                        intent: .diagnose
                     )
                 } label: {
                     Label("Diagnose Logs", systemImage: "stethoscope")
@@ -2357,7 +2360,12 @@ struct ContentView: View {
 
             HStack(spacing: 12) {
                 bottleActionButton("Launch", systemImage: "play.fill", prominent: true, help: "Launch Steam in this bottle") {
-                    runCommand(script: "bottle.command", arguments: ["launch", bottle.name, "--steam"])
+                    runCommand(
+                        script: "bottle.command",
+                        arguments: ["launch", bottle.name, "--steam"],
+                        environment: dashboardLaunchEnvironment(),
+                        intent: .gameLaunch
+                    )
                 }
                 bottleActionButton("Open Logs", systemImage: "doc.text.magnifyingglass", help: "Open this bottle's log folder") {
                     runCommand(script: "bottle.command", arguments: ["logs", bottle.name])
@@ -3059,17 +3067,65 @@ struct ContentView: View {
         commandBanner = CommandBanner(kind: kind, message: message, actions: actions)
     }
 
+    private func successMessage(for intent: CommandIntent) -> String {
+        switch intent {
+        case .gameLaunch:
+            return "Launch finished. If the game or Steam did not appear, open Logs or run Diagnose."
+        case .diagnose:
+            return CommandOutputParser.diagnoseSummary(from: output)
+                ?? "Diagnosis complete — see output below."
+        case .setup:
+            return "Setup step finished successfully."
+        case .general:
+            return "Command finished successfully."
+        }
+    }
+
     private func openLatestLogs() {
         runCommand(script: "run.command", arguments: ["--logs"])
     }
 
-    private func failureRecoveryActions(includeLogs: Bool) -> [CommandBannerAction] {
-        guard includeLogs else { return [] }
-        return [
-            CommandBannerAction(title: "Open Logs", systemImage: "doc.text.magnifyingglass") {
-                openLatestLogs()
-            },
-        ]
+    private func failureRecoveryActions(includeLogs: Bool, includeRepair: Bool = false) -> [CommandBannerAction] {
+        var actions: [CommandBannerAction] = []
+        if includeRepair {
+            actions.append(
+                CommandBannerAction(title: "Apply Suggested", systemImage: "wand.and.stars") {
+                    runCommand(
+                        script: "repair.command",
+                        arguments: ["apply-suggested"],
+                        environment: repairEnvironment()
+                    )
+                }
+            )
+            actions.append(
+                CommandBannerAction(title: "Diagnose", systemImage: "stethoscope") {
+                    runCommand(
+                        script: "repair.command",
+                        arguments: ["diagnose"],
+                        environment: repairEnvironment(),
+                        intent: .diagnose
+                    )
+                }
+            )
+        }
+        if includeLogs {
+            actions.append(
+                CommandBannerAction(title: "Open Logs", systemImage: "doc.text.magnifyingglass") {
+                    openLatestLogs()
+                }
+            )
+        }
+        return actions
+    }
+
+    private func dashboardLaunchEnvironment(extra: [String: String] = [:]) -> [String: String] {
+        var env = bottleEnvironment()
+        // Foreground launch from the dashboard so exit codes and errors surface in-app.
+        env["COSMOS_DETACH"] = "0"
+        for (key, value) in extra {
+            env[key] = value
+        }
+        return env
     }
 
     private func beginCommandOutput() {
@@ -3117,17 +3173,15 @@ struct ContentView: View {
 
         pipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
-            guard let text = String(data: data, encoding: .utf8), !text.isEmpty else {
-                return
-            }
+            guard !data.isEmpty else { return }
+            let text = CommandOutputParser.decode(data)
+            guard !text.isEmpty else { return }
 
             DispatchQueue.main.async {
                 output += text
-                // Keep the buffer bounded: detached launches (e.g. Steam) can
-                // stream logs indefinitely, which would otherwise grow memory and
-                // stall the text view.
-                if output.count > 120_000 {
-                    output = "…(earlier output trimmed)…\n" + String(output.suffix(100_000))
+                let trimmed = CommandOutputParser.trimPreservingErrors(output)
+                if trimmed.trimmed {
+                    output = trimmed.text
                     outputWasTrimmed = true
                 }
             }
@@ -3138,28 +3192,43 @@ struct ContentView: View {
             // Drain anything written between the last readability callback and exit
             // so a script's final lines are not truncated from the output pane.
             let tail = pipe.fileHandleForReading.readDataToEndOfFile()
-            let tailText = String(data: tail, encoding: .utf8) ?? ""
+            let tailText = CommandOutputParser.decode(tail)
             DispatchQueue.main.async {
                 if !tailText.isEmpty {
                     output += tailText
                 }
                 isRunning = false
-                let succeeded = process.terminationStatus == 0
-                output += succeeded ? "\nDone." : "\nExited with status \(process.terminationStatus)."
+                let exitCode = process.terminationStatus
+                let succeeded = exitCode == 0
+                output += succeeded ? "\nDone." : "\nExited with status \(exitCode)."
                 if succeeded {
-                    if !chain {
-                        showBanner(kind: .success, message: "Command finished successfully.")
+                    if intent == .diagnose,
+                       let summary = CommandOutputParser.diagnoseSummary(from: output),
+                       (CommandOutputParser.suggestedFixCount(from: output) ?? 0) > 0 {
+                        showBanner(
+                            kind: .info,
+                            message: summary,
+                            actions: failureRecoveryActions(includeLogs: true, includeRepair: true)
+                        )
+                    } else if !chain {
+                        showBanner(kind: .success, message: successMessage(for: intent))
                     }
                 } else {
-                    let setupFailure = !isSetupComplete
-                    let failureMessage = setupFailure
-                        ? "Setup step failed (exit \(process.terminationStatus)). Open the launch log for details, then retry the step above."
-                        : "Command exited with status \(process.terminationStatus). Check the output below."
+                    let failureMessage = CommandOutputParser.failureMessage(
+                        exitCode: exitCode,
+                        intent: intent,
+                        output: output
+                    )
+                    let needsLogs = intent == .setup || intent == .gameLaunch
+                    let needsRepair = intent == .gameLaunch
                     if !chain {
                         showBanner(
                             kind: .failure,
                             message: failureMessage,
-                            actions: failureRecoveryActions(includeLogs: setupFailure || intent == .gameLaunch)
+                            actions: failureRecoveryActions(
+                                includeLogs: needsLogs,
+                                includeRepair: needsRepair
+                            )
                         )
                     }
                     if intent == .gameLaunch {
