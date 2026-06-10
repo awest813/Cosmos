@@ -9,6 +9,7 @@ struct CosmosApp: App {
         }
         .defaultSize(width: 1100, height: 760)
         .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             // Cosmos manages a single dashboard window; drop the "New" menu item.
             CommandGroup(replacing: .newItem) {}
