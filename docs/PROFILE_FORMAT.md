@@ -88,9 +88,11 @@ Matches the CosmosDB rating scale:
 - `broken` — does not work
 - `blocked` — anti-cheat / DRM / AVX / etc.
 
+For multiplayer metadata and online-play guidance, see [MULTIPLAYER.md](MULTIPLAYER.md).
+
 ## Validation
 
-Run `./profile.command validate` to lint every profile (or
+Run `./profile.command validate` to lint every shipped profile (or
 `./profile.command validate <path-or-id>` for one). It checks that the required
 fields are present, that `store`, `status`, `recommended_backend`, and
 `settings.windows_version` use allowed values, that `store: steam` profiles have

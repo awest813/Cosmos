@@ -26,6 +26,7 @@ notes="$(profile_get_notes "${PROFILE}")"
 
 found="$(profile_find_by_appid "${ROOT}/profiles" "250900")"
 [[ -f "${found}" ]] || fail "profile_find_by_appid did not find 250900"
+[[ "${found}" == *"/profiles/steam/"* ]] || fail "profile_find_by_appid must prefer shipped steam/ over drafts/"
 
 deps="$(profile_list_dependencies "${FALLOUT}" | tr '\n' ' ')"
 [[ "${deps}" == *"vcrun2010"* ]] || fail "expected vcrun2010 in fallout deps"
@@ -46,7 +47,12 @@ tags="$(profile_list_tags "${ROOT}/profiles/steam/steam-105600-terraria.yaml" | 
 profile_has_multiplayer_tag "${ROOT}/profiles/steam/steam-105600-terraria.yaml" \
   || fail "terraria should have multiplayer tag"
 
-count="$(find "${ROOT}/profiles/steam" -name '*.yaml' | wc -l | tr -d ' ')"
-(( count >= 20 )) || fail "expected at least 20 steam profiles, found ${count}"
+count="$(profile_shipped_paths "${ROOT}/profiles" | wc -l | tr -d ' ')"
+(( count >= 20 )) || fail "expected at least 20 shipped profiles, found ${count}"
 
-printf 'OK: profile_lib tests passed (%s profiles)\n' "${count}"
+drafts="$(find "${ROOT}/profiles/drafts" -name '*.yaml' 2>/dev/null | wc -l | tr -d ' ')"
+(( drafts > 0 )) || true
+listed="$(profile_shipped_paths "${ROOT}/profiles" | grep -c '/drafts/' || true)"
+(( listed == 0 )) || fail "profile_shipped_paths must not include drafts/"
+
+printf 'OK: profile_lib tests passed (%s shipped profiles)\n' "${count}"

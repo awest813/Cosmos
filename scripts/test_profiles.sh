@@ -33,5 +33,7 @@ if "${PROFILE_CMD}" validate "${tmp}" >/dev/null 2>&1; then
   fail "validator accepted a broken profile"
 fi
 
-count="$(find "${ROOT}/profiles" -name '*.yaml' -o -name '*.yml' | wc -l | tr -d ' ')"
-printf 'OK: all %s profiles passed schema validation\n' "${count}"
+# shellcheck source=scripts/lib/profile_lib.sh
+source "${ROOT}/scripts/lib/profile_lib.sh"
+count="$(profile_shipped_paths "${ROOT}/profiles" | wc -l | tr -d ' ')"
+printf 'OK: all %s shipped profiles passed schema validation\n' "${count}"

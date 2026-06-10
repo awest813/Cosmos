@@ -24,6 +24,7 @@ include `SOURCE=winemactricks:<id>` and may set `DLL_OVERRIDE` directly (no env 
 ./repair.command list-fixes
 ./repair.command apply-fix grounded-mscoree-fix
 ./repair.command apply-fix kill_wine
+./repair.command apply-fix ddraw-override
 DLL_OVERRIDE="ddraw=n,b" ./repair.command apply-fix dll_override
 STEAM_APPID=22380 ./repair.command apply-fix disable_intro_video
 COSMOS_FORCE=1 ./repair.command apply-fix rebuild_prefix

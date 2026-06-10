@@ -1083,6 +1083,18 @@ struct ContentView: View {
         }
         .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
+        .accessibilityLabel(curatedProfileAccessibilityLabel(profile, isSelected: isSelected))
+    }
+
+    private func curatedProfileAccessibilityLabel(_ profile: GameProfile, isSelected: Bool) -> String {
+        var parts = [profile.name, profile.statusLabel, profile.recommendedBackend]
+        if !profile.multiplayerTagLabel.isEmpty {
+            parts.append(profile.multiplayerTagLabel)
+        }
+        if isSelected {
+            parts.append("selected")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func curatedProfileControls(_ profile: GameProfile) -> some View {

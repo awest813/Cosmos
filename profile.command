@@ -102,15 +102,13 @@ resolve_profile() {
 
 cmd_list() {
   local f store appid name
-  shopt -s nullglob
-  for f in "${PROFILES_DIR}"/*/*.yaml "${PROFILES_DIR}"/*/*.yml; do
-    [[ -f "${f}" ]] || continue
+  while IFS= read -r f; do
+    [[ -n "${f}" ]] || continue
     store="$(profile_get_scalar "${f}" store)"
     appid="$(profile_get_scalar "${f}" steam_appid)"
     name="$(profile_get_scalar "${f}" name)"
     printf '  %-8s %-10s %s\n' "${appid:-"—"}" "${store:-"?"}" "${name:-"${f}"}"
-  done
-  shopt -u nullglob
+  done < <(profile_shipped_paths "${PROFILES_DIR}")
 }
 
 cmd_show() {
@@ -265,6 +263,10 @@ validate_one() {
   if [[ -n "${anti_cheat}" ]] && ! in_set "${anti_cheat}" none eac battleye vac custom; then
     err "invalid anti_cheat: ${anti_cheat}"
   fi
+  if [[ "${status}" == "blocked" ]]; then
+    [[ -n "${anti_cheat}" && "${anti_cheat}" != "none" ]] \
+      || err "status: blocked requires anti_cheat (eac, battleye, vac, or custom)"
+  fi
 
   return "${errs}"
 }
@@ -276,11 +278,12 @@ cmd_validate() {
     local f; f="$(resolve_profile "${target}")" || die "Profile not found: ${target}"
     files=("${f}")
   else
-    shopt -s nullglob
-    files=("${PROFILES_DIR}"/*/*.yaml "${PROFILES_DIR}"/*/*.yml)
-    shopt -u nullglob
+    local f
+    while IFS= read -r f; do
+      [[ -n "${f}" ]] && files+=("${f}")
+    done < <(profile_shipped_paths "${PROFILES_DIR}")
   fi
-  [[ "${#files[@]}" -gt 0 ]] || die "No profiles found under ${PROFILES_DIR}"
+  [[ "${#files[@]}" -gt 0 ]] || die "No shipped profiles found under ${PROFILES_DIR}"
 
   local bad=0 file
   for file in "${files[@]}"; do
