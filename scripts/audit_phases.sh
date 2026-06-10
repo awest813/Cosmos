@@ -89,7 +89,11 @@ pass "dependency recipes: ${dep_recipes_n}"
 pass "VERSION file present ($(tr -d '[:space:]' < "${ROOT}/VERSION"))"
 
 [[ -x "${ROOT}/scripts/check_updates.sh" ]] || fail "missing scripts/check_updates.sh"
-pass "update check script present"
+[[ -x "${ROOT}/scripts/install_update.sh" ]] || fail "missing scripts/install_update.sh"
+[[ -x "${ROOT}/scripts/terminal_wrap.sh" ]] || fail "missing scripts/terminal_wrap.sh"
+[[ -x "${ROOT}/scripts/sign_and_notarize.command" ]] || fail "missing scripts/sign_and_notarize.command"
+[[ -f "${ROOT}/.github/workflows/release.yml" ]] || fail "missing .github/workflows/release.yml"
+pass "update + release scripts present"
 
 [[ -f "${ROOT}/runtime/cosmos-runtime.json" ]] || fail "missing runtime/cosmos-runtime.json"
 pass "runtime manifest present"

@@ -27,6 +27,8 @@ UNIT_TESTS=(
   scripts/test_import_winemactricks.sh
   scripts/test_profile_apply_installed.sh
   scripts/test_check_updates.sh
+  scripts/test_terminal_wrap.sh
+  scripts/test_install_update.sh
   scripts/audit_phases.sh
   scripts/test_protonfix_port_hint.sh
   scripts/test_import_lib.sh

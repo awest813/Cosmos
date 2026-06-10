@@ -49,6 +49,12 @@ else
   [[ -d "${APP_BUNDLE}" ]] || die "Build did not produce ${APP_BUNDLE}"
 fi
 
+if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
+  log "Developer ID signing app bundle before packaging"
+  DEVELOPER_ID_APPLICATION="${DEVELOPER_ID_APPLICATION}" \
+    SKIP_DMG=1 "${SCRIPT_DIR}/sign_and_notarize.command" "${APP_BUNDLE}" "${DMG_PATH}"
+fi
+
 # Stage the app plus an /Applications symlink so the mounted image shows the
 # familiar "drag Cosmos into Applications" layout.
 staging="$(mktemp -d)"
@@ -85,7 +91,19 @@ if command -v codesign >/dev/null 2>&1; then
     || echo "Note: ad-hoc signing the .dmg failed; the app inside is still signed."
 fi
 
+if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
+  log "Signing and notarizing ${DMG_PATH}"
+  DEVELOPER_ID_APPLICATION="${DEVELOPER_ID_APPLICATION}" \
+    SKIP_APP=1 "${SCRIPT_DIR}/sign_and_notarize.command" "${APP_BUNDLE}" "${DMG_PATH}"
+else
+  log "Ad-hoc build (set DEVELOPER_ID_APPLICATION to sign and notarize for release)"
+fi
+
 size="$(du -h "${DMG_PATH}" | cut -f1 | tr -d ' ')"
 log "Built ${DMG_PATH} (${size})"
 echo "Share this file. Users open it and drag ${APP_NAME} into Applications."
-echo "First launch (unsigned build): right-click ${APP_NAME} → Open → confirm Open."
+if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
+  echo "This build is Developer ID signed and notarized for Gatekeeper."
+else
+  echo "First launch (unsigned build): right-click ${APP_NAME} → Open → confirm Open."
+fi

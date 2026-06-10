@@ -125,7 +125,8 @@ flowchart TD
 
 | Gap | User impact | Status | Plan |
 | --- | --- | --- | --- |
-| Diagnose requires log file awareness | Users don’t know where logs are | `--logs` + dashboard button; auto-diagnose on launch failure | **Done** (Terminal setup steps still manual) |
+| Diagnose requires log file awareness | Users don’t know where logs are | `--logs` + dashboard button; auto-diagnose on launch failure | **Done** |
+| Terminal setup exit status invisible | Failed Terminal steps only show on manual Refresh | `terminal_wrap.sh` + dashboard polling | **Done** |
 | Generic exit-code failure banners | Users see “status 1” not the real error | `CommandOutputParser` + Apply Suggested actions | **Done** for embedded commands |
 | `set_backend` / `disable_intro_video` not auto-applied | Suggested fixes need manual env | `apply-suggested` whitelist | Expand safe auto-apply set carefully |
 | Few profiles reference `fixes:` | Profiles don’t trigger repairs | 3 on main; more on PR #36 | Wire fixes into top 20 played titles |
@@ -230,10 +231,11 @@ flowchart TD
 
 **Outcome:** Ordinary Mac gamers, not repo cloners.
 
-- [ ] Notarized `Cosmos.dmg` + GitHub Releases (ad-hoc DMG + `build_dmg.command` today)
+- [x] Notarized `Cosmos.dmg` + GitHub Releases (`build_dmg.command` + `release.yml`; sign when secrets configured)
 - [x] Bundled Cosmos Runtime (Wine + DXMT + notices) — `runtime/cosmos-runtime.json` **1.1.0-preview**
 - [x] 100+ shipped profiles (**105** Steam YAMLs; drafts excluded)
-- [x] Auto-update **check** (`run.command --check-update` + dashboard; no Sparkle yet)
+- [x] Auto-update **check** (`run.command --check-update` + dashboard)
+- [x] Auto-update **install** (`run.command --install-update` + dashboard; shell-based DMG installer)
 - [ ] Community profile merge workflow (drafts + `suggest-profile`; manual review)
 - [ ] Optional: Console mode (controller grid) — roadmap “later”
 
@@ -264,7 +266,8 @@ flowchart TD
 | Setup steps requiring Terminal | 4/5 (Rosetta + install still Terminal) | 2/4 (stretch: 0/4) |
 | Sidebar compat badge | **Yes** | Yes ✅ |
 | Signed DMG release | No (ad-hoc only) | Yes |
-| Auto-update check | **`--check-update`** | Full auto-install |
+| Auto-update check | **`--check-update`** | Yes ✅ |
+| Auto-update install | **`--install-update`** | Yes ✅ |
 
 ---
 
@@ -283,7 +286,7 @@ flowchart TD
 
 ## Next action (for maintainers)
 
-1. **Phase F:** Developer ID sign + notarize `Cosmos.dmg`; publish first GitHub Release.
-2. **Phase F:** Sparkle or in-app runtime updater (check-only ships today).
+1. **Phase F:** Configure Apple Developer ID + notarization secrets; tag `v*` to publish the first GitHub Release.
+2. **Phase F:** Optional Sparkle appcast for background checks; runtime tarball auto-update remains future work.
 3. Run `./scripts/audit_phases.sh` in CI to guard PLAN metrics; expand `co-op` tags where notes-only.
 4. Grow winemactricks recipe import beyond dry-run when upstream corpus expands.

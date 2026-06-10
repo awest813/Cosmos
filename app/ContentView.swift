@@ -32,6 +32,8 @@ struct ContentView: View {
     @State private var commandBanner: CommandBanner?
     @State private var outputWasTrimmed = false
     @State private var storeImportRequest: StoreImportRequest?
+    @State private var pendingTerminalJobID: String?
+    @State private var updateAvailable = false
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -697,7 +699,7 @@ struct ContentView: View {
 
                     HStack(spacing: 12) {
                         Button {
-                            runInTerminal(script: "setup.command")
+                            runInTerminal(script: "setup.command", intent: .setup)
                         } label: {
                             Label("All-in-one setup", systemImage: "terminal.fill")
                         }
@@ -795,23 +797,23 @@ struct ContentView: View {
     private func performNextSetupStep() {
         consoleExpanded = true
         if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
-            runInTerminal(script: "run.command", arguments: ["--install-rosetta"])
+            runInTerminal(script: "run.command", arguments: ["--install-rosetta"], intent: .setup)
             return
         }
         if !cosmosInstalled {
-            runInTerminal(script: "install_cosmos.command")
+            runInTerminal(script: "install_cosmos.command", intent: .setup)
             return
         }
         if !steamSettings.isPrefixInitialized {
-            runInTerminal(script: "run.command", arguments: ["--setup-steam"])
+            runInTerminal(script: "run.command", arguments: ["--setup-steam"], intent: .setup)
             return
         }
         if !steamSettings.isSteamInstalled {
-            runInTerminal(script: "run.command", arguments: ["--install-steam"])
+            runInTerminal(script: "run.command", arguments: ["--install-steam"], intent: .setup)
             return
         }
         if !hasGameLaunchers {
-            runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+            runInTerminal(script: "detect_steam_games.command", arguments: ["--install"], intent: .setup)
             return
         }
         refreshStatus(message: "Setup looks complete.")
@@ -1511,7 +1513,18 @@ struct ContentView: View {
                 }
 
                 secondaryButton(title: "Check for Updates", subtitle: "GitHub Releases", systemImage: "arrow.down.circle", help: "Compare your Cosmos version to the latest published release") {
-                    runCommand(script: "run.command", arguments: ["--check-update"])
+                    checkForUpdates()
+                }
+
+                if updateAvailable {
+                    secondaryButton(
+                        title: "Install Update",
+                        subtitle: "Download Cosmos.dmg",
+                        systemImage: "arrow.down.to.line",
+                        help: "Download the latest release and install Cosmos.app to /Applications"
+                    ) {
+                        runInTerminal(script: "run.command", arguments: ["--install-update"], intent: .setup)
+                    }
                 }
 
                 secondaryButton(title: "Reset Bottle", subtitle: "Delete prefix", systemImage: "arrow.counterclockwise", destructive: true, help: "Delete the default Wine prefix (Steam and games inside it)") {
@@ -3007,12 +3020,13 @@ struct ContentView: View {
 
     // Run a helper in Terminal.app instead of the embedded console. Use this for
     // actions that need a real TTY — `sudo` password entry and interactive
-    // confirmations — which the piped Process runner cannot provide. We launch it
-    // and return; completion happens in Terminal, so the user taps Refresh after.
+    // confirmations — which the piped Process runner cannot provide. Commands are
+    // wrapped with scripts/terminal_wrap.sh so exit status is written back for the app.
     private func runInTerminal(
         script: String,
         arguments: [String] = [],
-        environment: [String: String] = [:]
+        environment: [String: String] = [:],
+        intent: CommandIntent = .general
     ) {
         guard let scriptURL = resolveScript(script) else {
             let message = "Script not found or not executable: \(script)"
@@ -3020,14 +3034,36 @@ struct ContentView: View {
             showBanner(kind: .failure, message: message)
             return
         }
-
-        var parts: [String] = []
-        beginCommandOutput()
-        for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
-            parts.append("export \(key)=\(ShellArgumentParser.shellQuote(value))")
+        guard let wrapURL = resolveScript("scripts/terminal_wrap.sh") else {
+            let message = "Terminal wrapper not found: scripts/terminal_wrap.sh"
+            output = message
+            showBanner(kind: .failure, message: message)
+            return
         }
-        parts.append(([scriptURL.path] + arguments).map(ShellArgumentParser.shellQuote).joined(separator: " "))
-        let shellCommand = parts.joined(separator: "; ")
+
+        let jobID = TerminalJobTracker.makeJobID()
+        pendingTerminalJobID = jobID
+        do {
+            try TerminalJobTracker.prepareJobsDirectory()
+            TerminalJobTracker.cleanup(jobID: jobID)
+        } catch {
+            let message = "Could not prepare Terminal job directory: \(error.localizedDescription)"
+            output = message
+            showBanner(kind: .failure, message: message)
+            return
+        }
+
+        var innerParts: [String] = []
+        for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
+            innerParts.append("export \(key)=\(ShellArgumentParser.shellQuote(value))")
+        }
+        innerParts.append(([scriptURL.path] + arguments).map(ShellArgumentParser.shellQuote).joined(separator: " "))
+        let innerCommand = innerParts.joined(separator: "; ")
+        let shellCommand = TerminalJobTracker.wrappedShellCommand(
+            jobID: jobID,
+            wrapScriptPath: wrapURL.path,
+            innerCommand: innerCommand
+        )
 
         let appleScript = """
         tell application "Terminal"
@@ -3046,12 +3082,12 @@ struct ContentView: View {
             output = """
             Opened Terminal to run: \(displayed)
 
-            Complete any password or confirmation prompts in the Terminal window, \
-            then click Refresh in the toolbar (⌘R) or switch back to this window — status updates automatically.
+            Complete any password or confirmation prompts in the Terminal window. \
+            Cosmos will report the exit status when the command finishes.
             """
             showBanner(
                 kind: .info,
-                message: "Running in Terminal — complete prompts there, then refresh status (⌘R).",
+                message: "Running in Terminal — exit status will appear here when finished.",
                 actions: [
                     CommandBannerAction(title: "Check Status", systemImage: "list.bullet.rectangle") {
                         runCommand(script: "run.command", arguments: ["--status"])
@@ -3061,10 +3097,115 @@ struct ContentView: View {
                     },
                 ]
             )
+            watchTerminalJob(jobID: jobID, displayedCommand: displayed, intent: intent)
         } catch {
+            pendingTerminalJobID = nil
             let message = "Could not open Terminal: \(error.localizedDescription)"
             output = message
             showBanner(kind: .failure, message: message)
+        }
+    }
+
+    private func watchTerminalJob(jobID: String, displayedCommand: String, intent: CommandIntent) {
+        TerminalJobTracker.poll(jobID: jobID) { exitCode in
+            guard pendingTerminalJobID == jobID else { return }
+            pendingTerminalJobID = nil
+            defer { TerminalJobTracker.cleanup(jobID: jobID) }
+
+            guard let exitCode else {
+                output += "\n\nTimed out waiting for Terminal command: \(displayedCommand)"
+                showBanner(
+                    kind: .info,
+                    message: "Still running in Terminal — refresh status (⌘R) when finished.",
+                    actions: failureRecoveryActions(includeLogs: intent == .setup)
+                )
+                return
+            }
+
+            let succeeded = exitCode == 0
+            output += succeeded
+                ? "\n\nTerminal command finished successfully."
+                : "\n\nTerminal command exited with status \(exitCode)."
+            refreshStatus()
+            if succeeded {
+                showBanner(kind: .success, message: successMessage(for: intent))
+            } else {
+                let failureMessage = CommandOutputParser.failureMessage(
+                    exitCode: exitCode,
+                    intent: intent,
+                    output: output
+                )
+                showBanner(
+                    kind: .failure,
+                    message: failureMessage,
+                    actions: failureRecoveryActions(includeLogs: intent == .setup)
+                )
+            }
+        }
+    }
+
+    private func checkForUpdates() {
+        guard let scriptURL = resolveScript("run.command") else {
+            showBanner(kind: .failure, message: "Script not found: run.command")
+            return
+        }
+
+        beginCommandOutput()
+        output = "Running: run.command --check-update\n\n"
+        isRunning = true
+
+        let task = Process()
+        task.executableURL = scriptURL
+        task.arguments = ["--check-update"]
+        task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
+
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = pipe
+
+        pipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            let text = CommandOutputParser.decode(data)
+            guard !text.isEmpty else { return }
+            DispatchQueue.main.async { output += text }
+        }
+
+        task.terminationHandler = { process in
+            pipe.fileHandleForReading.readabilityHandler = nil
+            let tail = pipe.fileHandleForReading.readDataToEndOfFile()
+            let tailText = CommandOutputParser.decode(tail)
+            DispatchQueue.main.async {
+                if !tailText.isEmpty { output += tailText }
+                isRunning = false
+                let exitCode = process.terminationStatus
+                updateAvailable = exitCode == 2
+                output += exitCode == 0
+                    ? "\nDone."
+                    : (exitCode == 2 ? "\nUpdate available." : "\nExited with status \(exitCode).")
+                if exitCode == 2 {
+                    showBanner(
+                        kind: .info,
+                        message: "A newer Cosmos release is available on GitHub.",
+                        actions: [
+                            CommandBannerAction(title: "Install Update", systemImage: "arrow.down.to.line") {
+                                runInTerminal(script: "run.command", arguments: ["--install-update"], intent: .setup)
+                            },
+                        ]
+                    )
+                } else if exitCode == 0 {
+                    showBanner(kind: .success, message: "Cosmos is up to date.")
+                } else {
+                    showBanner(kind: .failure, message: "Update check failed (status \(exitCode)).")
+                }
+            }
+        }
+
+        do {
+            try task.run()
+        } catch {
+            isRunning = false
+            showBanner(kind: .failure, message: "Failed to check for updates: \(error.localizedDescription)")
         }
     }
 

@@ -296,6 +296,7 @@ Actions:
   --profiles               Open the saved profiles folder in Finder and exit.
   --logs                   Open the latest launch log and exit.
   --check-update           Compare local app/runtime version to GitHub Releases.
+  --install-update         Download Cosmos.dmg from GitHub and install to /Applications.
   --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
@@ -362,6 +363,13 @@ parse_arguments() {
         die "The --check-update flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="check-update"
+      return 0
+      ;;
+    --install-update)
+      if (($# > 1)); then
+        die "The --install-update flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="install-update"
       return 0
       ;;
     --status|--doctor)
@@ -1570,6 +1578,10 @@ main() {
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "check-update" ]]; then
     "${SCRIPT_DIR}/scripts/check_updates.sh"
+    return $?
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "install-update" ]]; then
+    "${SCRIPT_DIR}/scripts/check_updates.sh" --install
     return $?
   fi
   require_supported_macos
