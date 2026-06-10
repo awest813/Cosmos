@@ -1,0 +1,6 @@
+TYPE=fix
+ID=d3dcompiler43-override
+DESCRIPTION=Set d3dcompiler_43=n,b (shader compiler / D3D10+ fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=d3dcompiler_43=n,b

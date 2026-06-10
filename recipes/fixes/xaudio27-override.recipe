@@ -1,0 +1,6 @@
+TYPE=fix
+ID=xaudio27-override
+DESCRIPTION=Set xaudio2_7=n,b (XAudio2 / sound fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=xaudio2_7=n,b

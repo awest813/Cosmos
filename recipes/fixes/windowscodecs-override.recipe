@@ -1,0 +1,6 @@
+TYPE=fix
+ID=windowscodecs-override
+DESCRIPTION=Set windowscodecs=n,b (image codec / WIC fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=windowscodecs=n,b

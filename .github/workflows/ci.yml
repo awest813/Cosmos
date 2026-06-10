@@ -86,6 +86,12 @@ jobs:
       - name: Profile apply-installed unit tests
         run: ./scripts/test_profile_apply_installed.sh
 
+      - name: Update check unit tests
+        run: ./scripts/test_check_updates.sh
+
+      - name: Phase metric audit (PLAN.md targets)
+        run: ./scripts/audit_phases.sh
+
       - name: Profile porting unit tests
         run: ./scripts/test_protonfix_port_hint.sh
 

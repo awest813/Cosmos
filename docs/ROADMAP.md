@@ -160,7 +160,7 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] Dashboard **Add Non-Steam Games** section (itch.io, Battle.net, Epic / Legendary)
 - **Success:** Users can add non-Steam Windows games and get the same launcher/profile experience. ✅
 
-### 0.7 — CosmosDB *(in progress)*
+### 0.7 — CosmosDB *(complete)*
 - [x] `cosmosdb.command` — ProtonDB Community API lookup + local macOS JSON reports
 - [x] AppleGamingWiki + MacGamingDB macOS hint lookups (`scripts/lib/cosmosdb_lib.sh`)
 - [x] Report schema — [COSMOSDB.md](COSMOSDB.md)
@@ -169,7 +169,9 @@ success criterion — if that sentence isn't true, the release isn't done.
 - [x] Open-source adoption tranche (Phases 1–4) — [ADOPTION_PLAN.md](ADOPTION_PLAN.md)
   (winemactricks-json, wineregdiff, VDF verify, UMU API runtime, profile seeding)
 - [x] Runtime manifest + offline DMG bundle + DXVK auto-fetch (Phase 5) — [RUNTIME.md](RUNTIME.md)
-- **Success:** Cosmos has its own "ProtonDB for Mac" that feeds back into profiles.
+- **Success:** Cosmos has its own "ProtonDB for Mac" that feeds back into profiles. ✅
+
+> User-facing gaps Phases A–E from [PLAN.md](PLAN.md) are complete on `main`. Phase F (signed release, full auto-update, console mode) remains for 1.0.
 
 ### 1.0 — Cosmos Runtime
 - Stable bundled Wine runtime (patched wine-mono/wine-gecko, DXMT + D3DMetal

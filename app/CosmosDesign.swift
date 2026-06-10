@@ -377,6 +377,8 @@ enum CuratedProfileFilter: String, CaseIterable, Identifiable {
             return true
         case .coOp:
             return profile.tags.contains("co-op")
+                || profile.notes.localizedCaseInsensitiveContains("co-op")
+                || profile.multiplayerNotes.localizedCaseInsensitiveContains("co-op")
         case .online:
             return profile.tags.contains("online")
         case .blocked:

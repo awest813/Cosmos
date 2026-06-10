@@ -295,6 +295,7 @@ Actions:
   --run-installer <file>   Run a Windows .exe/.msi installer in the prefix.
   --profiles               Open the saved profiles folder in Finder and exit.
   --logs                   Open the latest launch log and exit.
+  --check-update           Compare local app/runtime version to GitHub Releases.
   --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
@@ -354,6 +355,13 @@ parse_arguments() {
         die "The --logs flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="logs"
+      return 0
+      ;;
+    --check-update)
+      if (($# > 1)); then
+        die "The --check-update flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="check-update"
       return 0
       ;;
     --status|--doctor)
@@ -1537,6 +1545,10 @@ main() {
   if [[ "${COSMOS_LAUNCH_MODE}" == "runtime-status" ]]; then
     wine_runtime_status_lines
     return
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "check-update" ]]; then
+    "${SCRIPT_DIR}/scripts/check_updates.sh"
+    return $?
   fi
   require_macos_arm64
   [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"

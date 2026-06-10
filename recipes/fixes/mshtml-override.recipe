@@ -1,0 +1,6 @@
+TYPE=fix
+ID=mshtml-override
+DESCRIPTION=Set mshtml=n,b (legacy HTML / embedded browser fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=mshtml=n,b

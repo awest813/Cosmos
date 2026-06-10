@@ -1,0 +1,6 @@
+TYPE=fix
+ID=dinput8-override
+DESCRIPTION=Set dinput8=n,b (DirectInput / controller input fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=dinput8=n,b
