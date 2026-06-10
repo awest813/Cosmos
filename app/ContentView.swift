@@ -7,8 +7,8 @@ private typealias CommandIntent = CommandFailureContext
 struct ContentView: View {
     private let fileManager = FileManager.default
     private let repositoryRootURL = Self.findRepositoryRoot()
-    private let cosmosAppsURL = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
     private let consoleBottomID = "console-bottom"
+    private let steamLibraryCheckInterval: TimeInterval = 300
 
     @State private var output = "Welcome to Cosmos\n\nNew here? Follow the setup guide below — one button per step.\nFirst-time setup takes about 10–15 minutes (downloads + Steam installer).\n\nWhen finished, launch Steam, install a Windows game, then tap Build Game Launchers."
     @State private var profiles: [SavedProfile] = []
@@ -34,6 +34,9 @@ struct ContentView: View {
     @State private var storeImportRequest: StoreImportRequest?
     @State private var pendingTerminalJobID: String?
     @State private var updateAvailable = false
+    @State private var profilePreferences = ProfilePreferencesStore.load()
+    @State private var lastSteamLibraryCheck: Date?
+    @State private var pendingNewSteamGames = 0
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -65,14 +68,35 @@ struct ContentView: View {
     /// Saved profiles narrowed by the sidebar search field. Matches name,
     /// executable path, and Steam App ID so users with large libraries can
     /// jump straight to a title.
+    private var profileSearchQuery: String {
+        profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isSearchingProfiles: Bool {
+        !profileSearchQuery.isEmpty
+    }
+
     private var filteredProfiles: [SavedProfile] {
-        let query = profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return profiles }
+        guard isSearchingProfiles else { return profiles }
         return profiles.filter { profile in
-            profile.name.localizedCaseInsensitiveContains(query)
-                || profile.path.localizedCaseInsensitiveContains(query)
-                || (profile.steamAppID?.localizedCaseInsensitiveContains(query) ?? false)
+            profile.name.localizedCaseInsensitiveContains(profileSearchQuery)
+                || profile.path.localizedCaseInsensitiveContains(profileSearchQuery)
+                || (profile.steamAppID?.localizedCaseInsensitiveContains(profileSearchQuery) ?? false)
         }
+    }
+
+    private var favoriteProfiles: [SavedProfile] {
+        let ids = Set(profilePreferences.favoriteIDs)
+        return profiles
+            .filter { ids.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var recentProfiles: [SavedProfile] {
+        let favorites = Set(profilePreferences.favoriteIDs)
+        return profilePreferences.recentIDs.compactMap { id in
+            profiles.first { $0.id == id }
+        }.filter { !favorites.contains($0.id) }
     }
 
     private var selectedBottle: Bottle? {
@@ -132,6 +156,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshStatus()
             resumeTerminalJobs()
+            checkSteamLibraryForNewGames(autoSync: true)
         }
         .onChange(of: isSetupComplete) { complete in
             if complete && !showSetupCompleteBanner {
@@ -276,35 +301,42 @@ struct ContentView: View {
 
             // Profile list
             List(selection: $selectedProfileID) {
-                Section(profileSectionTitle) {
-                    if profiles.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("No profiles yet", systemImage: "tray")
-                                .foregroundStyle(.secondary)
-                                .font(.subheadline)
-                            Text(isSteamReady ? "Run Detect Games or Build Launchers to populate saved profiles." : "Complete setup above, then build launchers to see games here.")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .fixedSize(horizontal: false, vertical: true)
+                if isSearchingProfiles {
+                    Section("Search") {
+                        if filteredProfiles.isEmpty {
+                            sidebarEmptySearchRow
+                        } else {
+                            ForEach(filteredProfiles) { profile in
+                                profileRow(profile)
+                                    .tag(profile.id)
+                            }
                         }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("No saved game profiles. Run Detect Games after installing Steam.")
-                    } else if filteredProfiles.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("No matches", systemImage: "magnifyingglass")
-                                .foregroundStyle(.secondary)
-                                .font(.subheadline)
-                            Text("No saved game matches “\(profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines))”.")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    if !favoriteProfiles.isEmpty {
+                        Section("Favorites") {
+                            ForEach(favoriteProfiles) { profile in
+                                profileRow(profile)
+                                    .tag(profile.id)
+                            }
                         }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("No saved games match the search.")
-                    } else {
-                        ForEach(filteredProfiles) { profile in
-                            profileRow(profile)
-                                .tag(profile.id)
+                    }
+                    if !recentProfiles.isEmpty {
+                        Section("Recent") {
+                            ForEach(recentProfiles) { profile in
+                                profileRow(profile)
+                                    .tag(profile.id)
+                            }
+                        }
+                    }
+                    Section(profileSectionTitle) {
+                        if profiles.isEmpty {
+                            sidebarEmptyProfilesRow
+                        } else {
+                            ForEach(profiles) { profile in
+                                profileRow(profile)
+                                    .tag(profile.id)
+                            }
                         }
                     }
                 }
@@ -317,11 +349,38 @@ struct ContentView: View {
     }
 
     private var profileSectionTitle: String {
-        let query = profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if profiles.isEmpty || query.isEmpty {
+        if profiles.isEmpty {
             return "Saved Profiles"
         }
-        return "Saved Profiles (\(filteredProfiles.count) of \(profiles.count))"
+        return "All Games (\(profiles.count))"
+    }
+
+    private var sidebarEmptyProfilesRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("No profiles yet", systemImage: "tray")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            Text(isSteamReady ? "Run Detect Games or Build Launchers to populate saved profiles." : "Complete setup above, then build launchers to see games here.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No saved game profiles. Run Detect Games after installing Steam.")
+    }
+
+    private var sidebarEmptySearchRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("No matches", systemImage: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            Text("No saved game matches “\(profileSearchQuery)”.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No saved games match the search.")
     }
 
     private var profileSearchField: some View {
@@ -336,6 +395,12 @@ struct ContentView: View {
                 Text(profile.name)
                     .font(.headline)
                     .lineLimit(1)
+                if ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences) {
+                    Image(systemName: "star.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.yellow)
+                        .accessibilityLabel("Favorite")
+                }
                 if let badge {
                     CosmosCompatBadge(status: badge.status, compact: true)
                 }
@@ -364,6 +429,13 @@ struct ContentView: View {
                 Label("Launch", systemImage: "play.fill")
             }
             .disabled(!profile.canLaunchFromDashboard || !wineRuntime.canStartWineLaunch || isRunning)
+
+            Button {
+                profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: profile.id)
+            } label: {
+                let isFavorite = ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences)
+                Label(isFavorite ? "Remove Favorite" : "Add to Favorites", systemImage: isFavorite ? "star.slash" : "star")
+            }
 
             Button {
                 revealInFinder(profile.fileURL)
@@ -816,10 +888,100 @@ struct ContentView: View {
             return
         }
         if !hasGameLaunchers {
-            runInTerminal(script: "detect_steam_games.command", arguments: ["--install"], intent: .setup)
+            buildLaunchers(full: true)
             return
         }
         refreshStatus(message: "Setup looks complete.")
+    }
+
+    /// Build or sync Dock launchers in the embedded console (no Terminal unless sudo is required).
+    private func buildLaunchers(full: Bool) {
+        var env = bottleEnvironment()
+        env["COSMOS_ALLOW_USER_APPS"] = "1"
+        let args = full ? ["--install"] : ["--sync"]
+        runCommand(
+            script: "detect_steam_games.command",
+            arguments: args,
+            environment: env,
+            intent: .setup
+        )
+    }
+
+    private func checkSteamLibraryForNewGames(autoSync: Bool) {
+        guard isSteamReady, !isRunning, pendingTerminalJobID == nil else { return }
+        if let lastSteamLibraryCheck,
+           Date().timeIntervalSince(lastSteamLibraryCheck) < steamLibraryCheckInterval {
+            return
+        }
+        lastSteamLibraryCheck = Date()
+
+        guard let detectScript = resolveScript("detect_steam_games.command") else { return }
+        var env = bottleEnvironment()
+        DispatchQueue.global(qos: .utility).async {
+            guard let games = SteamLibraryMonitor.listInstalledGames(detectScript: detectScript, environment: env) else {
+                return
+            }
+            let snapshot = SteamLibraryMonitor.loadSnapshotAppIDs()
+            let newGames = SteamLibraryMonitor.newGames(comparedTo: snapshot, current: games)
+            DispatchQueue.main.async {
+                pendingNewSteamGames = newGames.count
+                guard newGames.count > 0 else { return }
+                if autoSync && isSetupComplete {
+                    syncSteamLibrary(announce: true)
+                } else {
+                    showNewSteamGamesBanner(count: newGames.count)
+                }
+            }
+        }
+    }
+
+    private func syncSteamLibrary(announce: Bool) {
+        guard let detectScript = resolveScript("detect_steam_games.command") else { return }
+        if announce {
+            beginCommandOutput()
+            output = "Running: detect_steam_games.command --sync\n\n"
+            isRunning = true
+        }
+        var env = bottleEnvironment()
+        env["COSMOS_ALLOW_USER_APPS"] = "1"
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = SteamLibraryMonitor.syncNewGames(detectScript: detectScript, environment: env)
+            DispatchQueue.main.async {
+                if announce {
+                    isRunning = false
+                    if let result {
+                        output += result.output
+                        if result.newCount > 0 {
+                            refreshStatus(message: "Synced \(result.newCount) new game(s).")
+                            showBanner(
+                                kind: .success,
+                                message: "Added \(result.newCount) new launcher\(result.newCount == 1 ? "" : "s") from Steam."
+                            )
+                        }
+                    } else {
+                        showBanner(kind: .failure, message: "Steam library sync failed.")
+                    }
+                } else if let result, result.newCount > 0 {
+                    refreshStatus(message: "Synced \(result.newCount) new game(s).")
+                }
+                pendingNewSteamGames = 0
+            }
+        }
+    }
+
+    private func showNewSteamGamesBanner(count: Int) {
+        showBanner(
+            kind: .info,
+            message: "\(count) new Steam game\(count == 1 ? "" : "s") detected.",
+            actions: [
+                CommandBannerAction(title: "Sync Launchers", systemImage: "arrow.triangle.2.circlepath") {
+                    syncSteamLibrary(announce: true)
+                },
+                CommandBannerAction(title: "Build All", systemImage: "square.grid.2x2.fill") {
+                    buildLaunchers(full: true)
+                },
+            ]
+        )
     }
 
     // MARK: - Quick launch
@@ -865,6 +1027,7 @@ struct ContentView: View {
     private func launchProfileUnchecked(_ profile: SavedProfile) {
         guard profile.canLaunchFromDashboard else { return }
         guard ensureRosettaForWineLaunch() else { return }
+        profilePreferences = ProfilePreferencesStore.recordRecentLaunch(profileID: profile.id)
         if !profile.path.isEmpty {
         runCommand(
             script: "run.command",
@@ -1462,8 +1625,19 @@ struct ContentView: View {
             runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: bottleEnvironment())
         }
 
-        secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps · Terminal", systemImage: "square.grid.2x2.fill", help: "Opens Terminal to detect games and install Spotlight launchers into Cosmos Apps") {
-            runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+        secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps", systemImage: "square.grid.2x2.fill", help: "Detect games and install Spotlight launchers into Cosmos Apps") {
+            buildLaunchers(full: true)
+        }
+
+        if pendingNewSteamGames > 0 {
+            secondaryButton(
+                title: "Sync New Games",
+                subtitle: "\(pendingNewSteamGames) detected",
+                systemImage: "arrow.triangle.2.circlepath",
+                help: "Build launchers for newly installed Steam games only"
+            ) {
+                syncSteamLibrary(announce: true)
+            }
         }
     }
 
@@ -1965,13 +2139,13 @@ struct ContentView: View {
             }
 
             HStack(spacing: 10) {
-                Text("After importing, run Build Launchers to create Dock icons, or use Install Cosmos for a one-shot Terminal build.")
+                Text("After importing, run Build Launchers to create Dock icons from the dashboard.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button("Build Launchers") {
-                    runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+                    buildLaunchers(full: true)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -2957,8 +3131,9 @@ struct ContentView: View {
 
     private func refreshStatus(message: String? = nil) {
         SteamSettingsStore.ensureOnDisk()
-        cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
+        cosmosInstalled = SavedProfileStore.cosmosAppsIsInstalled()
         cosmosAppCount = SavedProfileStore.countCosmosApps()
+        profilePreferences = ProfilePreferencesStore.load()
         steamSettings = SteamSettingsStore.load()
         reloadGraphicsSettings()
         wineRuntime = WineRuntimeStore.load(wineVersion: steamSettings.wineVersion)
@@ -2982,6 +3157,10 @@ struct ContentView: View {
 
         if let message {
             output = message + "\n\n" + output
+        }
+
+        if isSetupComplete {
+            checkSteamLibraryForNewGames(autoSync: false)
         }
     }
 

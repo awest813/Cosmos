@@ -17,6 +17,7 @@ done < <(find . -type f \( -name '*.command' -o -name '*.sh' \) -print0)
 
 UNIT_TESTS=(
   scripts/test_steam_detection.sh
+  scripts/test_steam_sync.sh
   scripts/test_profile_lib.sh
   scripts/test_sync_lib.sh
   scripts/test_gptk_lib.sh

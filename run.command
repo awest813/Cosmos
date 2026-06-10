@@ -297,6 +297,7 @@ Actions:
   --logs                   Open the latest launch log and exit.
   --check-update           Compare local app/runtime version to GitHub Releases.
   --install-update         Download Cosmos.dmg from GitHub and install to /Applications.
+  --sync-steam             Build launchers for newly installed Steam games only.
   --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
@@ -370,6 +371,13 @@ parse_arguments() {
         die "The --install-update flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="install-update"
+      return 0
+      ;;
+    --sync-steam)
+      if (($# > 1)); then
+        die "The --sync-steam flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="sync-steam"
       return 0
       ;;
     --status|--doctor)
