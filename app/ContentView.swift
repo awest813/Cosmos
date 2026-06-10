@@ -23,6 +23,9 @@ struct ContentView: View {
     @State private var consoleExpanded = false
     @State private var showSetupCompleteBanner = false
     @State private var didCopyOutput = false
+    @State private var dashboardSection: DashboardSection = .launch
+    @State private var commandBanner: CommandBanner?
+    @State private var outputWasTrimmed = false
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -103,10 +106,40 @@ struct ContentView: View {
         .onChange(of: isSetupComplete) { complete in
             if complete && !showSetupCompleteBanner {
                 showSetupCompleteBanner = true
-                consoleExpanded = true
+            }
+        }
+        .onChange(of: selectedBottleID) { _, newID in
+            if newID != nil, isSetupComplete {
+                dashboardSection = .bottles
+            }
+        }
+        .onChange(of: selectedGameProfileID) { _, newID in
+            if newID != nil, isSetupComplete {
+                dashboardSection = .library
             }
         }
         .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                if isSetupComplete, let bottle = selectedBottle {
+                    StatusChip(
+                        label: "Bottle: \(bottle.name)",
+                        systemImage: "cylinder.split.1x2.fill"
+                    )
+                } else if isSetupComplete {
+                    StatusChip(
+                        label: "Default bottle",
+                        systemImage: "cylinder.split.1x2",
+                        tint: .secondary
+                    )
+                }
+                if isRunning {
+                    StatusChip(
+                        label: "Running…",
+                        systemImage: "gearshape.arrow.triangle.2.circlepath",
+                        tint: Color.cosmosBright
+                    )
+                }
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 if !isSetupComplete {
                     Button {
@@ -265,11 +298,19 @@ struct ContentView: View {
 
     private func profileRow(_ profile: SavedProfile) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(profile.name)
-                .font(.headline)
+            HStack(spacing: 6) {
+                Text(profile.name)
+                    .font(.headline)
+                if profile.path.isEmpty {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .help("No executable path — edit the profile config")
+                }
+            }
             Text(profile.args.isEmpty ? profile.path : profile.args)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(profile.path.isEmpty ? .tertiary : .secondary)
                 .lineLimit(1)
         }
         .padding(.vertical, 2)
@@ -308,27 +349,30 @@ struct ContentView: View {
 
     private var detailContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: CosmosSpacing.section) {
                 if showSetupCompleteBanner && isSetupComplete {
                     setupCompleteBanner
                 }
+                if let commandBanner {
+                    CommandBannerView(banner: commandBanner) {
+                        self.commandBanner = nil
+                    }
+                }
                 heroSection
+                if isSetupComplete {
+                    dashboardSectionPicker
+                }
                 setupAssistantSection
                 if isSetupComplete {
-                    launchSection
+                    dashboardSectionContent
                 } else {
                     setupLaunchHintSection
-                }
-                if isSetupComplete || showAdvancedSetupOptions {
-                    steamWineSettingsSection
-                    managementGrid
-                    curatedProfilesSection
-                    repairSection
-                    storeExpansionSection
-                    compatibilitySection
-                    bottlesSection
-                } else {
-                    newUserMaintenanceSection
+                    if showAdvancedSetupOptions {
+                        steamWineSettingsSection
+                        managementGrid
+                    } else {
+                        newUserMaintenanceSection
+                    }
                 }
                 if let selectedProfile {
                     selectedProfileSection(selectedProfile)
@@ -336,9 +380,47 @@ struct ContentView: View {
                 consoleSection
             }
             .padding(28)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: 1000, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    /// Segmented navigation for the post-setup dashboard — one focus area at a time.
+    private var dashboardSectionPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Section", selection: $dashboardSection) {
+                ForEach(DashboardSection.allCases) { section in
+                    Label(section.rawValue, systemImage: section.systemImage)
+                        .tag(section)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel("Dashboard section")
+
+            Text(dashboardSection.subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var dashboardSectionContent: some View {
+        switch dashboardSection {
+        case .launch:
+            launchSection
+            steamWineSettingsSection
+        case .library:
+            curatedProfilesSection
+            compatibilitySection
+            repairSection
+        case .tools:
+            managementGrid
+            storeExpansionSection
+        case .bottles:
+            bottlesSection
+        }
     }
 
     private var heroSection: some View {
@@ -546,13 +628,7 @@ struct ContentView: View {
                     }
                     .font(.subheadline)
                 }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.cosmosPrimary.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
-                )
+                .cosmosCard(prominent: true)
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("First-time setup guide, step \(setupStepNumber) of 4")
             }
@@ -779,13 +855,7 @@ struct ContentView: View {
                 }
                 detailRow(title: "Prefix path", value: steamSettings.prefixURL.path)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.cosmosPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
-            )
+            .cosmosCard()
         }
     }
 
@@ -1038,9 +1108,7 @@ struct ContentView: View {
                 .disabled(isRunning)
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.cosmosPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+        .cosmosCard()
     }
 
     // MARK: - Repair
@@ -1504,9 +1572,7 @@ struct ContentView: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.cosmosPrimary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+        .cosmosCard()
         .onChange(of: activeSteamAppID) { _, _ in refreshCompatBadge() }
         .onChange(of: selectedGameProfileID) { _, _ in refreshCompatBadge() }
     }
@@ -1702,13 +1768,7 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.cosmosPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
-        )
+        .cosmosCard()
     }
 
     private func bottleActionButton(
@@ -1853,13 +1913,7 @@ struct ContentView: View {
                 Divider()
                 detailRow(title: "Config file", value: profile.fileURL.lastPathComponent)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.cosmosPrimary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Color.cosmosPrimary.opacity(0.15), lineWidth: 1)
-            )
+            .cosmosCard()
 
             if let appid = profile.steamAppID, !appid.isEmpty,
                let yaml = GameProfileStore.find(steamAppID: appid) {
@@ -1938,6 +1992,7 @@ struct ContentView: View {
                 .accessibilityLabel(didCopyOutput ? "Output copied" : "Copy output")
                 Button {
                     output = ""
+                    outputWasTrimmed = false
                 } label: {
                     Label("Clear", systemImage: "xmark.circle")
                         .font(.caption.weight(.medium))
@@ -1947,6 +2002,17 @@ struct ContentView: View {
                 .disabled(output.isEmpty || isRunning)
                 .help("Clear the output log")
                 .accessibilityLabel("Clear output")
+            }
+
+            if outputWasTrimmed {
+                HStack(spacing: 6) {
+                    Image(systemName: "scissors")
+                        .font(.caption)
+                    Text("Earlier log lines were trimmed to keep the view responsive. Copy output to save the full log.")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
             }
 
             ScrollViewReader { proxy in
@@ -2075,8 +2141,16 @@ struct ContentView: View {
     }
 
     private func statusRow(label: String, icon: String, color: Color) -> some View {
-        Label(label, systemImage: icon)
-            .foregroundStyle(color)
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(color)
+                .frame(width: 18)
+            Text(label)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func sectionHeader(_ title: String, systemImage: String) -> some View {
@@ -2369,7 +2443,9 @@ struct ContentView: View {
         environment: [String: String] = [:]
     ) {
         guard let scriptURL = resolveScript(script) else {
-            output = "Script not found or not executable: \(script)"
+            let message = "Script not found or not executable: \(script)"
+            output = message
+            commandBanner = CommandBanner(kind: .failure, message: message)
             return
         }
 
@@ -2400,8 +2476,16 @@ struct ContentView: View {
             Complete any password or confirmation prompts in the Terminal window, \
             then click Refresh in the toolbar (⌘R) or switch back to this window — status updates automatically.
             """
+            commandBanner = CommandBanner(
+                kind: .info,
+                message: "Running in Terminal — complete prompts there, then refresh status (⌘R)."
+            )
         } catch {
             output = "Failed to open Terminal: \(error.localizedDescription)"
+            commandBanner = CommandBanner(
+                kind: .failure,
+                message: "Could not open Terminal: \(error.localizedDescription)"
+            )
         }
     }
 
@@ -2419,7 +2503,9 @@ struct ContentView: View {
 
     private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
         guard let scriptURL = resolveScript(script) else {
-            output = "Script not found or not executable: \(script)"
+            let message = "Script not found or not executable: \(script)"
+            output = message
+            commandBanner = CommandBanner(kind: .failure, message: message)
             return
         }
 
@@ -2455,6 +2541,7 @@ struct ContentView: View {
                 // stall the text view.
                 if output.count > 120_000 {
                     output = "…(earlier output trimmed)…\n" + String(output.suffix(100_000))
+                    outputWasTrimmed = true
                 }
             }
         }
@@ -2470,7 +2557,14 @@ struct ContentView: View {
                     output += tailText
                 }
                 isRunning = false
-                output += process.terminationStatus == 0 ? "\nDone." : "\nExited with status \(process.terminationStatus)."
+                let succeeded = process.terminationStatus == 0
+                output += succeeded ? "\nDone." : "\nExited with status \(process.terminationStatus)."
+                commandBanner = CommandBanner(
+                    kind: succeeded ? .success : .failure,
+                    message: succeeded
+                        ? "Command finished successfully."
+                        : "Command exited with status \(process.terminationStatus). Check the output below."
+                )
                 refreshStatus()
             }
         }
@@ -2479,7 +2573,9 @@ struct ContentView: View {
             try task.run()
         } catch {
             isRunning = false
-            output = "Failed to run command: \(error.localizedDescription)"
+            let message = "Failed to run command: \(error.localizedDescription)"
+            output = message
+            commandBanner = CommandBanner(kind: .failure, message: message)
         }
     }
 

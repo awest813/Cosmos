@@ -7,7 +7,7 @@ struct CosmosApp: App {
             ContentView()
                 .frame(minWidth: 960, minHeight: 640)
         }
-        .defaultSize(width: 1040, height: 720)
+        .defaultSize(width: 1100, height: 760)
         .windowStyle(.titleBar)
         .commands {
             // Cosmos manages a single dashboard window; drop the "New" menu item.
