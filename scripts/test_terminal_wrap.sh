@@ -10,8 +10,9 @@ job_dir="${support}/terminal-jobs"
 mkdir -p "${job_dir}"
 
 job_id="test-job-$$"
-"${ROOT}/scripts/terminal_wrap.sh" "${job_id}" -- /usr/bin/true
+COSMOS_TERMINAL_LABEL="smoke test" "${ROOT}/scripts/terminal_wrap.sh" "${job_id}" -- /usr/bin/true
 [[ -f "${job_dir}/${job_id}.exit" ]] || fail "missing exit file"
+grep -q '^label=smoke test$' "${job_dir}/${job_id}.meta" || fail "expected label in meta file"
 [[ "$(tr -d '[:space:]' < "${job_dir}/${job_id}.exit")" == "0" ]] || fail "expected exit 0"
 
 job_id_fail="test-job-fail-$$"

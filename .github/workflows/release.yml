@@ -26,8 +26,19 @@ jobs:
         id: version
         run: |
           tag="${GITHUB_REF_NAME#v}"
+          version="$(tr -d '[:space:]' < VERSION)"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if [[ "${tag}" != "${version}" ]]; then
+            echo "Tag v${tag} must match VERSION (${version})." >&2
+            exit 1
+          fi
           echo "Building release ${tag}"
+
+      - name: Release audit
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: scripts/audit_release.sh
 
       - name: Import Developer ID certificate
         env:
@@ -59,13 +70,35 @@ jobs:
           COSMOS_OFFLINE_FIXTURE: "1"
         run: scripts/build_dmg.command
 
+      - name: Bundle audit after build
+        env:
+          APP_BUNDLE: build/Cosmos.app
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: scripts/audit_release.sh
+
+      - name: SHA256 checksum
+        run: |
+          shasum -a 256 build/Cosmos.dmg | tee build/Cosmos.dmg.sha256
+          printf '%s\n' "$(cut -d' ' -f1 build/Cosmos.dmg.sha256)  Cosmos.dmg" > build/Cosmos.dmg.sha256.txt
+
       - name: Generate release notes
         run: |
-          ver="${{ steps.version.outputs.tag }}"
+          ver="${{ steps.version.outputs.version }}"
+          runtime="$(python3 -c 'import json; print(json.load(open("runtime/cosmos-runtime.json"))["version"])')"
           {
             echo "## Cosmos ${ver}"
             echo ""
+            echo "| Component | Version |"
+            echo "| --- | --- |"
+            echo "| App | ${ver} |"
+            echo "| Bundled runtime manifest | ${runtime} |"
+            echo ""
             echo "Drag **Cosmos** from the disk image into **Applications**, then open the app for guided setup."
+            echo ""
+            echo "Verify download integrity:"
+            echo '```'
+            cat build/Cosmos.dmg.sha256
+            echo '```'
             echo ""
             if [[ -n "${{ secrets.DEVELOPER_ID_APPLICATION }}" ]]; then
               echo "Signed with Developer ID and notarized when Apple credentials are configured on this repository."
@@ -77,7 +110,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/Cosmos.dmg
+          files: |
+            build/Cosmos.dmg
+            build/Cosmos.dmg.sha256
           body_path: release-notes.md
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}

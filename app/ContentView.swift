@@ -112,6 +112,8 @@ struct ContentView: View {
         .tint(Color.cosmosPrimary)
         .task {
             refreshStatus()
+            resumeTerminalJobs()
+            checkForUpdatesSilently()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRefreshStatus)) { _ in
             refreshStatus(message: "Status refreshed.")
@@ -129,6 +131,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshStatus()
+            resumeTerminalJobs()
         }
         .onChange(of: isSetupComplete) { complete in
             if complete && !showSetupCompleteBanner {
@@ -1523,7 +1526,7 @@ struct ContentView: View {
                         systemImage: "arrow.down.to.line",
                         help: "Download the latest release and install Cosmos.app to /Applications"
                     ) {
-                        runInTerminal(script: "run.command", arguments: ["--install-update"], intent: .setup)
+                        installUpdate()
                     }
                 }
 
@@ -3041,8 +3044,10 @@ struct ContentView: View {
             return
         }
 
+        let displayed = ([script] + arguments).joined(separator: " ")
         let jobID = TerminalJobTracker.makeJobID()
         pendingTerminalJobID = jobID
+        TerminalJobTracker.saveTrackedJob(id: jobID, label: displayed)
         do {
             try TerminalJobTracker.prepareJobsDirectory()
             TerminalJobTracker.cleanup(jobID: jobID)
@@ -3062,7 +3067,8 @@ struct ContentView: View {
         let shellCommand = TerminalJobTracker.wrappedShellCommand(
             jobID: jobID,
             wrapScriptPath: wrapURL.path,
-            innerCommand: innerCommand
+            innerCommand: innerCommand,
+            label: displayed
         )
 
         let appleScript = """
@@ -3078,7 +3084,6 @@ struct ContentView: View {
 
         do {
             try task.run()
-            let displayed = ([script] + arguments).joined(separator: " ")
             output = """
             Opened Terminal to run: \(displayed)
 
@@ -3100,6 +3105,7 @@ struct ContentView: View {
             watchTerminalJob(jobID: jobID, displayedCommand: displayed, intent: intent)
         } catch {
             pendingTerminalJobID = nil
+            TerminalJobTracker.clearTrackedJob()
             let message = "Could not open Terminal: \(error.localizedDescription)"
             output = message
             showBanner(kind: .failure, message: message)
@@ -3108,38 +3114,104 @@ struct ContentView: View {
 
     private func watchTerminalJob(jobID: String, displayedCommand: String, intent: CommandIntent) {
         TerminalJobTracker.poll(jobID: jobID) { exitCode in
-            guard pendingTerminalJobID == jobID else { return }
-            pendingTerminalJobID = nil
-            defer { TerminalJobTracker.cleanup(jobID: jobID) }
+            deliverTerminalJobResult(
+                jobID: jobID,
+                displayedCommand: displayedCommand,
+                exitCode: exitCode,
+                intent: intent,
+                autoContinueSetup: true
+            )
+        }
+    }
 
-            guard let exitCode else {
-                output += "\n\nTimed out waiting for Terminal command: \(displayedCommand)"
-                showBanner(
-                    kind: .info,
-                    message: "Still running in Terminal — refresh status (⌘R) when finished.",
-                    actions: failureRecoveryActions(includeLogs: intent == .setup)
+    private func resumeTerminalJobs() {
+        guard pendingTerminalJobID == nil else { return }
+
+        if let tracked = TerminalJobTracker.loadTrackedJob() {
+            if let exitCode = TerminalJobTracker.readExitCode(jobID: tracked.id) {
+                deliverTerminalJobResult(
+                    jobID: tracked.id,
+                    displayedCommand: tracked.label,
+                    exitCode: exitCode,
+                    intent: .setup,
+                    autoContinueSetup: true
                 )
                 return
             }
+            pendingTerminalJobID = tracked.id
+            watchTerminalJob(jobID: tracked.id, displayedCommand: tracked.label, intent: .setup)
+            return
+        }
 
-            let succeeded = exitCode == 0
-            output += succeeded
-                ? "\n\nTerminal command finished successfully."
-                : "\n\nTerminal command exited with status \(exitCode)."
-            refreshStatus()
-            if succeeded {
-                showBanner(kind: .success, message: successMessage(for: intent))
-            } else {
-                let failureMessage = CommandOutputParser.failureMessage(
-                    exitCode: exitCode,
-                    intent: intent,
-                    output: output
-                )
-                showBanner(
-                    kind: .failure,
-                    message: failureMessage,
-                    actions: failureRecoveryActions(includeLogs: intent == .setup)
-                )
+        for completed in TerminalJobTracker.completedJobsAwaitingDelivery() {
+            deliverTerminalJobResult(
+                jobID: completed.id,
+                displayedCommand: completed.label,
+                exitCode: completed.exitCode,
+                intent: .setup,
+                autoContinueSetup: false
+            )
+        }
+    }
+
+    private func deliverTerminalJobResult(
+        jobID: String,
+        displayedCommand: String,
+        exitCode: Int?,
+        intent: CommandIntent,
+        autoContinueSetup: Bool
+    ) {
+        if let pendingTerminalJobID, pendingTerminalJobID != jobID {
+            return
+        }
+        pendingTerminalJobID = nil
+        defer {
+            TerminalJobTracker.cleanup(jobID: jobID)
+            TerminalJobTracker.clearTrackedJob()
+        }
+
+        guard let exitCode else {
+            output += "\n\nTimed out waiting for Terminal command: \(displayedCommand)"
+            showBanner(
+                kind: .info,
+                message: "Still running in Terminal — refresh status (⌘R) when finished.",
+                actions: failureRecoveryActions(includeLogs: intent == .setup)
+            )
+            return
+        }
+
+        let succeeded = exitCode == 0
+        output += succeeded
+            ? "\n\nTerminal command finished successfully: \(displayedCommand)"
+            : "\n\nTerminal command exited with status \(exitCode): \(displayedCommand)"
+        refreshStatus()
+        if succeeded {
+            showBanner(kind: .success, message: successMessage(for: intent))
+            if autoContinueSetup, intent == .setup, !isSetupComplete {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    performNextSetupStep()
+                }
+            }
+        } else {
+            let failureMessage = CommandOutputParser.failureMessage(
+                exitCode: exitCode,
+                intent: intent,
+                output: output
+            )
+            showBanner(
+                kind: .failure,
+                message: failureMessage,
+                actions: failureRecoveryActions(includeLogs: intent == .setup)
+            )
+        }
+    }
+
+    private func checkForUpdatesSilently() {
+        guard let scriptURL = resolveScript("run.command") else { return }
+        DispatchQueue.global(qos: .utility).async {
+            let status = UpdateChecker.check(runScript: scriptURL)
+            DispatchQueue.main.async {
+                applyUpdateCheck(status, verbose: false)
             }
         }
     }
@@ -3154,59 +3226,59 @@ struct ContentView: View {
         output = "Running: run.command --check-update\n\n"
         isRunning = true
 
-        let task = Process()
-        task.executableURL = scriptURL
-        task.arguments = ["--check-update"]
-        task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
-
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
-
-        pipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            let text = CommandOutputParser.decode(data)
-            guard !text.isEmpty else { return }
-            DispatchQueue.main.async { output += text }
-        }
-
-        task.terminationHandler = { process in
-            pipe.fileHandleForReading.readabilityHandler = nil
-            let tail = pipe.fileHandleForReading.readDataToEndOfFile()
-            let tailText = CommandOutputParser.decode(tail)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let status = UpdateChecker.check(runScript: scriptURL)
             DispatchQueue.main.async {
-                if !tailText.isEmpty { output += tailText }
                 isRunning = false
-                let exitCode = process.terminationStatus
-                updateAvailable = exitCode == 2
-                output += exitCode == 0
-                    ? "\nDone."
-                    : (exitCode == 2 ? "\nUpdate available." : "\nExited with status \(exitCode).")
-                if exitCode == 2 {
-                    showBanner(
-                        kind: .info,
-                        message: "A newer Cosmos release is available on GitHub.",
-                        actions: [
-                            CommandBannerAction(title: "Install Update", systemImage: "arrow.down.to.line") {
-                                runInTerminal(script: "run.command", arguments: ["--install-update"], intent: .setup)
-                            },
-                        ]
-                    )
-                } else if exitCode == 0 {
-                    showBanner(kind: .success, message: "Cosmos is up to date.")
+                if let status {
+                    output += "app_version=\(status.appVersion)\n"
+                    output += "runtime_version=\(status.runtimeVersion)\n"
+                    if let latest = status.latestRelease {
+                        output += "latest_release=\(latest)\n"
+                    }
+                    output += "status=\(status.state.rawValue)\n"
                 } else {
-                    showBanner(kind: .failure, message: "Update check failed (status \(exitCode)).")
+                    output += "Update check failed.\n"
                 }
+                applyUpdateCheck(status, verbose: true)
             }
         }
+    }
 
-        do {
-            try task.run()
-        } catch {
-            isRunning = false
-            showBanner(kind: .failure, message: "Failed to check for updates: \(error.localizedDescription)")
+    private func applyUpdateCheck(_ status: UpdateChecker.Status?, verbose: Bool) {
+        guard let status else {
+            if verbose {
+                showBanner(kind: .failure, message: "Update check failed.")
+            }
+            return
         }
+
+        updateAvailable = status.updateAvailable
+        guard status.updateAvailable else {
+            if verbose {
+                showBanner(kind: .success, message: "Cosmos is up to date (\(status.appVersion)).")
+            }
+            return
+        }
+
+        let latest = status.latestRelease ?? "newer"
+        let message = "Cosmos \(latest) is available (you are on \(status.appVersion))."
+        if verbose {
+            output += "\nUpdate available."
+        }
+        showBanner(
+            kind: .info,
+            message: message,
+            actions: [
+                CommandBannerAction(title: "Install Update", systemImage: "arrow.down.to.line") {
+                    installUpdate()
+                },
+            ]
+        )
+    }
+
+    private func installUpdate() {
+        runCommand(script: "run.command", arguments: ["--install-update"], intent: .setup)
     }
 
     private func showBanner(

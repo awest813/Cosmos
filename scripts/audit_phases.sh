@@ -93,6 +93,7 @@ pass "VERSION file present ($(tr -d '[:space:]' < "${ROOT}/VERSION"))"
 [[ -x "${ROOT}/scripts/terminal_wrap.sh" ]] || fail "missing scripts/terminal_wrap.sh"
 [[ -x "${ROOT}/scripts/sign_and_notarize.command" ]] || fail "missing scripts/sign_and_notarize.command"
 [[ -f "${ROOT}/.github/workflows/release.yml" ]] || fail "missing .github/workflows/release.yml"
+[[ -f "${ROOT}/app/UpdateChecker.swift" ]] || fail "missing app/UpdateChecker.swift"
 pass "update + release scripts present"
 
 [[ -f "${ROOT}/runtime/cosmos-runtime.json" ]] || fail "missing runtime/cosmos-runtime.json"

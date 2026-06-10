@@ -20,7 +20,11 @@ exit_file="${job_dir}/${job_id}.exit"
 meta_file="${job_dir}/${job_id}.meta"
 
 printf 'running\n' >"${state_file}"
-printf 'pid=%s\nstarted=%s\n' "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"${meta_file}"
+{
+  printf 'pid=%s\n' "$$"
+  printf 'started=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  [[ -n "${COSMOS_TERMINAL_LABEL:-}" ]] && printf 'label=%s\n' "${COSMOS_TERMINAL_LABEL}"
+} >"${meta_file}"
 
 set +e
 "$@"

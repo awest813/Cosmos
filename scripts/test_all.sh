@@ -30,6 +30,7 @@ UNIT_TESTS=(
   scripts/test_terminal_wrap.sh
   scripts/test_install_update.sh
   scripts/audit_phases.sh
+  scripts/audit_release.sh
   scripts/test_protonfix_port_hint.sh
   scripts/test_import_lib.sh
   scripts/test_library_lib.sh

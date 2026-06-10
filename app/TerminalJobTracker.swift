@@ -4,6 +4,19 @@ import Foundation
 /// Uses the same file-based IPC pattern as common MIT shell wrappers (no GPL coupling).
 enum TerminalJobTracker {
     private static let fileManager = FileManager.default
+    private static let trackedJobIDKey = "com.cosmos.pendingTerminalJobID"
+    private static let trackedJobLabelKey = "com.cosmos.pendingTerminalJobLabel"
+
+    struct TrackedJob: Equatable {
+        let id: String
+        let label: String
+    }
+
+    struct CompletedJob: Equatable {
+        let id: String
+        let label: String
+        let exitCode: Int
+    }
 
     static var jobsDirectory: URL {
         let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -23,21 +36,50 @@ enum TerminalJobTracker {
         jobsDirectory.appendingPathComponent("\(jobID).exit")
     }
 
+    static func saveTrackedJob(id: String, label: String) {
+        UserDefaults.standard.set(id, forKey: trackedJobIDKey)
+        UserDefaults.standard.set(label, forKey: trackedJobLabelKey)
+    }
+
+    static func loadTrackedJob() -> TrackedJob? {
+        guard let id = UserDefaults.standard.string(forKey: trackedJobIDKey) else { return nil }
+        let label = UserDefaults.standard.string(forKey: trackedJobLabelKey) ?? id
+        return TrackedJob(id: id, label: label)
+    }
+
+    static func clearTrackedJob() {
+        UserDefaults.standard.removeObject(forKey: trackedJobIDKey)
+        UserDefaults.standard.removeObject(forKey: trackedJobLabelKey)
+    }
+
     static func cleanup(jobID: String) {
         for suffix in ["exit", "state", "meta"] {
             try? fileManager.removeItem(at: jobsDirectory.appendingPathComponent("\(jobID).\(suffix)"))
         }
     }
 
+    static func readLabel(jobID: String) -> String? {
+        let meta = jobsDirectory.appendingPathComponent("\(jobID).meta")
+        guard let text = try? String(contentsOf: meta, encoding: .utf8) else { return nil }
+        for line in text.split(separator: "\n") {
+            if line.hasPrefix("label=") {
+                return String(line.dropFirst("label=".count))
+            }
+        }
+        return nil
+    }
+
     /// Build a shell command that runs `innerCommand` through `terminal_wrap.sh`.
     static func wrappedShellCommand(
         jobID: String,
         wrapScriptPath: String,
-        innerCommand: String
+        innerCommand: String,
+        label: String
     ) -> String {
         let support = jobsDirectory.deletingLastPathComponent().path
         return [
             "export COSMOS_SUPPORT_DIR=\(ShellArgumentParser.shellQuote(support))",
+            "export COSMOS_TERMINAL_LABEL=\(ShellArgumentParser.shellQuote(label))",
             "\(ShellArgumentParser.shellQuote(wrapScriptPath)) \(ShellArgumentParser.shellQuote(jobID)) -- \(innerCommand)",
         ].joined(separator: "; ")
     }
@@ -47,6 +89,22 @@ enum TerminalJobTracker {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return Int(trimmed)
+    }
+
+    /// Jobs that finished while the app was inactive (or after a relaunch).
+    static func completedJobsAwaitingDelivery() -> [CompletedJob] {
+        guard let entries = try? fileManager.contentsOfDirectory(at: jobsDirectory, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        return entries
+            .filter { $0.pathExtension == "exit" }
+            .compactMap { url -> CompletedJob? in
+                let id = url.deletingPathExtension().lastPathComponent
+                guard let exitCode = readExitCode(jobID: id) else { return nil }
+                let label = readLabel(jobID: id) ?? loadTrackedJob()?.label ?? id
+                return CompletedJob(id: id, label: label, exitCode: exitCode)
+            }
+            .sorted { $0.id < $1.id }
     }
 
     /// Poll until the job writes its exit file or the timeout elapses.
