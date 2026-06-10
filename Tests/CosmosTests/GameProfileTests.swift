@@ -30,7 +30,21 @@ final class GameProfileTests: XCTestCase {
         let profiles = GameProfileStore.load()
         let coOp = profiles.filter { CuratedProfileFilter.coOp.matches($0) }
         XCTAssertGreaterThan(coOp.count, 10)
-        XCTAssertTrue(coOp.allSatisfy(\.hasMultiplayerInfo)
+        XCTAssertTrue(coOp.allSatisfy(\.hasMultiplayerInfo))
+    }
+
+    func testCoOpFilterMatchesNotesWithoutExplicitTag() {
+        let profiles = GameProfileStore.load()
+        let notesOnly = profiles.filter {
+            !$0.tags.contains("co-op")
+                && ($0.notes.localizedCaseInsensitiveContains("co-op")
+                    || $0.multiplayerNotes.localizedCaseInsensitiveContains("co-op"))
+        }
+        XCTAssertFalse(notesOnly.isEmpty, "fixture library should include co-op titles in notes")
+        XCTAssertTrue(
+            notesOnly.allSatisfy { CuratedProfileFilter.coOp.matches($0) },
+            "co-op filter should match notes and multiplayer_notes, not only tags"
+        )
     }
 
     func testCuratedProfileFilterBlocked() {
