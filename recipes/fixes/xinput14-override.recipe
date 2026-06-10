@@ -1,0 +1,6 @@
+TYPE=fix
+ID=xinput14-override
+DESCRIPTION=Set xinput1_4=n,b (XInput controller fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=xinput1_4=n,b

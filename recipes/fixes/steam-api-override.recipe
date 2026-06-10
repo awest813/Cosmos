@@ -1,0 +1,6 @@
+TYPE=fix
+ID=steam-api-override
+DESCRIPTION=Set steam_api=n,b (Steam API shim fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=steam_api=n,b

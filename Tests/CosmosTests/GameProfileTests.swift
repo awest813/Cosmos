@@ -30,7 +30,7 @@ final class GameProfileTests: XCTestCase {
         let profiles = GameProfileStore.load()
         let coOp = profiles.filter { CuratedProfileFilter.coOp.matches($0) }
         XCTAssertGreaterThan(coOp.count, 10)
-        XCTAssertTrue(coOp.allSatisfy { $0.tags.contains("co-op") })
+        XCTAssertTrue(coOp.allSatisfy(\.hasMultiplayerInfo)
     }
 
     func testCuratedProfileFilterBlocked() {

@@ -1,0 +1,6 @@
+TYPE=fix
+ID=wmvcore-override
+DESCRIPTION=Set wmvcore=n,b (Windows Media video fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=wmvcore=n,b

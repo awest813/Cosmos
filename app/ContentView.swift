@@ -666,6 +666,13 @@ struct ContentView: View {
                         performNextSetupStep()
                     }
 
+                    CosmosNoticeBanner(
+                        tint: .orange,
+                        systemImage: "terminal.fill",
+                        title: "Terminal steps",
+                        message: "Most setup steps open Terminal for passwords or sudo. If a step fails, use Open Logs below before retrying — then press Refresh (⌘R)."
+                    )
+
                     VStack(alignment: .leading, spacing: 10) {
                         if wineRuntime.needsRosetta {
                             setupStep(
@@ -1449,6 +1456,10 @@ struct ContentView: View {
                     refreshStatus(message: "Status refreshed.")
                 }
 
+                secondaryButton(title: "Check for Updates", subtitle: "GitHub Releases", systemImage: "arrow.down.circle", help: "Compare your Cosmos version to the latest published release") {
+                    runCommand(script: "run.command", arguments: ["--check-update"])
+                }
+
                 secondaryButton(title: "Reset Bottle", subtitle: "Delete prefix", systemImage: "arrow.counterclockwise", destructive: true, help: "Delete the default Wine prefix (Steam and games inside it)") {
                     showResetConfirmation = true
                 }
@@ -1608,10 +1619,18 @@ struct ContentView: View {
                 Text(profile.name)
                     .font(.headline)
                 Spacer()
-                Text(profile.statusLabel)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.cosmosPrimary)
+                CosmosCompatBadge(status: profile.statusLabel)
             }
+
+            if profile.isBlocked {
+                CosmosNoticeBanner(
+                    tint: .red,
+                    systemImage: "exclamationmark.octagon.fill",
+                    title: "Blocked on macOS",
+                    message: profile.blockedLaunchMessage
+                )
+            }
+
             detailRow(title: "Backend", value: profile.recommendedBackend)
             if profile.dependencyCount > 0 || profile.fixCount > 0 {
                 detailRow(

@@ -1,0 +1,6 @@
+TYPE=fix
+ID=mfplat-override
+DESCRIPTION=Set mfplat=n,b (Media Foundation / video codec fix)
+ACTION=script
+SCRIPT=dll_override
+DLL_OVERRIDE=mfplat=n,b

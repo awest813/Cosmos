@@ -5,7 +5,7 @@ A user-facing gap analysis and prioritized plan for closing the distance between
 today**. This complements [ROADMAP.md](ROADMAP.md) (engineering milestones) and
 [PROTON_GAP_ANALYSIS.md](PROTON_GAP_ANALYSIS.md) (technical comparison).
 
-**Last reviewed:** 2026-06-10 · **Baseline:** `main` + open PRs #36–#39
+**Last reviewed:** 2026-06-10 · **Baseline:** `main` (Phases A–E shipped; Phase F in progress)
 
 ---
 
@@ -163,70 +163,72 @@ flowchart TD
 
 ## Phased plan (user outcomes)
 
-### Phase A — Merge open work (immediate)
+### Phase A — Merge open work (immediate) ✅
 
 **Outcome:** Users see Rosetta/Wine health, multiplayer honesty, more profiles, cleaner UI.
 
-- [ ] Merge PR #38 (Wine/Rosetta)
-- [ ] Merge PR #39 (Steam fixes + multiplayer)
-- [ ] Merge PR #36 (profile library + anti-cheat)
-- [ ] Merge PR #37 (UI cohesion)
-- [ ] Resolve `ContentView.swift` conflicts once (wine + UI + multiplayer touch same areas)
+- [x] Merge PR #38 (Wine/Rosetta)
+- [x] Merge PR #39 (Steam fixes + multiplayer)
+- [x] Merge PR #36 (profile library + anti-cheat)
+- [x] Merge PR #37 (UI cohesion)
+- [x] Resolve `ContentView.swift` conflicts once (wine + UI + multiplayer touch same areas)
 
-**Success metric:** New user on arm64 sees Rosetta status; Terraria shows co-op tags; Apex shows Blocked before launch.
+**Success metric:** New user on arm64 sees Rosetta status; Terraria shows co-op tags; Apex shows Blocked before launch. **Met.**
 
-### Phase B — Library visibility (high impact, small diff)
+### Phase B — Library visibility (high impact, small diff) ✅
 
 **Outcome:** Users know Playable vs Blocked from the sidebar, not a separate tab.
 
-- [ ] `CosmosBadge` on each saved profile row in sidebar
-- [ ] Pre-launch compat warning surfaces in dashboard when selecting a game with `blocked` profile
-- [ ] Filter curated profiles: `co-op` · `online` · `blocked` · backend
-- [ ] Link `docs/MULTIPLAYER.md` from setup assistant when Steam is ready
+- [x] `CosmosBadge` on each saved profile row in sidebar
+- [x] Pre-launch compat warning surfaces in dashboard when selecting a game with `blocked` profile
+- [x] Filter curated profiles: `co-op` · `online` · `blocked` · backend
+- [x] Link `docs/MULTIPLAYER.md` from setup assistant when Steam is ready
+- [x] Blocked banner on curated profile detail panel (parity with saved launchers)
 
-**Success metric:** User can answer “can I play this online with friends?” without reading logs.
+**Success metric:** User can answer “can I play this online with friends?” without reading logs. **Met.**
 
-### Phase C — Setup without surprise (medium)
+### Phase C — Setup without surprise (medium) ✅
 
 **Outcome:** First-time setup feels guided, not forensic.
 
-- [ ] Rosetta as explicit step 1 on arm64 (after PR #38)
-- [ ] In-app “Open logs” after failed setup step
-- [ ] Post-detect “Apply recommended profile” batch action for installed library
-- [ ] README quick-start points to DMG when release exists
+- [x] Rosetta as explicit step 1 on arm64 (5-step progress on Apple Silicon)
+- [x] In-app “Open logs” after failed setup step (embedded commands; Terminal steps documented)
+- [x] Post-detect “Apply recommended profile” batch action (`profile.command apply-installed` + dashboard CTA)
+- [x] README quick-start points to DMG when release exists
 
 **Success metric:** Support questions about “Wine not found” and “Rosetta” drop.
 
-### Phase D — Repair depth (medium)
+### Phase D — Repair depth (medium) ✅
 
 **Outcome:** When a game fails, Cosmos fixes common cases without wiki archaeology.
 
-- [ ] Expand `fixes:` on top 30 profiles (SSL, networking, intro skip, retina)
-- [ ] Log fixtures + diagnose patterns for top failure modes
-- [ ] Auto-diagnose on non-zero launch exit (dashboard hook)
-- [ ] `winemactricks` sync job in CI (grow recipe count)
+- [x] Expand `fixes:` on top 30 profiles (SSL, networking, intro skip, retina) — **34** profiles
+- [x] Log fixtures + diagnose patterns for top failure modes (6 repair fixtures + UMU hint fixture)
+- [x] Auto-diagnose on non-zero launch exit (dashboard chains `repair.command diagnose`)
+- [x] `winemactricks` sync job in CI (`import_winemactricks.sh --sync --dry-run` + recipe growth)
 
 **Success metric:** `repair.command apply-suggested` resolves majority of first-launch Steam client failures.
 
-### Phase E — Performance and graphics options (medium)
+### Phase E — Performance and graphics options (medium) ✅
 
 **Outcome:** Power users can tune; AAA D3D12 path is documented.
 
-- [ ] `WINEMSYNC` + sync mode toggle (`off` / `esync` / `msync`)
-- [ ] GPTK guided setup (path picker + validation + test launch)
-- [ ] Advanced: DXMT channel, MetalFX toggle, MoltenVK `MVK_CONFIG_*` presets
-- [ ] Document D3D12 expectations in profile notes for AAA titles
+- [x] `WINEMSYNC` + sync mode toggle (`off` / `esync` / `msync`)
+- [x] GPTK guided setup (path picker + validation + test launch)
+- [x] Advanced: DXMT channel, MetalFX toggle, MoltenVK `MVK_CONFIG_*` presets
+- [x] Document D3D12 expectations in profile notes for AAA titles
 
 **Success metric:** User can launch a D3D12 title with documented GPTK path in &lt;30 minutes.
 
-### Phase F — Cosmos 1.0 user product (large)
+### Phase F — Cosmos 1.0 user product (large) — in progress
 
 **Outcome:** Ordinary Mac gamers, not repo cloners.
 
-- [ ] Notarized `Cosmos.dmg` + GitHub Releases
-- [ ] Bundled Cosmos Runtime (Wine + DXMT + notices) — one version string
-- [ ] 100+ shipped profiles with community merge workflow
-- [ ] Auto-update check (app + runtime)
+- [ ] Notarized `Cosmos.dmg` + GitHub Releases (ad-hoc DMG + `build_dmg.command` today)
+- [x] Bundled Cosmos Runtime (Wine + DXMT + notices) — `runtime/cosmos-runtime.json` **1.1.0-preview**
+- [x] 100+ shipped profiles (**105** Steam YAMLs; drafts excluded)
+- [x] Auto-update **check** (`run.command --check-update` + dashboard; no Sparkle yet)
+- [ ] Community profile merge workflow (drafts + `suggest-profile`; manual review)
 - [ ] Optional: Console mode (controller grid) — roadmap “later”
 
 **Success metric:** Install → Steam → play, no `git clone`, no `swift build`.
@@ -246,16 +248,17 @@ flowchart TD
 
 ## Tracking
 
-| Metric | Main today | Target (Phase F) |
+| Metric | Current (`main`) | Target (Phase F) |
 | --- | --- | --- |
-| Shipped Steam profiles | ~21 | 100+ |
-| Profiles with `fixes:` | ~3 | 30+ |
-| Blocked anti-cheat profiles | 1 | 25+ (blocklist-driven) |
-| Multiplayer-tagged profiles | 0 | 15+ |
-| Fix recipes | 14 | 25+ |
-| Setup steps requiring Terminal | 4/4 | 2/4 (stretch: 0/4) |
-| Sidebar compat badge | No | Yes |
-| Signed DMG release | No | Yes |
+| Shipped Steam profiles | **105** | 100+ ✅ |
+| Profiles with `fixes:` | **34** | 30+ ✅ |
+| Blocked anti-cheat profiles | **25** | 25+ ✅ |
+| Multiplayer-tagged profiles | **30** (`online`/`co-op`/`pvp`/`lan`) | 15+ ✅ |
+| Fix recipes | **25** | 25+ ✅ |
+| Setup steps requiring Terminal | 4/5 (Rosetta + install still Terminal) | 2/4 (stretch: 0/4) |
+| Sidebar compat badge | **Yes** | Yes ✅ |
+| Signed DMG release | No (ad-hoc only) | Yes |
+| Auto-update check | **`--check-update`** | Full auto-install |
 
 ---
 
@@ -274,6 +277,7 @@ flowchart TD
 
 ## Next action (for maintainers)
 
-1. Merge PRs #38 → #39 → #36 → #37 in order; fix `ContentView` conflicts once.
-2. Open Phase B ticket: sidebar compat badges + curated profile filters.
-3. Update README “Status” line after merges to reflect profile count and multiplayer docs.
+1. **Phase F:** Developer ID sign + notarize `Cosmos.dmg`; publish first GitHub Release.
+2. **Phase F:** Sparkle or in-app runtime updater (check-only ships today).
+3. Run `./scripts/audit_phases.sh` in CI to guard PLAN metrics; expand `co-op` tags where notes-only.
+4. Grow winemactricks recipe import beyond dry-run when upstream corpus expands.

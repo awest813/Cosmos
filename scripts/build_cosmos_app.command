@@ -16,7 +16,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 APP_NAME="Cosmos"
 BUNDLE_ID="com.cosmos.app"
-APP_VERSION="0.1"
+APP_VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/VERSION" 2>/dev/null || echo "0.7.0")"
 MIN_MACOS="13.0"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"

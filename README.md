@@ -8,7 +8,7 @@ Cosmos is a macOS game compatibility layer: it downloads Wine, sets up a Steam b
 |---|---|
 | **Platform** | Apple Silicon Macs only (M1/M2/M3/M4) |
 | **macOS** | 11+ for scripts · **13+** for the desktop app (15 Sequoia tested) |
-| **Status** | Milestones **0.4–0.7** shipped — profiles, repair, store import, compatibility DB |
+| **Status** | Milestone **0.7** — **105** curated profiles, repair engine, CosmosDB, multiplayer docs ([MULTIPLAYER.md](docs/MULTIPLAYER.md)); Phases A–E of [user gaps plan](docs/PLAN.md) complete |
 | **Developers** | See [README_DEV.md](README_DEV.md) for scripts, env vars, and architecture |
 
 > **Upgrading from Merlot?** Your Wine prefix and saved profiles are reused. `MERLOT_*` environment variables still work; `uninstall.command` also removes the legacy `Merlot Apps` folder.
