@@ -97,8 +97,10 @@ fi
 for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
   src="${REPO_ROOT}/${script}"
   [[ -f "${src}" ]] || die "Missing helper script: ${src}"
-  cp "${src}" "${APP_BUNDLE}/Contents/Resources/${script}"
-  chmod +x "${APP_BUNDLE}/Contents/Resources/${script}"
+  dest="${APP_BUNDLE}/Contents/Resources/${script}"
+  mkdir -p "$(dirname "${dest}")"
+  cp "${src}" "${dest}"
+  chmod +x "${dest}"
 done
 
 # The icon converter lives under scripts/; flatten it into Resources so the

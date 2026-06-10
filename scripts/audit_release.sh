@@ -15,10 +15,10 @@ version="$(tr -d '[:space:]' < "${ROOT}/VERSION")"
 [[ -n "${version}" ]] || fail "VERSION is empty"
 pass "VERSION=${version}"
 
-rg -q -- '--install-update' "${ROOT}/run.command" || fail "run.command missing --install-update"
+grep -q -- '--install-update' "${ROOT}/run.command" || fail "run.command missing --install-update"
 pass "CLI install-update flag wired"
 
-rg -q -- '--install' "${ROOT}/scripts/check_updates.sh" || fail "check_updates.sh missing --install"
+grep -q -- '--install' "${ROOT}/scripts/check_updates.sh" || fail "check_updates.sh missing --install"
 pass "check_updates --install flag present"
 
 for script in check_updates.sh install_update.sh terminal_wrap.sh; do
