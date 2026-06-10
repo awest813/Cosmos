@@ -2,6 +2,12 @@ import Foundation
 import AppKit
 import SwiftUI
 
+private enum CommandIntent: Equatable {
+    case general
+    case diagnose
+    case gameLaunch
+}
+
 struct ContentView: View {
     private let fileManager = FileManager.default
     private let repositoryRootURL = Self.findRepositoryRoot()
@@ -500,30 +506,61 @@ struct ContentView: View {
     }
 
     private var isSetupComplete: Bool {
-        cosmosInstalled
+        setupRosettaReady
+            && cosmosInstalled
             && steamSettings.isPrefixInitialized
             && steamSettings.isSteamInstalled
             && !profiles.isEmpty
     }
 
+    /// Rosetta is step 1 on Apple Silicon; Intel hosts skip it.
+    private var setupIncludesRosetta: Bool {
+        wineRuntime.needsRosetta
+    }
+
+    private var setupRosettaReady: Bool {
+        !setupIncludesRosetta || wineRuntime.rosettaReady
+    }
+
+    private var setupStepTotal: Int {
+        setupIncludesRosetta ? 5 : 4
+    }
+
     private var setupProgress: Double {
         var completed = 0.0
+        if setupRosettaReady { completed += 1 }
         if cosmosInstalled { completed += 1 }
         if steamSettings.isPrefixInitialized { completed += 1 }
         if steamSettings.isSteamInstalled { completed += 1 }
         if !profiles.isEmpty { completed += 1 }
-        return completed / 4.0
+        return completed / Double(setupStepTotal)
     }
 
     private var setupStepNumber: Int {
-        if !cosmosInstalled { return 1 }
-        if !steamSettings.isPrefixInitialized { return 2 }
-        if !steamSettings.isSteamInstalled { return 3 }
-        if profiles.isEmpty { return 4 }
-        return 4
+        if setupIncludesRosetta && !wineRuntime.rosettaReady { return 1 }
+        if !cosmosInstalled { return setupIncludesRosetta ? 2 : 1 }
+        if !steamSettings.isPrefixInitialized { return setupIncludesRosetta ? 3 : 2 }
+        if !steamSettings.isSteamInstalled { return setupIncludesRosetta ? 4 : 3 }
+        if profiles.isEmpty { return setupStepTotal }
+        return setupStepTotal
+    }
+
+    /// Saved profiles that match a shipped curated YAML preset.
+    private var installedCuratedProfiles: [GameProfile] {
+        var seen = Set<String>()
+        return profiles.compactMap { saved -> GameProfile? in
+            guard let appid = saved.steamAppID, !appid.isEmpty,
+                  let yaml = GameProfileStore.find(steamAppID: appid),
+                  !seen.contains(appid) else {
+                return nil
+            }
+            seen.insert(appid)
+            return yaml
+        }
     }
 
     private var setupPrimaryTitle: String {
+        if setupIncludesRosetta && !wineRuntime.rosettaReady { return "Install Rosetta 2" }
         if !cosmosInstalled { return "Install Cosmos" }
         if !steamSettings.isPrefixInitialized { return "Prepare Steam Bottle" }
         if !steamSettings.isSteamInstalled { return "Install Steam" }
@@ -532,6 +569,9 @@ struct ContentView: View {
     }
 
     private var setupPrimarySubtitle: String {
+        if setupIncludesRosetta && !wineRuntime.rosettaReady {
+            return "Required before x86_64 Wine can run on Apple Silicon · opens Terminal"
+        }
         if !cosmosInstalled {
             return "Installs launchers into /Applications/Cosmos Apps · opens Terminal"
         }
@@ -550,6 +590,7 @@ struct ContentView: View {
     }
 
     private var setupPrimarySystemImage: String {
+        if setupIncludesRosetta && !wineRuntime.rosettaReady { return "cpu" }
         if !cosmosInstalled { return "arrow.down.circle.fill" }
         if !steamSettings.isPrefixInitialized { return "externaldrive.fill.badge.checkmark" }
         if !steamSettings.isSteamInstalled { return "shippingbox.fill" }
@@ -604,7 +645,7 @@ struct ContentView: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("Step \(setupStepNumber) of 4")
+                            Text("Step \(setupStepNumber) of \(setupStepTotal)")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(Color.cosmosPrimary)
                             Spacer()
@@ -704,7 +745,7 @@ struct ContentView: View {
                 }
                 .cosmosCard(prominent: true)
                 .accessibilityElement(children: .contain)
-                .accessibilityLabel("First-time setup guide, step \(setupStepNumber) of 4")
+                .accessibilityLabel("First-time setup guide, step \(setupStepNumber) of \(setupStepTotal)")
             }
         }
     }
@@ -834,7 +875,16 @@ struct ContentView: View {
         guard !profile.path.isEmpty else { return }
         runCommand(
             script: "run.command",
-            arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args)
+            arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args),
+            intent: .gameLaunch
+        )
+    }
+
+    private func applyInstalledCuratedProfiles() {
+        runCommand(
+            script: "profile.command",
+            arguments: ["apply-installed"],
+            environment: bottleEnvironment()
         )
     }
 
@@ -1374,6 +1424,17 @@ struct ContentView: View {
 
                 secondaryButton(title: "Build Launchers", subtitle: "Detect → build apps · Terminal", systemImage: "square.grid.2x2.fill", help: "Opens Terminal to detect games and install Spotlight launchers into Cosmos Apps") {
                     runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+                }
+
+                if !installedCuratedProfiles.isEmpty {
+                    secondaryButton(
+                        title: "Apply Curated Profiles",
+                        subtitle: "\(installedCuratedProfiles.count) installed title\(installedCuratedProfiles.count == 1 ? "" : "s")",
+                        systemImage: "arrow.down.circle.fill",
+                        help: "Batch-apply shipped YAML presets (overrides, deps, fixes) for detected games"
+                    ) {
+                        applyInstalledCuratedProfiles()
+                    }
                 }
 
                 secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill", help: "Reveal saved game profiles in Finder") {
@@ -2535,13 +2596,38 @@ struct ContentView: View {
     }
 
     private var setupCompleteBanner: some View {
-        CosmosNoticeBanner(
-            tint: .green,
-            systemImage: "party.popper.fill",
-            title: "Setup complete",
-            message: "Launch Steam or pick a saved profile in the sidebar. Game launchers are in /Applications/Cosmos Apps.",
-            onDismiss: { showSetupCompleteBanner = false }
-        )
+        VStack(alignment: .leading, spacing: CosmosSpacing.sectionInner) {
+            CosmosNoticeBanner(
+                tint: .green,
+                systemImage: "party.popper.fill",
+                title: "Setup complete",
+                message: setupCompleteBannerMessage,
+                onDismiss: { showSetupCompleteBanner = false }
+            )
+            if !installedCuratedProfiles.isEmpty {
+                HStack(spacing: 10) {
+                    Button {
+                        applyInstalledCuratedProfiles()
+                    } label: {
+                        Label(
+                            "Apply Curated Profiles (\(installedCuratedProfiles.count))",
+                            systemImage: "arrow.down.circle.fill"
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isRunning)
+                    .help("Export overrides and run safe profile fixes for games in your library")
+                }
+            }
+        }
+    }
+
+    private var setupCompleteBannerMessage: String {
+        var message = "Launch Steam or pick a saved profile in the sidebar. Game launchers are in /Applications/Cosmos Apps."
+        if !installedCuratedProfiles.isEmpty {
+            message += " \(installedCuratedProfiles.count) installed title\(installedCuratedProfiles.count == 1 ? "" : "s") have curated Cosmos presets — apply them for known-good backends and fixes."
+        }
+        return message
     }
 
     private func openSetupHelp() {
@@ -2931,8 +3017,25 @@ struct ContentView: View {
         }
     }
 
-    private func showBanner(kind: CommandBannerKind, message: String) {
-        commandBanner = CommandBanner(kind: kind, message: message)
+    private func showBanner(
+        kind: CommandBannerKind,
+        message: String,
+        actions: [CommandBannerAction] = []
+    ) {
+        commandBanner = CommandBanner(kind: kind, message: message, actions: actions)
+    }
+
+    private func openLatestLogs() {
+        runCommand(script: "run.command", arguments: ["--logs"])
+    }
+
+    private func failureRecoveryActions(includeLogs: Bool) -> [CommandBannerAction] {
+        guard includeLogs else { return [] }
+        return [
+            CommandBannerAction(title: "Open Logs", systemImage: "doc.text.magnifyingglass") {
+                openLatestLogs()
+            },
+        ]
     }
 
     private func beginCommandOutput() {
@@ -2940,7 +3043,13 @@ struct ContentView: View {
         consoleExpanded = true
     }
 
-    private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
+    private func runCommand(
+        script: String,
+        arguments: [String] = [],
+        environment: [String: String] = [:],
+        intent: CommandIntent = .general,
+        chain: Bool = false
+    ) {
         guard let scriptURL = resolveScript(script) else {
             let message = "Script not found or not executable: \(script)"
             output = message
@@ -2949,8 +3058,12 @@ struct ContentView: View {
         }
 
         let displayedCommand = ([script] + arguments).joined(separator: " ")
-        beginCommandOutput()
-        output = "Running: \(displayedCommand)\n\n"
+        if chain {
+            output += "\nRunning: \(displayedCommand)\n\n"
+        } else {
+            beginCommandOutput()
+            output = "Running: \(displayedCommand)\n\n"
+        }
         isRunning = true
 
         let task = Process()
@@ -2999,12 +3112,32 @@ struct ContentView: View {
                 isRunning = false
                 let succeeded = process.terminationStatus == 0
                 output += succeeded ? "\nDone." : "\nExited with status \(process.terminationStatus)."
-                showBanner(
-                    kind: succeeded ? .success : .failure,
-                    message: succeeded
-                        ? "Command finished successfully."
+                if succeeded {
+                    if !chain {
+                        showBanner(kind: .success, message: "Command finished successfully.")
+                    }
+                } else {
+                    let setupFailure = !isSetupComplete
+                    let failureMessage = setupFailure
+                        ? "Setup step failed (exit \(process.terminationStatus)). Open the launch log for details, then retry the step above."
                         : "Command exited with status \(process.terminationStatus). Check the output below."
-                )
+                    if !chain {
+                        showBanner(
+                            kind: .failure,
+                            message: failureMessage,
+                            actions: failureRecoveryActions(includeLogs: setupFailure || intent == .gameLaunch)
+                        )
+                    }
+                    if intent == .gameLaunch {
+                        runCommand(
+                            script: "repair.command",
+                            arguments: ["diagnose"],
+                            environment: repairEnvironment(),
+                            intent: .diagnose,
+                            chain: true
+                        )
+                    }
+                }
                 refreshStatus()
             }
         }

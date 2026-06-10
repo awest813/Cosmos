@@ -80,6 +80,12 @@ jobs:
       - name: winemactricks import unit tests
         run: ./scripts/test_import_winemactricks.sh
 
+      - name: winemactricks upstream sync (dry-run)
+        run: ./scripts/import_winemactricks.sh --sync --dry-run
+
+      - name: Profile apply-installed unit tests
+        run: ./scripts/test_profile_apply_installed.sh
+
       - name: Profile porting unit tests
         run: ./scripts/test_protonfix_port_hint.sh
 

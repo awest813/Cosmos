@@ -66,6 +66,16 @@ diag_joined="$(printf '%s\n' "${DIAG_LINES[@]}")"
 [[ "${diag_joined}" == *"multiplayer"* ]] || fail "expected multiplayer note in networking fixture"
 
 repair_diagnose_reset
+repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-retina.log"
+[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:disable_retina "* ]] \
+  || fail "expected fix:disable_retina from retina fixture log"
+
+repair_diagnose_reset
+repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-intro.log"
+diag_joined="$(printf '%s\n' "${DIAG_LINES[@]}")"
+[[ "${diag_joined}" == *"Intro"* ]] || fail "expected intro/FMV note in diagnose output"
+
+repair_diagnose_reset
 repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-eac.log"
 (( ${#DIAG_SUGGESTIONS[@]} == 0 )) || fail "anti-cheat fixture should not suggest auto fixes"
 diag_joined="$(printf '%s\n' "${DIAG_LINES[@]}")"

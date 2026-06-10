@@ -49,7 +49,15 @@ Cosmos is a macOS game compatibility layer: it downloads Wine, sets up a Steam b
 
 ## Quick start
 
-### 1. Get the source
+### Option A — Prebuilt app (when available)
+
+Check [GitHub Releases](https://github.com/awest813/Cosmos/releases) for a signed **`Cosmos.dmg`**. When a release is published, download it, open the disk image, and drag **Cosmos** to **Applications** — then skip to [first-time setup](#3-run-first-time-setup-1015-minutes) below.
+
+Unsigned preview builds can be produced locally with `scripts/build_dmg.command` (see Option B).
+
+### Option B — Build from source
+
+#### 1. Get the source
 
 ```bash
 git clone https://github.com/awest813/Cosmos.git
@@ -58,7 +66,7 @@ cd Cosmos
 
 Or download the repository as a ZIP from GitHub and unzip it.
 
-### 2. Build the desktop app
+#### 2. Build the desktop app
 
 ```bash
 scripts/build_cosmos_app.command
