@@ -245,7 +245,7 @@ struct ContentView: View {
             // Logo header
             VStack(spacing: 6) {
                 CosmosLogo(markSize: 64)
-                Text("Apple Silicon Launcher")
+                Text("\(wineRuntime.platformDisplayName) Launcher")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
@@ -362,7 +362,7 @@ struct ContentView: View {
             } label: {
                 Label("Launch", systemImage: "play.fill")
             }
-            .disabled(!profile.canLaunchFromDashboard || isRunning)
+            .disabled(!profile.canLaunchFromDashboard || !wineRuntime.canStartWineLaunch || isRunning)
 
             Button {
                 revealInFinder(profile.fileURL)
@@ -826,22 +826,21 @@ struct ContentView: View {
     @ViewBuilder
     private var quickLaunchButtons: some View {
         prominentButton(
-            title: "Launch Steam",
-            subtitle: "Open Steam in the bottle",
-            systemImage: "play.fill",
-            help: "Start Steam in the default Wine prefix"
+            title: launchSteamButtonTitle,
+            subtitle: launchSteamButtonSubtitle,
+            systemImage: wineRuntime.needsRosetta && !wineRuntime.rosettaReady ? "cpu" : "play.fill",
+            disabled: !wineRuntime.canStartWineLaunch,
+            help: launchSteamButtonHelp
         ) {
-            runCommand(script: "run.command", arguments: ["--steam"])
+            launchSteamFromDashboard()
         }
 
         prominentButton(
             title: "Launch Profile",
             subtitle: selectedProfileLaunchSubtitle,
             systemImage: "gamecontroller.fill",
-            disabled: !selectedProfileCanLaunch,
-            help: selectedProfileCanLaunch
-                ? "Launch the selected profile (\(selectedProfile?.launchMethodLabel.lowercased() ?? ""))"
-                : "Select a profile with a launch path or Steam App ID in the sidebar"
+            disabled: !selectedProfileCanLaunch || !wineRuntime.canStartWineLaunch,
+            help: selectedProfileLaunchHelp
         ) {
             guard let selectedProfile else { return }
             launchProfile(selectedProfile)
@@ -852,6 +851,7 @@ struct ContentView: View {
     /// Shared by the Quick Launch button and the sidebar context menu.
     private func launchProfile(_ profile: SavedProfile) {
         guard profile.canLaunchFromDashboard else { return }
+        guard ensureRosettaForWineLaunch() else { return }
         if let appid = profile.steamAppID,
            let yaml = GameProfileStore.find(steamAppID: appid),
            yaml.isBlocked {
@@ -863,6 +863,7 @@ struct ContentView: View {
 
     private func launchProfileUnchecked(_ profile: SavedProfile) {
         guard profile.canLaunchFromDashboard else { return }
+        guard ensureRosettaForWineLaunch() else { return }
         if !profile.path.isEmpty {
             runCommand(
                 script: "run.command",
@@ -883,6 +884,40 @@ struct ContentView: View {
             environment: env,
             intent: .gameLaunch
         )
+    }
+
+    private var launchSteamButtonTitle: String {
+        wineRuntime.needsRosetta && !wineRuntime.rosettaReady ? "Install Rosetta 2" : "Launch Steam"
+    }
+
+    private var launchSteamButtonSubtitle: String {
+        if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
+            return "Required before x86_64 Wine can run · opens Terminal"
+        }
+        return "Open Steam in the bottle"
+    }
+
+    private var launchSteamButtonHelp: String {
+        if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
+            return "Install Rosetta 2 so Wine can run on Apple Silicon (may ask for your password)"
+        }
+        return "Start Steam in the default Wine prefix"
+    }
+
+    /// Rosetta install needs Terminal for sudo; game/Steam launch needs Rosetta on Apple Silicon.
+    @discardableResult
+    private func ensureRosettaForWineLaunch() -> Bool {
+        guard wineRuntime.needsRosetta, !wineRuntime.rosettaReady else { return true }
+        runInTerminal(script: "run.command", arguments: ["--install-rosetta"])
+        return false
+    }
+
+    private func launchSteamFromDashboard() {
+        if wineRuntime.needsRosetta, !wineRuntime.rosettaReady {
+            runInTerminal(script: "run.command", arguments: ["--install-rosetta"])
+            return
+        }
+        runCommand(script: "run.command", arguments: ["--steam"])
     }
 
     private func applyInstalledCuratedProfiles() {
@@ -1084,7 +1119,7 @@ struct ContentView: View {
                 }
                 HStack(alignment: .top, spacing: 24) {
                     detailRow(title: "Prefix status", value: steamSettings.statusText)
-                    detailRow(title: "CPU layer", value: wineRuntime.chipArchitecture)
+                    detailRow(title: "Mac", value: "\(wineRuntime.platformDisplayName) (\(wineRuntime.chipArchitecture))")
                 }
                 Text(wineRuntime.translationNote)
                     .font(.caption)
@@ -2529,10 +2564,23 @@ struct ContentView: View {
     }
 
     private var selectedProfileLaunchSubtitle: String {
+        if wineRuntime.needsRosetta, !wineRuntime.rosettaReady {
+            return "Install Rosetta 2 first"
+        }
         guard let selectedProfile else { return "Select a profile first" }
         return selectedProfileCanLaunch
             ? selectedProfile.launchMethodLabel
             : "Configure executable or Steam App ID"
+    }
+
+    private var selectedProfileLaunchHelp: String {
+        if wineRuntime.needsRosetta, !wineRuntime.rosettaReady {
+            return "Install Rosetta 2 before launching Wine games on Apple Silicon"
+        }
+        if selectedProfileCanLaunch {
+            return "Launch the selected profile (\(selectedProfile?.launchMethodLabel.lowercased() ?? ""))"
+        }
+        return "Select a profile with a launch path or Steam App ID in the sidebar"
     }
 
     private var selectedProfileCanLaunch: Bool {

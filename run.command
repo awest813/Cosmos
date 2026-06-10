@@ -482,10 +482,20 @@ reset_bottle() {
   echo "Bottle reset. The next launch will recreate the prefix and reinstall Steam."
 }
 
-require_macos_arm64() {
+require_supported_macos() {
   log "Checking platform"
   [[ "$(uname -s)" == "Darwin" ]] || die "This script supports macOS only."
-  [[ "$(uname -m)" == "arm64" ]] || die "This script is intended for Apple Silicon (arm64)."
+  if declare -F cosmos_host_supported >/dev/null 2>&1; then
+    cosmos_host_supported || die "Unsupported Mac architecture: $(uname -m). Cosmos supports Apple Silicon (arm64) and Intel (x86_64)."
+  else
+    case "$(uname -m)" in
+      arm64|x86_64) ;;
+      *) die "Unsupported Mac architecture: $(uname -m). Cosmos supports Apple Silicon (arm64) and Intel (x86_64)." ;;
+    esac
+  fi
+  if declare -F cosmos_host_platform_label >/dev/null 2>&1; then
+    echo "Host: $(cosmos_host_platform_label) ($(uname -m))"
+  fi
 }
 
 # Minimum macOS major version Cosmos supports. Matches the app bundles'
@@ -1489,8 +1499,15 @@ show_status() {
     rosetta_ok=1
     rosetta_label="Rosetta check unavailable"
   fi
-  status_line "${rosetta_ok}" "${rosetta_label}" \
-    "$([[ "${rosetta_ok}" -eq 1 ]] && echo "x86_64 Wine runs via Rosetta on Apple Silicon" || echo "Run: ./run.command --install-rosetta")"
+  local rosetta_detail="Run: ./run.command --install-rosetta"
+  if [[ "${rosetta_ok}" -eq 1 ]]; then
+    if declare -F rosetta_needs_translation >/dev/null 2>&1 && rosetta_needs_translation; then
+      rosetta_detail="x86_64 Wine runs via Rosetta on Apple Silicon"
+    else
+      rosetta_detail="Native x86_64 host — Wine runs without Rosetta"
+    fi
+  fi
+  status_line "${rosetta_ok}" "${rosetta_label}" "${rosetta_detail}"
   status_line "${wine_ok}" "Wine ${WINE_VERSION} downloaded" \
     "$([[ "${wine_ok}" -eq 1 ]] && echo "${WINE_APP}" || echo "Downloads on first --setup-steam or --steam")"
   status_line "${prefix_ok}" "Wine prefix created" \
@@ -1550,7 +1567,7 @@ main() {
     "${SCRIPT_DIR}/scripts/check_updates.sh"
     return $?
   fi
-  require_macos_arm64
+  require_supported_macos
   [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"
   case "${COSMOS_LAUNCH_MODE}" in
     profiles) open_profiles_folder; return ;;
@@ -1558,7 +1575,10 @@ main() {
     status) show_status; return ;;
     runtime-status) wine_runtime_status_lines; return ;;
     install-rosetta)
-      require_macos_arm64
+      if declare -F rosetta_needs_translation >/dev/null 2>&1 && ! rosetta_needs_translation; then
+        echo "Rosetta 2 is not required on Intel Macs."
+        return 0
+      fi
       log "Installing Rosetta 2"
       rosetta_ensure || die "Rosetta installation failed"
       echo "Rosetta 2 is ready."

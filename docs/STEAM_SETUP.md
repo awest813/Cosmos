@@ -6,10 +6,10 @@ run the embedded scripts.
 
 ## Prerequisites
 
-- **macOS** on **Apple Silicon** (arm64). Cosmos does not support Intel Macs.
+- **macOS** on **Apple Silicon** (arm64) or **Intel** (x86_64).
 - **macOS 11+** (Big Sur or newer). Sequoia is the primary test target.
-- **Rosetta 2** — installed automatically on first launch if missing (requires
-  your password).
+- **Rosetta 2** (Apple Silicon only) — installed automatically on first launch
+  if missing (requires your password). Intel Macs run x86_64 Wine natively.
 - Enough disk space for Wine (~2 GB), DXMT (~500 MB), and your Steam library
   (often 100 GB+ inside the prefix).
 

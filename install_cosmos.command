@@ -39,6 +39,14 @@ log() {
   printf "==> %s\n" "$1"
 }
 
+require_supported_macos() {
+  [[ "$(uname -s)" == "Darwin" ]] || die "Cosmos requires macOS."
+  case "$(uname -m)" in
+    arm64|x86_64) ;;
+    *) die "Unsupported Mac architecture: $(uname -m). Cosmos supports Apple Silicon (arm64) and Intel (x86_64)." ;;
+  esac
+}
+
 die() {
   printf "Error: %s\n" "$1" >&2
   exit 1
@@ -226,6 +234,8 @@ build_from_config() (
 )
 
 main() {
+  require_supported_macos
+
   local temp_root=""
   local output_dir=""
   local -a config_paths=()

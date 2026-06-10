@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Guided first-time setup for new Cosmos users (macOS Apple Silicon).
+# Guided first-time setup for new Cosmos users (macOS Apple Silicon or Intel).
 # Runs the same steps as the dashboard checklist in order, in Terminal.
 #
 # Usage:
@@ -37,7 +37,10 @@ while (($# > 0)); do
 done
 
 [[ "$(uname -s)" == "Darwin" ]] || die "Cosmos setup requires macOS."
-[[ "$(uname -m)" == "arm64" ]] || die "Cosmos setup is intended for Apple Silicon (arm64)."
+case "$(uname -m)" in
+  arm64|x86_64) ;;
+  *) die "Unsupported Mac architecture: $(uname -m). Cosmos supports Apple Silicon (arm64) and Intel (x86_64)." ;;
+esac
 
 cat <<'EOF'
 
