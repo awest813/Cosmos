@@ -27,6 +27,9 @@ jobs:
       - name: Build (release)
         run: swift build -c release
 
+      - name: Unit tests (Swift)
+        run: swift test
+
   shell-syntax:
     name: Shell script syntax
     runs-on: ubuntu-latest

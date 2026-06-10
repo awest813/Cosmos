@@ -18,6 +18,11 @@ let package = Package(
             name: "Cosmos",
             path: "app",
             exclude: ["cosmos"]
-        )
+        ),
+        .testTarget(
+            name: "CosmosTests",
+            dependencies: ["Cosmos"],
+            path: "Tests/CosmosTests"
+        ),
     ]
 )
