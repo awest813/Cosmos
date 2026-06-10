@@ -22,6 +22,24 @@ struct CosmosApp: App {
                 }
                 .keyboardShortcut("r", modifiers: .command)
             }
+            CommandMenu("Dashboard") {
+                Button("Launch") {
+                    NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.launch)
+                }
+                .keyboardShortcut("1", modifiers: .command)
+                Button("Games") {
+                    NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.library)
+                }
+                .keyboardShortcut("2", modifiers: .command)
+                Button("Tools") {
+                    NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.tools)
+                }
+                .keyboardShortcut("3", modifiers: .command)
+                Button("Bottles") {
+                    NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.bottles)
+                }
+                .keyboardShortcut("4", modifiers: .command)
+            }
             CommandGroup(replacing: .help) {
                 Button("Steam Setup Guide") {
                     NotificationCenter.default.post(name: .cosmosOpenSetupHelp, object: nil)

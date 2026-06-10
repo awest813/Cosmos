@@ -26,6 +26,7 @@ struct ContentView: View {
     @State private var dashboardSection: DashboardSection = .launch
     @State private var commandBanner: CommandBanner?
     @State private var outputWasTrimmed = false
+    @State private var storeImportRequest: StoreImportRequest?
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -100,6 +101,11 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenSetupHelp)) { _ in
             openSetupHelp()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSelectSection)) { notification in
+            if let section = notification.object as? DashboardSection, isSetupComplete {
+                dashboardSection = section
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshStatus()
         }
@@ -117,6 +123,21 @@ struct ContentView: View {
             if newID != nil, isSetupComplete {
                 dashboardSection = .library
             }
+        }
+        .onChange(of: selectedProfileID) { _, newID in
+            if newID != nil, isSetupComplete {
+                dashboardSection = .launch
+            }
+        }
+        .sheet(item: $storeImportRequest) { request in
+            StoreImportSheet(
+                request: request,
+                onCancel: { storeImportRequest = nil },
+                onSubmit: { values in
+                    submitStoreImport(request, values: values)
+                    storeImportRequest = nil
+                }
+            )
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
@@ -399,9 +420,13 @@ struct ContentView: View {
             .labelsHidden()
             .accessibilityLabel("Dashboard section")
 
-            Text(dashboardSection.subtitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Text(dashboardSection.subtitle)
+                Text("·")
+                Text("⌘1–4 to switch")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -745,7 +770,7 @@ struct ContentView: View {
         guard !profile.path.isEmpty else { return }
         runCommand(
             script: "run.command",
-            arguments: ["--game", profile.path] + shellArguments(from: profile.args)
+            arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args)
         )
     }
 
@@ -898,9 +923,13 @@ struct ContentView: View {
         do {
             try SteamSettingsStore.set(key: key, value: value)
             steamSettings = SteamSettingsStore.load()
-            output = "Saved \(key). Changes apply on the next Steam or game launch.\n\n" + output
+            let message = "Saved \(key). Changes apply on the next Steam or game launch."
+            output = message + "\n\n" + output
+            showBanner(kind: .success, message: message)
         } catch {
-            output = "Could not save \(key): \(error.localizedDescription)\n\n" + output
+            let message = "Could not save \(key): \(error.localizedDescription)"
+            output = message + "\n\n" + output
+            showBanner(kind: .failure, message: message)
         }
     }
 
@@ -1342,13 +1371,63 @@ struct ContentView: View {
     ) -> some View {
         Button {
             if needsEpicAppName {
-                promptAndRunEpicImport(script: script, baseArguments: arguments)
+                storeImportRequest = StoreImportRequest(
+                    title: "Legendary app name",
+                    message: "Use the App name from list-epic (e.g. Sugar), not always the store title. Requires: brew install legendary-gl",
+                    fields: [
+                        .init(id: .epicAppName, label: "Legendary app name", placeholder: "Legendary app name"),
+                        .init(id: .displayName, label: "Display name", placeholder: "Display name for launcher"),
+                    ],
+                    submitLabel: "Install in Terminal",
+                    script: script,
+                    baseArguments: arguments,
+                    forceTerminal: true
+                )
             } else if needsBattlenetSlug {
-                promptAndRunBattlenetImport(script: script, baseArguments: arguments)
+                storeImportRequest = StoreImportRequest(
+                    title: "Battle.net game",
+                    message: "Use a slug from list-battlenet (e.g. starcraft-ii) or a full .exe path inside the prefix.",
+                    fields: [
+                        .init(id: .battlenetSlug, label: "Slug or path", placeholder: "starcraft-ii"),
+                        .init(id: .displayName, label: "Display name", placeholder: "Display name for launcher"),
+                    ],
+                    submitLabel: "Register in Terminal",
+                    script: script,
+                    baseArguments: arguments,
+                    forceTerminal: true
+                )
             } else if needsStoreTitle {
-                promptAndRunTitledStoreImport(script: script, baseArguments: arguments, pathPrompt: pathPrompt)
+                storeImportRequest = StoreImportRequest(
+                    title: pathPrompt,
+                    message: "Provide the file or folder path and a display name for the Cosmos launcher.",
+                    fields: [
+                        .init(
+                            id: .path,
+                            label: "Path",
+                            placeholder: arguments.contains("add-gog")
+                                ? "/Users/you/Downloads/setup_game.exe"
+                                : "/Users/you/Downloads/MyGame",
+                            allowsFilePicker: true
+                        ),
+                        .init(id: .displayName, label: "Display name", placeholder: "Display name for launcher"),
+                    ],
+                    submitLabel: "Run in Terminal",
+                    script: script,
+                    baseArguments: arguments,
+                    forceTerminal: true
+                )
             } else if needsPath {
-                promptAndRunStoreImport(script: script, baseArguments: arguments, pathPrompt: pathPrompt)
+                storeImportRequest = StoreImportRequest(
+                    title: pathPrompt,
+                    message: "Enter the full path on your Mac, or use Choose to pick a file.",
+                    fields: [
+                        .init(id: .path, label: "Path", placeholder: "/Users/you/Downloads/GameSetup.exe", allowsFilePicker: true),
+                    ],
+                    submitLabel: "Run in Terminal",
+                    script: script,
+                    baseArguments: arguments,
+                    forceTerminal: true
+                )
             } else if forceTerminal {
                 runInTerminal(script: script, arguments: arguments, environment: bottleEnvironment())
             } else {
@@ -1370,96 +1449,28 @@ struct ContentView: View {
         .disabled(isRunning)
     }
 
-    private func promptAndRunEpicImport(script: String, baseArguments: [String]) {
-        let alert = NSAlert()
-        alert.messageText = "Legendary app name"
-        alert.informativeText = "Use the App name from list-epic (e.g. Sugar), not always the store title. Requires: brew install legendary-gl"
-        alert.addButton(withTitle: "Install in Terminal")
-        alert.addButton(withTitle: "Cancel")
+    private func submitStoreImport(
+        _ request: StoreImportRequest,
+        values: [StoreImportRequest.FieldKind: String]
+    ) {
+        func trimmed(_ kind: StoreImportRequest.FieldKind) -> String {
+            (values[kind] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
 
-        let appField = NSTextField(frame: NSRect(x: 0, y: 28, width: 320, height: 24))
-        appField.placeholderString = "Legendary app name"
-        let nameField = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        nameField.placeholderString = "Display name for launcher"
-        let stack = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 56))
-        stack.addSubview(appField)
-        stack.addSubview(nameField)
-        alert.accessoryView = stack
+        var args = request.baseArguments
+        let path = trimmed(.path)
+        if !path.isEmpty { args.append(path) }
+        let slug = trimmed(.battlenetSlug)
+        if !slug.isEmpty { args.append(slug) }
+        let epic = trimmed(.epicAppName)
+        if !epic.isEmpty { args.append(epic) }
+        let name = trimmed(.displayName)
+        if !name.isEmpty { args.append(contentsOf: ["--name", name]) }
+        if request.baseArguments.contains("add-epic") {
+            args.append("--install")
+        }
 
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let appName = appField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let displayName = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !appName.isEmpty, !displayName.isEmpty else { return }
-        let args = baseArguments + [appName, "--name", displayName, "--install"]
-        runInTerminal(script: script, arguments: args, environment: bottleEnvironment())
-    }
-
-    private func promptAndRunStoreImport(script: String, baseArguments: [String], pathPrompt: String) {
-        let alert = NSAlert()
-        alert.messageText = pathPrompt
-        alert.informativeText = "Enter the full path on your Mac."
-        alert.addButton(withTitle: "Run in Terminal")
-        alert.addButton(withTitle: "Cancel")
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        input.placeholderString = "/Users/you/Downloads/GameSetup.exe"
-        alert.accessoryView = input
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let path = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !path.isEmpty else { return }
-        runInTerminal(script: script, arguments: baseArguments + [path], environment: bottleEnvironment())
-    }
-
-    private func promptAndRunTitledStoreImport(script: String, baseArguments: [String], pathPrompt: String) {
-        let alert = NSAlert()
-        alert.messageText = pathPrompt
-        alert.informativeText = "Provide the file or folder path and a display name for the Cosmos launcher."
-        alert.addButton(withTitle: "Run in Terminal")
-        alert.addButton(withTitle: "Cancel")
-
-        let pathField = NSTextField(frame: NSRect(x: 0, y: 28, width: 320, height: 24))
-        pathField.placeholderString = baseArguments.contains("add-gog")
-            ? "/Users/you/Downloads/setup_game.exe"
-            : "/Users/you/Downloads/MyGame"
-        let nameField = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        nameField.placeholderString = "Display name for launcher"
-        let stack = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 56))
-        stack.addSubview(pathField)
-        stack.addSubview(nameField)
-        alert.accessoryView = stack
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let path = pathField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let displayName = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !path.isEmpty, !displayName.isEmpty else { return }
-        runInTerminal(
-            script: script,
-            arguments: baseArguments + [path, "--name", displayName],
-            environment: bottleEnvironment()
-        )
-    }
-
-    private func promptAndRunBattlenetImport(script: String, baseArguments: [String]) {
-        let alert = NSAlert()
-        alert.messageText = "Battle.net game slug or path"
-        alert.informativeText = "Use a slug from list-battlenet (e.g. starcraft-ii) or a full .exe path inside the prefix."
-        alert.addButton(withTitle: "Register in Terminal")
-        alert.addButton(withTitle: "Cancel")
-
-        let slugField = NSTextField(frame: NSRect(x: 0, y: 28, width: 320, height: 24))
-        slugField.placeholderString = "starcraft-ii"
-        let nameField = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        nameField.placeholderString = "Display name for launcher"
-        let stack = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 56))
-        stack.addSubview(slugField)
-        stack.addSubview(nameField)
-        alert.accessoryView = stack
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let slugOrPath = slugField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let displayName = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !slugOrPath.isEmpty, !displayName.isEmpty else { return }
-        let args = baseArguments + [slugOrPath, "--name", displayName]
-        runInTerminal(script: script, arguments: args, environment: bottleEnvironment())
+        runInTerminal(script: request.script, arguments: args, environment: bottleEnvironment())
     }
 
     private func repairEnvironment() -> [String: String] {
@@ -2369,51 +2380,6 @@ struct ContentView: View {
         return ["COSMOS_BOTTLE": bottle.name]
     }
 
-    // Pure helper for splitting the profile args field; edge cases can be unit-tested independently of the launcher and this only targets trusted local profile text.
-    private func shellArguments(from text: String) -> [String] {
-        guard !text.isEmpty else { return [] }
-
-        // This splitter only handles simple quoted groups; backslashes stay literal, unclosed quotes stay literal, and trailing whitespace is ignored.
-        enum QuoteState {
-            case none
-            case single
-            case double
-        }
-
-        let whitespaceCharacters = CharacterSet.whitespacesAndNewlines
-        var state: QuoteState = .none
-        var current = ""
-        var result: [String] = []
-
-        for character in text {
-            switch character {
-            case "'" where state == .none:
-                state = .single
-            case "'" where state == .single:
-                state = .none
-            case "\"" where state == .none:
-                state = .double
-            case "\"" where state == .double:
-                state = .none
-            default:
-                if state == .none, character.unicodeScalars.allSatisfy({ whitespaceCharacters.contains($0) }) {
-                    if !current.isEmpty {
-                        result.append(current)
-                        current = ""
-                    }
-                } else {
-                    current.append(character)
-                }
-            }
-        }
-
-        if !current.isEmpty {
-            result.append(current)
-        }
-
-        return result
-    }
-
     // Locate a helper script, preferring a copy bundled into the app's
     // Resources (installed Cosmos.app) and falling back to the repository
     // checkout (running from a development build).
@@ -2445,21 +2411,22 @@ struct ContentView: View {
         guard let scriptURL = resolveScript(script) else {
             let message = "Script not found or not executable: \(script)"
             output = message
-            commandBanner = CommandBanner(kind: .failure, message: message)
+            showBanner(kind: .failure, message: message)
             return
         }
 
         var parts: [String] = []
+        beginCommandOutput()
         for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
-            parts.append("export \(key)=\(Self.shellQuote(value))")
+            parts.append("export \(key)=\(ShellArgumentParser.shellQuote(value))")
         }
-        parts.append(([scriptURL.path] + arguments).map(Self.shellQuote).joined(separator: " "))
+        parts.append(([scriptURL.path] + arguments).map(ShellArgumentParser.shellQuote).joined(separator: " "))
         let shellCommand = parts.joined(separator: "; ")
 
         let appleScript = """
         tell application "Terminal"
             activate
-            do script "\(Self.appleScriptEscape(shellCommand))"
+            do script "\(ShellArgumentParser.appleScriptEscape(shellCommand))"
         end tell
         """
 
@@ -2476,40 +2443,36 @@ struct ContentView: View {
             Complete any password or confirmation prompts in the Terminal window, \
             then click Refresh in the toolbar (⌘R) or switch back to this window — status updates automatically.
             """
-            commandBanner = CommandBanner(
+            showBanner(
                 kind: .info,
                 message: "Running in Terminal — complete prompts there, then refresh status (⌘R)."
             )
         } catch {
-            output = "Failed to open Terminal: \(error.localizedDescription)"
-            commandBanner = CommandBanner(
-                kind: .failure,
-                message: "Could not open Terminal: \(error.localizedDescription)"
-            )
+            let message = "Could not open Terminal: \(error.localizedDescription)"
+            output = message
+            showBanner(kind: .failure, message: message)
         }
     }
 
-    // Wrap a value in single quotes for safe use as one shell word.
-    private static func shellQuote(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    private func showBanner(kind: CommandBannerKind, message: String) {
+        commandBanner = CommandBanner(kind: kind, message: message)
     }
 
-    // Escape a value for embedding inside an AppleScript double-quoted string.
-    private static func appleScriptEscape(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
+    private func beginCommandOutput() {
+        commandBanner = nil
+        consoleExpanded = true
     }
 
     private func runCommand(script: String, arguments: [String] = [], environment: [String: String] = [:]) {
         guard let scriptURL = resolveScript(script) else {
             let message = "Script not found or not executable: \(script)"
             output = message
-            commandBanner = CommandBanner(kind: .failure, message: message)
+            showBanner(kind: .failure, message: message)
             return
         }
 
         let displayedCommand = ([script] + arguments).joined(separator: " ")
+        beginCommandOutput()
         output = "Running: \(displayedCommand)\n\n"
         isRunning = true
 
@@ -2559,7 +2522,7 @@ struct ContentView: View {
                 isRunning = false
                 let succeeded = process.terminationStatus == 0
                 output += succeeded ? "\nDone." : "\nExited with status \(process.terminationStatus)."
-                commandBanner = CommandBanner(
+                showBanner(
                     kind: succeeded ? .success : .failure,
                     message: succeeded
                         ? "Command finished successfully."
@@ -2575,7 +2538,7 @@ struct ContentView: View {
             isRunning = false
             let message = "Failed to run command: \(error.localizedDescription)"
             output = message
-            commandBanner = CommandBanner(kind: .failure, message: message)
+            showBanner(kind: .failure, message: message)
         }
     }
 
@@ -2644,6 +2607,7 @@ extension Notification.Name {
     static let cosmosRefreshStatus = Notification.Name("com.cosmos.refreshStatus")
     static let cosmosContinueSetup = Notification.Name("com.cosmos.continueSetup")
     static let cosmosOpenSetupHelp = Notification.Name("com.cosmos.openSetupHelp")
+    static let cosmosSelectSection = Notification.Name("com.cosmos.selectSection")
 }
 
 #if DEBUG
