@@ -1,0 +1,17 @@
+id: hades_ii
+name: "Hades II"
+store: steam
+steam_appid: 1240440
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    DXMT_CONFIG: "d3d11.preferredMaxFrameRate=120;"
+dependencies:
+  - vcrun2019
+notes: >
+  Supergiant roguelike sequel. DXMT handles D3D11 well — tune DXMT_CONFIG if you see
+  tearing on ProMotion displays. Install vcrun2019 for missing-runtime errors.

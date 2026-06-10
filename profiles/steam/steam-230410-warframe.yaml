@@ -1,0 +1,15 @@
+id: warframe
+name: "Warframe"
+store: steam
+steam_appid: 230410
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Free-to-play action title on DX11/DX12. DXMT works for D3D11 paths; try d3dmetal
+  with GPTK_PATH for newer rendering features. Online play requires stable networking.

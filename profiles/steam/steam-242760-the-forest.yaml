@@ -1,0 +1,15 @@
+id: the_forest
+name: "The Forest"
+store: steam
+steam_appid: 242760
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Unity survival horror. DXMT handles D3D11 rendering. Co-op needs stable networking.
+  Protonfix reference (GPL): check umu-protonfixes for port ideas if startup fails.

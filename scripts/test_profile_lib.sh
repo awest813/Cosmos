@@ -38,6 +38,6 @@ grep -q 'COSMOS_BACKEND=dxmt' "${tmpdir}/250900.env" || fail "override missing b
 grep -q 'DXMT_CONFIG=' "${tmpdir}/250900.env" || fail "override missing DXMT_CONFIG"
 
 count="$(find "${ROOT}/profiles/steam" -name '*.yaml' | wc -l | tr -d ' ')"
-(( count >= 20 )) || fail "expected at least 20 steam profiles, found ${count}"
+(( count >= 50 )) || fail "expected at least 50 steam profiles, found ${count}"
 
 printf 'OK: profile_lib tests passed (%s profiles)\n' "${count}"

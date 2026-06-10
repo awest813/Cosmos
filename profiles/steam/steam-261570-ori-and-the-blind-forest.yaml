@@ -1,0 +1,12 @@
+id: ori_and_the_blind_forest
+name: "Ori and the Blind Forest"
+store: steam
+steam_appid: 261570
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Lightweight Unity platformer. DXMT with default settings runs smoothly at 60 fps.

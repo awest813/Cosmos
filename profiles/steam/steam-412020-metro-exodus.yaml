@@ -1,0 +1,15 @@
+id: metro_exodus
+name: "Metro Exodus"
+store: steam
+steam_appid: 412020
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Vulkan/D3D12 shooter. Set GPTK_PATH and use d3dmetal for best results. Ray tracing
+  is expensive on Mac — disable it for smoother frame rates.

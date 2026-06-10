@@ -1,0 +1,15 @@
+id: subnautica
+name: "Subnautica"
+store: steam
+steam_appid: 264710
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Unity underwater survival. DXMT works well. First launch may compile shaders for
+  a few minutes. Lower water quality on base MacBook Air models.

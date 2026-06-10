@@ -1,0 +1,15 @@
+id: sekiro
+name: "Sekiro: Shadows Die Twice"
+store: steam
+steam_appid: 814380
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+notes: >
+  Demanding FromSoftware action title. GPTK_PATH + d3dmetal recommended.
+  Frame pacing matters for parry timing — lower settings on base MacBook models.

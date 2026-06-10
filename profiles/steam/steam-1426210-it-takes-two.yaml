@@ -1,0 +1,15 @@
+id: it_takes_two
+name: "It Takes Two"
+store: steam
+steam_appid: 1426210
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+notes: >
+  Unreal Engine co-op adventure. DXMT for D3D11 paths. Friend's Pass co-op over
+  network may need both players on working Wine Steam setups.

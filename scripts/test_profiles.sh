@@ -36,4 +36,5 @@ if "${PROFILE_CMD}" validate "${tmp}" >/dev/null 2>&1; then
 fi
 
 count="$(profile_shipped_paths "${ROOT}/profiles" | wc -l | tr -d ' ')"
+(( count >= 50 )) || fail "expected at least 50 shipped profiles, found ${count}"
 printf 'OK: all %s shipped profiles passed schema validation\n' "${count}"
