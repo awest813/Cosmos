@@ -344,7 +344,7 @@ Removes `/Applications/Cosmos Apps`, Wine prefixes, and downloaded runtimes. Doe
 
 ## Credits
 
-Cosmos builds on the macOS Wine ecosystem and community knowledge:
+Copyright © 2026 **Allen West**. Cosmos builds on the macOS Wine ecosystem and community knowledge:
 
 - Inspired by [this r/macgaming guide](https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_games_on_mac_with_m/) and discussed in [this thread](https://www.reddit.com/r/macgaming/comments/1rflhp8/oneclick_solution_to_run_windows_games_on_apple/)
 - Wine builds: [Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds)
