@@ -57,6 +57,43 @@ ensure_sudo_ready() {
   sudo -v
 }
 
+resolve_install_target() {
+  if [[ -n "${COSMOS_APPS_DIR:-}" ]]; then
+    INSTALL_DIR="${COSMOS_APPS_DIR}"
+    INSTALL_ROOT="$(cd -- "$(dirname -- "${INSTALL_DIR}")" && pwd)"
+    return
+  fi
+  INSTALL_ROOT="/Applications"
+  INSTALL_DIR="${INSTALL_ROOT}/Cosmos Apps"
+}
+
+install_built_apps() {
+  local output_dir="$1"
+  resolve_install_target
+
+  if mkdir -p "${INSTALL_DIR}" 2>/dev/null; then
+    if cp -R "${output_dir}/." "${INSTALL_DIR}/" 2>/dev/null; then
+      log "Installed app folder: ${INSTALL_DIR}"
+      return 0
+    fi
+  fi
+
+  if [[ "${COSMOS_ALLOW_USER_APPS:-0}" == "1" ]]; then
+    INSTALL_ROOT="${HOME}/Applications"
+    INSTALL_DIR="${INSTALL_ROOT}/Cosmos Apps"
+    mkdir -p "${INSTALL_DIR}"
+    cp -R "${output_dir}/." "${INSTALL_DIR}/"
+    log "Installed app folder: ${INSTALL_DIR} (user-writable)"
+    return 0
+  fi
+
+  ensure_sudo_ready
+  sudo rm -rf "${INSTALL_DIR}"
+  sudo mkdir -p "${INSTALL_ROOT}"
+  sudo cp -R "${output_dir}/." "${INSTALL_DIR}/"
+  log "Installed app folder: ${INSTALL_DIR}"
+}
+
 resolve_path() {
   local path="$1"
   local base_dir="$2"
@@ -247,7 +284,6 @@ main() {
 
   (( ${#config_paths[@]} > 0 )) || die "No configs selected"
 
-  ensure_sudo_ready
   temp_root="$(mktemp -d /tmp/cosmos-apps.XXXXXX)"
   output_dir="${temp_root}/Cosmos Apps"
   mkdir -p "${output_dir}"
@@ -258,13 +294,8 @@ main() {
     build_from_config "${config_path}" "${output_dir}"
   done
 
-  log "Installing to ${INSTALL_DIR}"
-  sudo rm -rf "${INSTALL_DIR}"
-  sudo mkdir -p "${INSTALL_ROOT}"
-  sudo cp -R "${output_dir}" "${INSTALL_ROOT}/"
-
-  log "Installed app folder: ${INSTALL_DIR}"
+  install_built_apps "${output_dir}"
   echo ""
-  echo "Launch any app inside '/Applications/Cosmos Apps' from Finder, Launchpad, or Spotlight."
+  echo "Launch any app inside '${INSTALL_DIR}' from Finder, Launchpad, or Spotlight."
 }
 main "$@"

@@ -357,6 +357,23 @@ struct CosmosCompatBadge: View {
     }
 }
 
+/// Sidebar list filter for saved game profiles (favorites / recent / full catalog).
+enum SidebarProfileFilter: String, CaseIterable, Identifiable {
+    case all
+    case favorites
+    case recent
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "All"
+        case .favorites: return "Favorites"
+        case .recent: return "Recent"
+        }
+    }
+}
+
 /// Filter chips for the curated YAML profile grid (Phase B library visibility).
 enum CuratedProfileFilter: String, CaseIterable, Identifiable {
     case all
@@ -415,7 +432,13 @@ struct CosmosFilterChip: View {
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 11)
                 .padding(.vertical, 6)
-                .background(chipBackground, in: Capsule())
+                .background {
+                    if isSelected {
+                        Capsule().fill(CosmosGradients.primaryButton)
+                    } else {
+                        Capsule().fill(Color.cosmosTileFill)
+                    }
+                }
                 .foregroundStyle(isSelected ? Color.white : Color.secondary)
                 .overlay(
                     Capsule()
@@ -428,15 +451,6 @@ struct CosmosFilterChip: View {
         .buttonStyle(CosmosButtonStyle())
         .hoverBrighten()
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    @ViewBuilder
-    private var chipBackground: some View {
-        if isSelected {
-            CosmosGradients.primaryButton
-        } else {
-            Color.cosmosTileFill
-        }
     }
 }
 
@@ -462,7 +476,14 @@ struct CosmosDashboardTabBar: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
                     .frame(maxWidth: .infinity)
-                    .background(tabBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
+                    .background {
+                        let shape = RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
+                        if isSelected {
+                            shape.fill(CosmosGradients.primaryButton)
+                        } else {
+                            shape.fill(Color.cosmosTileFill)
+                        }
+                    }
                     .foregroundStyle(isSelected ? Color.white : Color.secondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
@@ -480,15 +501,6 @@ struct CosmosDashboardTabBar: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dashboard section")
-    }
-
-    @ViewBuilder
-    private func tabBackground(isSelected: Bool) -> some View {
-        if isSelected {
-            CosmosGradients.primaryButton
-        } else {
-            Color.cosmosTileFill
-        }
     }
 }
 

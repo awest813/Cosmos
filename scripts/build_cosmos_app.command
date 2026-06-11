@@ -97,8 +97,10 @@ fi
 for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
   src="${REPO_ROOT}/${script}"
   [[ -f "${src}" ]] || die "Missing helper script: ${src}"
-  cp "${src}" "${APP_BUNDLE}/Contents/Resources/${script}"
-  chmod +x "${APP_BUNDLE}/Contents/Resources/${script}"
+  dest="${APP_BUNDLE}/Contents/Resources/${script}"
+  mkdir -p "$(dirname "${dest}")"
+  cp "${src}" "${dest}"
+  chmod +x "${dest}"
 done
 
 # The icon converter lives under scripts/; flatten it into Resources so the
@@ -115,6 +117,14 @@ if [[ -f "${verify_src}" ]]; then
   cp "${verify_src}" "${APP_BUNDLE}/Contents/Resources/scripts/verify_steam_detection.command"
   chmod +x "${APP_BUNDLE}/Contents/Resources/scripts/verify_steam_detection.command"
 fi
+for helper in check_updates.sh install_update.sh terminal_wrap.sh; do
+  src="${REPO_ROOT}/scripts/${helper}"
+  [[ -f "${src}" ]] || die "Missing helper script: ${src}"
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts"
+  cp "${src}" "${APP_BUNDLE}/Contents/Resources/scripts/${helper}"
+  chmod +x "${APP_BUNDLE}/Contents/Resources/scripts/${helper}"
+done
+cp "${REPO_ROOT}/VERSION" "${APP_BUNDLE}/Contents/Resources/VERSION"
 if [[ -d "${REPO_ROOT}/scripts/lib" ]]; then
   mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts/lib"
   cp -R "${REPO_ROOT}/scripts/lib/." "${APP_BUNDLE}/Contents/Resources/scripts/lib/"

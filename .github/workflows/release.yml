@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release:
+    name: Build and publish Cosmos.dmg
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Resolve version
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(tr -d '[:space:]' < VERSION)"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if [[ "${tag}" != "${version}" ]]; then
+            echo "Tag v${tag} must match VERSION (${version})." >&2
+            exit 1
+          fi
+          echo "Building release ${tag}"
+
+      - name: Release audit
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: scripts/audit_release.sh
+
+      - name: Import Developer ID certificate
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [[ -z "${APPLE_CERTIFICATE_BASE64:-}" ]]; then
+            echo "No APPLE_CERTIFICATE_BASE64 secret — ad-hoc DMG only."
+            exit 0
+          fi
+          cert_path="$RUNNER_TEMP/cosmos-dev-id.p12"
+          echo "${APPLE_CERTIFICATE_BASE64}" | base64 --decode > "${cert_path}"
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import "${cert_path}" -k build.keychain -P "${APPLE_CERTIFICATE_PASSWORD}" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+
+      - name: Stage offline runtime fixture
+        run: FIXTURE=1 OUTPUT_DIR=build/offline-runtime scripts/stage_offline_runtime.command
+
+      - name: Build DMG
+        env:
+          DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          COSMOS_OFFLINE_FIXTURE: "1"
+        run: scripts/build_dmg.command
+
+      - name: Bundle audit after build
+        env:
+          APP_BUNDLE: build/Cosmos.app
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: scripts/audit_release.sh
+
+      - name: SHA256 checksum
+        run: |
+          shasum -a 256 build/Cosmos.dmg | tee build/Cosmos.dmg.sha256
+          printf '%s\n' "$(cut -d' ' -f1 build/Cosmos.dmg.sha256)  Cosmos.dmg" > build/Cosmos.dmg.sha256.txt
+
+      - name: Generate release notes
+        run: |
+          ver="${{ steps.version.outputs.version }}"
+          runtime="$(python3 -c 'import json; print(json.load(open("runtime/cosmos-runtime.json"))["version"])')"
+          {
+            echo "## Cosmos ${ver}"
+            echo ""
+            echo "| Component | Version |"
+            echo "| --- | --- |"
+            echo "| App | ${ver} |"
+            echo "| Bundled runtime manifest | ${runtime} |"
+            echo ""
+            echo "Drag **Cosmos** from the disk image into **Applications**, then open the app for guided setup."
+            echo ""
+            echo "Verify download integrity:"
+            echo '```'
+            cat build/Cosmos.dmg.sha256
+            echo '```'
+            echo ""
+            if [[ -n "${{ secrets.DEVELOPER_ID_APPLICATION }}" ]]; then
+              echo "Signed with Developer ID and notarized when Apple credentials are configured on this repository."
+            else
+              echo "Ad-hoc signed CI build. Configure \`DEVELOPER_ID_APPLICATION\` and Apple notarization secrets for a Gatekeeper-clean release."
+            fi
+          } > release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/Cosmos.dmg
+            build/Cosmos.dmg.sha256
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true

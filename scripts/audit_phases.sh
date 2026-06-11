@@ -15,11 +15,11 @@ count_shipped_steam() {
 }
 
 count_with_fixes() {
-  rg -l '^fixes:' "${PROFILES_STEAM}"/*.yaml 2>/dev/null | wc -l | tr -d ' '
+  grep -l '^fixes:' "${PROFILES_STEAM}"/*.yaml 2>/dev/null | wc -l | tr -d ' '
 }
 
 count_blocked() {
-  rg -l '^status: blocked' "${PROFILES_STEAM}"/*.yaml 2>/dev/null | wc -l | tr -d ' '
+  grep -l '^status: blocked' "${PROFILES_STEAM}"/*.yaml 2>/dev/null | wc -l | tr -d ' '
 }
 
 count_multiplayer_tagged() {
@@ -89,7 +89,12 @@ pass "dependency recipes: ${dep_recipes_n}"
 pass "VERSION file present ($(tr -d '[:space:]' < "${ROOT}/VERSION"))"
 
 [[ -x "${ROOT}/scripts/check_updates.sh" ]] || fail "missing scripts/check_updates.sh"
-pass "update check script present"
+[[ -x "${ROOT}/scripts/install_update.sh" ]] || fail "missing scripts/install_update.sh"
+[[ -x "${ROOT}/scripts/terminal_wrap.sh" ]] || fail "missing scripts/terminal_wrap.sh"
+[[ -x "${ROOT}/scripts/sign_and_notarize.command" ]] || fail "missing scripts/sign_and_notarize.command"
+[[ -f "${ROOT}/.github/workflows/release.yml" ]] || fail "missing .github/workflows/release.yml"
+[[ -f "${ROOT}/app/UpdateChecker.swift" ]] || fail "missing app/UpdateChecker.swift"
+pass "update + release scripts present"
 
 [[ -f "${ROOT}/runtime/cosmos-runtime.json" ]] || fail "missing runtime/cosmos-runtime.json"
 pass "runtime manifest present"
@@ -103,7 +108,7 @@ for required in \
   pass "present: ${required}"
 done
 
-if ! rg -q 'require_supported_macos' "${ROOT}/run.command" 2>/dev/null; then
+if ! grep -q 'require_supported_macos' "${ROOT}/run.command" 2>/dev/null; then
   fail "run.command missing require_supported_macos (Intel + Apple Silicon gate)"
 fi
 pass "dual-platform gate in run.command"

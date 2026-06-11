@@ -1,17 +1,44 @@
 #!/usr/bin/env bash
-# Phase F (partial): compare local app + runtime versions to GitHub Releases.
-# Does not download or install — dashboard and CLI use this for update awareness.
+# Compare local app + runtime versions to GitHub Releases.
+# Use scripts/install_update.sh to download and install Cosmos.dmg when an update exists.
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib/release_lib.sh
+source "${ROOT}/scripts/lib/release_lib.sh"
+
 VERSION_FILE="${ROOT}/VERSION"
 RUNTIME_MANIFEST="${ROOT}/runtime/cosmos-runtime.json"
-REPO="${COSMOS_GITHUB_REPO:-awest813/Cosmos}"
+REPO="$(release_lib_repo)"
+
+# When running from Cosmos.app/Contents/Resources, Info.plist holds the bundle version.
+bundle_info_plist() {
+  local resources="${ROOT}"
+  local plist="${resources}/../Info.plist"
+  if [[ -f "${plist}" ]]; then
+    printf '%s' "${plist}"
+    return 0
+  fi
+  if [[ "${resources}" == *.app/Contents/Resources ]]; then
+    plist="${resources%/Resources}/Info.plist"
+    [[ -f "${plist}" ]] && printf '%s' "${plist}" && return 0
+  fi
+  return 1
+}
 
 local_app() {
   if [[ -f "${VERSION_FILE}" ]]; then
     tr -d '[:space:]' < "${VERSION_FILE}"
     return
+  fi
+  local plist
+  if plist="$(bundle_info_plist)"; then
+    if command -v plutil >/dev/null 2>&1; then
+      plutil -extract CFBundleShortVersionString raw -o - "${plist}" 2>/dev/null && return
+    fi
+    if command -v defaults >/dev/null 2>&1; then
+      defaults read "${plist%.plist}" CFBundleShortVersionString 2>/dev/null && return
+    fi
   fi
   printf 'unknown'
 }
@@ -26,29 +53,30 @@ local_runtime() {
 }
 
 fetch_latest_release_tag() {
-  local api="https://api.github.com/repos/${REPO}/releases/latest"
-  if ! command -v curl >/dev/null 2>&1; then
-    return 1
-  fi
-  curl -fsSL --max-time 15 -H 'Accept: application/vnd.github+json' "${api}" 2>/dev/null \
-    | python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("tag_name") or "").lstrip("v"))' 2>/dev/null
+  release_lib_latest_tag
 }
 
 usage() {
   cat <<'EOF'
 Check whether a newer Cosmos release is published on GitHub.
 
-Usage: scripts/check_updates.sh [--json]
+Usage: scripts/check_updates.sh [--json] [--install]
 
-Prints key=value lines (default) or JSON with --json.
+  --json     Print machine-readable JSON (stdout only)
+  --install  Download and install Cosmos.dmg when a newer release exists
+
+Set COSMOS_RELEASE_FIXTURE to a GitHub /releases/latest JSON file for offline tests.
+
 Exit 0 when up to date or release lookup unavailable; exit 2 when a newer release exists.
 EOF
 }
 
 json=0
+install=0
 while (($#)); do
   case "$1" in
     --json) json=1; shift ;;
+    --install) install=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -67,6 +95,14 @@ elif [[ "${app}" == "unknown" ]]; then
   status="unknown"
 else
   status="update_available"
+fi
+
+if (( install )); then
+  if [[ "${status}" != "update_available" ]]; then
+    echo "No newer release to install (status=${status}, app=${app}, latest=${latest:-n/a})." >&2
+    exit 0
+  fi
+  exec "${ROOT}/scripts/install_update.sh"
 fi
 
 if (( json )); then
@@ -88,6 +124,7 @@ else
   case "${status}" in
     update_available)
       printf '\nA newer Cosmos release (%s) may be available. You are on %s.\n' "${latest}" "${app}"
+      printf 'Install: ./run.command --install-update\n'
       printf 'See: https://github.com/%s/releases\n' "${REPO}"
       ;;
     unavailable)

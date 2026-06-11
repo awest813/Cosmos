@@ -12,13 +12,11 @@ enum SavedProfileStore {
     ]
 
     static func profilesDirectory() -> URL {
-        fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Cosmos/Profiles", isDirectory: true)
+        CosmosPaths.userProfilesDirectory
     }
 
     static func configsDirectory() -> URL {
-        let support = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Cosmos/cosmos_configs", isDirectory: true)
+        let support = CosmosPaths.userConfigsDirectory
         if fileManager.fileExists(atPath: support.path) {
             return support
         }
@@ -30,11 +28,28 @@ enum SavedProfileStore {
     }
 
     static func cosmosAppsDirectory() -> URL {
-        URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
+        if let override = ProcessInfo.processInfo.environment["COSMOS_APPS_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        let system = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
+        if fileManager.fileExists(atPath: system.path) {
+            return system
+        }
+        return fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Applications/Cosmos Apps", isDirectory: true)
+    }
+
+    static func cosmosAppsIsInstalled() -> Bool {
+        let dir = cosmosAppsDirectory()
+        guard fileManager.fileExists(atPath: dir.path) else { return false }
+        guard let names = try? fileManager.contentsOfDirectory(atPath: dir.path) else { return false }
+        return names.contains { $0.hasSuffix(".app") }
     }
 
     static func countCosmosApps() -> Int {
-        guard let names = try? fileManager.contentsOfDirectory(atPath: cosmosAppsDirectory().path) else {
+        let dir = cosmosAppsDirectory()
+        guard fileManager.fileExists(atPath: dir.path),
+              let names = try? fileManager.contentsOfDirectory(atPath: dir.path) else {
             return 0
         }
         return names.filter { $0.hasSuffix(".app") }.count

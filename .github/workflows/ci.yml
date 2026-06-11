@@ -30,6 +30,33 @@ jobs:
       - name: Unit tests (Swift)
         run: swift test
 
+  bundle-smoke:
+    name: Bundle + release audit (macOS)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage offline runtime fixture
+        run: FIXTURE=1 OUTPUT_DIR=build/offline-runtime scripts/stage_offline_runtime.command
+
+      - name: Build Cosmos.app
+        env:
+          COSMOS_OFFLINE_FIXTURE: "1"
+          OUTPUT_DIR: build
+        run: scripts/build_cosmos_app.command
+
+      - name: Release audit (bundled app)
+        env:
+          APP_BUNDLE: build/Cosmos.app
+        run: scripts/audit_release.sh
+
+      - name: Ad-hoc DMG smoke
+        env:
+          SKIP_BUILD: "1"
+          OUTPUT_DIR: build
+          COSMOS_OFFLINE_FIXTURE: "1"
+        run: scripts/build_dmg.command
+
   shell-syntax:
     name: Shell script syntax
     runs-on: ubuntu-latest

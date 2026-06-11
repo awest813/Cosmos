@@ -17,6 +17,7 @@ done < <(find . -type f \( -name '*.command' -o -name '*.sh' \) -print0)
 
 UNIT_TESTS=(
   scripts/test_steam_detection.sh
+  scripts/test_steam_sync.sh
   scripts/test_profile_lib.sh
   scripts/test_sync_lib.sh
   scripts/test_gptk_lib.sh
@@ -27,7 +28,11 @@ UNIT_TESTS=(
   scripts/test_import_winemactricks.sh
   scripts/test_profile_apply_installed.sh
   scripts/test_check_updates.sh
+  scripts/test_release_lib.sh
+  scripts/test_terminal_wrap.sh
+  scripts/test_install_update.sh
   scripts/audit_phases.sh
+  scripts/audit_release.sh
   scripts/test_protonfix_port_hint.sh
   scripts/test_import_lib.sh
   scripts/test_library_lib.sh
@@ -61,14 +66,22 @@ log "winemactricks upstream sync (dry-run)"
 log "CLI smoke: profile validate"
 ./profile.command validate >/dev/null
 
-log "CLI smoke: check-update"
-./run.command --check-update >/dev/null || true
+log "CLI smoke: check-update (fixture)"
+COSMOS_RELEASE_FIXTURE="${ROOT}/scripts/fixtures/github_release_latest.json" \
+  ./run.command --check-update >/dev/null || true
+
+log "CLI smoke: sync-steam dry-run (fixture prefix)"
+COSMOS_SUPPORT_DIR="${TMPDIR:-/tmp}/cosmos-sync-steam-smoke-$$" \
+  COSMOS_CONFIGS_DIR="${COSMOS_SUPPORT_DIR}/cosmos_configs" \
+  COSMOS_SYNC_DRY_RUN=1 WINEPREFIX="${ROOT}/scripts/fixtures/steam_detection/wineprefix" \
+  ./run.command --sync-steam >/dev/null
+rm -rf "${COSMOS_SUPPORT_DIR:-}"
 
 log "CLI smoke: apply-installed dry-run (fixture prefix)"
 WINEPREFIX="${ROOT}/scripts/fixtures/steam_detection/wineprefix" \
   ./profile.command apply-installed --dry-run >/dev/null
 
-if command -v swift >/dev/null 2>&1; then
+if [[ "$(uname -s)" == "Darwin" ]] && command -v swift >/dev/null 2>&1; then
   log "swift build (debug)"
   swift build
   log "swift build (release)"
@@ -76,7 +89,7 @@ if command -v swift >/dev/null 2>&1; then
   log "swift test"
   swift test
 else
-  printf 'SKIP: swift not installed — run swift build && swift test on macOS 13+\n'
+  printf 'SKIP: swift build/test requires macOS (AppKit) — covered by the macos-14 CI job\n'
 fi
 
 log "All tests passed"

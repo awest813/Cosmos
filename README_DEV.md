@@ -313,10 +313,12 @@ Two execution paths, picked per action:
   environment for detection, repair, and profile commands.
 - **Terminal** (`runInTerminal`): asks Terminal.app (via `osascript … do script`)
   to run the script. Used for actions that need `sudo` or interactive prompts the
-  piped runner can't provide — **Install Cosmos**, **First-time setup** (in-app guide), **Full guided setup** (`setup.command`), **Prepare Bottle** (`run.command --setup-steam`), **Build Launchers**
-  (`detect_steam_games.command --install`), and **Uninstall**. The dashboard
+  piped runner can't provide — **Install Cosmos**, **First-time setup** (in-app guide), **Full guided setup** (`setup.command`), **Prepare Bottle** (`run.command --setup-steam`), and **Uninstall**. The dashboard
   launches Terminal and returns; the user completes any password/confirmation
-  prompts there, then taps **Refresh**.
+  prompts there, then taps **Refresh**. **Build Launchers** and manual **Sync Steam
+  Library** stream via `runCommand` (`detect_steam_games.command --install` /
+  `--sync`). Background auto-sync uses `SteamLibraryMonitor` (batch, no console).
+  A **Run in Terminal** recovery action appears if install needs `sudo`.
 
 ### Where configs live (dev vs installed app)
 
@@ -349,14 +351,15 @@ INSTALL=1 scripts/build_cosmos_app.command  # also copy it into /Applications
 
 - **Build Cosmos app (SwiftPM)** — `swift build` (debug + release) on a macOS
   runner, so a dashboard that doesn't compile can't reach `main`.
-- **Shell script syntax** — `bash -n` over every `*.command`/`*.sh`.
+- **Shell script syntax + unit tests** — `./scripts/test_all.sh` (bash syntax, fixture
+  tests, CLI smoke including `--sync-steam`).
+- **Bundle smoke** (macOS) — builds `Cosmos.app`, runs `audit_release.sh`, ad-hoc DMG.
 
 Run the same checks locally before pushing:
 
 ```bash
-swift build                                                   # compile check
-find . -type f \( -name '*.command' -o -name '*.sh' \) -print0 \
-  | xargs -0 -n1 bash -n                                      # shell syntax
+./scripts/test_all.sh                                         # shell suite (+ swift if installed)
+swift build                                                   # compile check (macOS)
 ```
 
 `build_cosmos_app.command` compiles via SwiftPM, then assembles a
@@ -396,7 +399,13 @@ Modes:
 ./detect_steam_games.command --write      # refresh generated configs (this is the default)
 ./detect_steam_games.command            # same as --write
 ./detect_steam_games.command --install   # refresh configs, then build all launchers
+./detect_steam_games.command --sync      # incremental: new games only (+ prune removed)
 ```
+
+`--sync` tracks installed App IDs in `~/Library/Application Support/Cosmos/steam-library.snapshot`.
+- `COSMOS_STEAM_SNAPSHOT` — per-bottle snapshot path (set by the dashboard).
+- `COSMOS_SYNC_SEED_ONLY=1` — initialize snapshot only (background auto-sync).
+- `COSMOS_SYNC_FULL=1` — required for first `--sync` without a snapshot (manual sync / `run.command --sync-steam`).
 
 Re-running refreshes the generated set (stale configs for uninstalled games are
 removed). After `--write`, run `./install_cosmos.command` to build the `.app`

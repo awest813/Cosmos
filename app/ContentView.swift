@@ -6,9 +6,9 @@ private typealias CommandIntent = CommandFailureContext
 
 struct ContentView: View {
     private let fileManager = FileManager.default
-    private let repositoryRootURL = Self.findRepositoryRoot()
-    private let cosmosAppsURL = URL(fileURLWithPath: "/Applications/Cosmos Apps", isDirectory: true)
+    private let repositoryRootURL = CosmosPaths.cosmosRoot()
     private let consoleBottomID = "console-bottom"
+    private let steamLibraryCheckInterval: TimeInterval = 300
 
     @State private var output = "Welcome to Cosmos\n\nNew here? Follow the setup guide below — one button per step.\nFirst-time setup takes about 10–15 minutes (downloads + Steam installer).\n\nWhen finished, launch Steam, install a Windows game, then tap Build Game Launchers."
     @State private var profiles: [SavedProfile] = []
@@ -32,6 +32,14 @@ struct ContentView: View {
     @State private var commandBanner: CommandBanner?
     @State private var outputWasTrimmed = false
     @State private var storeImportRequest: StoreImportRequest?
+    @State private var pendingTerminalJobID: String?
+    @State private var updateAvailable = false
+    @State private var profilePreferences = ProfilePreferencesStore.load()
+    @State private var sidebarProfileFilter: SidebarProfileFilter = .all
+    @State private var lastSteamLibraryCheck: Date?
+    @State private var steamLibraryCheckInFlight = false
+    @State private var pendingNewSteamGames = 0
+    @State private var pendingRemovedSteamGames = 0
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -63,14 +71,46 @@ struct ContentView: View {
     /// Saved profiles narrowed by the sidebar search field. Matches name,
     /// executable path, and Steam App ID so users with large libraries can
     /// jump straight to a title.
+    private var profileSearchQuery: String {
+        profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isSearchingProfiles: Bool {
+        !profileSearchQuery.isEmpty
+    }
+
     private var filteredProfiles: [SavedProfile] {
-        let query = profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return profiles }
+        guard isSearchingProfiles else { return profiles }
         return profiles.filter { profile in
-            profile.name.localizedCaseInsensitiveContains(query)
-                || profile.path.localizedCaseInsensitiveContains(query)
-                || (profile.steamAppID?.localizedCaseInsensitiveContains(query) ?? false)
+            profile.name.localizedCaseInsensitiveContains(profileSearchQuery)
+                || profile.path.localizedCaseInsensitiveContains(profileSearchQuery)
+                || (profile.steamAppID?.localizedCaseInsensitiveContains(profileSearchQuery) ?? false)
         }
+    }
+
+    private var favoriteProfiles: [SavedProfile] {
+        let ids = Set(profilePreferences.favoriteIDs)
+        return profiles
+            .filter { ids.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var recentProfiles: [SavedProfile] {
+        let favorites = Set(profilePreferences.favoriteIDs)
+        return profilePreferences.recentIDs.compactMap { id in
+            profiles.first { $0.id == id }
+        }.filter { !favorites.contains($0.id) }
+    }
+
+    /// Saved profiles not already shown under Favorites or Recent.
+    private var pinnedProfileIDs: Set<String> {
+        Set(profilePreferences.favoriteIDs + profilePreferences.recentIDs)
+    }
+
+    private var catalogProfiles: [SavedProfile] {
+        profiles
+            .filter { !pinnedProfileIDs.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private var selectedBottle: Bottle? {
@@ -110,6 +150,11 @@ struct ContentView: View {
         .tint(Color.cosmosPrimary)
         .task {
             refreshStatus()
+            resumeTerminalJobs()
+            checkForUpdatesSilently()
+            if isSetupComplete {
+                checkSteamLibraryForNewGames(autoSync: true)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRefreshStatus)) { _ in
             refreshStatus(message: "Status refreshed.")
@@ -127,23 +172,28 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshStatus()
+            resumeTerminalJobs()
+            checkSteamLibraryForNewGames(autoSync: true)
         }
         .onChange(of: isSetupComplete) { complete in
-            if complete && !showSetupCompleteBanner {
-                showSetupCompleteBanner = true
+            if complete {
+                if !showSetupCompleteBanner {
+                    showSetupCompleteBanner = true
+                }
+                checkSteamLibraryForNewGames(autoSync: true)
             }
         }
-        .onChange(of: selectedBottleID) { _, newID in
+        .onChange(of: selectedBottleID) { newID in
             if newID != nil, isSteamReady {
                 dashboardSection = .bottles
             }
         }
-        .onChange(of: selectedGameProfileID) { _, newID in
+        .onChange(of: selectedGameProfileID) { newID in
             if newID != nil, isSteamReady {
                 dashboardSection = .library
             }
         }
-        .onChange(of: selectedProfileID) { _, newID in
+        .onChange(of: selectedProfileID) { newID in
             refreshCompatBadge()
             if newID != nil, isSteamReady {
                 dashboardSection = .launch
@@ -267,56 +317,161 @@ struct ContentView: View {
                 profileSearchField
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
+
+                if !isSearchingProfiles {
+                    sidebarProfileFilterChips
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                }
             }
 
             // Profile list
             List(selection: $selectedProfileID) {
-                Section(profileSectionTitle) {
-                    if profiles.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("No profiles yet", systemImage: "tray")
-                                .foregroundStyle(.secondary)
-                                .font(.subheadline)
-                            Text(isSteamReady ? "Run Detect Games or Build Launchers to populate saved profiles." : "Complete setup above, then build launchers to see games here.")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .fixedSize(horizontal: false, vertical: true)
+                if isSearchingProfiles {
+                    Section("Search") {
+                        if filteredProfiles.isEmpty {
+                            sidebarEmptySearchRow
+                        } else {
+                            ForEach(filteredProfiles) { profile in
+                                profileRow(profile)
+                                    .tag(profile.id)
+                            }
                         }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("No saved game profiles. Run Detect Games after installing Steam.")
-                    } else if filteredProfiles.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("No matches", systemImage: "magnifyingglass")
-                                .foregroundStyle(.secondary)
-                                .font(.subheadline)
-                            Text("No saved game matches “\(profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines))”.")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else if profiles.isEmpty {
+                    Section("Saved Profiles") {
+                        sidebarEmptyProfilesRow
+                    }
+                } else {
+                    switch sidebarProfileFilter {
+                    case .all:
+                        if !favoriteProfiles.isEmpty {
+                            Section("Favorites") {
+                                ForEach(favoriteProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
+                            }
                         }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("No saved games match the search.")
-                    } else {
-                        ForEach(filteredProfiles) { profile in
-                            profileRow(profile)
-                                .tag(profile.id)
+                        if !recentProfiles.isEmpty {
+                            Section("Recent") {
+                                ForEach(recentProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
+                            }
+                        }
+                        if !catalogProfiles.isEmpty {
+                            Section(profileSectionTitle) {
+                                ForEach(catalogProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
+                            }
+                        }
+                    case .favorites:
+                        Section("Favorites") {
+                            if favoriteProfiles.isEmpty {
+                                sidebarEmptyFilterRow
+                            } else {
+                                ForEach(favoriteProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
+                            }
+                        }
+                    case .recent:
+                        Section("Recent") {
+                            if recentProfiles.isEmpty {
+                                sidebarEmptyFilterRow
+                            } else {
+                                ForEach(recentProfiles) { profile in
+                                    profileRow(profile)
+                                        .tag(profile.id)
+                                }
+                            }
                         }
                     }
                 }
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
-            .disabled(isRunning)
         }
         .cosmosSidebarBackground()
     }
 
     private var profileSectionTitle: String {
-        let query = profileSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if profiles.isEmpty || query.isEmpty {
-            return "Saved Profiles"
+        "All Games (\(catalogProfiles.count))"
+    }
+
+    private var sidebarProfileFilterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(SidebarProfileFilter.allCases) { filter in
+                    CosmosFilterChip(
+                        label: filter.label,
+                        isSelected: sidebarProfileFilter == filter
+                    ) {
+                        sidebarProfileFilter = filter
+                    }
+                    .disabled(isRunning)
+                    .accessibilityLabel("\(filter.label) sidebar filter")
+                }
+            }
         }
-        return "Saved Profiles (\(filteredProfiles.count) of \(profiles.count))"
+    }
+
+    private var sidebarEmptyProfilesRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("No profiles yet", systemImage: "tray")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            Text(isSteamReady ? "Run Detect Games or Build Launchers to populate saved profiles." : "Complete setup above, then build launchers to see games here.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No saved game profiles. Run Detect Games after installing Steam.")
+    }
+
+    private var sidebarEmptySearchRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("No matches", systemImage: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            Text("No saved game matches “\(profileSearchQuery)”.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No saved games match the search.")
+    }
+
+    private var sidebarEmptyFilterRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Nothing here yet", systemImage: "tray")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            Text(sidebarFilterEmptyCaption)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(sidebarFilterEmptyCaption)
+    }
+
+    private var sidebarFilterEmptyCaption: String {
+        switch sidebarProfileFilter {
+        case .all:
+            return "No saved game profiles."
+        case .favorites:
+            return "Star a game in the sidebar to pin it here."
+        case .recent:
+            return "Launch a game to see it in Recent."
+        }
     }
 
     private var profileSearchField: some View {
@@ -326,11 +481,22 @@ struct ContentView: View {
 
     private func profileRow(_ profile: SavedProfile) -> some View {
         let badge = sidebarCompatBadge(for: profile)
+        let isFavorite = ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences)
         return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Text(profile.name)
                     .font(.headline)
                     .lineLimit(1)
+                Button {
+                    profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: profile.id)
+                } label: {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .font(.caption2)
+                        .foregroundStyle(isFavorite ? .yellow : .secondary.opacity(0.55))
+                }
+                .buttonStyle(.plain)
+                .help(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                 if let badge {
                     CosmosCompatBadge(status: badge.status, compact: true)
                 }
@@ -348,7 +514,7 @@ struct ContentView: View {
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(sidebarProfileAccessibilityLabel(profile, badge: badge))
         .accessibilityAddTraits(profile.id == selectedProfileID ? .isSelected : [])
         .contextMenu {
@@ -359,6 +525,13 @@ struct ContentView: View {
                 Label("Launch", systemImage: "play.fill")
             }
             .disabled(!profile.canLaunchFromDashboard || !wineRuntime.canStartWineLaunch || isRunning)
+
+            Button {
+                profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: profile.id)
+            } label: {
+                let isFavorite = ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences)
+                Label(isFavorite ? "Remove Favorite" : "Add to Favorites", systemImage: isFavorite ? "star.slash" : "star")
+            }
 
             Button {
                 revealInFinder(profile.fileURL)
@@ -697,7 +870,7 @@ struct ContentView: View {
 
                     HStack(spacing: 12) {
                         Button {
-                            runInTerminal(script: "setup.command")
+                            runInTerminal(script: "setup.command", intent: .setup)
                         } label: {
                             Label("All-in-one setup", systemImage: "terminal.fill")
                         }
@@ -795,26 +968,249 @@ struct ContentView: View {
     private func performNextSetupStep() {
         consoleExpanded = true
         if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
-            runInTerminal(script: "run.command", arguments: ["--install-rosetta"])
+            runInTerminal(script: "run.command", arguments: ["--install-rosetta"], intent: .setup)
             return
         }
         if !cosmosInstalled {
-            runInTerminal(script: "install_cosmos.command")
+            runInTerminal(script: "install_cosmos.command", intent: .setup)
             return
         }
         if !steamSettings.isPrefixInitialized {
-            runInTerminal(script: "run.command", arguments: ["--setup-steam"])
+            runInTerminal(script: "run.command", arguments: ["--setup-steam"], intent: .setup)
             return
         }
         if !steamSettings.isSteamInstalled {
-            runInTerminal(script: "run.command", arguments: ["--install-steam"])
+            runInTerminal(script: "run.command", arguments: ["--install-steam"], intent: .setup)
             return
         }
         if !hasGameLaunchers {
-            runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+            buildLaunchers()
             return
         }
         refreshStatus(message: "Setup looks complete.")
+    }
+
+    /// Build Dock launchers in the embedded console (no Terminal unless sudo is required).
+    private func buildLaunchers() {
+        runCommand(
+            script: "detect_steam_games.command",
+            arguments: ["--install"],
+            environment: steamLibraryEnvironment(),
+            intent: .setup
+        )
+    }
+
+    private func steamDetectionEnvironment() -> [String: String] {
+        var env = bottleEnvironment()
+        env["COSMOS_STEAM_SNAPSHOT"] = SteamLibraryMonitor.snapshotURL(bottleName: selectedBottle?.name).path
+        return env
+    }
+
+    private func steamLibraryEnvironment(seedOnly: Bool = false) -> [String: String] {
+        var env = steamDetectionEnvironment()
+        env["COSMOS_ALLOW_USER_APPS"] = "1"
+        if seedOnly {
+            env["COSMOS_SYNC_SEED_ONLY"] = "1"
+        } else {
+            env["COSMOS_SYNC_FULL"] = "1"
+        }
+        return env
+    }
+
+    private func checkSteamLibraryForNewGames(autoSync: Bool) {
+        guard isSteamReady, !isRunning, !steamLibraryCheckInFlight, pendingTerminalJobID == nil else { return }
+        if let lastSteamLibraryCheck,
+           Date().timeIntervalSince(lastSteamLibraryCheck) < steamLibraryCheckInterval {
+            return
+        }
+
+        guard let detectScript = resolveScript("detect_steam_games.command") else { return }
+        let env = steamDetectionEnvironment()
+        let bottleName = selectedBottle?.name
+        let snapshotURL = SteamLibraryMonitor.snapshotURL(bottleName: bottleName)
+        steamLibraryCheckInFlight = true
+        DispatchQueue.global(qos: .utility).async {
+            let games = SteamLibraryMonitor.listInstalledGames(detectScript: detectScript, environment: env)
+            DispatchQueue.main.async {
+                steamLibraryCheckInFlight = false
+                lastSteamLibraryCheck = Date()
+                guard let games else { return }
+
+                let snapshotExists = FileManager.default.fileExists(atPath: snapshotURL.path)
+                let snapshot = SteamLibraryMonitor.loadSnapshotAppIDs(bottleName: bottleName)
+                let currentIDs = Set(games.map(\.appID))
+                let newGames = SteamLibraryMonitor.newGames(comparedTo: snapshot, current: games)
+                pendingRemovedSteamGames = snapshotExists ? snapshot.subtracting(currentIDs).count : 0
+
+                if !snapshotExists {
+                    pendingNewSteamGames = 0
+                    if autoSync && isSetupComplete {
+                        syncSteamLibrary(announce: false, seedOnly: true)
+                    }
+                    return
+                }
+
+                pendingNewSteamGames = newGames.count
+
+                if autoSync && isSetupComplete {
+                    if newGames.count > 0 || pendingRemovedSteamGames > 0 {
+                        syncSteamLibrary(announce: false)
+                    }
+                    return
+                }
+
+                if newGames.count > 0 {
+                    showNewSteamGamesBanner(count: newGames.count)
+                } else if pendingRemovedSteamGames > 0 {
+                    showSteamCleanupBanner(count: pendingRemovedSteamGames)
+                }
+            }
+        }
+    }
+
+    private func syncSteamLibrary(announce: Bool, seedOnly: Bool = false) {
+        guard !isRunning, pendingTerminalJobID == nil else { return }
+        if announce {
+            runCommand(
+                script: "detect_steam_games.command",
+                arguments: ["--sync"],
+                environment: steamLibraryEnvironment(seedOnly: seedOnly),
+                intent: .setup
+            )
+            return
+        }
+        guard let detectScript = resolveScript("detect_steam_games.command") else { return }
+        isRunning = true
+        let env = steamLibraryEnvironment(seedOnly: seedOnly)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = SteamLibraryMonitor.syncNewGames(detectScript: detectScript, environment: env)
+            DispatchQueue.main.async {
+                isRunning = false
+                applySteamLibrarySyncResult(result, announce: false, seedOnly: seedOnly)
+            }
+        }
+    }
+
+    private func applySteamLibrarySyncResult(
+        _ result: SteamLibraryMonitor.SyncResult?,
+        announce: Bool,
+        seedOnly: Bool
+    ) {
+        guard let result else {
+            showSteamSyncFailureBanner(ifAnnounced: announce)
+            return
+        }
+
+        if announce {
+            output += result.output
+        }
+
+        guard result.succeeded else {
+            showSteamSyncFailureBanner(ifAnnounced: announce)
+            refreshStatus()
+            return
+        }
+
+        if result.status == "seeded" {
+            pendingNewSteamGames = 0
+            if !seedOnly {
+                refreshStatus(message: "Initialized Steam library tracking.")
+            }
+            return
+        }
+
+        if result.newCount > 0 {
+            pendingNewSteamGames = 0
+            pendingRemovedSteamGames = 0
+            refreshStatus(message: "Synced \(result.newCount) new game(s).")
+            if announce {
+                showBanner(
+                    kind: .success,
+                    message: "Added \(result.newCount) new launcher\(result.newCount == 1 ? "" : "s") from Steam."
+                )
+            }
+            return
+        }
+
+        if result.removedCount > 0 {
+            pendingNewSteamGames = 0
+            pendingRemovedSteamGames = 0
+            refreshStatus(message: "Removed \(result.removedCount) uninstalled game(s).")
+            if announce {
+                let dockNote = " Dock apps in Cosmos Apps may need manual removal or a full rebuild."
+                showBanner(
+                    kind: .info,
+                    message: "Removed \(result.removedCount) launcher config\(result.removedCount == 1 ? "" : "s") for uninstalled games.\(dockNote)"
+                )
+            }
+            return
+        }
+
+        if pendingNewSteamGames > 0, announce {
+            showBanner(
+                kind: .info,
+                message: "No new launchers were built — titles may already have curated configs or native-only installs."
+            )
+        }
+
+        pendingNewSteamGames = 0
+        pendingRemovedSteamGames = 0
+        refreshStatus()
+    }
+
+    private func showSteamSyncFailureBanner(ifAnnounced announce: Bool) {
+        if announce {
+            showBanner(
+                kind: .failure,
+                message: "Steam library sync failed.",
+                actions: steamSyncTerminalActions()
+            )
+        } else {
+            showBanner(
+                kind: .info,
+                message: "Background Steam library sync failed. Open Tools → Sync Steam Library to retry."
+            )
+        }
+    }
+
+    private func showSteamCleanupBanner(count: Int) {
+        showBanner(
+            kind: .info,
+            message: "\(count) uninstalled Steam game\(count == 1 ? "" : "s") detected.",
+            actions: [
+                CommandBannerAction(title: "Sync Library", systemImage: "arrow.triangle.2.circlepath") {
+                    syncSteamLibrary(announce: true)
+                },
+            ]
+        )
+    }
+
+    private func steamSyncTerminalActions() -> [CommandBannerAction] {
+        [
+            CommandBannerAction(title: "Run in Terminal", systemImage: "terminal.fill") {
+                runInTerminal(
+                    script: "detect_steam_games.command",
+                    arguments: ["--sync"],
+                    environment: steamLibraryEnvironment(),
+                    intent: .setup
+                )
+            },
+        ]
+    }
+
+    private func showNewSteamGamesBanner(count: Int) {
+        showBanner(
+            kind: .info,
+            message: "\(count) new Steam game\(count == 1 ? "" : "s") detected.",
+            actions: [
+                CommandBannerAction(title: "Sync Launchers", systemImage: "arrow.triangle.2.circlepath") {
+                    syncSteamLibrary(announce: true)
+                },
+                CommandBannerAction(title: "Build All", systemImage: "square.grid.2x2.fill") {
+                    buildLaunchers()
+                },
+            ]
+        )
     }
 
     // MARK: - Quick launch
@@ -860,6 +1256,7 @@ struct ContentView: View {
     private func launchProfileUnchecked(_ profile: SavedProfile) {
         guard profile.canLaunchFromDashboard else { return }
         guard ensureRosettaForWineLaunch() else { return }
+        profilePreferences = ProfilePreferencesStore.recordRecentLaunch(profileID: profile.id)
         if !profile.path.isEmpty {
         runCommand(
             script: "run.command",
@@ -1394,7 +1791,10 @@ struct ContentView: View {
         runCommand(
             script: "run.command",
             arguments: ["--steam"],
-            environment: ["GPTK_PATH": path, "COSMOS_BACKEND": "d3dmetal"]
+            environment: dashboardLaunchEnvironment(extra: [
+                "GPTK_PATH": path,
+                "COSMOS_BACKEND": "d3dmetal",
+            ])
         )
     }
 
@@ -1457,8 +1857,28 @@ struct ContentView: View {
             runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: bottleEnvironment())
         }
 
-        secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps · Terminal", systemImage: "square.grid.2x2.fill", help: "Opens Terminal to detect games and install Spotlight launchers into Cosmos Apps") {
-            runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+        secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps", systemImage: "square.grid.2x2.fill", help: "Detect games and install Spotlight launchers into Cosmos Apps") {
+            buildLaunchers()
+        }
+
+        if pendingNewSteamGames > 0 {
+            secondaryButton(
+                title: "Sync New Games",
+                subtitle: "\(pendingNewSteamGames) detected",
+                systemImage: "arrow.triangle.2.circlepath",
+                help: "Build launchers for newly installed Steam games only"
+            ) {
+                syncSteamLibrary(announce: true)
+            }
+        } else {
+            secondaryButton(
+                title: "Sync Steam Library",
+                subtitle: "New installs only",
+                systemImage: "arrow.triangle.2.circlepath",
+                help: "Build launchers for newly installed Steam games since the last sync"
+            ) {
+                syncSteamLibrary(announce: true)
+            }
         }
     }
 
@@ -1511,7 +1931,18 @@ struct ContentView: View {
                 }
 
                 secondaryButton(title: "Check for Updates", subtitle: "GitHub Releases", systemImage: "arrow.down.circle", help: "Compare your Cosmos version to the latest published release") {
-                    runCommand(script: "run.command", arguments: ["--check-update"])
+                    checkForUpdates()
+                }
+
+                if updateAvailable {
+                    secondaryButton(
+                        title: "Install Update",
+                        subtitle: "Download Cosmos.dmg",
+                        systemImage: "arrow.down.to.line",
+                        help: "Download the latest release and install Cosmos.app to /Applications"
+                    ) {
+                        installUpdate()
+                    }
                 }
 
                 secondaryButton(title: "Reset Bottle", subtitle: "Delete prefix", systemImage: "arrow.counterclockwise", destructive: true, help: "Delete the default Wine prefix (Steam and games inside it)") {
@@ -1949,13 +2380,13 @@ struct ContentView: View {
             }
 
             HStack(spacing: 10) {
-                Text("After importing, run Build Launchers to create Dock icons, or use Install Cosmos for a one-shot Terminal build.")
+                Text("After importing, run Build Launchers to create Dock icons from the dashboard.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button("Build Launchers") {
-                    runInTerminal(script: "detect_steam_games.command", arguments: ["--install"])
+                    buildLaunchers()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -2180,8 +2611,8 @@ struct ContentView: View {
             }
         }
         .cosmosCard()
-        .onChange(of: activeSteamAppID) { _, _ in refreshCompatBadge() }
-        .onChange(of: selectedGameProfileID) { _, _ in refreshCompatBadge() }
+        .onChange(of: activeSteamAppID) { _ in refreshCompatBadge() }
+        .onChange(of: selectedGameProfileID) { _ in refreshCompatBadge() }
     }
 
     private static let cosmosStatusOptions = [
@@ -2808,6 +3239,33 @@ struct ContentView: View {
                 icon: "gamecontroller.fill",
                 color: hasGameLaunchers ? Color.cosmosPrimary.opacity(0.8) : Color.secondary
             )
+            if pendingNewSteamGames > 0, isSetupComplete {
+                Button {
+                    syncSteamLibrary(announce: true)
+                } label: {
+                    statusRow(
+                        label: "\(pendingNewSteamGames) new Steam game\(pendingNewSteamGames == 1 ? "" : "s") — tap to sync",
+                        icon: "arrow.triangle.2.circlepath",
+                        color: .orange
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunning)
+                .help("Build launchers for newly installed Steam games")
+            } else if pendingRemovedSteamGames > 0, isSetupComplete {
+                Button {
+                    syncSteamLibrary(announce: true)
+                } label: {
+                    statusRow(
+                        label: "\(pendingRemovedSteamGames) uninstalled — tap to clean up",
+                        icon: "trash.circle",
+                        color: .orange
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunning)
+                .help("Remove launcher configs for uninstalled Steam games")
+            }
             statusRow(
                 label: bottles.isEmpty
                     ? "No bottles yet"
@@ -2941,12 +3399,13 @@ struct ContentView: View {
 
     private func refreshStatus(message: String? = nil) {
         SteamSettingsStore.ensureOnDisk()
-        cosmosInstalled = fileManager.fileExists(atPath: cosmosAppsURL.path)
+        cosmosInstalled = SavedProfileStore.cosmosAppsIsInstalled()
         cosmosAppCount = SavedProfileStore.countCosmosApps()
         steamSettings = SteamSettingsStore.load()
         reloadGraphicsSettings()
         wineRuntime = WineRuntimeStore.load(wineVersion: steamSettings.wineVersion)
         profiles = SavedProfileStore.load()
+        profilePreferences = ProfilePreferencesStore.prune(validProfileIDs: Set(profiles.map(\.id)))
         bottles = BottleStore.load()
         gameProfiles = GameProfileStore.load()
         dependencyRecipes = RecipeStore.loadDependencies()
@@ -2980,10 +3439,13 @@ struct ContentView: View {
         )
     }
 
-    /// Pass the selected bottle into CLI tools that honor COSMOS_BOTTLE.
+    /// Pass the selected bottle into CLI tools that honor COSMOS_BOTTLE / WINEPREFIX.
     private func bottleEnvironment() -> [String: String] {
         guard let bottle = selectedBottle else { return [:] }
-        return ["COSMOS_BOTTLE": bottle.name]
+        return [
+            "COSMOS_BOTTLE": bottle.name,
+            "WINEPREFIX": bottle.prefixURL.path,
+        ]
     }
 
     // Locate a helper script, preferring a copy bundled into the app's
@@ -3007,12 +3469,13 @@ struct ContentView: View {
 
     // Run a helper in Terminal.app instead of the embedded console. Use this for
     // actions that need a real TTY — `sudo` password entry and interactive
-    // confirmations — which the piped Process runner cannot provide. We launch it
-    // and return; completion happens in Terminal, so the user taps Refresh after.
+    // confirmations — which the piped Process runner cannot provide. Commands are
+    // wrapped with scripts/terminal_wrap.sh so exit status is written back for the app.
     private func runInTerminal(
         script: String,
         arguments: [String] = [],
-        environment: [String: String] = [:]
+        environment: [String: String] = [:],
+        intent: CommandIntent = .general
     ) {
         guard let scriptURL = resolveScript(script) else {
             let message = "Script not found or not executable: \(script)"
@@ -3020,14 +3483,39 @@ struct ContentView: View {
             showBanner(kind: .failure, message: message)
             return
         }
-
-        var parts: [String] = []
-        beginCommandOutput()
-        for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
-            parts.append("export \(key)=\(ShellArgumentParser.shellQuote(value))")
+        guard let wrapURL = resolveScript("scripts/terminal_wrap.sh") else {
+            let message = "Terminal wrapper not found: scripts/terminal_wrap.sh"
+            output = message
+            showBanner(kind: .failure, message: message)
+            return
         }
-        parts.append(([scriptURL.path] + arguments).map(ShellArgumentParser.shellQuote).joined(separator: " "))
-        let shellCommand = parts.joined(separator: "; ")
+
+        let displayed = ([script] + arguments).joined(separator: " ")
+        let jobID = TerminalJobTracker.makeJobID()
+        pendingTerminalJobID = jobID
+        TerminalJobTracker.saveTrackedJob(id: jobID, label: displayed)
+        do {
+            try TerminalJobTracker.prepareJobsDirectory()
+            TerminalJobTracker.cleanup(jobID: jobID)
+        } catch {
+            let message = "Could not prepare Terminal job directory: \(error.localizedDescription)"
+            output = message
+            showBanner(kind: .failure, message: message)
+            return
+        }
+
+        var innerParts: [String] = []
+        for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
+            innerParts.append("export \(key)=\(ShellArgumentParser.shellQuote(value))")
+        }
+        innerParts.append(([scriptURL.path] + arguments).map(ShellArgumentParser.shellQuote).joined(separator: " "))
+        let innerCommand = innerParts.joined(separator: "; ")
+        let shellCommand = TerminalJobTracker.wrappedShellCommand(
+            jobID: jobID,
+            wrapScriptPath: wrapURL.path,
+            innerCommand: innerCommand,
+            label: displayed
+        )
 
         let appleScript = """
         tell application "Terminal"
@@ -3042,16 +3530,15 @@ struct ContentView: View {
 
         do {
             try task.run()
-            let displayed = ([script] + arguments).joined(separator: " ")
             output = """
             Opened Terminal to run: \(displayed)
 
-            Complete any password or confirmation prompts in the Terminal window, \
-            then click Refresh in the toolbar (⌘R) or switch back to this window — status updates automatically.
+            Complete any password or confirmation prompts in the Terminal window. \
+            Cosmos will report the exit status when the command finishes.
             """
             showBanner(
                 kind: .info,
-                message: "Running in Terminal — complete prompts there, then refresh status (⌘R).",
+                message: "Running in Terminal — exit status will appear here when finished.",
                 actions: [
                     CommandBannerAction(title: "Check Status", systemImage: "list.bullet.rectangle") {
                         runCommand(script: "run.command", arguments: ["--status"])
@@ -3061,11 +3548,187 @@ struct ContentView: View {
                     },
                 ]
             )
+            watchTerminalJob(jobID: jobID, displayedCommand: displayed, intent: intent)
         } catch {
+            pendingTerminalJobID = nil
+            TerminalJobTracker.clearTrackedJob()
             let message = "Could not open Terminal: \(error.localizedDescription)"
             output = message
             showBanner(kind: .failure, message: message)
         }
+    }
+
+    private func watchTerminalJob(jobID: String, displayedCommand: String, intent: CommandIntent) {
+        TerminalJobTracker.cancelPoll(jobID: jobID)
+        TerminalJobTracker.poll(jobID: jobID) { exitCode in
+            deliverTerminalJobResult(
+                jobID: jobID,
+                displayedCommand: displayedCommand,
+                exitCode: exitCode,
+                intent: intent,
+                autoContinueSetup: true
+            )
+        }
+    }
+
+    private func resumeTerminalJobs() {
+        guard pendingTerminalJobID == nil else { return }
+
+        if let tracked = TerminalJobTracker.loadTrackedJob() {
+            if let exitCode = TerminalJobTracker.readExitCode(jobID: tracked.id) {
+                deliverTerminalJobResult(
+                    jobID: tracked.id,
+                    displayedCommand: tracked.label,
+                    exitCode: exitCode,
+                    intent: .setup,
+                    autoContinueSetup: true
+                )
+                return
+            }
+            pendingTerminalJobID = tracked.id
+            watchTerminalJob(jobID: tracked.id, displayedCommand: tracked.label, intent: .setup)
+            return
+        }
+
+        for completed in TerminalJobTracker.completedJobsAwaitingDelivery() {
+            deliverTerminalJobResult(
+                jobID: completed.id,
+                displayedCommand: completed.label,
+                exitCode: completed.exitCode,
+                intent: .setup,
+                autoContinueSetup: false
+            )
+        }
+    }
+
+    private func deliverTerminalJobResult(
+        jobID: String,
+        displayedCommand: String,
+        exitCode: Int?,
+        intent: CommandIntent,
+        autoContinueSetup: Bool
+    ) {
+        if let pendingTerminalJobID, pendingTerminalJobID != jobID {
+            return
+        }
+        guard TerminalJobTracker.claimDelivery(jobID: jobID) else { return }
+        pendingTerminalJobID = nil
+        TerminalJobTracker.cancelPoll(jobID: jobID)
+        defer {
+            TerminalJobTracker.cleanup(jobID: jobID)
+            TerminalJobTracker.clearTrackedJob()
+        }
+
+        guard let exitCode else {
+            output += "\n\nTimed out waiting for Terminal command: \(displayedCommand)"
+            showBanner(
+                kind: .info,
+                message: "Still running in Terminal — refresh status (⌘R) when finished.",
+                actions: failureRecoveryActions(includeLogs: intent == .setup)
+            )
+            return
+        }
+
+        let succeeded = exitCode == 0
+        output += succeeded
+            ? "\n\nTerminal command finished successfully: \(displayedCommand)"
+            : "\n\nTerminal command exited with status \(exitCode): \(displayedCommand)"
+        refreshStatus()
+        if succeeded {
+            showBanner(kind: .success, message: successMessage(for: intent))
+            if autoContinueSetup, intent == .setup, !isSetupComplete, !isRunning, pendingTerminalJobID == nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    guard !isRunning, pendingTerminalJobID == nil, !isSetupComplete else { return }
+                    performNextSetupStep()
+                }
+            }
+        } else {
+            let failureMessage = CommandOutputParser.failureMessage(
+                exitCode: Int32(exitCode),
+                intent: intent,
+                output: output
+            )
+            showBanner(
+                kind: .failure,
+                message: failureMessage,
+                actions: failureRecoveryActions(includeLogs: intent == .setup)
+            )
+        }
+    }
+
+    private func checkForUpdatesSilently() {
+        guard let scriptURL = resolveScript("run.command") else { return }
+        DispatchQueue.global(qos: .utility).async {
+            let status = UpdateChecker.check(runScript: scriptURL)
+            DispatchQueue.main.async {
+                applyUpdateCheck(status, verbose: false)
+            }
+        }
+    }
+
+    private func checkForUpdates() {
+        guard let scriptURL = resolveScript("run.command") else {
+            showBanner(kind: .failure, message: "Script not found: run.command")
+            return
+        }
+
+        beginCommandOutput()
+        output = "Running: run.command --check-update\n\n"
+        isRunning = true
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let status = UpdateChecker.check(runScript: scriptURL)
+            DispatchQueue.main.async {
+                isRunning = false
+                if let status {
+                    output += "app_version=\(status.appVersion)\n"
+                    output += "runtime_version=\(status.runtimeVersion)\n"
+                    if let latest = status.latestRelease {
+                        output += "latest_release=\(latest)\n"
+                    }
+                    output += "status=\(status.state.rawValue)\n"
+                } else {
+                    output += "Update check failed.\n"
+                }
+                applyUpdateCheck(status, verbose: true)
+            }
+        }
+    }
+
+    private func applyUpdateCheck(_ status: UpdateChecker.Status?, verbose: Bool) {
+        guard let status else {
+            if verbose {
+                showBanner(kind: .failure, message: "Update check failed.")
+            }
+            return
+        }
+
+        updateAvailable = status.updateAvailable
+        guard status.updateAvailable else {
+            if verbose {
+                showBanner(kind: .success, message: "Cosmos is up to date (\(status.appVersion)).")
+            }
+            return
+        }
+
+        let latest = status.latestRelease ?? "newer"
+        let message = "Cosmos \(latest) is available (you are on \(status.appVersion))."
+        if verbose {
+            output += "\nUpdate available."
+        }
+        showBanner(
+            kind: .info,
+            message: message,
+            actions: [
+                CommandBannerAction(title: "Install Update", systemImage: "arrow.down.to.line") {
+                    installUpdate()
+                },
+            ]
+        )
+    }
+
+    private func installUpdate() {
+        runCommand(script: "run.command", arguments: ["--install-update"], intent: .setup)
     }
 
     private func showBanner(
@@ -3212,16 +3875,32 @@ struct ContentView: View {
                 let succeeded = exitCode == 0
                 output += succeeded ? "\nDone." : "\nExited with status \(exitCode)."
                 if succeeded {
-                    if intent == .diagnose,
-                       let summary = CommandOutputParser.diagnoseSummary(from: output),
-                       (CommandOutputParser.suggestedFixCount(from: output) ?? 0) > 0 {
-                        showBanner(
-                            kind: .info,
-                            message: summary,
-                            actions: failureRecoveryActions(includeLogs: true, includeRepair: true)
+                    if script == "detect_steam_games.command",
+                       arguments.contains("--sync") {
+                        let syncResult = SteamLibraryMonitor.SyncResult(
+                            status: SteamLibraryMonitor.parseSyncStatus(from: output) ?? "current",
+                            newCount: SteamLibraryMonitor.parseSyncNewCount(from: output) ?? 0,
+                            removedCount: SteamLibraryMonitor.parseSyncRemovedCount(from: output) ?? 0,
+                            exitCode: 0,
+                            output: output
                         )
-                    } else if !chain {
-                        showBanner(kind: .success, message: successMessage(for: intent))
+                        applySteamLibrarySyncResult(syncResult, announce: true, seedOnly: false)
+                    } else {
+                        if script == "detect_steam_games.command" {
+                            pendingNewSteamGames = 0
+                            pendingRemovedSteamGames = 0
+                        }
+                        if intent == .diagnose,
+                           let summary = CommandOutputParser.diagnoseSummary(from: output),
+                           (CommandOutputParser.suggestedFixCount(from: output) ?? 0) > 0 {
+                            showBanner(
+                                kind: .info,
+                                message: summary,
+                                actions: failureRecoveryActions(includeLogs: true, includeRepair: true)
+                            )
+                        } else if !chain {
+                            showBanner(kind: .success, message: successMessage(for: intent))
+                        }
                     }
                 } else {
                     let failureMessage = CommandOutputParser.failureMessage(
@@ -3232,13 +3911,18 @@ struct ContentView: View {
                     let needsLogs = intent == .setup || intent == .gameLaunch
                     let needsRepair = intent == .gameLaunch
                     if !chain {
+                        var actions = failureRecoveryActions(
+                            includeLogs: needsLogs,
+                            includeRepair: needsRepair
+                        )
+                        if script == "detect_steam_games.command",
+                           arguments.contains(where: { $0 == "--sync" || $0 == "--install" }) {
+                            actions.append(contentsOf: steamSyncTerminalActions())
+                        }
                         showBanner(
                             kind: .failure,
                             message: failureMessage,
-                            actions: failureRecoveryActions(
-                                includeLogs: needsLogs,
-                                includeRepair: needsRepair
-                            )
+                            actions: actions
                         )
                     }
                     if intent == .gameLaunch {
@@ -3262,26 +3946,8 @@ struct ContentView: View {
             let message = "Failed to run command: \(error.localizedDescription)"
             output = message
             showBanner(kind: .failure, message: message)
+            refreshStatus()
         }
-    }
-
-    private static func findRepositoryRoot() -> URL? {
-        let fileManager = FileManager.default
-        var candidate = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-
-        while candidate.path != "/" {
-            if fileManager.fileExists(atPath: candidate.appendingPathComponent("run.command").path) {
-                return candidate
-            }
-            candidate.deleteLastPathComponent()
-        }
-
-        let currentDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
-        if fileManager.fileExists(atPath: currentDirectory.appendingPathComponent("run.command").path) {
-            return currentDirectory
-        }
-
-        return nil
     }
 
 }

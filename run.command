@@ -296,6 +296,8 @@ Actions:
   --profiles               Open the saved profiles folder in Finder and exit.
   --logs                   Open the latest launch log and exit.
   --check-update           Compare local app/runtime version to GitHub Releases.
+  --install-update         Download Cosmos.dmg from GitHub and install to /Applications.
+  --sync-steam             Build launchers for newly installed Steam games only.
   --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
@@ -362,6 +364,20 @@ parse_arguments() {
         die "The --check-update flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="check-update"
+      return 0
+      ;;
+    --install-update)
+      if (($# > 1)); then
+        die "The --install-update flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="install-update"
+      return 0
+      ;;
+    --sync-steam)
+      if (($# > 1)); then
+        die "The --sync-steam flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="sync-steam"
       return 0
       ;;
     --status|--doctor)
@@ -1570,6 +1586,19 @@ main() {
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "check-update" ]]; then
     "${SCRIPT_DIR}/scripts/check_updates.sh"
+    return $?
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "install-update" ]]; then
+    "${SCRIPT_DIR}/scripts/check_updates.sh" --install
+    return $?
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "sync-steam" ]]; then
+    if [[ -n "${COSMOS_BOTTLE:-}" ]]; then
+      export COSMOS_STEAM_SNAPSHOT="${COSMOS_SUPPORT_DIR}/steam-library.${COSMOS_BOTTLE}.snapshot"
+    fi
+    COSMOS_ALLOW_USER_APPS="${COSMOS_ALLOW_USER_APPS:-1}" \
+      COSMOS_SYNC_FULL=1 \
+      "${SCRIPT_DIR}/detect_steam_games.command" --sync
     return $?
   fi
   require_supported_macos

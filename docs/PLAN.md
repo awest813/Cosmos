@@ -46,7 +46,7 @@ flowchart TD
   B -.->|GAP| B1[Compile from source / Gatekeeper]
   C -.->|GAP| C1[Rosetta + Wine status buried]
   E -.->|GAP| E1[Terminal for detect/build]
-  F -.->|GAP| F1[No compat badge in sidebar]
+  F -.->|GAP| F1[Signed DMG releases]
   H -.->|GAP| H1[Overlay off / anti-cheat opaque]
   I -.->|GAP| I1[Many fixes need Terminal]
 ```
@@ -94,8 +94,8 @@ flowchart TD
 
 | Gap | User impact | Status | Plan |
 | --- | --- | --- | --- |
-| ~21 curated profiles on main (target 100+) | Most games “unknown” | **PR #36** → 105 profiles | Merge PR #36; keep growing library |
-| Badge not on sidebar saved profiles | User launches blocked game unaware | Badge on Compatibility tab only | Show `CosmosBadge` on each `profileRow` |
+| Curated profile library | Most games “unknown” without YAML | **105** shipped profiles | Keep growing library |
+| Badge not on sidebar saved profiles | User launches blocked game unaware | `CosmosCompatBadge` on each `profileRow` | **Done** |
 | Anti-cheat titles not in library | Surprise bans / wasted installs | Destiny 2 only on main; **PR #36/39** add more | Blocked profiles + pre-launch `compat_preflight` (shipped) |
 | No “search ProtonDB before buy” in Store | Research friction | `cosmosdb.command lookup` exists | “Check compatibility” field on Welcome tab |
 | Profile drafts leak into counts (fixed on PR branches) | Duplicate validation noise | Fixed in PR #38/#39 polish | Merge polish commits |
@@ -125,7 +125,8 @@ flowchart TD
 
 | Gap | User impact | Status | Plan |
 | --- | --- | --- | --- |
-| Diagnose requires log file awareness | Users don’t know where logs are | `--logs` + dashboard button; auto-diagnose on launch failure | **Done** (Terminal setup steps still manual) |
+| Diagnose requires log file awareness | Users don’t know where logs are | `--logs` + dashboard button; auto-diagnose on launch failure | **Done** |
+| Terminal setup exit status invisible | Failed Terminal steps only show on manual Refresh | `terminal_wrap.sh` + dashboard polling | **Done** |
 | Generic exit-code failure banners | Users see “status 1” not the real error | `CommandOutputParser` + Apply Suggested actions | **Done** for embedded commands |
 | `set_backend` / `disable_intro_video` not auto-applied | Suggested fixes need manual env | `apply-suggested` whitelist | Expand safe auto-apply set carefully |
 | Few profiles reference `fixes:` | Profiles don’t trigger repairs | 3 on main; more on PR #36 | Wire fixes into top 20 played titles |
@@ -230,10 +231,14 @@ flowchart TD
 
 **Outcome:** Ordinary Mac gamers, not repo cloners.
 
-- [ ] Notarized `Cosmos.dmg` + GitHub Releases (ad-hoc DMG + `build_dmg.command` today)
+- [x] Notarized `Cosmos.dmg` + GitHub Releases (`build_dmg.command` + `release.yml`; sign when secrets configured)
 - [x] Bundled Cosmos Runtime (Wine + DXMT + notices) — `runtime/cosmos-runtime.json` **1.1.0-preview**
 - [x] 100+ shipped profiles (**105** Steam YAMLs; drafts excluded)
-- [x] Auto-update **check** (`run.command --check-update` + dashboard; no Sparkle yet)
+- [x] Auto-update **check** (`run.command --check-update` + dashboard)
+- [x] Auto-update **install** (`run.command --install-update` + dashboard; shell-based DMG installer)
+- [x] Sidebar **Favorites / Recent** + filter chips; deduplicated catalog at scale
+- [x] Incremental Steam sync (`detect_steam_games.command --sync`, `run.command --sync-steam`; auto-check on launch)
+- [x] Embedded **Build Launchers** / sync (Terminal only when `sudo` needed)
 - [ ] Community profile merge workflow (drafts + `suggest-profile`; manual review)
 - [ ] Optional: Console mode (controller grid) — roadmap “later”
 
@@ -263,8 +268,10 @@ flowchart TD
 | Fix recipes | **26** | 25+ ✅ |
 | Setup steps requiring Terminal | 4/5 (Rosetta + install still Terminal) | 2/4 (stretch: 0/4) |
 | Sidebar compat badge | **Yes** | Yes ✅ |
-| Signed DMG release | No (ad-hoc only) | Yes |
-| Auto-update check | **`--check-update`** | Full auto-install |
+| Signed DMG release | `release.yml` on `v*` tags | Yes (when secrets set) |
+| CI bundle + release audit | `bundle-smoke` job | Yes ✅ |
+| Auto-update check | **`--check-update`** | Yes ✅ |
+| Auto-update install | **`--install-update`** | Yes ✅ |
 
 ---
 
@@ -283,7 +290,7 @@ flowchart TD
 
 ## Next action (for maintainers)
 
-1. **Phase F:** Developer ID sign + notarize `Cosmos.dmg`; publish first GitHub Release.
-2. **Phase F:** Sparkle or in-app runtime updater (check-only ships today).
+1. **Phase F:** Configure Apple Developer ID + notarization secrets; tag `v*` to publish the first GitHub Release.
+2. **Phase F:** Optional Sparkle appcast for background checks; runtime tarball auto-update remains future work.
 3. Run `./scripts/audit_phases.sh` in CI to guard PLAN metrics; expand `co-op` tags where notes-only.
 4. Grow winemactricks recipe import beyond dry-run when upstream corpus expands.
