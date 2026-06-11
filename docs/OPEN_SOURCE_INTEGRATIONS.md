@@ -183,4 +183,5 @@ see [LICENSING.md](LICENSING.md).
 
 ## 6. License hygiene
 
-See [LICENSING.md](LICENSING.md) — DXMT pin, GPTK user-supply, winetricks external use.
+See [LICENSING.md](LICENSING.md) and [LGPL_IMPACT.md](LGPL_IMPACT.md) — Wine LGPL,
+DXMT MIT/LGPL channels, winetricks external use, offline bundle notices.

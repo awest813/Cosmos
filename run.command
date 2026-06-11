@@ -1548,6 +1548,8 @@ show_status() {
   if [[ -n "${RUNTIME_MANIFEST_VERSION:-}" ]]; then
     echo "  Runtime manifest: ${RUNTIME_MANIFEST_VERSION} (DXMT ${DXMT_VERSION}, Wine ${WINE_VERSION})"
     [[ -n "${COSMOS_RUNTIME_DIR:-}" ]] && echo "  Runtime cache: ${COSMOS_RUNTIME_DIR}"
+    echo "  Licenses: Wine LGPL-2.1+ | DXMT ${DXMT_VERSION} (MIT≤0.80, LGPL above) | COSMOS_ALLOW_LGPL=${COSMOS_ALLOW_LGPL:-1}"
+    echo "  Notices: runtime/NOTICE.md   Guide: docs/LGPL_IMPACT.md"
   fi
   echo ""
   if [[ "${rosetta_ok}" -eq 0 ]]; then

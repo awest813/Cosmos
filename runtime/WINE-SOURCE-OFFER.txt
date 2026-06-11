@@ -1,0 +1,24 @@
+Wine — LGPL source offer (Cosmos Runtime)
+
+Cosmos downloads macOS Wine builds (Gcenx tarballs) as part of the Cosmos Runtime.
+Wine is licensed under the GNU Lesser General Public License, version 2.1 or later
+(LGPL-2.1+).
+
+Upstream Wine source: https://gitlab.winehq.org/wine/wine
+
+Gcenx macOS packaging (binaries Cosmos pins in runtime/cosmos-runtime.json):
+  https://github.com/Gcenx/macOS_Wine_builds/releases
+
+To obtain source matching the Wine version installed on your Mac:
+
+  1. Run: ./run.command --status
+  2. Note the Wine version (for example 11.8).
+  3. Download the corresponding Wine source from WineHQ for that major release, or
+     consult the Gcenx release notes for the exact upstream Wine commit.
+
+WineHQ source archives: https://www.winehq.org/git
+
+LGPL impact (summary): Cosmos (MIT) invokes Wine as a separate runtime binary. You
+may replace the Wine build with your own LGPL-compliant build. If you redistribute
+a Cosmos Runtime bundle that includes Wine binaries, include this file and
+runtime/NOTICE.md — see docs/LGPL_IMPACT.md.

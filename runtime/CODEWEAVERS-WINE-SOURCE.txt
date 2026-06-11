@@ -1,0 +1,19 @@
+CodeWeavers CrossOver — LGPL Wine source (reference only)
+
+CrossOver Mac is a commercial product. Its application code (GUI, bottles,
+installers) is proprietary and must not be bundled into Cosmos.
+
+CodeWeavers publishes LGPL Wine source modifications used in CrossOver at:
+  https://www.codeweavers.com/products/source/
+
+Cosmos uses Gcenx Wine builds, not CrossOver binaries. Community CrossOver
+compatibility tiers are hints only (see docs/COSMOSDB.md).
+
+If you port specific Wine patches from CodeWeavers source into a Wine build you
+ship with Cosmos:
+
+  - Modified Wine library code must remain under LGPL.
+  - Provide corresponding source and license notices with distributions.
+  - Prefer upstream Wine merges when available (~95% of CrossOver Wine work).
+
+Cosmos itself stays MIT-licensed. See docs/LGPL_IMPACT.md and docs/LICENSING.md.

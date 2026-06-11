@@ -5,9 +5,12 @@
   "components": {
     "wine": {
       "version": "11.8",
-      "license": "Wine",
+      "license": "LGPL-2.1-or-later",
       "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.8/wine-devel-11.8-osx64.tar.xz",
-      "install_subdir": "wine-{version}"
+      "install_subdir": "wine-{version}",
+      "source_url": "https://gitlab.winehq.org/wine/wine",
+      "packaging_url": "https://github.com/Gcenx/macOS_Wine_builds/releases",
+      "source_offer": "runtime/WINE-SOURCE-OFFER.txt"
     },
     "dxmt": {
       "version": "0.80",

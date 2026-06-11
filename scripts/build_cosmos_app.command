@@ -160,8 +160,12 @@ fi
 if [[ -d "${REPO_ROOT}/cosmos-db" ]]; then
   cp -R "${REPO_ROOT}/cosmos-db" "${APP_BUNDLE}/Contents/Resources/cosmos-db"
 fi
-if [[ -f "${REPO_ROOT}/docs/LICENSING.md" ]]; then
-  cp "${REPO_ROOT}/docs/LICENSING.md" "${APP_BUNDLE}/Contents/Resources/docs/LICENSING.md"
+if [[ -d "${REPO_ROOT}/docs" ]]; then
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/docs"
+  [[ -f "${REPO_ROOT}/docs/LICENSING.md" ]] \
+    && cp "${REPO_ROOT}/docs/LICENSING.md" "${APP_BUNDLE}/Contents/Resources/docs/LICENSING.md"
+  [[ -f "${REPO_ROOT}/docs/LGPL_IMPACT.md" ]] \
+    && cp "${REPO_ROOT}/docs/LGPL_IMPACT.md" "${APP_BUNDLE}/Contents/Resources/docs/LGPL_IMPACT.md"
 fi
 
 # Bundle the launcher template (app/cosmos: CosmosLauncher + AppIcon.icns) so

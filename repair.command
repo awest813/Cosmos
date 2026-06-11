@@ -100,6 +100,7 @@ cmd_install_dep() {
   [[ -n "${RECIPE_WINETRICKS}" ]] || die "Recipe ${id} has no WINETRICKS verb."
   ensure_winetricks
   log "Installing dependency ${id} (${RECIPE_WINETRICKS}) into ${WINEPREFIX}"
+  echo "(winetricks is LGPL-2.1 — external tool; see runtime/WINETRICKS-NOTICE.txt)"
   winetricks -q "${RECIPE_WINETRICKS}"
   echo "Done: ${RECIPE_DESCRIPTION}"
 }

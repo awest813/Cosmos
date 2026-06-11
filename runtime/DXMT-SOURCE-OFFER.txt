@@ -19,4 +19,4 @@ version shown by:
 with the release tag at the URL above (for example, v0.81).
 
 Cosmos itself is MIT-licensed. Third-party runtime components retain their own
-licenses — see runtime/NOTICE.md and docs/LICENSING.md.
+licenses — see runtime/NOTICE.md, docs/LICENSING.md, and docs/LGPL_IMPACT.md.

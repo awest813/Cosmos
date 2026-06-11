@@ -19,6 +19,8 @@ for key in ("wine", "dxmt", "dxvk_macos", "moltenvk"):
     assert data["components"][key].get("url"), key
 assert data["components"]["dxmt"]["version"] == "0.80"
 assert data["defaults"].get("cosmos_allow_lgpl") is True
+assert "LGPL" in (data["components"]["wine"].get("license") or "")
+assert data["components"]["wine"].get("source_offer") == "runtime/WINE-SOURCE-OFFER.txt"
 PY
 
 # shellcheck source=scripts/lib/runtime_lib.sh

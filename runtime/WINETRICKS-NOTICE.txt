@@ -1,0 +1,16 @@
+Winetricks — LGPL notice (external repair dependency)
+
+Cosmos repair.command may invoke the user's winetricks binary when installing
+dependency recipes (for example vcrun2015, d3dx9, dotnet48).
+
+Winetricks is licensed under the GNU Lesser General Public License, version 2.1
+(LGPL-2.1). Cosmos does not bundle winetricks.
+
+Upstream: https://github.com/Winetricks/winetricks
+
+Typical install on macOS:
+  brew install winetricks
+
+LGPL impact: winetricks runs as a separate program. Cosmos MIT scripts call it
+like any external tool. If you distribute a modified winetricks, comply with
+LGPL-2.1 for that program. See docs/LGPL_IMPACT.md.

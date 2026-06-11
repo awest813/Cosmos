@@ -35,6 +35,19 @@ print(f"DXMT_URL={q(dxmt['url'])}")
 PY
 )"
 
+stage_runtime_license_notices() {
+  local notice
+  for notice in \
+    NOTICE.md \
+    WINE-SOURCE-OFFER.txt \
+    DXMT-SOURCE-OFFER.txt \
+    WINETRICKS-NOTICE.txt \
+    CODEWEAVERS-WINE-SOURCE.txt; do
+    [[ -f "${REPO_ROOT}/runtime/${notice}" ]] \
+      && cp "${REPO_ROOT}/runtime/${notice}" "${STAGING}/${notice}"
+  done
+}
+
 stage_fixture_bundle() {
   log "Staging fixture offline runtime (FIXTURE=1)"
   rm -rf "${STAGING}"
@@ -44,6 +57,7 @@ stage_fixture_bundle() {
   chmod +x "${STAGING}/wine-${WINE_VERSION}/Wine Devel.app/Contents/Resources/wine/bin/wine"
   touch "${STAGING}/dxmt-${DXMT_VERSION}/x86_64-windows/d3d11.dll"
   cp "${MANIFEST}" "${STAGING}/cosmos-runtime.json"
+  stage_runtime_license_notices
   printf 'fixture-offline-runtime\n' > "${STAGING}/.cosmos-offline-bundle"
 }
 
@@ -68,6 +82,7 @@ stage_download_bundle() {
     "${STAGING}/dxmt-${DXMT_VERSION}/"
   rm -rf "${dxmt_tmp}"
   cp "${MANIFEST}" "${STAGING}/cosmos-runtime.json"
+  stage_runtime_license_notices
   printf 'offline-runtime\n' > "${STAGING}/.cosmos-offline-bundle"
 }
 

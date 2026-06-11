@@ -39,7 +39,8 @@ To refuse LGPL versions above the MIT pin (v0.80):
 export COSMOS_ALLOW_LGPL=0
 ```
 
-Source offer: `runtime/DXMT-SOURCE-OFFER.txt`. See [LICENSING.md](LICENSING.md).
+Source offers: `runtime/DXMT-SOURCE-OFFER.txt`, `runtime/WINE-SOURCE-OFFER.txt`.
+See [LICENSING.md](LICENSING.md) and [LGPL_IMPACT.md](LGPL_IMPACT.md).
 
 ## Overrides
 

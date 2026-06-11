@@ -4,6 +4,9 @@ Cosmos itself is [MIT licensed](../LICENSE). Bundled or downloaded runtimes have
 their own terms — this document is the checklist before shipping or upgrading
 dependencies.
 
+> **Practical LGPL guide:** [LGPL_IMPACT.md](LGPL_IMPACT.md) — what matters for
+> users, offline bundles, and `COSMOS_ALLOW_LGPL`.
+
 ## Apple Game Porting Toolkit (D3DMetal)
 
 - **Do not bundle or redistribute** Apple's GPTK/D3DMetal DLLs.
@@ -19,18 +22,26 @@ dependencies.
 - Releases **after v0.80** are **LGPL**. Cosmos adopts LGPL DXMT for the runtime
   (maintainer-approved): `COSMOS_ALLOW_LGPL` defaults to **1** from the manifest.
   Opt out with `COSMOS_ALLOW_LGPL=0` to refuse versions above the MIT pin (v0.80).
-- **LGPL compliance** when bundling or caching DXMT:
+- **LGPL compliance** when bundling or caching DXMT ≥0.81:
   - Include `runtime/NOTICE.md` and `runtime/DXMT-SOURCE-OFFER.txt` in distributions.
   - Corresponding source: [3Shain/dxmt releases](https://github.com/3Shain/dxmt/releases).
+  - See [LGPL_IMPACT.md](LGPL_IMPACT.md) for the MIT vs LGPL channel split.
 - Dashboard **DXMT channel**: **Pinned (0.80)** uses the MIT release; **Latest (LGPL)**
   tracks `latest_version` in the manifest (currently 0.81 when published).
 - Download URLs: `https://github.com/3Shain/dxmt/releases`
 
 ## Wine (Gcenx macOS builds)
 
+- **LGPL-2.1 or later** — Wine is always downloaded for Cosmos Steam launches.
 - Version and URL pinned in `runtime/cosmos-runtime.json`.
-- Downloaded at runtime from Gcenx release tarballs; verify license on each
-  release artifact before bundling offline installers.
+- Downloaded at runtime from [Gcenx](https://github.com/Gcenx/macOS_Wine_builds/releases)
+  release tarballs (packaging of upstream WineHQ sources).
+- **LGPL compliance** when bundling or redistributing Wine binaries:
+  - Include `runtime/NOTICE.md` and `runtime/WINE-SOURCE-OFFER.txt`.
+  - Corresponding source: [WineHQ git](https://gitlab.winehq.org/wine/wine) for the
+    pinned major version.
+- Cosmos (MIT) invokes Wine as a **separate binary** — no Wine source is linked
+  into Cosmos scripts or the Swift app. See [LGPL_IMPACT.md](LGPL_IMPACT.md).
 
 ## DXVK-macOS (Gcenx)
 
@@ -73,6 +84,8 @@ dependencies.
 - **LGPL-2.1** — Cosmos **does not vendor** winetricks.
 - `repair.command` shells out to the user's `winetricks` binary (`brew install winetricks`).
 - Recipe IDs in `recipes/dependencies/` map to winetricks verbs only.
+- Notice file: `runtime/WINETRICKS-NOTICE.txt`. Invoking winetricks does not
+  affect the MIT license of Cosmos itself — see [LGPL_IMPACT.md](LGPL_IMPACT.md).
 
 ## ProtonDB Community API
 
@@ -100,6 +113,8 @@ dependencies.
 - CodeWeavers publishes **LGPL Wine source** for their CrossOver builds at
   [codeweavers.com/products/source](https://www.codeweavers.com/products/source/).
   Most changes are merged upstream; Cosmos uses Gcenx Wine tarballs instead.
+- Reference file: `runtime/CODEWEAVERS-WINE-SOURCE.txt`. Porting CrossOver Wine
+  patches into a redistributed Wine build requires LGPL compliance for that build.
 - Community **CrossOver compatibility tiers** (AppleGamingWiki, MacGamingDB) are fetched
   as runtime hints only — see [COSMOSDB.md](COSMOSDB.md).
 
