@@ -18,7 +18,7 @@ To obtain source matching the Wine version installed on your Mac:
 
 WineHQ source archives: https://www.winehq.org/git
 
-LGPL impact (summary): Cosmos (MIT) invokes Wine as a separate runtime binary. You
-may replace the Wine build with your own LGPL-compliant build. If you redistribute
-a Cosmos Runtime bundle that includes Wine binaries, include this file and
-runtime/NOTICE.md — see docs/LGPL_IMPACT.md.
+LGPL impact (summary): Cosmos (LGPL-3.0+) and Wine (LGPL-2.1+) are both copyleft
+runtimes. You may replace the Wine build with your own LGPL-compliant build. If you
+redistribute a Cosmos Runtime bundle that includes Wine binaries, include this file,
+runtime/NOTICE.md, and LICENSE — see docs/LGPL_IMPACT.md.

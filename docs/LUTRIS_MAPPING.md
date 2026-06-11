@@ -5,7 +5,7 @@ and run Windows games on Linux. Cosmos **v0 profiles** ([PROFILE_FORMAT.md](PROF
 are the macOS equivalent: known-good launch settings, not full installers yet.
 
 Use Lutris scripts as **recipe inspiration**; do not copy GPL installer YAML into
-this MIT repo without checking each file's license.
+this LGPL repo without checking each file's license.
 
 ## Field mapping
 

@@ -1,7 +1,9 @@
 # Cosmos Runtime — Third-Party Notices
 
-Cosmos may download or bundle the following components. See `docs/LICENSING.md`
-and `docs/LGPL_IMPACT.md` for practical LGPL obligations.
+**Cosmos application:** LGPL-3.0-or-later (see `LICENSE`).
+
+Cosmos may download or bundle the following runtime components. See
+`docs/LICENSING.md` and `docs/LGPL_IMPACT.md`.
 
 ## LGPL components (copyleft applies when redistributing binaries)
 

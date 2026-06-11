@@ -1,7 +1,7 @@
 import Foundation
 
 /// Tracks Terminal-launched helpers via exit-status files under Application Support.
-/// Uses the same file-based IPC pattern as common MIT shell wrappers (no GPL coupling).
+/// File-based IPC pattern (Cosmos is LGPL-3.0+; no GPL coupling).
 enum TerminalJobTracker {
     private static let fileManager = FileManager.default
     private static let trackedJobIDKey = "com.cosmos.pendingTerminalJobID"

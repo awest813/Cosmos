@@ -250,8 +250,10 @@ WINEPREFIX="$(./bottle.command path steam)" ./detect_steam_games.command --list
 
 ## Integration tooling (0.4–0.7 preview)
 
-See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md) and
-[docs/LICENSING.md](docs/LICENSING.md).
+See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md),
+[docs/LICENSING.md](docs/LICENSING.md), and [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md).
+
+Cosmos is **LGPL-3.0-or-later** — see [LICENSE](LICENSE).
 
 | Script | Purpose |
 | --- | --- |

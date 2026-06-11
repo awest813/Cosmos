@@ -156,7 +156,7 @@ write_info_plist() {
     <key>LSMinimumSystemVersion</key>
     <string>$(xml_escape "${min_system_version}")</string>
     <key>NSHumanReadableCopyright</key>
-    <string>MIT License</string>
+    <string>GNU Lesser General Public License v3.0 or later</string>
 </dict>
 </plist>
 EOF

@@ -76,7 +76,7 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<EOF
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>MIT License</string>
+    <string>GNU Lesser General Public License v3.0 or later</string>
 </dict>
 </plist>
 EOF
@@ -167,6 +167,8 @@ if [[ -d "${REPO_ROOT}/docs" ]]; then
   [[ -f "${REPO_ROOT}/docs/LGPL_IMPACT.md" ]] \
     && cp "${REPO_ROOT}/docs/LGPL_IMPACT.md" "${APP_BUNDLE}/Contents/Resources/docs/LGPL_IMPACT.md"
 fi
+[[ -f "${REPO_ROOT}/LICENSE" ]] \
+  && cp "${REPO_ROOT}/LICENSE" "${APP_BUNDLE}/Contents/Resources/LICENSE"
 
 # Bundle the launcher template (app/cosmos: CosmosLauncher + AppIcon.icns) so
 # install_cosmos.command can build game .app bundles from the installed app,

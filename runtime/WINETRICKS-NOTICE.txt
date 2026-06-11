@@ -11,6 +11,6 @@ Upstream: https://github.com/Winetricks/winetricks
 Typical install on macOS:
   brew install winetricks
 
-LGPL impact: winetricks runs as a separate program. Cosmos MIT scripts call it
-like any external tool. If you distribute a modified winetricks, comply with
-LGPL-2.1 for that program. See docs/LGPL_IMPACT.md.
+LGPL impact: winetricks runs as a separate program today. Cosmos (LGPL-3.0+)
+scripts invoke it like any external tool. If you distribute a modified winetricks,
+comply with LGPL-2.1 for that program. See docs/LGPL_IMPACT.md.

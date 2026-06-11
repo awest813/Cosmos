@@ -1,11 +1,11 @@
 # Cosmos Licensing & Third-Party Components
 
-Cosmos itself is [MIT licensed](../LICENSE). Bundled or downloaded runtimes have
-their own terms — this document is the checklist before shipping or upgrading
-dependencies.
+Cosmos itself is [LGPL-3.0-or-later licensed](../LICENSE). Bundled or downloaded
+runtimes have their own terms — this document is the checklist before shipping or
+upgrading dependencies.
 
-> **Practical LGPL guide:** [LGPL_IMPACT.md](LGPL_IMPACT.md) — what matters for
-> users, offline bundles, and `COSMOS_ALLOW_LGPL`.
+> **Practical guide:** [LGPL_IMPACT.md](LGPL_IMPACT.md) — Cosmos LGPL obligations,
+> runtime stack, DXMT channel gate, and distribution checklist.
 
 ## Apple Game Porting Toolkit (D3DMetal)
 
@@ -40,8 +40,8 @@ dependencies.
   - Include `runtime/NOTICE.md` and `runtime/WINE-SOURCE-OFFER.txt`.
   - Corresponding source: [WineHQ git](https://gitlab.winehq.org/wine/wine) for the
     pinned major version.
-- Cosmos (MIT) invokes Wine as a **separate binary** — no Wine source is linked
-  into Cosmos scripts or the Swift app. See [LGPL_IMPACT.md](LGPL_IMPACT.md).
+- Cosmos (LGPL-3.0+) invokes Wine as a **separate binary** at runtime. Wine and
+  Cosmos are both LGPL family — see [LGPL_IMPACT.md](LGPL_IMPACT.md).
 
 ## DXVK-macOS (Gcenx)
 
@@ -84,8 +84,8 @@ dependencies.
 - **LGPL-2.1** — Cosmos **does not vendor** winetricks.
 - `repair.command` shells out to the user's `winetricks` binary (`brew install winetricks`).
 - Recipe IDs in `recipes/dependencies/` map to winetricks verbs only.
-- Notice file: `runtime/WINETRICKS-NOTICE.txt`. Invoking winetricks does not
-  affect the MIT license of Cosmos itself — see [LGPL_IMPACT.md](LGPL_IMPACT.md).
+- Notice file: `runtime/WINETRICKS-NOTICE.txt`. Winetricks remains external;
+  optional future bundling would be LGPL alongside Cosmos.
 
 ## ProtonDB Community API
 
@@ -118,12 +118,12 @@ dependencies.
 - Community **CrossOver compatibility tiers** (AppleGamingWiki, MacGamingDB) are fetched
   as runtime hints only — see [COSMOSDB.md](COSMOSDB.md).
 
-## Reference launchers (GPL vs MIT)
+## Reference launchers (GPL vs LGPL vs MIT)
 
 | Project | License | Use in Cosmos |
 | --- | --- | --- |
-| [Whisky](https://github.com/Whisky-App/Whisky) | GPL-3 | UX patterns only — do not copy Swift source into MIT Cosmos |
-| [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3 | Architecture reference only |
+| [Whisky](https://github.com/Whisky-App/Whisky) | GPL-3 | **Cannot merge** — GPL-3 forces GPL on combined works; UX reference only |
+| [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3 | Architecture reference only — do not copy GPL source |
 | [macos-wine-steam / Merlot](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; safe to compare scripts |
 | [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Optional detection cross-check; VDF parsing patterns in `steam_lib.sh` |
 | [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) | MIT | Vendored `third_party/steam-on-m1-wine/` (wrapper + assets); launch/prefix integration in `steam_lib.sh` |

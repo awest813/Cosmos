@@ -4,6 +4,8 @@
 
 Cosmos is a macOS game compatibility layer: it downloads Wine, sets up a Steam bottle, translates DirectX via Metal (DXMT by default), detects your library, and builds Dock-friendly `.app` launchers. No Terminal required for the happy path.
 
+Licensed under [LGPL-3.0-or-later](LICENSE).
+
 | | |
 |---|---|
 | **Platform** | Apple Silicon (M1–M4) and Intel Macs (x86_64) |
@@ -348,4 +350,4 @@ Cosmos builds on the macOS Wine ecosystem and community knowledge:
 - Wine builds: [Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds)
 - DXMT and other integrated open-source projects — see [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md)
 
-**License notes:** Cosmos (MIT) downloads **LGPL Wine** and may use **LGPL DXMT** on the Latest channel (`COSMOS_ALLOW_LGPL=1` by default; Pinned DXMT 0.80 is MIT). Offline bundles include `runtime/NOTICE.md` and source offers. See [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md). GPTK/D3DMetal is not redistributed — obtain it from [developer.apple.com](https://developer.apple.com/download/all/).
+**License:** Cosmos is **[LGPL-3.0-or-later](LICENSE)**. The runtime downloads **LGPL Wine** and may use **LGPL DXMT** on the Latest channel (`COSMOS_ALLOW_LGPL=1` by default; Pinned DXMT 0.80 is MIT). Offline bundles include `LICENSE`, `runtime/NOTICE.md`, and source offers — see [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md). GPTK/D3DMetal is not redistributed — obtain it from [developer.apple.com](https://developer.apple.com/download/all/).

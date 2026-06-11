@@ -17,8 +17,8 @@ FIXTURE=1 bash "${ROOT}/scripts/stage_offline_runtime.command" \
 LICENSE_CHECK_DIR="${TMP}/license-check"
 mkdir -p "${LICENSE_CHECK_DIR}"
 tar -xJf "${OUTPUT_DIR}/cosmos-runtime-offline.tar.xz" -C "${LICENSE_CHECK_DIR}"
-for f in NOTICE.md WINE-SOURCE-OFFER.txt DXMT-SOURCE-OFFER.txt; do
-  [[ -f "${LICENSE_CHECK_DIR}/${f}" ]] || fail "offline bundle missing LGPL notice ${f}"
+for f in LICENSE NOTICE.md WINE-SOURCE-OFFER.txt DXMT-SOURCE-OFFER.txt; do
+  [[ -f "${LICENSE_CHECK_DIR}/${f}" ]] || fail "offline bundle missing license/notice ${f}"
 done
 
 export SCRIPT_DIR="${ROOT}"

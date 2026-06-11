@@ -1,6 +1,6 @@
 # Open Source Integrations
 
-How Cosmos uses external MIT-friendly (or external-tool) projects across the
+How Cosmos uses external permissive-LGPL (or external-tool) projects across the
 integration priorities.
 
 > **Phased adoption plan:** see [ADOPTION_PLAN.md](ADOPTION_PLAN.md) for
@@ -178,8 +178,8 @@ See [PROTONFIXES_PORTING.md](PROTONFIXES_PORTING.md).
 | AppleGamingWiki `crossover` column | CC BY-SA | Runtime API hints; `crossover_proxy` in `cosmosdb_lib.sh` |
 | MacGamingDB `CROSSOVER` playMethod | Community API | Review counts + notes; map `DXMT`/`D3D_METAL` layers to backends |
 
-Whisky (GPL-3) built on CrossOver 22.1.1 — **UX reference only** for MIT Cosmos;
-see [LICENSING.md](LICENSING.md).
+Whisky (GPL-3) built on CrossOver 22.1.1 — **cannot merge** into LGPL Cosmos
+(GPL-3 forces GPL on combined works); UX reference only. See [LICENSING.md](LICENSING.md).
 
 ## 6. License hygiene
 

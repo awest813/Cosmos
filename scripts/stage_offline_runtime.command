@@ -37,6 +37,7 @@ PY
 
 stage_runtime_license_notices() {
   local notice
+  [[ -f "${REPO_ROOT}/LICENSE" ]] && cp "${REPO_ROOT}/LICENSE" "${STAGING}/LICENSE"
   for notice in \
     NOTICE.md \
     WINE-SOURCE-OFFER.txt \

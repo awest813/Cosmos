@@ -1,7 +1,8 @@
 # Open Source Adoption Plan
 
-Phased plan for incorporating the highest-value MIT-friendly (and carefully
-scoped GPL/reference) projects into Cosmos. This extends
+Phased plan for incorporating the highest-value permissive-license (MIT, LGPL
+where compatible) and carefully scoped GPL/reference projects into **LGPL
+Cosmos**. This extends
 [OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md) and aligns with
 milestone **0.7 (CosmosDB)** and **1.0 (Cosmos Runtime)** in
 [ROADMAP.md](ROADMAP.md).
@@ -24,11 +25,11 @@ justifies Rust crates.
 
 ## Guiding rules
 
-1. **MIT (or permissive) in-tree** — vendor, diff, or translate into Cosmos
-   recipes/profiles. See [LICENSING.md](LICENSING.md).
+1. **MIT / permissive in-tree** — vendor, diff, or translate into Cosmos
+   recipes/profiles (MIT upstream stays MIT in `third_party/`). See [LICENSING.md](LICENSING.md).
 2. **GPL reference-only** — read fix ideas from protonfixes / umu-protonfixes;
-   reimplement as YAML recipes and `.recipe` files. Never copy Python fix scripts
-   into the MIT repo.
+   reimplement as YAML recipes and `.recipe` files. Never copy GPL-3 Python scripts
+   into LGPL Cosmos (combined work would become GPL-3).
 3. **API-at-runtime OK** — UMU API, ProtonDB, MacGamingDB: fetch hints, cache
    locally, translate into Cosmos-native metadata. No bulk script import.
 4. **Unclear license = watch, don't import** — cellar-memory has no LICENSE file;

@@ -12,7 +12,8 @@ when improving Cosmos profiles and recipes.
 | UMU database API | GPL-3.0 data | Runtime lookup via `cosmosdb.command lookup <appid> umu` |
 | macos-wine-steam configs | MIT | Safe to import via `scripts/import_macos_wine_steam.sh` |
 
-**Never** copy Python fix scripts into this MIT repository.
+**Never** copy Python fix scripts into this LGPL repository (GPL-3 scripts are
+incompatible for direct import).
 
 ## Workflow
 
