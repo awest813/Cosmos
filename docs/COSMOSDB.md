@@ -13,12 +13,35 @@ CosmosDB is Cosmos's compatibility layer: **hints from community sources** plus
 | [UMU database](https://umu.openwinecomponents.org/) | Proton/umu-protonfixes fix metadata by `umu-{appid}` | GPL-3.0 data repo; **runtime API hints only** |
 | Local `~/Library/Application Support/Cosmos/CosmosDB/reports/` | macOS-specific user reports | User data |
 
-**Hint priority:** local Cosmos reports > MacGamingDB / AppleGamingWiki > ProtonDB.
+**Hint priority:** local Cosmos reports > curated profiles > community DB >
+MacGamingDB > AppleGamingWiki CrossOver proxy > ProtonDB.
 
 ProtonDB is a **weak hint** on macOS — backends differ (DXMT/D3DMetal vs Proton).
 AppleGamingWiki **Wine** rows often reflect Porting Kit / GPTK paths. MacGamingDB
 **translationLayer** values map to Cosmos backends: `DXMT`, `DXVK`, `D3D_METAL`
 (GPTK/D3DMetal).
+
+### CrossOver as a compatibility proxy (legal)
+
+[CrossOver](https://www.codeweavers.com/crossover) is a **commercial** macOS/Linux
+product. Cosmos does **not** bundle or import CrossOver app code. Community
+**CrossOver** tiers from AppleGamingWiki and **CROSSOVER** play-method reviews
+from MacGamingDB are used as **hints only** — they correlate with Wine-on-Mac
+success on similar backends.
+
+CodeWeavers publishes **LGPL Wine source** modifications at
+[codeweavers.com/products/source](https://www.codeweavers.com/products/source/).
+Most patches land upstream in Wine; Cosmos uses Gcenx Wine builds. Porting specific
+Wine fixes from CodeWeavers source requires LGPL compliance — see
+[LICENSING.md](LICENSING.md) and [OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md).
+
+Lookup responses now include structured `crossover_proxy` metadata:
+
+- **AppleGamingWiki:** `crossover_proxy.tier`, `cosmos_status`, `codeweavers_slug`, notes
+- **MacGamingDB:** `crossover_proxy.review_count`, DXMT/D3D_METAL review counts
+
+`cosmosdb.command badge` falls back to AppleGamingWiki CrossOver tier when no
+local report or MacGamingDB aggregate exists (`source: crossover_proxy`).
 
 ## CLI (`cosmosdb.command`)
 
@@ -71,7 +94,7 @@ Git-hosted entries under `cosmos-db/games/<appid>.json`. Synced to:
 ```
 
 Badge resolution priority: **curated profile** → **local report** → **community
-entry** → cached MacGamingDB → cached ProtonDB.
+entry** → cached MacGamingDB → AppleGamingWiki CrossOver proxy → cached ProtonDB.
 
 ## Normalized hint schemas
 
@@ -91,11 +114,19 @@ entry** → cached MacGamingDB → cached ProtonDB.
   "notes": {
     "crossover": "…",
     "wine": "…"
+  },
+  "codeweavers_slug": "fallout-new-vegas",
+  "crossover_proxy": {
+    "tier": "playable",
+    "cosmos_status": "playable",
+    "codeweavers_slug": "fallout-new-vegas",
+    "note": "…"
   }
 }
 ```
 
 AGW tier values include `perfect`, `playable`, `na`, `broken`, etc.
+`crossover_proxy.cosmos_status` maps to badge resolution when no stronger source exists.
 
 ### MacGamingDB (`macgamingdb-{appid}.json`)
 
@@ -108,6 +139,11 @@ AGW tier values include `perfect`, `playable`, `na`, `broken`, etc.
   "review_count": 12,
   "methods": { "native": 1, "crossover": 10, "parallels": 0, "other": 0 },
   "translation_layers": { "dxmt": 2, "d3d_metal": 8, "dxvk": 0, "none": 1 },
+  "crossover_proxy": {
+    "review_count": 10,
+    "dxmt_reviews": 2,
+    "d3d_metal_reviews": 8
+  },
   "sample_notes": ["…"]
 }
 ```

@@ -169,6 +169,18 @@ Parsers and HTTP helpers live in `scripts/lib/cosmosdb_lib.sh`. Unit tests:
 
 See [PROTONFIXES_PORTING.md](PROTONFIXES_PORTING.md).
 
-## 5. License hygiene
+## 5. CrossOver / CodeWeavers (hints and LGPL Wine source)
+
+| Asset | License | Cosmos use |
+| --- | --- | --- |
+| CrossOver Mac app (GUI, bottles, packaging) | Commercial EULA | **Do not import** — compatibility hints only via CosmosDB |
+| CodeWeavers Wine modifications | LGPL | Study/port upstream; [published source](https://www.codeweavers.com/products/source/) |
+| AppleGamingWiki `crossover` column | CC BY-SA | Runtime API hints; `crossover_proxy` in `cosmosdb_lib.sh` |
+| MacGamingDB `CROSSOVER` playMethod | Community API | Review counts + notes; map `DXMT`/`D3D_METAL` layers to backends |
+
+Whisky (GPL-3) built on CrossOver 22.1.1 — **UX reference only** for MIT Cosmos;
+see [LICENSING.md](LICENSING.md).
+
+## 6. License hygiene
 
 See [LICENSING.md](LICENSING.md) — DXMT pin, GPTK user-supply, winetricks external use.

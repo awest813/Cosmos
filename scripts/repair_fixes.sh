@@ -211,6 +211,51 @@ repair_clear_steam_caches() {
   (( removed )) || echo "No Steam cache directories found to clear."
 }
 
+repair_fix_steam_cloud_paths() {
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  repair_require_prefix || return 1
+  local steam_dir removed=0 user_root sub f
+  steam_dir="$(steam_find_steam_dir 2>/dev/null || true)"
+  if [[ -z "${steam_dir}" ]]; then
+    echo "Steam not found in prefix. Run ./run.command --setup-steam first."
+    return 1
+  fi
+
+  local userdata="${steam_dir}/userdata"
+  if [[ ! -d "${userdata}" ]]; then
+    mkdir -p "${userdata}"
+    echo "Created ${userdata}"
+  fi
+
+  while IFS= read -r -d '' f; do
+    rm -f "${f}"
+    echo "Removed stuck cloud cache: ${f}"
+    removed=$((removed + 1))
+  done < <(find "${userdata}" -name 'remotecache.vdf' -print0 2>/dev/null)
+
+  for user_root in "${pfx}/drive_c/users"/*; do
+    [[ -d "${user_root}" ]] || continue
+    for sub in \
+      "Documents/My Games" \
+      "AppData/Local" \
+      "AppData/Roaming" \
+      "Saved Games"; do
+      if [[ ! -d "${user_root}/${sub}" ]]; then
+        mkdir -p "${user_root}/${sub}"
+        echo "Created ${user_root}/${sub}"
+      fi
+    done
+  done
+
+  echo ""
+  if declare -F steam_cloud_save_roots >/dev/null 2>&1; then
+    steam_cloud_save_roots "${steam_dir}"
+  fi
+  echo ""
+  echo "Restart Steam, then toggle Steam Cloud off/on for affected games in Properties."
+  (( removed )) || echo "No stuck remotecache.vdf files found."
+}
+
 repair_clear_steam_download_cache() {
   local pfx="${WINEPREFIX:?WINEPREFIX required}"
   local removed=0 dir

@@ -88,6 +88,33 @@ repair_diagnose_prefix_health() {
       "[prefix] Wine is still running for this prefix (can block launches)
   Try: ./repair.command apply-fix kill_wine"
   fi
+
+  if declare -F steam_dual_install_appids >/dev/null 2>&1; then
+    local steam_dir="" dual_id dual_list=""
+    if steam_dir="$(steam_find_steam_dir 2>/dev/null)"; then
+      while IFS= read -r dual_id || [[ -n "${dual_id}" ]]; do
+        [[ -n "${dual_id}" ]] || continue
+        dual_list+="${dual_id} "
+      done < <(steam_dual_install_appids "${steam_dir}")
+      if [[ -n "${dual_list}" ]]; then
+        repair_diagnose_note dual-steam \
+          "[steam-cloud] App ID(s) installed in both Wine and native Steam: ${dual_list}
+  Tip: use one client per game — cloud saves use different paths (see docs/STEAM_SETUP.md)"
+      fi
+    fi
+  fi
+}
+
+repair_diagnose_cloud_prefix() {
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local steam_dir=""
+  steam_dir="$(steam_find_steam_dir 2>/dev/null || true)"
+  [[ -n "${steam_dir}" ]] || return 0
+  if [[ ! -d "${steam_dir}/userdata" ]]; then
+    repair_diagnose_note cloud-userdata-missing \
+      "[steam-cloud] Steam userdata folder is missing (cloud sync may fail until Steam creates it)
+  Try: sign in to Steam once, then ./repair.command apply-fix fix_steam_cloud_paths"
+  fi
 }
 
 repair_diagnose_umu_hints() {
@@ -323,12 +350,23 @@ repair_diagnose_scan_log() {
       "[prefix] Prefix or registry corruption suspected
   Try: COSMOS_FORCE=1 ./repair.command apply-fix rebuild_prefix"
   fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'Unable to [Ss]ync|unable to sync|cloud.*out of sync|Steam Cloud|SteamRemoteStorage|remotecache|failed to resolve path|MacAppSupport|WinAppData'; then
+    repair_diagnose_suggest fix fix_steam_cloud_paths \
+      "[steam-cloud] Steam Cloud sync or save-path errors detected
+  Try: ./repair.command apply-fix fix_steam_cloud_paths
+       then toggle Steam Cloud off/on in game Properties"
+    repair_diagnose_note cloud-paths \
+      "[steam-cloud] Cosmos uses Windows save paths inside the Wine prefix, not native macOS Steam
+  See: docs/STEAM_SETUP.md#steam-cloud-saves"
+  fi
 }
 
 repair_diagnose_run() {
   local log_file="${1:-}"
   repair_diagnose_reset
   repair_diagnose_prefix_health
+  repair_diagnose_cloud_prefix
   repair_diagnose_profile_hints
   repair_diagnose_umu_hints
 
@@ -388,7 +426,7 @@ repair_suggestion_is_auto_applicable() {
   local token="$1"
   case "${token}" in
     dep:*) return 0 ;;
-    fix:kill_wine|fix:clear_steam_caches|fix:clear_steam_download_cache|fix:disable_retina|fix:fix_steam_ssl|fix:fix_steam_networking|fix:ddraw-override|fix:install_steamwebhelper_wrapper|fix:reinstall_steam|fix:seed_japanese_fonts|fix:grounded-mscoree-fix)
+    fix:kill_wine|fix:clear_steam_caches|fix:clear_steam_download_cache|fix:disable_retina|fix:fix_steam_ssl|fix:fix_steam_networking|fix:fix_steam_cloud_paths|fix:ddraw-override|fix:install_steamwebhelper_wrapper|fix:reinstall_steam|fix:seed_japanese_fonts|fix:grounded-mscoree-fix)
       return 0
       ;;
     *) return 1 ;;

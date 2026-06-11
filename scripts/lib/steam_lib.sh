@@ -179,6 +179,87 @@ steam_collect_detection_steamapps_dirs() {
   } | awk '!seen[$0]++'
 }
 
+# Print installed Steam App IDs from a steamapps directory (one per line).
+steam_collect_appids_from_steamapps() {
+  local steamapps="$1"
+  local acf appid
+  [[ -d "${steamapps}" ]] || return 0
+  shopt -s nullglob
+  for acf in "${steamapps}"/appmanifest_*.acf; do
+    appid="${acf##*/appmanifest_}"; appid="${appid%.acf}"
+    [[ "${appid}" =~ ^[0-9]+$ ]] || continue
+    steam_acf_is_playable "${acf}" || continue
+    printf '%s\n' "${appid}"
+  done
+  shopt -u nullglob
+}
+
+# App IDs installed in both the Wine-prefix Steam and native macOS/Linux Steam.
+steam_dual_install_appids() {
+  local wine_steam_dir="$1"
+  local wine_ids="" native_ids="" steamapps id
+  [[ -n "${wine_steam_dir}" && -d "${wine_steam_dir}" ]] || return 0
+  while IFS= read -r steamapps; do
+    while IFS= read -r id || [[ -n "${id}" ]]; do
+      [[ -n "${id}" ]] || continue
+      wine_ids+=" ${id} "
+    done < <(steam_collect_appids_from_steamapps "${steamapps}")
+  done < <(steam_collect_steamapps_dirs "${wine_steam_dir}")
+
+  while IFS= read -r steamapps; do
+    while IFS= read -r id || [[ -n "${id}" ]]; do
+      [[ -n "${id}" ]] || continue
+      native_ids+=" ${id} "
+    done < <(steam_collect_appids_from_steamapps "${steamapps}")
+  done < <(steam_collect_native_steamapps_dirs)
+
+  for id in ${wine_ids}; do
+    [[ "${native_ids}" == *" ${id} "* ]] && printf '%s\n' "${id}"
+  done | awk '!seen[$0]++'
+  return 0
+}
+
+# Human-readable warning when the same App ID exists in Wine and native Steam.
+steam_warn_dual_install_conflicts() {
+  local wine_steam_dir="$1"
+  local -a conflicts=()
+  local id
+  while IFS= read -r id || [[ -n "${id}" ]]; do
+    [[ -n "${id}" ]] || continue
+    conflicts+=("${id}")
+  done < <(steam_dual_install_appids "${wine_steam_dir}")
+  ((${#conflicts[@]})) || return 0
+  printf 'Warning: %s App ID(s) are installed in both Wine Steam and native Steam:\n' "${#conflicts[@]}" >&2
+  printf '  %s\n' "${conflicts[*]}" >&2
+  printf '  Steam Cloud saves use different paths (Windows prefix vs macOS ~/Library).\n' >&2
+  printf '  Pick one client per game to avoid sync conflicts. See docs/STEAM_SETUP.md#steam-cloud-saves.\n' >&2
+}
+
+# Print common Windows save roots inside a Wine prefix (guidance for Steam Cloud).
+steam_cloud_save_roots() {
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local steam_dir="${1:-}"
+  if [[ -z "${steam_dir}" ]]; then
+    steam_dir="$(steam_find_steam_dir 2>/dev/null || true)"
+  fi
+  printf 'Windows save paths (inside Wine prefix):\n'
+  printf '  %s/drive_c/users/<user>/Documents/My Games/\n' "${pfx}"
+  printf '  %s/drive_c/users/<user>/AppData/Local/\n' "${pfx}"
+  printf '  %s/drive_c/users/<user>/AppData/Roaming/\n' "${pfx}"
+  if [[ -n "${steam_dir}" ]]; then
+    printf 'Steam userdata (cloud metadata):\n'
+    printf '  %s/userdata/<account_id>/<appid>/\n' "${steam_dir}"
+  fi
+  printf 'Native macOS Steam (NOT used by Cosmos Wine launches):\n'
+  case "$(uname -s)" in
+    Darwin) printf '  %s/Library/Application Support/Steam/userdata/\n' "${HOME}" ;;
+    Linux)
+      printf '  %s/.local/share/Steam/userdata/\n' "${HOME}"
+      printf '  %s/.steam/steam/userdata/\n' "${HOME}"
+      ;;
+  esac
+}
+
 # Read a quoted VDF field from an appmanifest_*.acf file.
 steam_acf_read_field() {
   local acf="$1" field="$2"

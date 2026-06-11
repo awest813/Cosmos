@@ -85,7 +85,7 @@ cmd_lookup_one() {
       status_line="$(printf '%s' "${body}" | head -n1)"
       body="$(printf '%s' "${body}" | tail -n +2)"
       [[ -n "${body}" ]] && printf '%s\n' "${body}"
-      note "(AppleGamingWiki is community-maintained. Wine/CrossOver columns are hints for Cosmos backends.)"
+      note "(AppleGamingWiki is community-maintained. crossover_proxy maps CrossOver tiers to Cosmos status — app code is not imported.)"
       ;;
     macgamingdb|mgd)
       log "MacGamingDB Apple Silicon data for App ID ${appid}"

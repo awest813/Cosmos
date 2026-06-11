@@ -1,0 +1,5 @@
+[2026-06-01 12:00:00] Steam.exe: Steam Cloud sync started for AppID 413150
+[2026-06-01 12:00:01] SteamRemoteStorage: Unable to sync cloud data for user
+[2026-06-01 12:00:02] [AppID 413150] Unable to resolve path with root WinAppDataLocal (4)
+[2026-06-01 12:00:03] YldWriteCacheDirectoryToFile - saved to '.../userdata/12345/413150/remotecache.vdf'
+[2026-06-01 12:00:04] Steam Cloud: out of sync — conflict detected

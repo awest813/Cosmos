@@ -190,14 +190,42 @@ m = re.search(r"\|pcgamingwiki\s*=\s*([^\n|]+)", wikitext, re.I)
 if m:
     pcgw = m.group(1).strip()
 
+codeweavers = ""
+m = re.search(r"\|codeweavers\s*=\s*([^\n|]+)", wikitext, re.I)
+if m:
+    codeweavers = m.group(1).strip()
+
+crossover_tier = (ratings.get("crossover") or "").lower()
+crossover_note = notes.get("crossover")
+crossover_proxy = None
+if crossover_tier:
+    crossover_proxy = {
+        "tier": ratings.get("crossover"),
+        "cosmos_status": {
+            "perfect": "platinum",
+            "playable": "playable",
+            "runs": "bronze",
+            "unplayable": "broken",
+            "native": "platinum",
+        }.get(crossover_tier, "playable" if crossover_tier else None),
+        "codeweavers_slug": codeweavers or None,
+        "note": crossover_note,
+        "hint": (
+            "CrossOver is commercial Wine-on-Mac; its community tier is a proxy "
+            "for Cosmos Wine backends (DXMT/D3DMetal). Do not import CrossOver app code."
+        ),
+    }
+
 out = {
     "source": "applegamingwiki",
     "steam_appid": int(appid),
     "page_title": title,
     "page_url": page_url,
     "pcgamingwiki": pcgw or None,
+    "codeweavers_slug": codeweavers or None,
     "compatibility": ratings,
     "notes": notes,
+    "crossover_proxy": crossover_proxy,
     "hint": (
         "Community wiki data for macOS (Wine/CrossOver/Parallels). "
         "Wine column often reflects Porting Kit / GPTK paths."
@@ -297,9 +325,17 @@ out = {
         "none": count_layer("NONE"),
     },
     "sample_notes": sample_notes,
+    "crossover_proxy": {
+        "review_count": count_method("CROSSOVER"),
+        "dxmt_reviews": count_layer("DXMT"),
+        "d3d_metal_reviews": count_layer("D3D_METAL"),
+        "hint": (
+            "CrossOver playMethod reviews benchmark Wine-on-Mac; map DXMT/D3D_METAL "
+            "layers to Cosmos backends. CrossOver app code is proprietary — hints only."
+        ),
+    },
     "hint": (
-        "Community Apple Silicon benchmarks. DXMT/D3D_METAL map to Cosmos backends; "
-        "CrossOver reviews are a useful proxy for Wine-on-Mac."
+        "Community Apple Silicon benchmarks. DXMT/D3D_METAL map to Cosmos graphics backends."
     ),
 }
 print(json.dumps(out, indent=2, ensure_ascii=False))
@@ -540,6 +576,15 @@ def mgd_status(tier):
         "UNPLAYABLE": "broken",
     }.get((tier or "").upper())
 
+def agw_crossover_status(tier):
+    return {
+        "perfect": "platinum",
+        "playable": "playable",
+        "runs": "bronze",
+        "unplayable": "broken",
+        "native": "platinum",
+    }.get((tier or "").lower())
+
 def proton_status(tier):
     return {
         "platinum": "platinum",
@@ -619,6 +664,20 @@ def main():
     mgd = read_cache("macgamingdb", lambda d: (mgd_status(d.get("aggregated_performance")), "macgamingdb", d.get("title")))
     if mgd and mgd[0]:
         print(json.dumps({"steam_appid": int(appid), "status": mgd[0], "source": mgd[1], "label": mgd[2] or mgd[0]}))
+        return
+    def agw_crossover_from_cache(d):
+        proxy = d.get("crossover_proxy") or {}
+        tier = proxy.get("tier") or (d.get("compatibility") or {}).get("crossover")
+        st = agw_crossover_status(tier)
+        label = d.get("page_title") or tier
+        note = proxy.get("note")
+        if note:
+            label = f"{label} (CrossOver: {tier})"
+        return st, "crossover_proxy", label
+
+    agw = read_cache("applegamingwiki", agw_crossover_from_cache)
+    if agw and agw[0]:
+        print(json.dumps({"steam_appid": int(appid), "status": agw[0], "source": agw[1], "label": agw[2] or agw[0]}))
         return
     def proton_from_cache(d):
         tier = d.get("tier")

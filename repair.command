@@ -127,6 +127,7 @@ cmd_apply_fix() {
     install_steamwebhelper_wrapper) repair_install_steamwebhelper_wrapper ;;
     seed_japanese_fonts) repair_seed_japanese_fonts ;;
     fix_steam_ssl) repair_fix_steam_ssl ;;
+    fix_steam_cloud_paths) repair_fix_steam_cloud_paths ;;
     *)
       die "Unknown fix script '${RECIPE_SCRIPT}' for ${id}"
       ;;

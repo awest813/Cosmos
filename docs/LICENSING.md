@@ -93,6 +93,16 @@ dependencies.
 - Open-source app: [neo773/macgamingdb](https://github.com/neo773/macgamingdb). Respect
   any rate limits; cache responses locally (Cosmos defaults to 24h).
 
+## CodeWeavers CrossOver (commercial app vs LGPL Wine)
+
+- **CrossOver application code** (GUI, bottles, installers) is **proprietary** — do not
+  bundle or copy into Cosmos.
+- CodeWeavers publishes **LGPL Wine source** for their CrossOver builds at
+  [codeweavers.com/products/source](https://www.codeweavers.com/products/source/).
+  Most changes are merged upstream; Cosmos uses Gcenx Wine tarballs instead.
+- Community **CrossOver compatibility tiers** (AppleGamingWiki, MacGamingDB) are fetched
+  as runtime hints only — see [COSMOSDB.md](COSMOSDB.md).
+
 ## Reference launchers (GPL vs MIT)
 
 | Project | License | Use in Cosmos |

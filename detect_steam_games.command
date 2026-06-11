@@ -574,8 +574,12 @@ main() {
 
   if [[ "${COSMOS_STEAM_NATIVE_SCAN:-0}" == "1" ]]; then
     log "Detected ${#appids[@]} installed Steam game(s) (Wine prefix + native Steam scan)"
+    steam_warn_dual_install_conflicts "${steam_dir}" || true
   else
     log "Detected ${#appids[@]} installed Steam game(s) in ${WINEPREFIX}"
+    if steam_dual_install_appids "${steam_dir}" | grep -q .; then
+      printf 'Tip: set COSMOS_STEAM_NATIVE_SCAN=1 to list dual Wine/native installs (Steam Cloud path conflicts).\n' >&2
+    fi
   fi
 
   if [[ "${MODE}" == "list" || "${MODE}" == "verify" ]]; then
@@ -587,6 +591,9 @@ main() {
     for i in "${!appids[@]}"; do
       local note=""
       note="$(detect_appid_source_label "${appids[$i]}")"
+      if [[ "${note}" == *"[wine+native]"* ]]; then
+        note+="  [cloud: pick Wine OR native client]"
+      fi
       is_curated "${appids[$i]}" && note+="  [curated config exists]"
       if profile_find_by_appid "${PROFILES_DIR}" "${appids[$i]}" >/dev/null 2>&1; then
         local pf status backend

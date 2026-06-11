@@ -173,6 +173,16 @@ case "${list_native}" in
   *"570"*"Dota 2"*) assert_ok "wine games still listed with native scan" true ;;
   *) assert_fail "wine games still listed with native scan" false ;;
 esac
+case "${list_native}" in
+  *"wine+native"*) assert_ok "dual install tagged wine+native" true ;;
+  *) assert_fail "dual install tagged wine+native" false ;;
+esac
+
+dual_ids="$(steam_dual_install_appids "${steam_dir}" | tr '\n' ' ')"
+case "${dual_ids}" in
+  *"570"*) assert_ok "dual install detects shared appid 570" true ;;
+  *) assert_fail "dual install detects shared appid 570" false ;;
+esac
 
 unset COSMOS_STEAM_NATIVE_PATH COSMOS_STEAM_NATIVE_SCAN
 

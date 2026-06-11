@@ -11,7 +11,7 @@ primitives** (esync).
 | --- | --- |
 | Steam friends / lobby join | Usually works for titles **without** kernel anti-cheat |
 | LAN / direct IP | Works when the game supports it; no extra Cosmos config required |
-| Steam cloud saves | Works (real Windows Steam client) |
+| Steam cloud saves | Works (real Windows Steam client; Windows paths in Wine prefix) |
 | Epic online (Legendary) | Experimental — see [STORE_IMPORT.md](STORE_IMPORT.md) |
 
 ## What does not work
@@ -47,11 +47,16 @@ Run `./profile.command show profiles/steam/steam-105600-terraria.yaml` to inspec
 | `fix_steam_networking` | `steamnetworkingsockets` / UDP / bind errors in launch log |
 | `fix_steam_ssl` | Steam client TLS (login/store) — not in-game netcode |
 | `clear_steam_download_cache` | Stuck downloads before you can play online |
+| `fix_steam_cloud_paths` | Verify userdata/save folders; clear stuck `remotecache.vdf` |
 
 ```bash
 ./repair.command diagnose --log ~/Library/Application\ Support/Cosmos/logs/steam-launch.log
 ./repair.command apply-fix fix_steam_networking
+./repair.command apply-fix fix_steam_cloud_paths
 ```
+
+Cloud saves use **Windows paths inside the Wine prefix**, not native macOS Steam.
+If the same App ID is installed in both, see [STEAM_SETUP.md](STEAM_SETUP.md#steam-cloud-saves).
 
 ## Diagnose
 

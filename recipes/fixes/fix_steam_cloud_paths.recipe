@@ -1,0 +1,5 @@
+TYPE=fix
+ID=fix_steam_cloud_paths
+DESCRIPTION=Verify Steam Cloud userdata paths and clear stuck remotecache.vdf files
+ACTION=script
+SCRIPT=fix_steam_cloud_paths

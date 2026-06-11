@@ -55,6 +55,7 @@ COSMOS_BACKEND=wined3d ./repair.command apply-fix set_backend
 | `fix_steam_networking` | `steamnetworkingsockets` + `winmm` DLL overrides for online play |
 | `ddraw-override` | Preset `ddraw=n,b` (DirectDraw / legacy fullscreen) |
 | `clear_steam_download_cache` | Remove stuck `downloading/` and `depotcache/` folders |
+| `fix_steam_cloud_paths` | Ensure save folders exist; remove stuck `remotecache.vdf`; print path guide |
 
 ### Registry diff → recipe (wineregdiff)
 

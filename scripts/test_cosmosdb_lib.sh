@@ -25,6 +25,8 @@ assert d["steam_appid"] == 22380
 assert d["compatibility"]["crossover"] == "playable"
 assert d["compatibility"]["wine"] == "playable"
 assert "sluggish" in d["notes"]["crossover"]
+assert d["codeweavers_slug"] == "fallout-new-vegas"
+assert d["crossover_proxy"]["cosmos_status"] == "playable"
 '
 
 mgd_out="$(cosmosdb_macgamingdb_parse_fixture 1145360 "${FIX}/macgamingdb_1145360.json")"
@@ -37,6 +39,7 @@ assert d["aggregated_performance"] == "EXCELLENT"
 assert d["methods"]["crossover"] == 2
 assert d["translation_layers"]["dxmt"] == 1
 assert d["translation_layers"]["d3d_metal"] == 1
+assert d["crossover_proxy"]["review_count"] == 2
 '
 
 # Side-appid match (listed in steam appid side)

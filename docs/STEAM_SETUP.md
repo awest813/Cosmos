@@ -49,6 +49,10 @@ COSMOS_STEAM_NATIVE_SCAN=1 ./detect_steam_games.command --list
 Native-only titles are tagged `[native only]` and are **not** turned into Wine
 launchers unless the same App ID is also installed in the prefix.
 
+Titles installed in **both** Wine and native Steam are tagged `[wine+native]`.
+That usually means **two different save locations** — see [Steam Cloud saves](#steam-cloud-saves)
+below. Use one client per game to avoid sync conflicts.
+
 Optional cross-checks when verifying detection:
 
 ```bash
@@ -157,6 +161,49 @@ Launch a specific game by App ID:
 ```bash
 STEAM_GAME_ID=250900 ./run.command --steam
 ```
+
+## Steam Cloud saves
+
+Cosmos runs the **Windows** Steam client under Wine. Steam Cloud therefore syncs
+to **Windows paths inside the Wine prefix**, not to native macOS Steam folders.
+
+| What | Where |
+| --- | --- |
+| Game saves (typical) | `WINEPREFIX/drive_c/users/<user>/Documents/My Games/` |
+| AppData saves | `WINEPREFIX/drive_c/users/<user>/AppData/Local/` or `.../Roaming/` |
+| Steam cloud metadata | `<prefix>/drive_c/Program Files (x86)/Steam/userdata/<account>/<appid>/` |
+| Native macOS Steam (not used by Cosmos) | `~/Library/Application Support/Steam/userdata/` |
+
+Default `WINEPREFIX` is `~/.wine-steam-11`.
+
+### Dual Steam warning
+
+If you also use **native macOS Steam** for the same App ID, cloud saves can
+conflict — Windows paths in the prefix vs macOS paths under `~/Library`. Cosmos
+tags overlapping titles `[wine+native]` when `COSMOS_STEAM_NATIVE_SCAN=1`.
+
+**Pick one client per game.** Do not expect saves to move automatically between
+native Mac Steam and Wine Steam.
+
+### Cloud sync troubleshooting
+
+1. Diagnose launch logs for cloud errors:
+   ```bash
+   ./repair.command diagnose
+   ./repair.command diagnose --log ~/Library/Application\ Support/Cosmos/logs/steam-launch.log
+   ```
+2. Verify prefix paths and clear stuck cloud cache files:
+   ```bash
+   ./repair.command apply-fix fix_steam_cloud_paths
+   ```
+3. In the Windows Steam client (inside Wine), open the game's **Properties →
+   General** and toggle **Steam Cloud** off, then on again.
+4. If you switched from native Mac Steam, your old cloud saves may be tied to
+   macOS paths — you may need to copy saves manually or use the client where you
+   last played.
+
+See also [MULTIPLAYER.md](MULTIPLAYER.md) (cloud saves row) and
+[PROTON_GAP_ANALYSIS.md](PROTON_GAP_ANALYSIS.md).
 
 ## Troubleshooting
 
