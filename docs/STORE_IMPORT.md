@@ -25,7 +25,9 @@ Cosmos can register non-Steam Windows games as first-class `.app` launchers usin
 | `run-installer <file>` | Run `.exe` / `.msi` via `run.command --run-installer` |
 | `add-exe <path> --name <title>` | Create `standalone-<slug>.conf` |
 | `add-gog <setup\|slug\|path> --name <title>` | Run GOG offline installer or register an installed game |
-| `list-gog` | List GOG games detected under `drive_c/GOG Games` |
+| `list-gog [--json]` | List GOG games detected under `drive_c/GOG Games` (JSON includes `exe_source`) |
+| `find-exe <folder> [--name <hint>]` | Detect the main game `.exe` via `goggame-*.info` or scored scan |
+| `sync-gog [--build]` | Register all detected GOG installs missing launcher configs |
 | `add-itch <folder> --name <title>` | Copy itch.io download into prefix; creates `itch-<slug>.conf` |
 | `install-battlenet <setup.exe>` | Install the Battle.net desktop app in the prefix |
 | `list-battlenet` | List Blizzard games detected under Program Files |

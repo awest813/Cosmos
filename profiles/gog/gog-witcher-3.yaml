@@ -1,0 +1,19 @@
+id: witcher_3
+name: "The Witcher 3: Wild Hunt"
+store: gog
+gog_slug: the-witcher-3-wild-hunt
+steam_appid: 292030
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/The Witcher 3 Wild Hunt/bin/x64/witcher3.exe
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_intro_video
+notes: >
+  REDengine D3D11 from GOG offline installer. Lower hairworks and shadows if
+  frame rate dips. GOG Galaxy is not required for this profile.

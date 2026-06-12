@@ -57,6 +57,7 @@ Commands:
   apply-installed [--dry-run] [--include-blocked]
                                 Apply shipped profiles for each installed Steam game.
   for-appid <appid> <cmd...>    Run show|apply using the profile matching steam_appid.
+  for-gog-slug <slug> <cmd...>  Run show|apply using the profile matching gog_slug.
   port-hint <steam_appid>       Print umu-protonfixes porting hints (reference only).
   seed-deps [--dry-run] [--appid <id>]
                                 Merge winemactricks map deps/fixes into profiles.
@@ -393,6 +394,17 @@ main() {
         show) cmd_show "${pf}" ;;
         apply) cmd_apply "${pf}" ;;
         *) die "Usage: profile.command for-appid <appid> show|apply" ;;
+      esac
+      ;;
+    for-gog-slug)
+      local slug="${1:-}"; shift
+      local pf
+      pf="$(profile_find_by_gog_slug "${PROFILES_DIR}" "${slug}")" \
+        || die "No profile for gog_slug ${slug}"
+      case "${1:-}" in
+        show) cmd_show "${pf}" ;;
+        apply) cmd_apply "${pf}" ;;
+        *) die "Usage: profile.command for-gog-slug <slug> show|apply" ;;
       esac
       ;;
     port-hint) cmd_port_hint "${1:-}" ;;

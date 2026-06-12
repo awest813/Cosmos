@@ -116,6 +116,26 @@ profile_find_by_appid() {
   return 1
 }
 
+# Find a shipped GOG profile by slug (gog_slug field or gog-<slug> filename).
+profile_find_by_gog_slug() {
+  local root="$1" slug="$2"
+  local f base
+  while IFS= read -r f; do
+    [[ -n "${f}" ]] || continue
+    if grep -qE "^gog_slug:[[:space:]]*${slug}[[:space:]]*$" "${f}" 2>/dev/null; then
+      printf '%s\n' "${f}"
+      return 0
+    fi
+    base="$(basename "${f}")"
+    base="${base%.yaml}"; base="${base%.yml}"
+    if [[ "${base}" == "gog-${slug}" ]]; then
+      printf '%s\n' "${f}"
+      return 0
+    fi
+  done < <(profile_shipped_paths "${root}" | grep '/gog/' || true)
+  return 1
+}
+
 profile_get_notes() {
   local file="$1"
   awk '

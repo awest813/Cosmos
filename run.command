@@ -298,6 +298,8 @@ Actions:
   --check-update           Compare local app/runtime version to GitHub Releases.
   --install-update         Download Cosmos.dmg from GitHub and install to /Applications.
   --sync-steam             Build launchers for newly installed Steam games only.
+  --sync-gog [--build]     Register detected GOG games missing launcher configs.
+  --steam-health           Print Steam prefix health (key=value), then exit.
   --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
@@ -378,6 +380,19 @@ parse_arguments() {
         die "The --sync-steam flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="sync-steam"
+      return 0
+      ;;
+    --steam-health)
+      if (($# > 1)); then
+        die "The --steam-health flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="steam-health"
+      return 0
+      ;;
+    --sync-gog)
+      shift
+      COSMOS_SYNC_GOG_ARGS=("$@")
+      COSMOS_LAUNCH_MODE="sync-gog"
       return 0
       ;;
     --status|--doctor)
@@ -1538,6 +1553,23 @@ show_status() {
   status_line "$([[ "${profiles_count}" -gt 0 ]] && echo 1 || echo 0)" "Game launchers built" \
     "$([[ "${profiles_count}" -gt 0 ]] && echo "${profiles_count} profile(s) in ${PROFILE_DIRECTORY}" || echo "Run ./detect_steam_games.command --install after installing a game")"
 
+  if declare -F steam_health_lines >/dev/null 2>&1 && [[ "${steam_ok}" -eq 1 ]]; then
+    local health mingw_ok dual_count cloud_warn
+    health="$(steam_health_lines 2>/dev/null || true)"
+    mingw_ok="$(printf '%s\n' "${health}" | awk -F= '$1=="mingw_available"{print $2; exit}')"
+    dual_count="$(printf '%s\n' "${health}" | awk -F= '$1=="dual_install_count"{print $2; exit}')"
+    cloud_warn="$(printf '%s\n' "${health}" | awk -F= '$1=="cloud_log_warning"{print $2; exit}')"
+    if [[ "${mingw_ok}" == "0" ]]; then
+      echo "  [!] mingw-w64 not found — brew install mingw-w64 for steamwebhelper wrapper"
+    fi
+    if [[ -n "${dual_count}" && "${dual_count}" != "0" ]]; then
+      echo "  [!] ${dual_count} App ID(s) in both Wine and native Steam (Steam Cloud path conflict)"
+    fi
+    if [[ "${cloud_warn}" == "1" ]]; then
+      echo "  [!] Steam Cloud sync warnings in recent logs — ./repair.command diagnose"
+    fi
+  fi
+
   echo ""
   local sync_label="off"
   if declare -F cosmos_sync_mode_label >/dev/null 2>&1; then
@@ -1601,6 +1633,14 @@ main() {
     COSMOS_ALLOW_USER_APPS="${COSMOS_ALLOW_USER_APPS:-1}" \
       COSMOS_SYNC_FULL=1 \
       "${SCRIPT_DIR}/detect_steam_games.command" --sync
+    return $?
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "steam-health" ]]; then
+    steam_health_lines
+    return 0
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "sync-gog" ]]; then
+    "${SCRIPT_DIR}/import_game.command" sync-gog "${COSMOS_SYNC_GOG_ARGS[@]:-}"
     return $?
   fi
   require_supported_macos

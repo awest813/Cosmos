@@ -1,0 +1,19 @@
+id: hades
+name: "Hades"
+store: gog
+gog_slug: hades
+steam_appid: 1145360
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/Hades/x64/Hades.exe
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    DXMT_CONFIG: "d3d11.preferredMaxFrameRate=120;"
+fixes:
+  - force_borderless
+notes: >
+  DXMT handles D3D11 well from a GOG offline installer. Cap frame rate on
+  ProMotion displays if you see tearing.

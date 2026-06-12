@@ -1,0 +1,11 @@
+{
+  "buildId": "1495135120",
+  "playTasks": [
+    {
+      "isPrimary": true,
+      "type": "FileTask",
+      "path": "witcher3.exe",
+      "workingDir": "bin/x64"
+    }
+  ]
+}

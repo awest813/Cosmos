@@ -9,6 +9,7 @@ struct SteamSettings: Equatable {
     var retinaEnabled: Bool
     var detachEnabled: Bool
     var silentInstallEnabled: Bool
+    var nativeSteamScanEnabled: Bool
     var wineVersion: String
 
     static let defaults = SteamSettings(
@@ -17,6 +18,7 @@ struct SteamSettings: Equatable {
         retinaEnabled: false,
         detachEnabled: true,
         silentInstallEnabled: true,
+        nativeSteamScanEnabled: false,
         wineVersion: "11.8"
     )
 
@@ -94,6 +96,7 @@ enum SteamSettingsStore {
             "COSMOS_STEAM_SILENT=\"1\"",
             "STEAM_LAUNCH_ARGS=\"-no-cef-sandbox -cef-single-process -noverifyfiles\"",
             "COSMOS_STEAM_WEBHELPER_WRAPPER=\"1\"",
+            "COSMOS_STEAM_NATIVE_SCAN=\"0\"",
             "COSMOS_STEAM_SEED_FONTS=\"1\"",
             "COSMOS_STEAM_CA_BUNDLE=\"1\"",
             "WINE_VIRTUAL_DESKTOP=\"auto\"",
@@ -130,6 +133,9 @@ enum SteamSettingsStore {
         if let silent = stored["COSMOS_STEAM_SILENT"] {
             settings.silentInstallEnabled = silent == "1"
         }
+        if let nativeScan = stored["COSMOS_STEAM_NATIVE_SCAN"] {
+            settings.nativeSteamScanEnabled = nativeScan == "1"
+        }
         if let wine = stored["WINE_VERSION"], !wine.isEmpty {
             settings.wineVersion = wine
         }
@@ -156,7 +162,8 @@ enum SteamSettingsStore {
             guard windowsOptions.contains(value) else {
                 throw SteamSettingsError.invalidValue("WINDOWS_VERSION must be empty or one of: winxp, win7, win8, win10, win11")
             }
-        case "WINE_RETINA_MODE", "COSMOS_DETACH", "COSMOS_STEAM_SILENT", "COSMOS_METALFX":
+        case "WINE_RETINA_MODE", "COSMOS_DETACH", "COSMOS_STEAM_SILENT", "COSMOS_METALFX",
+             "COSMOS_STEAM_NATIVE_SCAN", "COSMOS_STEAM_WEBHELPER_WRAPPER":
             guard value == "0" || value == "1" else {
                 throw SteamSettingsError.invalidValue("\(key) must be 0 or 1")
             }

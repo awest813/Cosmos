@@ -57,7 +57,10 @@ Usage: import_game.command <command> [args]
 
 Commands:
   list                          List non-Steam launcher configs.
-  list-gog                        List GOG games detected under drive_c/GOG Games.
+  list-gog [--json]               List GOG games detected under drive_c/GOG Games.
+  sync-gog [--build]              Register all detected GOG games missing launcher configs.
+  find-exe <folder> [--name <hint>]
+                                Detect the main game .exe (GOG metadata or scored scan).
   add-exe <path> --name <title> [--slug <id>] [--bottle <name>]
                                 Register an installed .exe as a Cosmos launcher.
   run-installer <file>        Run a Windows .exe/.msi installer in the prefix.
@@ -121,8 +124,9 @@ cmd_run_installer() {
   log "Running installer in ${WINEPREFIX}"
   env COSMOS_BOTTLE="${COSMOS_BOTTLE}" WINEPREFIX="${WINEPREFIX}" COSMOS_SKIP_STEAM=1 \
     "${SCRIPT_DIR}/run.command" --run-installer "${installer}"
-  echo "Installer finished. Locate the game .exe, then:"
-  echo "  ./import_game.command add-exe <path> --name \"Game Title\""
+  echo "Installer finished. Detect the game .exe, then register it:"
+  echo "  ./import_game.command find-exe drive_c/GOG\\ Games --name \"Game Title\""
+  echo "  ./import_game.command add-exe <path-or-folder> --name \"Game Title\""
 }
 
 cmd_add_exe() {
@@ -142,9 +146,10 @@ cmd_add_exe() {
   [[ -n "${bottle}" ]] && COSMOS_BOTTLE="${bottle}" \
     && WINEPREFIX="$("${SCRIPT_DIR}/bottle.command" path "${COSMOS_BOTTLE}" 2>/dev/null || echo "${WINEPREFIX}")"
 
-  local exe_path="${path}"
+  local exe_path="${path}" host_check=""
   if [[ "${path}" != drive_c/* ]]; then
     if [[ -f "${path}" ]]; then
+      host_check="${path}"
       local rel="${path#${WINEPREFIX}/}"
       if [[ "${rel}" != "${path}" ]]; then
         exe_path="${rel}"
@@ -152,9 +157,25 @@ cmd_add_exe() {
         # Host paths (e.g. Legendary ~/Games/...) are allowed for direct Wine launch.
         exe_path="${path}"
       fi
+    elif [[ -d "${path}" ]]; then
+      local found
+      found="$(import_describe_game_exe "${path}" "${name}" 2>/dev/null || true)"
+      [[ -n "${found}" ]] || die "No game .exe found under ${path}. Try: find-exe \"${path}\" --name \"${name}\""
+      IFS=$'\t' read -r host_check _ _ <<< "${found}"
+      exe_path="${host_check#${WINEPREFIX}/}"
+      [[ "${exe_path}" == "${host_check}" ]] || host_check="${WINEPREFIX}/${exe_path}"
     else
       die "Executable not found: ${path}"
     fi
+  else
+    host_check="${WINEPREFIX}/${path}"
+  fi
+
+  if [[ -n "${host_check}" && -f "${host_check}" ]]; then
+    import_exe_is_helper "$(basename "${host_check}")" \
+      && die "That looks like a helper/redistributable binary, not the game. Run: find-exe on the install folder."
+    import_exe_has_pe_header "${host_check}" \
+      || die "File does not look like a Windows PE executable: ${host_check}"
   fi
 
   [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
@@ -167,6 +188,39 @@ cmd_add_exe() {
 }
 
 cmd_list_gog() {
+  local as_json=0
+  while (($#)); do
+    case "$1" in
+      --json) as_json=1; shift ;;
+      *) die "Unknown option: $1 (try: list-gog [--json])" ;;
+    esac
+  done
+
+  if [[ "${as_json}" -eq 1 ]]; then
+    local tmp
+    tmp="$(mktemp)"
+    import_scan_gog_games "${WINEPREFIX}" 1 >"${tmp}" || true
+    python3 - "${tmp}" <<'PY'
+import json, sys
+games = []
+with open(sys.argv[1], encoding="utf-8") as fh:
+    for line in fh:
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) >= 3 and parts[0]:
+            item = {"slug": parts[0], "title": parts[1], "exe": parts[2]}
+            if len(parts) >= 5:
+                item["exe_source"] = parts[3]
+                try:
+                    item["exe_score"] = int(parts[4])
+                except ValueError:
+                    pass
+            games.append(item)
+print(json.dumps(games))
+PY
+    rm -f "${tmp}"
+    return 0
+  fi
+
   log "Detected GOG games in ${WINEPREFIX}"
   local found=0 line slug title exe
   while IFS=$'\t' read -r slug title exe; do
@@ -179,6 +233,85 @@ cmd_list_gog() {
     echo "Install with: ./import_game.command add-gog <setup.exe> --name \"Game Title\""
     echo "GOG offline installers place games under drive_c/GOG Games/ by default."
   fi
+}
+
+cmd_find_exe() {
+  local target="${1:-}"
+  shift || true
+  local hint=""
+  while (($#)); do
+    case "$1" in
+      --name) hint="${2:-}"; shift 2 ;;
+      *) die "Unknown option: $1" ;;
+    esac
+  done
+  [[ -n "${target}" ]] || die "Usage: import_game.command find-exe <folder> [--name <hint>]"
+  local resolved="${target}"
+  if [[ "${target}" == drive_c/* ]]; then
+    resolved="${WINEPREFIX}/${target}"
+  elif [[ ! -d "${target}" && -d "${WINEPREFIX}/${target}" ]]; then
+    resolved="${WINEPREFIX}/${target}"
+  fi
+  [[ -d "${resolved}" ]] || die "Folder not found: ${target}"
+  local meta exe source score rel
+  meta="$(import_describe_game_exe "${resolved}" "${hint}" 2>/dev/null || true)"
+  [[ -n "${meta}" ]] || die "No game .exe detected under ${resolved}"
+  IFS=$'\t' read -r exe source score <<< "${meta}"
+  rel="${exe#${WINEPREFIX}/}"
+  log "Detected game executable"
+  printf '  exe:    %s\n' "${rel}"
+  printf '  source: %s\n' "${source}"
+  printf '  score:  %s\n' "${score}"
+  printf '  host:   %s\n' "${exe}"
+}
+
+cmd_sync_gog() {
+  local build=0
+  while (($#)); do
+    case "$1" in
+      --build) build=1; shift ;;
+      *) die "Unknown option: $1 (try: sync-gog [--build])" ;;
+    esac
+  done
+
+  local slug title exe new_count=0 skipped=0
+  local -a new_configs=()
+  while IFS=$'\t' read -r slug title exe; do
+    [[ -n "${slug}" ]] || continue
+    local conf="${CONFIGS_DIR}/gog-${slug}.conf"
+    if [[ -f "${conf}" ]]; then
+      skipped=$((skipped + 1))
+      continue
+    fi
+    local bundle_id="com.cosmos.gog-${slug}"
+    import_write_gog_config "${CONFIGS_DIR}" "${slug}" "${title}" "${bundle_id}" "${exe}" >/dev/null
+    new_configs+=("gog-${slug}.conf")
+    new_count=$((new_count + 1))
+    printf 'registered slug=%s title=%s\n' "${slug}" "${title}"
+  done < <(import_scan_gog_games "${WINEPREFIX}")
+
+  import_refresh_library
+
+  if (( build && new_count > 0 )); then
+    if [[ "$(uname -s)" == "Darwin" && -x "${SCRIPT_DIR}/install_cosmos.command" ]]; then
+      log "Building GOG launchers via install_cosmos.command"
+      COSMOS_ALLOW_USER_APPS="${COSMOS_ALLOW_USER_APPS:-1}" \
+        "${SCRIPT_DIR}/install_cosmos.command" "${new_configs[@]}"
+    else
+      echo "Skipped launcher build (macOS + install_cosmos.command required)."
+      echo "Next: ./install_cosmos.command ${new_configs[*]}"
+    fi
+  elif (( new_count > 0 )); then
+    echo "Next: ./install_cosmos.command ${new_configs[*]}"
+  fi
+
+  if (( new_count > 0 )); then
+    printf 'sync_status=updated\n'
+  else
+    printf 'sync_status=current\n'
+  fi
+  printf 'sync_new=%s\n' "${new_count}"
+  printf 'sync_skipped=%s\n' "${skipped}"
 }
 
 cmd_add_gog() {
@@ -244,13 +377,13 @@ cmd_add_itch() {
   [[ -n "${name}" ]] || die "--name is required"
   [[ -n "${slug}" ]] || slug="$(import_slugify "${name}")"
   local exe host_exe dest
-  exe="$(import_find_game_exe "${folder}")" || die "No .exe found under ${folder}"
+  exe="$(import_find_best_game_exe "${folder}" "${name}")" || die "No .exe found under ${folder}"
   host_exe="$(cd "$(dirname "${exe}")" && pwd)/$(basename "${exe}")"
   dest="$(library_install_dir "${WINEPREFIX}" "itch" "${slug}")"
   mkdir -p "${dest}"
   cp -R "${folder}/." "${dest}/"
   local rel_exe installed
-  installed="$(import_find_game_exe "${dest}")" || die "Copied files but no .exe found in ${dest}"
+  installed="$(import_find_best_game_exe "${dest}" "${name}")" || die "Copied files but no .exe found in ${dest}"
   rel_exe="${installed#${WINEPREFIX}/}"
   local bundle_id="com.cosmos.itch-${slug}"
   local file
@@ -427,7 +560,9 @@ main() {
     add-exe) cmd_add_exe "$@" ;;
     run-installer) cmd_run_installer "$@" ;;
     add-gog) cmd_add_gog "$@" ;;
-    list-gog) cmd_list_gog ;;
+    list-gog) cmd_list_gog "$@" ;;
+    sync-gog) cmd_sync_gog "$@" ;;
+    find-exe) cmd_find_exe "$@" ;;
     add-itch) cmd_add_itch "$@" ;;
     install-battlenet) cmd_install_battlenet "$@" ;;
     list-battlenet) cmd_list_battlenet ;;

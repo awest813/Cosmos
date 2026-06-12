@@ -1,0 +1,21 @@
+id: stardew_valley
+name: "Stardew Valley"
+store: gog
+gog_slug: stardew-valley
+steam_appid: 413150
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/Stardew Valley/Stardew Valley.exe
+settings:
+  retina: false
+  windows_version: win10
+  esync: true
+fixes:
+  - disable_retina
+tags:
+  - co-op
+  - online
+anti_cheat: none
+multiplayer_notes: "GOG Galaxy co-op may differ from Steam; local/split-screen co-op works without Galaxy."
+notes: "Runs well on DXMT. Disable Retina if the window looks blurry on HiDPI displays."

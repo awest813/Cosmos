@@ -38,28 +38,219 @@ import_resolve_exe_path() {
 
 # True when a basename looks like a helper binary, not the game itself.
 import_exe_is_helper() {
-  local base="$1"
+  local base="${1##*/}"
+  base="${base%.exe}"
+  base="${base%.EXE}"
   printf '%s' "${base}" | grep -Eqi \
-    '^(uninstall|setup|unins|goggalaxy|galaxyclient|crashreporter|launcher|webhelper)' \
+    '^(uninstall|setup|unins|goggalaxy|galaxyclient|goggalaxy|crashreporter|webhelper|gogcom|galaxycommunication|goggamecontroller|easyanticheat|beservice|eos|unitycrashhandler|ue4prereq|dxsetup|oobefix|installscript|activation|register|bootstrap|stub|prereq|prerequisite)' \
     && return 0
   printf '%s' "${base}" | grep -Eqi \
-    'redist|vcredist|dxsetup|dotnet|physx|support|helper|updater|patch' \
+    'redist|vcredist|dotnet|physx|openal|bink|helper|updater|patch|patcher|modlauncher|editor|submarine|server|dedicated|benchmark|config|tool|utility' \
     && return 0
+  local lower
+  lower="$(printf '%s' "${base}" | tr '[:upper:]' '[:lower:]')"
+  [[ "${lower}" == *launcher* && "${lower}" != *game* ]] && return 0
   return 1
 }
 
-# Find the first plausible game .exe under a directory (skip uninstall/setup helpers).
-import_find_game_exe() {
-  local root="$1"
-  [[ -d "${root}" ]] || return 1
-  local f base
-  while IFS= read -r f; do
-    base="$(basename "${f}")"
-    import_exe_is_helper "${base}" && continue
-    printf '%s' "${f}"
-    return 0
-  done < <(find "${root}" -type f \( -iname '*.exe' \) 2>/dev/null | head -n 80)
+import_exe_has_pe_header() {
+  local path="$1"
+  [[ -f "${path}" ]] || return 1
+  local magic
+  magic="$(dd if="${path}" bs=1 count=2 2>/dev/null || true)"
+  [[ "${magic}" == $'MZ' ]]
+}
+
+import_exe_size_bytes() {
+  local path="$1"
+  [[ -f "${path}" ]] || return 0
+  wc -c <"${path}" | tr -d ' '
+}
+
+# True for vendor/redist folders that should not host the main game binary.
+import_path_is_ignored_dir() {
+  local segment
+  segment="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  case "${segment}" in
+    redist|_commonredist|commonredist|directx|directx11|directx9|prerequisites|prereq|support|__support|win_install|win_gdk_runtime|_redist|dotnet|physx|nvidia|amd|vcredist|openal|bink|videos|movies|manual|docs|bonus|dlc_cache|webcache|cache|temp|tmp|logs|crashes|backup|update|patches|installers|_installer)
+      return 0
+      ;;
+  esac
   return 1
+}
+
+import_path_has_ignored_segment() {
+  local rel="$1"
+  local part
+  IFS='/' read -r -a parts <<< "${rel}"
+  for part in "${parts[@]}"; do
+    [[ -n "${part}" ]] || continue
+    import_path_is_ignored_dir "${part}" && return 0
+  done
+  return 1
+}
+
+# Resolve primary executable from GOG Galaxy goggame-*.info metadata when present.
+import_gog_find_info_exe() {
+  local game_dir="$1"
+  local info exe_path rel_path
+  shopt -s nullglob
+  for info in "${game_dir}"/goggame-*.info; do
+    [[ -f "${info}" ]] || continue
+    rel_path="$(python3 - "${info}" <<'PY'
+import json, os, sys
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+except (OSError, json.JSONDecodeError):
+    sys.exit(1)
+tasks = data.get("playTasks") or []
+primary = next((t for t in tasks if t.get("isPrimary")), None)
+if not primary and tasks:
+    primary = tasks[0]
+if not primary or primary.get("type") == "URLTask":
+    sys.exit(1)
+exe = (primary.get("path") or "").replace("\\", "/")
+wd = (primary.get("workingDir") or "").replace("\\", "/")
+if wd and exe:
+    exe = os.path.join(wd, exe).replace("\\", "/")
+elif wd:
+    exe = wd
+if exe:
+    print(exe.lstrip("./"))
+PY
+)" || continue
+    [[ -n "${rel_path}" ]] || continue
+    exe_path="${game_dir}/${rel_path}"
+    exe_path="${exe_path//\\//}"
+    if [[ -f "${exe_path}" ]] && import_exe_has_pe_header "${exe_path}" \
+      && ! import_exe_is_helper "$(basename "${exe_path}")"; then
+      shopt -u nullglob
+      printf '%s' "${exe_path}"
+      return 0
+    fi
+  done
+  shopt -u nullglob
+  return 1
+}
+
+# When a GOG folder only contains one playable subfolder, search there too.
+import_list_game_subroots() {
+  local root="$1"
+  local sub count=0 only="" has_exe
+  shopt -s nullglob
+  for sub in "${root}"/*; do
+    [[ -d "${sub}" ]] || continue
+    import_path_is_ignored_dir "$(basename "${sub}")" && continue
+    has_exe="$(find "${sub}" -maxdepth 4 -type f -iname '*.exe' -print -quit 2>/dev/null || true)"
+    [[ -n "${has_exe}" ]] || continue
+    only="${sub}"
+    count=$((count + 1))
+  done
+  shopt -u nullglob
+  (( count == 1 )) && printf '%s\n' "${only}"
+}
+
+# Score a candidate executable (higher is better). Prints score to stdout; returns 1 when rejected.
+import_score_exe() {
+  local root="$1" exe="$2" hint="${3:-}"
+  local base size depth rel folder_slug hint_slug base_slug score=0
+  [[ -f "${exe}" ]] || return 1
+  base="$(basename "${exe}")"
+  import_exe_is_helper "${base}" && return 1
+  rel="${exe#${root}/}"
+  import_path_has_ignored_segment "${rel}" && return 1
+  import_exe_has_pe_header "${exe}" || return 1
+
+  score=10
+  size="$(import_exe_size_bytes "${exe}")"
+  (( size >= 100000 )) && score=$((score + 20))
+  (( size >= 500000 )) && score=$((score + 30))
+  (( size >= 2000000 )) && score=$((score + 20))
+
+  folder_slug="$(import_slugify "$(basename "${root}")")"
+  hint_slug="$(import_slugify "${hint}")"
+  base_slug="$(import_slugify "${base%.exe}")"
+
+  if [[ -n "${hint_slug}" ]]; then
+    [[ "${base_slug}" == *"${hint_slug}"* || "${hint_slug}" == *"${base_slug}"* ]] \
+      && score=$((score + 100))
+  fi
+  if [[ -n "${folder_slug}" ]]; then
+    [[ "${base_slug}" == *"${folder_slug}"* || "${folder_slug}" == *"${base_slug}"* ]] \
+      && score=$((score + 80))
+  fi
+
+  [[ "${rel}" == *"/x64/"* || "${rel}" == *"/win64/"* || "${rel}" == *"/win_x64/"* ]] \
+    && score=$((score + 40))
+  [[ "${rel}" == *"/x86/"* || "${rel}" == *"/win32/"* ]] && score=$((score - 15))
+  [[ "${rel}" == *"/bin/"* ]] && score=$((score + 15))
+
+  depth="$(printf '%s' "${rel}" | awk -F/ '{print NF}')"
+  score=$((score - depth * 3))
+
+  printf '%s' "${score}"
+  return 0
+}
+
+# Pick the best game .exe under a directory using GOG metadata, then scored candidates.
+import_find_best_game_exe() {
+  local root="$1" hint="${2:-}"
+  local search_root info_exe best_exe="" best_score=-1 score exe
+  [[ -d "${root}" ]] || return 1
+
+  info_exe="$(import_gog_find_info_exe "${root}" 2>/dev/null || true)"
+  if [[ -n "${info_exe}" ]]; then
+    printf '%s' "${info_exe}"
+    return 0
+  fi
+
+  while IFS= read -r search_root; do
+    [[ -n "${search_root}" && -d "${search_root}" ]] || continue
+    while IFS= read -r exe; do
+      [[ -n "${exe}" ]] || continue
+      score="$(import_score_exe "${search_root}" "${exe}" "${hint}" 2>/dev/null || true)"
+      [[ -n "${score}" ]] || continue
+      if (( score > best_score )); then
+        best_score="${score}"
+        best_exe="${exe}"
+      elif (( score == best_score )) && [[ -n "${best_exe}" ]]; then
+        # Tie-break toward larger binaries (usually the real game).
+        if (( $(import_exe_size_bytes "${exe}") > $(import_exe_size_bytes "${best_exe}") )); then
+          best_exe="${exe}"
+        fi
+      fi
+    done < <(find "${search_root}" -type f \( -iname '*.exe' \) 2>/dev/null)
+  done < <(printf '%s\n' "${root}"; import_list_game_subroots "${root}")
+
+  [[ -n "${best_exe}" ]] || return 1
+  printf '%s' "${best_exe}"
+  return 0
+}
+
+# Describe chosen executable: path<TAB>source<TAB>score
+import_describe_game_exe() {
+  local root="$1" hint="${2:-}"
+  local info_exe score
+  [[ -d "${root}" ]] || return 1
+
+  info_exe="$(import_gog_find_info_exe "${root}" 2>/dev/null || true)"
+  if [[ -n "${info_exe}" ]]; then
+    score="$(import_score_exe "${root}" "${info_exe}" "${hint}" 2>/dev/null || echo 0)"
+    printf '%s\tgoggame-info\t%s\n' "${info_exe}" "${score}"
+    return 0
+  fi
+
+  info_exe="$(import_find_best_game_exe "${root}" "${hint}")" || return 1
+  score="$(import_score_exe "${root}" "${info_exe}" "${hint}" 2>/dev/null || echo 0)"
+  printf '%s\tscored\t%s\n' "${info_exe}" "${score}"
+}
+
+# Find the main game .exe under a directory (skip uninstall/setup/redist helpers).
+import_find_game_exe() {
+  local root="$1" hint="${2:-}"
+  import_find_best_game_exe "${root}" "${hint}"
 }
 
 # --- GOG offline installers (roadmap 0.6) ---
@@ -123,27 +314,38 @@ import_find_gog_game_exe() {
     hint_dir="$(import_gog_newest_game_dir "${pfx}" || true)"
   fi
   [[ -n "${hint_dir}" ]] || return 1
-  exe="$(import_find_game_exe "${hint_dir}")" && {
+  exe="$(import_find_best_game_exe "${hint_dir}" "${game_name}")" && {
     printf '%s' "${exe}"
     return 0
   }
   return 1
 }
 
-# Print lines: slug<TAB>title<TAB>exe_relative_path
+# Print lines: slug<TAB>title<TAB>exe_relative_path[<TAB>source<TAB>score]
 import_scan_gog_games() {
-  local pfx="$1"
-  local root game_dir slug title exe
+  local pfx="$1" with_meta="${2:-0}"
+  local root game_dir slug title exe meta source score
   while IFS= read -r root; do
     [[ -d "${root}" ]] || continue
     shopt -s nullglob
     for game_dir in "${root}"/*; do
       [[ -d "${game_dir}" ]] || continue
-      exe="$(import_find_game_exe "${game_dir}" 2>/dev/null || true)"
-      [[ -n "${exe}" ]] || continue
       title="$(basename "${game_dir}")"
+      if [[ "${with_meta}" == "1" ]]; then
+        meta="$(import_describe_game_exe "${game_dir}" "${title}" 2>/dev/null || true)"
+        [[ -n "${meta}" ]] || continue
+        IFS=$'\t' read -r exe source score <<< "${meta}"
+      else
+        exe="$(import_find_best_game_exe "${game_dir}" "${title}" 2>/dev/null || true)"
+        [[ -n "${exe}" ]] || continue
+        source=""; score=""
+      fi
       slug="$(import_slugify "${title}")"
-      printf '%s\t%s\t%s\n' "${slug}" "${title}" "${exe#${pfx}/}"
+      if [[ "${with_meta}" == "1" ]]; then
+        printf '%s\t%s\t%s\t%s\t%s\n' "${slug}" "${title}" "${exe#${pfx}/}" "${source}" "${score}"
+      else
+        printf '%s\t%s\t%s\n' "${slug}" "${title}" "${exe#${pfx}/}"
+      fi
     done
     shopt -u nullglob
   done < <(import_gog_games_dirs "${pfx}")
@@ -251,7 +453,7 @@ import_legendary_is_installed() {
 import_legendary_find_exe() {
   local install_dir="$1" app_name="${2:-}"
   local exe
-  exe="$(import_find_game_exe "${install_dir}")" && {
+  exe="$(import_find_best_game_exe "${install_dir}" "${app_name}")" && {
     printf '%s' "${exe}"
     return 0
   }
@@ -360,7 +562,7 @@ import_scan_battlenet_games() {
     while IFS= read -r dir; do
       [[ -n "${dir}" ]] || continue
       [[ -d "${root}/${dir}" ]] || continue
-      exe="$(import_find_game_exe "${root}/${dir}" 2>/dev/null || true)"
+      exe="$(import_find_best_game_exe "${root}/${dir}" "${dir}" 2>/dev/null || true)"
       [[ -n "${exe}" ]] || continue
       slug="$(import_slugify "${dir}")"
       title="${dir}"
