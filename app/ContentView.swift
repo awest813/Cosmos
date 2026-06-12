@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var profileSearchText = ""
     @State private var librarySearchText = ""
     @State private var libraryViewMode: GameLibraryViewMode = .grid
+    @State private var librarySourceFilter: GameLibrarySourceFilter = .all
     @State private var librarySyncFollowUp: (() -> Void)?
     @State private var cosmosInstalled = false
     @State private var cosmosAppCount = 0
@@ -178,6 +179,10 @@ struct ContentView: View {
             if isSetupComplete {
                 checkSteamLibraryForNewGames(autoSync: true)
             }
+            appState.updateCommandAvailability(
+                canAccept: !isRunning,
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRefreshStatus)) { _ in
             refreshStatus(message: "Status refreshed.")
@@ -245,6 +250,46 @@ struct ContentView: View {
             if newID != nil, isSteamReady {
                 dashboardSection = .launch
             }
+            appState.updateCommandAvailability(
+                canAccept: !isRunning,
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+            )
+        }
+        .onChange(of: isRunning) { running in
+            appState.updateCommandAvailability(
+                canAccept: !running,
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+            )
+        }
+        .onChange(of: profiles.count) { _, _ in
+            appState.updateCommandAvailability(
+                canAccept: !isRunning,
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosLaunchSelectedGame)) { _ in
+            launchSelectedProfile()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosLaunchSteam)) { _ in
+            launchSteamFromDashboard()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosVerifySteam)) { _ in
+            verifySteamInstall()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosListGogGames)) { _ in
+            listGogGames()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenLogs)) { _ in
+            openLatestLogs()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosRunDiagnose)) { _ in
+            runDiagnose()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosCheckForUpdates)) { _ in
+            checkForUpdates()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenImportTools)) { _ in
+            dashboardSection = .tools
         }
         .confirmationDialog(
             "Launch blocked title?",
@@ -571,6 +616,7 @@ struct ContentView: View {
             isFavorite: ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences),
             canLaunch: profile.canLaunchFromDashboard && wineRuntime.canStartWineLaunch,
             isRunning: isRunning,
+            extras: profileContextMenuExtras(for: profile),
             onLaunch: {
                 selectedProfileID = profile.id
                 launchProfile(profile)
@@ -1787,6 +1833,71 @@ struct ContentView: View {
         )
     }
 
+    private func launchSelectedProfile() {
+        guard let profile = selectedProfile else { return }
+        launchProfile(profile)
+    }
+
+    private func verifySteamInstall() {
+        runCommand(
+            script: "run.command",
+            arguments: ["--verify-steam"],
+            environment: steamDetectionEnvironment()
+        )
+    }
+
+    private func listGogGames() {
+        dashboardSection = .tools
+        runCommand(script: "import_game.command", arguments: ["list-gog"], environment: bottleEnvironment())
+    }
+
+    private func runDiagnose() {
+        runCommand(
+            script: "repair.command",
+            arguments: ["diagnose"],
+            environment: repairEnvironment(),
+            intent: .diagnose
+        )
+    }
+
+    private func profileContextMenuExtras(for profile: SavedProfile) -> ProfileContextMenuExtras {
+        ProfileContextMenuExtras(
+            onShowInLibrary: {
+                dashboardSection = .library
+                selectedProfileID = profile.id
+            },
+            onApplyCurated: {
+                if let appid = profile.steamAppID, !appid.isEmpty,
+                   let curated = GameProfileStore.find(steamAppID: appid) {
+                    applyCuratedGameProfile(curated)
+                } else if let slug = profile.gogSlug, !slug.isEmpty {
+                    runCommand(
+                        script: "profile.command",
+                        arguments: ["for-gog-slug", slug, "apply"],
+                        environment: bottleEnvironment()
+                    )
+                }
+            },
+            onVerifyInstall: profile.libraryStore == .steam ? { verifySteamInstall() } : nil
+        )
+    }
+
+    private func applyCuratedGameProfile(_ profile: GameProfile) {
+        runCommand(
+            script: "profile.command",
+            arguments: ["apply", profile.commandRelativePath],
+            environment: bottleEnvironment()
+        )
+    }
+
+    private func compatLookupForGameProfile(_ profile: GameProfile) {
+        guard !profile.steamAppID.isEmpty else { return }
+        selectedGameProfileID = profile.id
+        dashboardSection = .library
+        setupCompatAppID = profile.steamAppID
+        runCommand(script: "cosmosdb.command", arguments: ["lookup", profile.steamAppID])
+    }
+
     private func applyInstalledCuratedProfiles() {
         runCommand(
             script: "profile.command",
@@ -2474,6 +2585,7 @@ struct ContentView: View {
             profiles: profiles,
             searchText: $librarySearchText,
             viewMode: $libraryViewMode,
+            sourceFilter: $librarySourceFilter,
             selectedProfileID: $selectedProfileID,
             pendingNewSteamGames: pendingNewSteamGames,
             pendingUnregisteredGogGames: pendingUnregisteredGogGames,
@@ -2483,6 +2595,7 @@ struct ContentView: View {
             compatBadge: sidebarCompatBadge(for:),
             isFavorite: { ProfilePreferencesStore.isFavorite(profileID: $0.id, in: profilePreferences) },
             canLaunch: { $0.canLaunchFromDashboard && wineRuntime.canStartWineLaunch },
+            profileExtras: profileContextMenuExtras(for:),
             onToggleFavorite: { profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: $0.id) },
             onReveal: { revealInFinder($0.fileURL) },
             onLaunch: launchProfile,
@@ -2495,7 +2608,10 @@ struct ContentView: View {
             onContinueSetup: {
                 dashboardSection = .launch
                 NotificationCenter.default.post(name: .cosmosContinueSetup, object: nil)
-            }
+            },
+            onListGog: { listGogGames() },
+            onVerifySteam: { verifySteamInstall() },
+            onOpenImport: { dashboardSection = .tools }
         )
     }
 
@@ -2635,6 +2751,12 @@ struct ContentView: View {
         .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
         .accessibilityLabel(curatedProfileAccessibilityLabel(profile, isSelected: isSelected))
+        .curatedProfileContextMenu(
+            profile: profile,
+            isRunning: isRunning,
+            onApply: { applyCuratedGameProfile(profile) },
+            onShowCompatibility: { compatLookupForGameProfile(profile) }
+        )
     }
 
     private func curatedProfileAccessibilityLabel(_ profile: GameProfile, isSelected: Bool) -> String {
@@ -3348,6 +3470,34 @@ struct ContentView: View {
         .accessibilityLabel("\(bottle.name), \(bottle.backend), \(bottle.statusText)")
         .accessibilityHint(isSelected ? "Double-tap to deselect" : "Double-tap to select and show controls")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .bottleContextMenu(
+            bottle: bottle,
+            isSelected: isSelected,
+            isRunning: isRunning,
+            onSelect: { selectedBottleID = bottle.id },
+            onLaunchSteam: {
+                selectedBottleID = bottle.id
+                runCommand(
+                    script: "bottle.command",
+                    arguments: ["launch", bottle.name, "--steam"],
+                    environment: dashboardLaunchEnvironment(),
+                    intent: .gameLaunch
+                )
+            },
+            onOpenLogs: {
+                selectedBottleID = bottle.id
+                runCommand(script: "bottle.command", arguments: ["logs", bottle.name])
+            },
+            onRevealPrefix: { revealInFinder(bottle.prefixURL) },
+            onReset: {
+                selectedBottleID = bottle.id
+                showBottleResetConfirmation = true
+            },
+            onDelete: {
+                selectedBottleID = bottle.id
+                showBottleDeleteConfirmation = true
+            }
+        )
     }
 
     private func bottleControls(_ bottle: Bottle) -> some View {

@@ -11,4 +11,12 @@ extension Notification.Name {
     static let cosmosSyncGogLibraryBuild = Notification.Name("com.cosmos.syncGogLibraryBuild")
     static let cosmosBuildLaunchers = Notification.Name("com.cosmos.buildLaunchers")
     static let cosmosDetectSteamGames = Notification.Name("com.cosmos.detectSteamGames")
+    static let cosmosLaunchSelectedGame = Notification.Name("com.cosmos.launchSelectedGame")
+    static let cosmosLaunchSteam = Notification.Name("com.cosmos.launchSteam")
+    static let cosmosVerifySteam = Notification.Name("com.cosmos.verifySteam")
+    static let cosmosListGogGames = Notification.Name("com.cosmos.listGogGames")
+    static let cosmosOpenLogs = Notification.Name("com.cosmos.openLogs")
+    static let cosmosCheckForUpdates = Notification.Name("com.cosmos.checkForUpdates")
+    static let cosmosRunDiagnose = Notification.Name("com.cosmos.runDiagnose")
+    static let cosmosOpenImportTools = Notification.Name("com.cosmos.openImportTools")
 }

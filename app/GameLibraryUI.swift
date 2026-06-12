@@ -24,6 +24,33 @@ enum GameLibraryViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum GameLibrarySourceFilter: String, CaseIterable, Identifiable {
+    case all
+    case steam
+    case gog
+    case manual
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "All"
+        case .steam: return "Steam"
+        case .gog: return "GOG"
+        case .manual: return "Manual"
+        }
+    }
+
+    func matches(_ profile: SavedProfile) -> Bool {
+        switch self {
+        case .all: return true
+        case .steam: return profile.libraryStore == .steam
+        case .gog: return profile.libraryStore == .gog
+        case .manual: return profile.libraryStore == .other
+        }
+    }
+}
+
 enum GameLibraryStore: String, Equatable {
     case steam
     case gog
@@ -98,9 +125,13 @@ enum GameLibraryFilter {
             || (profile.gogSlug?.localizedCaseInsensitiveContains(trimmed) ?? false)
     }
 
-    static func filter(_ profiles: [SavedProfile], query: String) -> [SavedProfile] {
+    static func filter(
+        _ profiles: [SavedProfile],
+        query: String,
+        source: GameLibrarySourceFilter = .all
+    ) -> [SavedProfile] {
         profiles
-            .filter { matches($0, query: query) }
+            .filter { source.matches($0) && matches($0, query: query) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 }
@@ -110,6 +141,7 @@ enum GameLibraryFilter {
 struct GameLibraryToolbar: View {
     @Binding var searchText: String
     @Binding var viewMode: GameLibraryViewMode
+    @Binding var sourceFilter: GameLibrarySourceFilter
     let pendingNewSteamGames: Int
     let pendingUnregisteredGogGames: Int
     let isRunning: Bool
@@ -117,6 +149,9 @@ struct GameLibraryToolbar: View {
     var onSyncGog: () -> Void
     var onRegisterGogBuild: () -> Void
     var onSyncAll: () -> Void
+    var onListGog: () -> Void
+    var onVerifySteam: () -> Void
+    var onOpenImport: () -> Void
 
     private var pendingTotal: Int {
         pendingNewSteamGames + pendingUnregisteredGogGames
@@ -139,6 +174,39 @@ struct GameLibraryToolbar: View {
             .frame(maxWidth: 120)
             .disabled(isRunning)
             .accessibilityLabel("Library view mode")
+
+            Menu {
+                Picker("Source", selection: $sourceFilter) {
+                    ForEach(GameLibrarySourceFilter.allCases) { filter in
+                        Text(filter.label).tag(filter)
+                    }
+                }
+            } label: {
+                Label(sourceFilter.label, systemImage: "line.3.horizontal.decrease.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .disabled(isRunning)
+            .help("Filter library by store source")
+
+            Menu {
+                Button(action: onOpenImport) {
+                    Label("Import Non-Steam Game…", systemImage: "plus.rectangle.on.folder")
+                }
+                Divider()
+                Button(action: onListGog) {
+                    Label("List GOG Games", systemImage: "opticaldisc.fill")
+                }
+                Button(action: onVerifySteam) {
+                    Label("Verify Steam Library", systemImage: "checkmark.shield")
+                }
+            } label: {
+                Label("Import", systemImage: "plus")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .disabled(isRunning)
+            .help("Import games and run detection")
 
             Spacer(minLength: 0)
 
@@ -534,6 +602,7 @@ struct GameLibrarySection: View {
     let profiles: [SavedProfile]
     @Binding var searchText: String
     @Binding var viewMode: GameLibraryViewMode
+    @Binding var sourceFilter: GameLibrarySourceFilter
     @Binding var selectedProfileID: String?
     let pendingNewSteamGames: Int
     let pendingUnregisteredGogGames: Int
@@ -543,6 +612,7 @@ struct GameLibrarySection: View {
     var compatBadge: (SavedProfile) -> ResolvedBadge?
     var isFavorite: (SavedProfile) -> Bool
     var canLaunch: (SavedProfile) -> Bool
+    var profileExtras: (SavedProfile) -> ProfileContextMenuExtras = { _ in ProfileContextMenuExtras() }
     var onToggleFavorite: (SavedProfile) -> Void
     var onReveal: (SavedProfile) -> Void
     var onLaunch: (SavedProfile) -> Void
@@ -553,9 +623,12 @@ struct GameLibrarySection: View {
     var onBuildLaunchers: () -> Void
     var onLaunchSteam: () -> Void
     var onContinueSetup: () -> Void
+    var onListGog: () -> Void
+    var onVerifySteam: () -> Void
+    var onOpenImport: () -> Void
 
     private var filteredProfiles: [SavedProfile] {
-        GameLibraryFilter.filter(profiles, query: searchText)
+        GameLibraryFilter.filter(profiles, query: searchText, source: sourceFilter)
     }
 
     private var blankSlate: GameLibraryBlankSlateKind? {
@@ -580,13 +653,17 @@ struct GameLibrarySection: View {
                 GameLibraryToolbar(
                     searchText: $searchText,
                     viewMode: $viewMode,
+                    sourceFilter: $sourceFilter,
                     pendingNewSteamGames: pendingNewSteamGames,
                     pendingUnregisteredGogGames: pendingUnregisteredGogGames,
                     isRunning: isRunning,
                     onSyncSteam: onSyncSteam,
                     onSyncGog: onSyncGog,
                     onRegisterGogBuild: onRegisterGogBuild,
-                    onSyncAll: onSyncAll
+                    onSyncAll: onSyncAll,
+                    onListGog: onListGog,
+                    onVerifySteam: onVerifySteam,
+                    onOpenImport: onOpenImport
                 )
 
                 if let blankSlate {
@@ -657,6 +734,7 @@ struct GameLibrarySection: View {
             isFavorite: isFavorite(profile),
             canLaunch: canLaunch(profile),
             isRunning: isRunning,
+            extras: profileExtras(profile),
             onLaunch: {
                 selectedProfileID = profile.id
                 onLaunch(profile)
@@ -691,6 +769,7 @@ struct GameLibrarySection: View {
             isFavorite: isFavorite(profile),
             canLaunch: canLaunch(profile),
             isRunning: isRunning,
+            extras: profileExtras(profile),
             onLaunch: {
                 selectedProfileID = profile.id
                 onLaunch(profile)

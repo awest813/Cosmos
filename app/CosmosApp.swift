@@ -16,6 +16,19 @@ struct CosmosApp: App {
         .commands {
             // Cosmos manages a single dashboard window; drop the "New" menu item.
             CommandGroup(replacing: .newItem) {}
+            CommandGroup(replacing: .saveItem) {}
+            CommandMenu("Game") {
+                Button("Launch Selected Game") {
+                    NotificationCenter.default.post(name: .cosmosLaunchSelectedGame, object: nil)
+                }
+                .keyboardShortcut(.return, modifiers: .command)
+                .disabled(!appState.canLaunchSelectedProfile || !appState.canAcceptCommands)
+                Button("Launch Steam") {
+                    NotificationCenter.default.post(name: .cosmosLaunchSteam, object: nil)
+                }
+                .keyboardShortcut(.return, modifiers: [.command, .shift])
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
+            }
             CommandGroup(after: .sidebar) {
                 Button("Continue Setup") {
                     NotificationCenter.default.post(name: .cosmosContinueSetup, object: nil)
@@ -53,29 +66,64 @@ struct CosmosApp: App {
                     NotificationCenter.default.post(name: .cosmosSyncSteamLibrary, object: nil)
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
-                .disabled(!appState.isSetupComplete)
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
                 Button("Register GOG Games…") {
                     NotificationCenter.default.post(name: .cosmosSyncGogLibrary, object: nil)
                 }
-                .disabled(!appState.isSetupComplete)
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
                 Button("Register GOG + Build Launchers") {
                     NotificationCenter.default.post(name: .cosmosSyncGogLibraryBuild, object: nil)
                 }
-                .disabled(!appState.isSetupComplete)
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
                 Divider()
                 Button("Build Launchers") {
                     NotificationCenter.default.post(name: .cosmosBuildLaunchers, object: nil)
                 }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
-                .disabled(!appState.isSetupComplete)
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
                 Button("Detect Steam Games") {
                     NotificationCenter.default.post(name: .cosmosDetectSteamGames, object: nil)
                 }
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
+                Button("List GOG Games") {
+                    NotificationCenter.default.post(name: .cosmosListGogGames, object: nil)
+                }
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
+                Button("Verify Steam Library") {
+                    NotificationCenter.default.post(name: .cosmosVerifySteam, object: nil)
+                }
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
+                Divider()
+                Button("Import Non-Steam Game…") {
+                    NotificationCenter.default.post(name: .cosmosOpenImportTools, object: nil)
+                }
                 .disabled(!appState.isSetupComplete)
+            }
+            CommandMenu("Tools") {
+                Button("Verify Steam Library") {
+                    NotificationCenter.default.post(name: .cosmosVerifySteam, object: nil)
+                }
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
+                Button("Run Diagnostics") {
+                    NotificationCenter.default.post(name: .cosmosRunDiagnose, object: nil)
+                }
+                .disabled(!appState.isSetupComplete || !appState.canAcceptCommands)
+                Divider()
+                Button("Open Latest Log") {
+                    NotificationCenter.default.post(name: .cosmosOpenLogs, object: nil)
+                }
+                .keyboardShortcut("l", modifiers: .command)
+                Button("Check for Updates") {
+                    NotificationCenter.default.post(name: .cosmosCheckForUpdates, object: nil)
+                }
+                .keyboardShortcut("u", modifiers: [.command, .shift])
             }
             CommandGroup(replacing: .help) {
                 Button("Steam Setup Guide") {
                     NotificationCenter.default.post(name: .cosmosOpenSetupHelp, object: nil)
+                }
+                Button("Open Latest Log") {
+                    NotificationCenter.default.post(name: .cosmosOpenLogs, object: nil)
                 }
             }
         }

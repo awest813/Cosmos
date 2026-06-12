@@ -13,6 +13,14 @@ final class CosmosMenuCommandsTests: XCTestCase {
             .cosmosSyncGogLibraryBuild,
             .cosmosBuildLaunchers,
             .cosmosDetectSteamGames,
+            .cosmosLaunchSelectedGame,
+            .cosmosLaunchSteam,
+            .cosmosVerifySteam,
+            .cosmosListGogGames,
+            .cosmosOpenLogs,
+            .cosmosCheckForUpdates,
+            .cosmosRunDiagnose,
+            .cosmosOpenImportTools,
         ]
         let raw = names.map(\.rawValue)
         XCTAssertEqual(Set(raw).count, raw.count)

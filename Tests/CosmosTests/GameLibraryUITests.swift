@@ -15,6 +15,30 @@ final class GameLibraryUITests: XCTestCase {
         XCTAssertEqual(gog.libraryStore, .gog)
     }
 
+    func testSourceFilterSteam() {
+        let steam = SavedProfile(
+            id: "s.conf", name: "Steam Game", path: "", args: "",
+            steamAppID: "570", gogSlug: nil, fileURL: URL(fileURLWithPath: "/tmp/s.conf")
+        )
+        let manual = SavedProfile(
+            id: "m.conf", name: "Manual", path: "drive_c/x.exe", args: "",
+            steamAppID: nil, gogSlug: nil, fileURL: URL(fileURLWithPath: "/tmp/m.conf")
+        )
+        let filtered = GameLibraryFilter.filter([steam, manual], query: "", source: .steam)
+        XCTAssertEqual(filtered.map(\.id), ["s.conf"])
+    }
+
+    func testSourceFilterGog() {
+        let gog = SavedProfile(
+            id: "g.conf", name: "GOG Game", path: "drive_c/x", args: "",
+            steamAppID: nil, gogSlug: "celeste", fileURL: URL(fileURLWithPath: "/tmp/g.conf")
+        )
+        let filtered = GameLibraryFilter.filter([gog], query: "", source: .gog)
+        XCTAssertEqual(filtered.count, 1)
+        XCTAssertTrue(GameLibrarySourceFilter.gog.matches(gog))
+        XCTAssertFalse(GameLibrarySourceFilter.steam.matches(gog))
+    }
+
     func testFilterMatchesGogSlug() {
         let profile = SavedProfile(
             id: "g.conf", name: "Celeste", path: "drive_c/x", args: "",
