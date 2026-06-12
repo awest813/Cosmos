@@ -39,7 +39,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .launch: return "Quick launch and Steam settings"
-        case .library: return "Profiles, compatibility, and repairs"
+        case .library: return "Launcher library, profiles, and repairs"
         case .tools: return "Maintenance, imports, and diagnostics"
         case .bottles: return "Isolated Wine prefixes"
         }

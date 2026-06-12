@@ -14,6 +14,8 @@ struct ContentView: View {
     @State private var profiles: [SavedProfile] = []
     @State private var selectedProfileID: String?
     @State private var profileSearchText = ""
+    @State private var librarySearchText = ""
+    @State private var libraryViewMode: GameLibraryViewMode = .grid
     @State private var cosmosInstalled = false
     @State private var cosmosAppCount = 0
     @State private var steamSettings = SteamSettings.defaults
@@ -660,6 +662,7 @@ struct ContentView: View {
             steamWineSettingsSection
             performanceGraphicsSection
         case .library:
+            gameLibrarySection
             curatedProfilesSection
             compatibilitySection
             repairSection
@@ -2452,6 +2455,46 @@ struct ContentView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Opens Terminal to remove the installed Cosmos apps, the Wine prefix, and the downloaded Wine and DXMT runtimes. The uninstaller asks before deleting each item.")
+        }
+    }
+
+    // MARK: - Game library (saved launchers)
+
+    private var gameLibrarySection: some View {
+        GameLibrarySection(
+            profiles: profiles,
+            searchText: $librarySearchText,
+            viewMode: $libraryViewMode,
+            selectedProfileID: $selectedProfileID,
+            pendingNewSteamGames: pendingNewSteamGames,
+            pendingUnregisteredGogGames: pendingUnregisteredGogGames,
+            isSetupComplete: isSetupComplete,
+            isSteamReady: isSteamReady,
+            isRunning: isRunning,
+            compatBadge: sidebarCompatBadge(for:),
+            onLaunch: launchProfile,
+            onSyncSteam: { syncSteamLibrary(announce: true) },
+            onSyncGog: { syncGogLibrary(build: false, announce: true) },
+            onRegisterGogBuild: { syncGogLibrary(build: true, announce: true) },
+            onSyncAll: syncAllLibrarySources,
+            onBuildLaunchers: buildLaunchers,
+            onLaunchSteam: launchSteamFromDashboard,
+            onContinueSetup: {
+                dashboardSection = .launch
+                NotificationCenter.default.post(name: .cosmosContinueSetup, object: nil)
+            }
+        )
+    }
+
+    private func syncAllLibrarySources() {
+        if pendingNewSteamGames > 0 {
+            syncSteamLibrary(announce: true)
+        }
+        if pendingUnregisteredGogGames > 0 {
+            syncGogLibrary(build: false, announce: true)
+        }
+        if pendingNewSteamGames == 0, pendingUnregisteredGogGames == 0 {
+            syncSteamLibrary(announce: true)
         }
     }
 
