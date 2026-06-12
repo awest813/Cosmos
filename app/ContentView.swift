@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var profileSearchText = ""
     @State private var librarySearchText = ""
     @State private var libraryViewMode: GameLibraryViewMode = .grid
+    @State private var librarySyncFollowUp: (() -> Void)?
     @State private var cosmosInstalled = false
     @State private var cosmosAppCount = 0
     @State private var steamSettings = SteamSettings.defaults
@@ -188,9 +189,30 @@ struct ContentView: View {
             openSetupHelp()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSelectSection)) { notification in
-            if let section = notification.object as? DashboardSection, isSetupComplete {
+            guard let section = notification.object as? DashboardSection else { return }
+            if section == .launch || isSetupComplete {
                 dashboardSection = section
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncSteamLibrary)) { _ in
+            syncAllLibrarySources(preferSteamOnly: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncGogLibrary)) { _ in
+            syncGogLibrary(build: false, announce: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncGogLibraryBuild)) { _ in
+            syncGogLibrary(build: true, announce: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosBuildLaunchers)) { _ in
+            buildLaunchers()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosDetectSteamGames)) { _ in
+            dashboardSection = .library
+            runCommand(
+                script: "detect_steam_games.command",
+                arguments: ["--list"],
+                environment: steamDetectionEnvironment()
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshStatus()
@@ -544,38 +566,25 @@ struct ContentView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(sidebarProfileAccessibilityLabel(profile, badge: badge))
         .accessibilityAddTraits(profile.id == selectedProfileID ? .isSelected : [])
-        .contextMenu {
-            Button {
+        .profileContextMenu(
+            profile: profile,
+            isFavorite: ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences),
+            canLaunch: profile.canLaunchFromDashboard && wineRuntime.canStartWineLaunch,
+            isRunning: isRunning,
+            onLaunch: {
                 selectedProfileID = profile.id
                 launchProfile(profile)
-            } label: {
-                Label("Launch", systemImage: "play.fill")
-            }
-            .disabled(!profile.canLaunchFromDashboard || !wineRuntime.canStartWineLaunch || isRunning)
-
-            Button {
+            },
+            onToggleFavorite: {
                 profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: profile.id)
-            } label: {
-                let isFavorite = ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences)
-                Label(isFavorite ? "Remove Favorite" : "Add to Favorites", systemImage: isFavorite ? "star.slash" : "star")
+            },
+            onReveal: { revealInFinder(profile.fileURL) },
+            onCopyPath: {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(profile.path, forType: .string)
             }
-
-            Button {
-                revealInFinder(profile.fileURL)
-            } label: {
-                Label("Reveal Config in Finder", systemImage: "folder")
-            }
-
-            if !profile.path.isEmpty {
-                Button {
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(profile.path, forType: .string)
-                } label: {
-                    Label("Copy Executable Path", systemImage: "doc.on.doc")
-                }
-            }
-        }
+        )
     }
 
     // MARK: - Detail
@@ -2472,6 +2481,10 @@ struct ContentView: View {
             isSteamReady: isSteamReady,
             isRunning: isRunning,
             compatBadge: sidebarCompatBadge(for:),
+            isFavorite: { ProfilePreferencesStore.isFavorite(profileID: $0.id, in: profilePreferences) },
+            canLaunch: { $0.canLaunchFromDashboard && wineRuntime.canStartWineLaunch },
+            onToggleFavorite: { profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: $0.id) },
+            onReveal: { revealInFinder($0.fileURL) },
             onLaunch: launchProfile,
             onSyncSteam: { syncSteamLibrary(announce: true) },
             onSyncGog: { syncGogLibrary(build: false, announce: true) },
@@ -2486,16 +2499,30 @@ struct ContentView: View {
         )
     }
 
-    private func syncAllLibrarySources() {
-        if pendingNewSteamGames > 0 {
+    private func syncAllLibrarySources(preferSteamOnly: Bool = false) {
+        let needsSteam = pendingNewSteamGames > 0
+        let needsGog = pendingUnregisteredGogGames > 0
+
+        if preferSteamOnly || (!needsSteam && !needsGog) {
             syncSteamLibrary(announce: true)
+            return
         }
-        if pendingUnregisteredGogGames > 0 {
+        if needsSteam, needsGog {
+            librarySyncFollowUp = { syncGogLibrary(build: false, announce: true) }
+            syncSteamLibrary(announce: true)
+            return
+        }
+        if needsSteam {
+            syncSteamLibrary(announce: true)
+        } else if needsGog {
             syncGogLibrary(build: false, announce: true)
         }
-        if pendingNewSteamGames == 0, pendingUnregisteredGogGames == 0 {
-            syncSteamLibrary(announce: true)
-        }
+    }
+
+    private func runLibrarySyncFollowUpIfNeeded() {
+        guard let followUp = librarySyncFollowUp else { return }
+        librarySyncFollowUp = nil
+        followUp()
     }
 
     // MARK: - Curated profiles (YAML)
@@ -4570,6 +4597,7 @@ struct ContentView: View {
                             output: output
                         )
                         applySteamLibrarySyncResult(syncResult, announce: true, seedOnly: false)
+                        runLibrarySyncFollowUpIfNeeded()
                     } else {
                         if script == "detect_steam_games.command" {
                             pendingNewSteamGames = 0
@@ -4588,6 +4616,7 @@ struct ContentView: View {
                         }
                     }
                 } else {
+                    librarySyncFollowUp = nil
                     let failureMessage = CommandOutputParser.failureMessage(
                         exitCode: exitCode,
                         intent: intent,
@@ -4649,13 +4678,6 @@ struct ContentView: View {
         }
     }
 
-}
-
-extension Notification.Name {
-    static let cosmosRefreshStatus = Notification.Name("com.cosmos.refreshStatus")
-    static let cosmosContinueSetup = Notification.Name("com.cosmos.continueSetup")
-    static let cosmosOpenSetupHelp = Notification.Name("com.cosmos.openSetupHelp")
-    static let cosmosSelectSection = Notification.Name("com.cosmos.selectSection")
 }
 
 #if DEBUG

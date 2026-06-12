@@ -17,14 +17,11 @@ struct CosmosApp: App {
             // Cosmos manages a single dashboard window; drop the "New" menu item.
             CommandGroup(replacing: .newItem) {}
             CommandGroup(after: .sidebar) {
-                Button(appState.isSetupComplete ? "Refresh Status" : "Continue Setup") {
-                    if appState.isSetupComplete {
-                        NotificationCenter.default.post(name: .cosmosRefreshStatus, object: nil)
-                    } else {
-                        NotificationCenter.default.post(name: .cosmosContinueSetup, object: nil)
-                    }
+                Button("Continue Setup") {
+                    NotificationCenter.default.post(name: .cosmosContinueSetup, object: nil)
                 }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
+                .disabled(appState.isSetupComplete)
                 Button("Refresh Status") {
                     NotificationCenter.default.post(name: .cosmosRefreshStatus, object: nil)
                 }
@@ -39,14 +36,42 @@ struct CosmosApp: App {
                     NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.library)
                 }
                 .keyboardShortcut("2", modifiers: .command)
+                .disabled(!appState.isSetupComplete)
                 Button("Tools") {
                     NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.tools)
                 }
                 .keyboardShortcut("3", modifiers: .command)
+                .disabled(!appState.isSetupComplete)
                 Button("Bottles") {
                     NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.bottles)
                 }
                 .keyboardShortcut("4", modifiers: .command)
+                .disabled(!appState.isSetupComplete)
+            }
+            CommandMenu("Library") {
+                Button("Sync Steam Library…") {
+                    NotificationCenter.default.post(name: .cosmosSyncSteamLibrary, object: nil)
+                }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .disabled(!appState.isSetupComplete)
+                Button("Register GOG Games…") {
+                    NotificationCenter.default.post(name: .cosmosSyncGogLibrary, object: nil)
+                }
+                .disabled(!appState.isSetupComplete)
+                Button("Register GOG + Build Launchers") {
+                    NotificationCenter.default.post(name: .cosmosSyncGogLibraryBuild, object: nil)
+                }
+                .disabled(!appState.isSetupComplete)
+                Divider()
+                Button("Build Launchers") {
+                    NotificationCenter.default.post(name: .cosmosBuildLaunchers, object: nil)
+                }
+                .keyboardShortcut("b", modifiers: [.command, .shift])
+                .disabled(!appState.isSetupComplete)
+                Button("Detect Steam Games") {
+                    NotificationCenter.default.post(name: .cosmosDetectSteamGames, object: nil)
+                }
+                .disabled(!appState.isSetupComplete)
             }
             CommandGroup(replacing: .help) {
                 Button("Steam Setup Guide") {

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - Models
@@ -114,6 +115,7 @@ struct GameLibraryToolbar: View {
     let isRunning: Bool
     var onSyncSteam: () -> Void
     var onSyncGog: () -> Void
+    var onRegisterGogBuild: () -> Void
     var onSyncAll: () -> Void
 
     private var pendingTotal: Int {
@@ -156,21 +158,32 @@ struct GameLibraryToolbar: View {
     private var syncMenu: some View {
         if pendingNewSteamGames > 0, pendingUnregisteredGogGames > 0 {
             Menu {
-                Button("Sync \(pendingNewSteamGames) Steam game\(pendingNewSteamGames == 1 ? "" : "s")") {
-                    onSyncSteam()
+                Button(action: onSyncSteam) {
+                    Label(
+                        "Sync \(pendingNewSteamGames) Steam game\(pendingNewSteamGames == 1 ? "" : "s")",
+                        systemImage: "arrow.triangle.2.circlepath"
+                    )
                 }
-                Button("Register \(pendingUnregisteredGogGames) GOG game\(pendingUnregisteredGogGames == 1 ? "" : "s")") {
-                    onSyncGog()
+                Button(action: onSyncGog) {
+                    Label(
+                        "Register \(pendingUnregisteredGogGames) GOG game\(pendingUnregisteredGogGames == 1 ? "" : "s")",
+                        systemImage: "opticaldisc.fill"
+                    )
+                }
+                Button(action: onRegisterGogBuild) {
+                    Label("Register GOG + Build", systemImage: "hammer.fill")
                 }
                 Divider()
-                Button("Sync all sources") {
-                    onSyncAll()
+                Button(action: onSyncAll) {
+                    Label("Sync all (Steam, then GOG)", systemImage: "arrow.triangle.2.circlepath.circle")
                 }
             } label: {
                 Label("Sync", systemImage: "arrow.triangle.2.circlepath")
             }
             .menuStyle(.borderlessButton)
+            .fixedSize()
             .disabled(isRunning)
+            .help("Sync Steam and register GOG games")
         } else if pendingNewSteamGames > 0 {
             Button {
                 onSyncSteam()
@@ -528,6 +541,10 @@ struct GameLibrarySection: View {
     let isSteamReady: Bool
     let isRunning: Bool
     var compatBadge: (SavedProfile) -> ResolvedBadge?
+    var isFavorite: (SavedProfile) -> Bool
+    var canLaunch: (SavedProfile) -> Bool
+    var onToggleFavorite: (SavedProfile) -> Void
+    var onReveal: (SavedProfile) -> Void
     var onLaunch: (SavedProfile) -> Void
     var onSyncSteam: () -> Void
     var onSyncGog: () -> Void
@@ -568,6 +585,7 @@ struct GameLibrarySection: View {
                     isRunning: isRunning,
                     onSyncSteam: onSyncSteam,
                     onSyncGog: onSyncGog,
+                    onRegisterGogBuild: onRegisterGogBuild,
                     onSyncAll: onSyncAll
                 )
 
@@ -634,6 +652,23 @@ struct GameLibrarySection: View {
             selectedProfileID = profile.id
             onLaunch(profile)
         })
+        .profileContextMenu(
+            profile: profile,
+            isFavorite: isFavorite(profile),
+            canLaunch: canLaunch(profile),
+            isRunning: isRunning,
+            onLaunch: {
+                selectedProfileID = profile.id
+                onLaunch(profile)
+            },
+            onToggleFavorite: { onToggleFavorite(profile) },
+            onReveal: { onReveal(profile) },
+            onCopyPath: profile.path.isEmpty ? nil : {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(profile.path, forType: .string)
+            }
+        )
         .disabled(isRunning)
         .help("Double-click to launch")
     }
@@ -651,6 +686,23 @@ struct GameLibrarySection: View {
             selectedProfileID = profile.id
             onLaunch(profile)
         })
+        .profileContextMenu(
+            profile: profile,
+            isFavorite: isFavorite(profile),
+            canLaunch: canLaunch(profile),
+            isRunning: isRunning,
+            onLaunch: {
+                selectedProfileID = profile.id
+                onLaunch(profile)
+            },
+            onToggleFavorite: { onToggleFavorite(profile) },
+            onReveal: { onReveal(profile) },
+            onCopyPath: profile.path.isEmpty ? nil : {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(profile.path, forType: .string)
+            }
+        )
         .disabled(isRunning)
         .help("Double-click to launch")
     }
