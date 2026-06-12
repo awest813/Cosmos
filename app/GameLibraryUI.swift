@@ -230,9 +230,7 @@ struct GameLibraryBlankSlate: View {
             }
             HStack(spacing: 10) {
                 ForEach(Array(primaryActions.enumerated()), id: \.offset) { _, action in
-                    Button(action.title, action: action.handler)
-                        .buttonStyle(action.prominent ? .borderedProminent : .bordered)
-                        .disabled(isRunning)
+                    slateActionButton(action)
                 }
             }
         }
@@ -248,6 +246,19 @@ struct GameLibraryBlankSlate: View {
         let title: String
         let prominent: Bool
         let handler: () -> Void
+    }
+
+    @ViewBuilder
+    private func slateActionButton(_ action: SlateAction) -> some View {
+        if action.prominent {
+            Button(action.title, action: action.handler)
+                .buttonStyle(.borderedProminent)
+                .disabled(isRunning)
+        } else {
+            Button(action.title, action: action.handler)
+                .buttonStyle(.bordered)
+                .disabled(isRunning)
+        }
     }
 
     private var iconName: String {
@@ -397,14 +408,6 @@ private extension GameLibraryPendingBanner.Kind {
         switch self {
         case .steam: return "Sync"
         case .gog: return "Register"
-        }
-    }
-
-    static func == (lhs: Kind, rhs: Kind) -> Bool {
-        switch (lhs, rhs) {
-        case (.steam(let a), .steam(let b)): return a == b
-        case (.gog(let a), .gog(let b)): return a == b
-        default: return false
         }
     }
 }
