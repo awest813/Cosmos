@@ -803,7 +803,7 @@ struct ContentView: View {
             }
             return "This profile has no launch path — edit its config file or pick another profile."
         }
-        if let selectedBottle {
+        if selectedBottle != nil {
             return "Bottle selected — adjust backend and launch Steam from the controls below."
         }
         if !cosmosInstalled {
@@ -3524,7 +3524,7 @@ struct ContentView: View {
             HStack {
                 sectionHeader("Selected Launcher", systemImage: "gamecontroller.fill")
                 Spacer()
-                if let curated, let badge = sidebarCompatBadge(for: profile) {
+                if let badge = sidebarCompatBadge(for: profile) {
                     CosmosCompatBadge(status: badge.status)
                 }
                 Button {

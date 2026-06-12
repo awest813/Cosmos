@@ -17,7 +17,7 @@ let package = Package(
         .executableTarget(
             name: "Cosmos",
             path: "app",
-            exclude: ["cosmos"]
+            exclude: ["cosmos", "cosmos.entitlements"]
         ),
         .testTarget(
             name: "CosmosTests",

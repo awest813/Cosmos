@@ -101,7 +101,7 @@ enum SavedProfileStore {
             }
 
             let key = String(trimmed[..<separatorIndex]).trimmingCharacters(in: .whitespaces)
-            var value = String(trimmed[trimmed.index(after: separatorIndex)...])
+            let value = String(trimmed[trimmed.index(after: separatorIndex)...])
                 .trimmingCharacters(in: CharacterSet(charactersIn: "\" "))
 
             switch key {
