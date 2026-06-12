@@ -44,6 +44,8 @@ struct ContentView: View {
     @State private var steamHealth = SteamHealthStatus.empty
     @State private var steamHealthInFlight = false
     @State private var pendingUnregisteredGogGames = 0
+    @State private var pendingLowConfidenceGogGames = 0
+    @State private var gogDetectionWarning: String?
     @State private var pendingBrokenSteamInstalls = 0
     @State private var lastWarnedBrokenSteamInstalls = 0
     @State private var setupCompatAppID = ""
@@ -1110,17 +1112,45 @@ struct ContentView: View {
         }
     }
 
+    private var isPrefixReady: Bool {
+        steamSettings.isPrefixInitialized || selectedBottle != nil
+    }
+
     private func checkGogLibraryForUnregistered() {
-        guard isSteamReady, !isRunning, pendingTerminalJobID == nil else { return }
+        guard isPrefixReady, !isRunning, pendingTerminalJobID == nil else { return }
         guard let importScript = resolveScript("import_game.command") else { return }
         let env = bottleEnvironment()
         let configsDir = SavedProfileStore.configsDirectory()
         DispatchQueue.global(qos: .utility).async {
-            guard let games = GogLibraryMonitor.listGames(importScript: importScript, environment: env) else { return }
-            let missing = GogLibraryMonitor.unregistered(games: games, configsDirectory: configsDir)
+            let result = GogLibraryMonitor.listGames(importScript: importScript, environment: env)
             DispatchQueue.main.async {
-                pendingUnregisteredGogGames = missing.count
+                switch result {
+                case .success(let games):
+                    gogDetectionWarning = nil
+                    let missing = GogLibraryMonitor.unregistered(games: games, configsDirectory: configsDir)
+                    pendingUnregisteredGogGames = missing.count
+                    pendingLowConfidenceGogGames = GogLibraryMonitor.lowConfidenceInstalls(in: games).count
+                default:
+                    gogDetectionWarning = gogDetectionFailureMessage(result)
+                    pendingUnregisteredGogGames = 0
+                    pendingLowConfidenceGogGames = 0
+                }
             }
+        }
+    }
+
+    private func gogDetectionFailureMessage(_ result: GameListResult<GogLibraryMonitor.DetectedGame>) -> String {
+        switch result {
+        case .timedOut:
+            return "GOG library detection timed out."
+        case .failed:
+            return "GOG library detection failed."
+        case .parseFailed:
+            return "GOG library detection returned invalid data."
+        case .scriptUnavailable:
+            return "GOG detection script is not available."
+        case .success:
+            return ""
         }
     }
 
@@ -1186,18 +1216,24 @@ struct ContentView: View {
         let snapshotURL = SteamLibraryMonitor.snapshotURL(bottleName: bottleName)
         steamLibraryCheckInFlight = true
         DispatchQueue.global(qos: .utility).async {
-            let games = SteamLibraryMonitor.listInstalledGames(detectScript: detectScript, environment: env)
+            let result = SteamLibraryMonitor.listInstalledGames(detectScript: detectScript, environment: env)
             DispatchQueue.main.async {
                 steamLibraryCheckInFlight = false
                 lastSteamLibraryCheck = Date()
-                guard let games else { return }
+                guard case .success(let games) = result else {
+                    if force || !autoSync {
+                        showSteamDetectionFailureBanner(result)
+                    }
+                    return
+                }
 
                 pendingBrokenSteamInstalls = SteamLibraryMonitor.brokenInstalls(in: games).count
 
                 let snapshotExists = FileManager.default.fileExists(atPath: snapshotURL.path)
                 let snapshot = SteamLibraryMonitor.loadSnapshotAppIDs(bottleName: bottleName)
-                let currentIDs = Set(games.map(\.appID))
-                let newGames = SteamLibraryMonitor.newGames(comparedTo: snapshot, current: games)
+                let wineGames = games.filter(SteamLibraryMonitor.isWineManaged)
+                let currentIDs = Set(wineGames.map(\.appID))
+                let syncableNew = SteamLibraryMonitor.syncEligibleNewGames(comparedTo: snapshot, current: games)
                 pendingRemovedSteamGames = snapshotExists ? snapshot.subtracting(currentIDs).count : 0
 
                 if !snapshotExists {
@@ -1208,18 +1244,18 @@ struct ContentView: View {
                     return
                 }
 
-                pendingNewSteamGames = newGames.count
+                pendingNewSteamGames = syncableNew.count
 
                 if autoSync && isSetupComplete {
-                    if newGames.count > 0 || pendingRemovedSteamGames > 0 {
+                    if syncableNew.count > 0 || pendingRemovedSteamGames > 0 {
                         syncSteamLibrary(announce: false)
                     }
                     announceBrokenSteamInstallsIfNeeded()
                     return
                 }
 
-                if newGames.count > 0 {
-                    showNewSteamGamesBanner(count: newGames.count)
+                if syncableNew.count > 0 {
+                    showNewSteamGamesBanner(count: syncableNew.count)
                 } else if pendingRemovedSteamGames > 0 {
                     showSteamCleanupBanner(count: pendingRemovedSteamGames)
                 } else {
@@ -1227,6 +1263,38 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func showSteamDetectionFailureBanner(_ result: GameListResult<SteamLibraryMonitor.DetectedGame>) {
+        let message: String
+        switch result {
+        case .timedOut:
+            message = "Steam library detection timed out."
+        case .failed:
+            message = "Steam library detection failed."
+        case .parseFailed:
+            message = "Steam library detection returned invalid data."
+        case .scriptUnavailable:
+            message = "Steam detection script is not available."
+        case .success:
+            return
+        }
+        showBanner(
+            kind: .failure,
+            message: message,
+            actions: [
+                CommandBannerAction(title: "Retry", systemImage: "arrow.clockwise") {
+                    checkSteamLibraryForNewGames(autoSync: false, force: true)
+                },
+                CommandBannerAction(title: "Detect in Console", systemImage: "terminal.fill") {
+                    runCommand(
+                        script: "detect_steam_games.command",
+                        arguments: ["--list"],
+                        environment: steamDetectionEnvironment()
+                    )
+                },
+            ]
+        )
     }
 
     private func syncSteamLibrary(announce: Bool, seedOnly: Bool = false) {
@@ -1389,13 +1457,13 @@ struct ContentView: View {
     private func showBrokenSteamInstallsBanner(count: Int) {
         showBanner(
             kind: .failure,
-            message: "\(count) Wine Steam install\(count == 1 ? "" : "s") missing a folder or game .exe.",
+            message: "\(count) Wine Steam install\(count == 1 ? "" : "s") missing a folder or game .exe. Reinstall in Steam, then verify.",
             actions: [
                 CommandBannerAction(title: "Verify Library", systemImage: "checkmark.shield.fill") {
-                    runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
+                    runCommand(script: "run.command", arguments: ["--verify-steam"], environment: steamDetectionEnvironment())
                 },
-                CommandBannerAction(title: "Sync Launchers", systemImage: "arrow.triangle.2.circlepath") {
-                    syncSteamLibrary(announce: true)
+                CommandBannerAction(title: "Launch Steam", systemImage: "play.fill") {
+                    launchSteamFromDashboard()
                 },
             ]
         )
@@ -1403,9 +1471,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private var steamHealthNoticesSection: some View {
-        if isSteamReady {
+        if isSteamReady || isPrefixReady {
             VStack(alignment: .leading, spacing: 10) {
-                if steamHealth.needsMingwForWrapper || steamHealth.needsWrapperInstall {
+                if isSteamReady, steamHealth.needsMingwForWrapper || steamHealth.needsWrapperInstall {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
                             tint: .orange,
@@ -1429,7 +1497,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                if steamHealth.hasBrokenInstalls || pendingBrokenSteamInstalls > 0 {
+                if isSteamReady, steamHealth.hasBrokenInstalls || pendingBrokenSteamInstalls > 0 {
                     let broken = max(steamHealth.gamesBroken, pendingBrokenSteamInstalls)
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
@@ -1440,12 +1508,16 @@ struct ContentView: View {
                         )
                         HStack(spacing: 10) {
                             Button("Verify Library") {
-                                runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
+                                runCommand(
+                                    script: "run.command",
+                                    arguments: ["--verify-steam"],
+                                    environment: steamDetectionEnvironment()
+                                )
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(isRunning)
-                            Button("Sync Launchers") {
-                                syncSteamLibrary(announce: true)
+                            Button("Launch Steam") {
+                                launchSteamFromDashboard()
                             }
                             .buttonStyle(.bordered)
                             .disabled(isRunning)
@@ -1453,7 +1525,7 @@ struct ContentView: View {
                         .font(.subheadline)
                     }
                 }
-                if steamHealth.hasDualInstallWarning {
+                if isSteamReady, steamHealth.hasDualInstallWarning {
                     let ids = steamHealth.dualInstallAppIDs.prefix(6).joined(separator: ", ")
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
@@ -1469,7 +1541,7 @@ struct ContentView: View {
                         .font(.subheadline)
                     }
                 }
-                if steamHealth.hasCloudWarning {
+                if isSteamReady, steamHealth.hasCloudWarning {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
                             tint: .orange,
@@ -1501,7 +1573,42 @@ struct ContentView: View {
                         .font(.subheadline)
                     }
                 }
-                if pendingUnregisteredGogGames > 0 {
+                if isPrefixReady, let warning = gogDetectionWarning, !warning.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "exclamationmark.triangle.fill",
+                            title: "GOG detection issue",
+                            message: warning
+                        )
+                        HStack(spacing: 10) {
+                            Button("Retry") {
+                                checkGogLibraryForUnregistered()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            Button("Detect in Console") {
+                                runCommand(
+                                    script: "import_game.command",
+                                    arguments: ["list-gog"],
+                                    environment: bottleEnvironment()
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+                if isPrefixReady, pendingLowConfidenceGogGames > 0 {
+                    CosmosNoticeBanner(
+                        tint: .orange,
+                        systemImage: "questionmark.circle.fill",
+                        title: "GOG exe detection uncertain",
+                        message: "\(pendingLowConfidenceGogGames) GOG install\(pendingLowConfidenceGogGames == 1 ? "" : "s") used scored .exe guessing instead of goggame metadata. Verify before launching."
+                    )
+                }
+                if isPrefixReady, pendingUnregisteredGogGames > 0 {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
                             tint: .blue,
@@ -2206,11 +2313,11 @@ struct ContentView: View {
     @ViewBuilder
     private var gameDiscoveryButtons: some View {
         secondaryButton(title: "Detect Games", subtitle: "List Steam library", systemImage: "magnifyingglass", help: "Scan the Steam library and list installable titles in the output pane") {
-            runCommand(script: "detect_steam_games.command", arguments: ["--list"], environment: bottleEnvironment())
+            runCommand(script: "detect_steam_games.command", arguments: ["--list"], environment: steamDetectionEnvironment())
         }
 
         secondaryButton(title: "Verify Detection", subtitle: "Check install folders", systemImage: "checkmark.shield.fill", help: "List games and verify each installdir exists on disk") {
-            runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: bottleEnvironment())
+            runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: steamDetectionEnvironment())
         }
 
         secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps", systemImage: "square.grid.2x2.fill", help: "Detect games and install Spotlight launchers into Cosmos Apps") {
@@ -2713,13 +2820,17 @@ struct ContentView: View {
                     script: "import_game.command",
                     arguments: ["list-gog"]
                 )
-                storeActionButton(
-                    title: "Sync GOG Games",
-                    subtitle: "Register + build launchers",
-                    systemImage: "arrow.triangle.2.circlepath",
-                    script: "import_game.command",
-                    arguments: ["sync-gog", "--build"]
-                )
+                Button {
+                    syncGogLibrary(build: true, announce: true)
+                } label: {
+                    CosmosActionTile(
+                        title: "Sync GOG Games",
+                        subtitle: "Register + build launchers",
+                        systemImage: "arrow.triangle.2.circlepath"
+                    )
+                }
+                .buttonStyle(CosmosButtonStyle())
+                .disabled(isRunning)
                 storeActionButton(
                     title: "itch.io Folder",
                     subtitle: "Windows download",
@@ -3955,11 +4066,19 @@ struct ContentView: View {
 
     /// Pass the selected bottle into CLI tools that honor COSMOS_BOTTLE / WINEPREFIX.
     private func bottleEnvironment() -> [String: String] {
-        guard let bottle = selectedBottle else { return [:] }
-        return [
-            "COSMOS_BOTTLE": bottle.name,
-            "WINEPREFIX": bottle.prefixURL.path,
+        var env: [String: String] = [
+            "COSMOS_CONFIGS_DIR": CosmosPaths.resolvedConfigsDirectory().path,
         ]
+        if let bottle = selectedBottle {
+            env["COSMOS_BOTTLE"] = bottle.name
+            env["WINEPREFIX"] = bottle.prefixURL.path
+        } else {
+            env["WINEPREFIX"] = steamSettings.prefixURL.path
+        }
+        if steamSettings.nativeSteamScanEnabled {
+            env["COSMOS_STEAM_NATIVE_SCAN"] = "1"
+        }
+        return env
     }
 
     // Locate a helper script, preferring a copy bundled into the app's

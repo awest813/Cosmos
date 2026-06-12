@@ -35,10 +35,31 @@ if python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, lis
     fail=$((fail + 1))
     printf '  FAIL json missing exe_source\n' >&2
   fi
+  if python3 -c 'import json,sys; d=json.load(sys.stdin); assert all("config_registered" in g for g in d)' <<<"${json}" 2>/dev/null; then
+    pass=$((pass + 1))
+    printf '  ok  json includes config_registered\n'
+  else
+    fail=$((fail + 1))
+    printf '  FAIL json missing config_registered\n' >&2
+  fi
 else
   fail=$((fail + 1))
   printf '  FAIL list-gog --json did not return a JSON array\n' >&2
 fi
+
+find_json="$(WINEPREFIX="${FIXTURE_PREFIX}" \
+  "${REPO_ROOT}/import_game.command" find-exe "drive_c/GOG Games/The Witcher 3 Wild Hunt" --json 2>/dev/null || true)"
+if python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("exe_rel") and d.get("source")' <<<"${find_json}" 2>/dev/null; then
+  pass=$((pass + 1))
+  printf '  ok  find-exe --json returns structured output\n'
+else
+  fail=$((fail + 1))
+  printf '  FAIL find-exe --json\n' >&2
+fi
+case "${find_json}" in
+  *'"source": "goggame-info"'*) pass=$((pass + 1)); printf '  ok  find-exe prefers goggame metadata\n' ;;
+  *) fail=$((fail + 1)); printf '  FAIL find-exe goggame source\n' >&2 ;;
+esac
 
 printf '\nResults: %s passed, %s failed\n' "${pass}" "${fail}"
 [[ "${fail}" -eq 0 ]]

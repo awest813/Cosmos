@@ -59,7 +59,7 @@ Commands:
   list                          List non-Steam launcher configs.
   list-gog [--json]               List GOG games detected under drive_c/GOG Games.
   sync-gog [--build]              Register all detected GOG games missing launcher configs.
-  find-exe <folder> [--name <hint>]
+  find-exe <folder> [--name <hint>] [--json]
                                 Detect the main game .exe (GOG metadata or scored scan).
   add-exe <path> --name <title> [--slug <id>] [--bottle <name>]
                                 Register an installed .exe as a Cosmos launcher.
@@ -200,20 +200,24 @@ cmd_list_gog() {
     local tmp
     tmp="$(mktemp)"
     import_scan_gog_games "${WINEPREFIX}" 1 >"${tmp}" || true
-    python3 - "${tmp}" <<'PY'
-import json, sys
+    python3 - "${tmp}" "${CONFIGS_DIR}" <<'PY'
+import json, os, sys
 games = []
+configs_dir = sys.argv[2]
 with open(sys.argv[1], encoding="utf-8") as fh:
     for line in fh:
         parts = line.rstrip("\n").split("\t")
         if len(parts) >= 3 and parts[0]:
-            item = {"slug": parts[0], "title": parts[1], "exe": parts[2]}
+            slug = parts[0]
+            item = {"slug": slug, "title": parts[1], "exe": parts[2]}
             if len(parts) >= 5:
                 item["exe_source"] = parts[3]
                 try:
                     item["exe_score"] = int(parts[4])
                 except ValueError:
                     pass
+            conf = os.path.join(configs_dir, f"gog-{slug}.conf")
+            item["config_registered"] = os.path.isfile(conf)
             games.append(item)
 print(json.dumps(games))
 PY
@@ -238,14 +242,15 @@ PY
 cmd_find_exe() {
   local target="${1:-}"
   shift || true
-  local hint=""
+  local hint="" as_json=0
   while (($#)); do
     case "$1" in
       --name) hint="${2:-}"; shift 2 ;;
+      --json) as_json=1; shift ;;
       *) die "Unknown option: $1" ;;
     esac
   done
-  [[ -n "${target}" ]] || die "Usage: import_game.command find-exe <folder> [--name <hint>]"
+  [[ -n "${target}" ]] || die "Usage: import_game.command find-exe <folder> [--name <hint>] [--json]"
   local resolved="${target}"
   if [[ "${target}" == drive_c/* ]]; then
     resolved="${WINEPREFIX}/${target}"
@@ -258,6 +263,18 @@ cmd_find_exe() {
   [[ -n "${meta}" ]] || die "No game .exe detected under ${resolved}"
   IFS=$'\t' read -r exe source score <<< "${meta}"
   rel="${exe#${WINEPREFIX}/}"
+  if (( as_json )); then
+    python3 - "${rel}" "${source}" "${score}" "${exe}" <<'PY'
+import json, sys
+print(json.dumps({
+    "exe_rel": sys.argv[1],
+    "source": sys.argv[2],
+    "score": int(sys.argv[3]) if sys.argv[3].isdigit() else 0,
+    "exe": sys.argv[4],
+}))
+PY
+    return 0
+  fi
   log "Detected game executable"
   printf '  exe:    %s\n' "${rel}"
   printf '  source: %s\n' "${source}"

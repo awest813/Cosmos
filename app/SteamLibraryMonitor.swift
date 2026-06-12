@@ -10,6 +10,7 @@ enum SteamLibraryMonitor {
         let gameExe: String?
         let installStatus: String?
         let source: String?
+        let syncEligible: Bool?
     }
 
     struct SyncResult: Equatable {
@@ -34,8 +35,13 @@ enum SteamLibraryMonitor {
     }
 
     /// List installed Steam games as JSON via detect_steam_games.command --list --json.
-    static func listInstalledGames(detectScript: URL, environment: [String: String] = [:]) -> [DetectedGame]? {
-        guard let scriptURL = resolveDetectScript(near: detectScript) else { return nil }
+    static func listInstalledGames(
+        detectScript: URL,
+        environment: [String: String] = [:]
+    ) -> GameListResult<DetectedGame> {
+        guard let scriptURL = resolveDetectScript(near: detectScript) else {
+            return .scriptUnavailable
+        }
 
         let task = Process()
         task.executableURL = scriptURL
@@ -43,9 +49,10 @@ enum SteamLibraryMonitor {
         task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
         task.environment = mergedEnvironment(environment)
 
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
+        let stdout = Pipe()
+        let stderr = Pipe()
+        task.standardOutput = stdout
+        task.standardError = stderr
 
         let semaphore = DispatchSemaphore(value: 0)
         var exitCode: Int32 = -1
@@ -57,17 +64,18 @@ enum SteamLibraryMonitor {
         do {
             try task.run()
         } catch {
-            return nil
+            return .scriptUnavailable
         }
 
         guard semaphore.wait(timeout: .now() + 60) != .timedOut else {
             task.terminate()
-            return nil
+            return .timedOut
         }
 
-        guard exitCode == 0 else { return nil }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return parseGameList(jsonData: data)
+        guard exitCode == 0 else { return .failed(exitCode: exitCode) }
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        guard let games = parseGameList(jsonData: data) else { return .parseFailed }
+        return .success(games)
     }
 
     static func parseGameList(jsonData: Data) -> [DetectedGame]? {
@@ -83,13 +91,31 @@ enum SteamLibraryMonitor {
                 exeOK: item["exe_ok"] as? Bool,
                 gameExe: item["game_exe"] as? String,
                 installStatus: item["install_status"] as? String,
-                source: item["source"] as? String
+                source: item["source"] as? String,
+                syncEligible: item["sync_eligible"] as? Bool
             )
         }
     }
 
+    /// Wine-prefix titles only — native macOS Steam entries are informational.
+    static func isWineManaged(_ game: DetectedGame) -> Bool {
+        if game.installStatus == "native_only" { return false }
+        guard let source = game.source?.lowercased() else { return true }
+        return !source.contains("native only")
+    }
+
+    static func isSyncEligible(_ game: DetectedGame) -> Bool {
+        if let eligible = game.syncEligible { return eligible }
+        guard isWineManaged(game) else { return false }
+        if let installdirOK = game.installdirOK, let exeOK = game.exeOK {
+            return installdirOK && exeOK
+        }
+        return true
+    }
+
     static func brokenInstalls(in games: [DetectedGame]) -> [DetectedGame] {
         games.filter { game in
+            guard isWineManaged(game) else { return false }
             if let exeOK = game.exeOK { return !exeOK }
             if let installdirOK = game.installdirOK { return !installdirOK }
             return false
@@ -108,6 +134,11 @@ enum SteamLibraryMonitor {
 
     static func newGames(comparedTo snapshot: Set<String>, current: [DetectedGame]) -> [DetectedGame] {
         current.filter { !snapshot.contains($0.appID) }
+    }
+
+    /// New Wine-prefix games healthy enough for `detect_steam_games --sync`.
+    static func syncEligibleNewGames(comparedTo snapshot: Set<String>, current: [DetectedGame]) -> [DetectedGame] {
+        newGames(comparedTo: snapshot, current: current).filter(isSyncEligible)
     }
 
     /// Run detect_steam_games.command --sync (writes configs + builds launchers for new titles only).

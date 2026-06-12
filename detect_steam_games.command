@@ -167,26 +167,40 @@ appid_in_snapshot() {
 }
 
 emit_json_game_list() {
-  local i verify_lines installdir_ok exe_ok game_exe_rel status source
+  local i verify_lines installdir_ok exe_ok game_exe_rel status source sync_eligible
   printf '['
   for i in "${!appids[@]}"; do
     (( i > 0 )) && printf ','
-    verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appids[$i]}" 2>/dev/null || true)"
-    installdir_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="installdir_ok"{print $2; exit}')"
-    exe_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="exe_ok"{print $2; exit}')"
-    game_exe_rel="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="game_exe_rel"{print $2; exit}')"
-    status="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="status"{print $2; exit}')"
     source="$(detect_appid_source_label "${appids[$i]}" | sed 's/^[[:space:]]*//;s/\[//g;s/\]//g')"
-    python3 - "${appids[$i]}" "${names[$i]}" "${installdir_ok:-0}" "${exe_ok:-0}" \
-      "${game_exe_rel:-}" "${status:-unknown}" "${source:-}" <<'PY'
+    if detect_appid_in_wine_prefix "${appids[$i]}"; then
+      verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appids[$i]}" 2>/dev/null || true)"
+      installdir_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="installdir_ok"{print $2; exit}')"
+      exe_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="exe_ok"{print $2; exit}')"
+      game_exe_rel="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="game_exe_rel"{print $2; exit}')"
+      status="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="status"{print $2; exit}')"
+      sync_eligible=0
+      [[ "${installdir_ok}" == "1" && "${exe_ok}" == "1" ]] && sync_eligible=1
+    else
+      installdir_ok=""
+      exe_ok=""
+      game_exe_rel=""
+      status="native_only"
+      sync_eligible=0
+      [[ -z "${source}" ]] && source="native only"
+    fi
+    python3 - "${appids[$i]}" "${names[$i]}" "${installdir_ok:-}" "${exe_ok:-}" \
+      "${game_exe_rel:-}" "${status:-unknown}" "${source:-}" "${sync_eligible}" <<'PY'
 import json, sys
 item = {
     "appid": sys.argv[1],
     "name": sys.argv[2],
-    "installdir_ok": sys.argv[3] == "1",
-    "exe_ok": sys.argv[4] == "1",
     "install_status": sys.argv[6] or "unknown",
+    "sync_eligible": sys.argv[8] == "1",
 }
+if sys.argv[3]:
+    item["installdir_ok"] = sys.argv[3] == "1"
+if sys.argv[4]:
+    item["exe_ok"] = sys.argv[4] == "1"
 if sys.argv[5]:
     item["game_exe"] = sys.argv[5]
 if sys.argv[7]:
