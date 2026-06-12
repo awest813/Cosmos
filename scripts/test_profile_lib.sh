@@ -28,6 +28,10 @@ found="$(profile_find_by_appid "${ROOT}/profiles" "250900")"
 [[ -f "${found}" ]] || fail "profile_find_by_appid did not find 250900"
 [[ "${found}" == *"/profiles/steam/"* ]] || fail "profile_find_by_appid must prefer shipped steam/ over drafts/"
 
+gog="$(profile_find_by_gog_slug "${ROOT}/profiles" "celeste")"
+[[ -f "${gog}" ]] || fail "profile_find_by_gog_slug did not find celeste"
+[[ "${gog}" == *"/profiles/gog/"* ]] || fail "profile_find_by_gog_slug must resolve gog/ profiles"
+
 deps="$(profile_list_dependencies "${FALLOUT}" | tr '\n' ' ')"
 [[ "${deps}" == *"vcrun2010"* ]] || fail "expected vcrun2010 in fallout deps"
 [[ "${deps}" == *"d3dx9"* ]] || fail "expected d3dx9 in fallout deps"

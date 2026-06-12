@@ -298,6 +298,7 @@ Actions:
   --check-update           Compare local app/runtime version to GitHub Releases.
   --install-update         Download Cosmos.dmg from GitHub and install to /Applications.
   --sync-steam             Build launchers for newly installed Steam games only.
+  --steam-health           Print Steam prefix health (key=value), then exit.
   --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
@@ -378,6 +379,13 @@ parse_arguments() {
         die "The --sync-steam flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="sync-steam"
+      return 0
+      ;;
+    --steam-health)
+      if (($# > 1)); then
+        die "The --steam-health flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="steam-health"
       return 0
       ;;
     --status|--doctor)
@@ -1602,6 +1610,10 @@ main() {
       COSMOS_SYNC_FULL=1 \
       "${SCRIPT_DIR}/detect_steam_games.command" --sync
     return $?
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "steam-health" ]]; then
+    steam_health_lines
+    return 0
   fi
   require_supported_macos
   [[ -n "${COSMOS_BOTTLE}" ]] && log "Bottle: ${COSMOS_BOTTLE} (prefix: ${WINEPREFIX})"

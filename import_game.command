@@ -57,7 +57,7 @@ Usage: import_game.command <command> [args]
 
 Commands:
   list                          List non-Steam launcher configs.
-  list-gog                        List GOG games detected under drive_c/GOG Games.
+  list-gog [--json]               List GOG games detected under drive_c/GOG Games.
   add-exe <path> --name <title> [--slug <id>] [--bottle <name>]
                                 Register an installed .exe as a Cosmos launcher.
   run-installer <file>        Run a Windows .exe/.msi installer in the prefix.
@@ -167,6 +167,32 @@ cmd_add_exe() {
 }
 
 cmd_list_gog() {
+  local as_json=0
+  while (($#)); do
+    case "$1" in
+      --json) as_json=1; shift ;;
+      *) die "Unknown option: $1 (try: list-gog [--json])" ;;
+    esac
+  done
+
+  if [[ "${as_json}" -eq 1 ]]; then
+    local tmp
+    tmp="$(mktemp)"
+    import_scan_gog_games "${WINEPREFIX}" >"${tmp}" || true
+    python3 - "${tmp}" <<'PY'
+import json, sys
+games = []
+with open(sys.argv[1], encoding="utf-8") as fh:
+    for line in fh:
+        parts = line.rstrip("\n").split("\t", 2)
+        if len(parts) == 3 and parts[0]:
+            games.append({"slug": parts[0], "title": parts[1], "exe": parts[2]})
+print(json.dumps(games))
+PY
+    rm -f "${tmp}"
+    return 0
+  fi
+
   log "Detected GOG games in ${WINEPREFIX}"
   local found=0 line slug title exe
   while IFS=$'\t' read -r slug title exe; do
@@ -427,7 +453,7 @@ main() {
     add-exe) cmd_add_exe "$@" ;;
     run-installer) cmd_run_installer "$@" ;;
     add-gog) cmd_add_gog "$@" ;;
-    list-gog) cmd_list_gog ;;
+    list-gog) cmd_list_gog "$@" ;;
     add-itch) cmd_add_itch "$@" ;;
     install-battlenet) cmd_install_battlenet "$@" ;;
     list-battlenet) cmd_list_battlenet ;;

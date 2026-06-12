@@ -1,0 +1,15 @@
+id: undertale
+name: "Undertale"
+store: gog
+gog_slug: undertale
+steam_appid: 391540
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/Undertale/UNDERTALE.exe
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Lightweight GameMaker-style RPG from a GOG offline installer. Register with
+  import_game.command add-gog after setup — folder name may vary slightly.

@@ -40,6 +40,10 @@ struct ContentView: View {
     @State private var steamLibraryCheckInFlight = false
     @State private var pendingNewSteamGames = 0
     @State private var pendingRemovedSteamGames = 0
+    @State private var steamHealth = SteamHealthStatus.empty
+    @State private var steamHealthInFlight = false
+    @State private var pendingUnregisteredGogGames = 0
+    @State private var setupCompatAppID = ""
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -152,6 +156,8 @@ struct ContentView: View {
             refreshStatus()
             resumeTerminalJobs()
             checkForUpdatesSilently()
+            refreshSteamHealth()
+            checkGogLibraryForUnregistered()
             if isSetupComplete {
                 checkSteamLibraryForNewGames(autoSync: true)
             }
@@ -173,6 +179,8 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshStatus()
             resumeTerminalJobs()
+            refreshSteamHealth()
+            checkGogLibraryForUnregistered()
             checkSteamLibraryForNewGames(autoSync: true)
         }
         .onChange(of: isSetupComplete) { complete in
@@ -564,6 +572,7 @@ struct ContentView: View {
                         self.commandBanner = nil
                     }
                 }
+                steamHealthNoticesSection
                 heroSection
                 if isSteamReady {
                     dashboardSectionPicker
@@ -826,6 +835,8 @@ struct ContentView: View {
                         message: "Most setup steps open Terminal for passwords or sudo. If a step fails, use Open Logs below before retrying — then press Refresh (⌘R)."
                     )
 
+                    setupCompatibilityLookupSection
+
                     VStack(alignment: .leading, spacing: 10) {
                         if wineRuntime.needsRosetta {
                             setupStep(
@@ -1009,12 +1020,42 @@ struct ContentView: View {
     private func steamLibraryEnvironment(seedOnly: Bool = false) -> [String: String] {
         var env = steamDetectionEnvironment()
         env["COSMOS_ALLOW_USER_APPS"] = "1"
+        if steamSettings.nativeSteamScanEnabled {
+            env["COSMOS_STEAM_NATIVE_SCAN"] = "1"
+        }
         if seedOnly {
             env["COSMOS_SYNC_SEED_ONLY"] = "1"
         } else {
             env["COSMOS_SYNC_FULL"] = "1"
         }
         return env
+    }
+
+    private func refreshSteamHealth() {
+        guard !steamHealthInFlight else { return }
+        steamHealthInFlight = true
+        let env = bottleEnvironment()
+        DispatchQueue.global(qos: .utility).async {
+            let status = SteamHealthMonitor.load(environment: env) ?? .empty
+            DispatchQueue.main.async {
+                steamHealthInFlight = false
+                steamHealth = status
+            }
+        }
+    }
+
+    private func checkGogLibraryForUnregistered() {
+        guard isSteamReady, !isRunning, pendingTerminalJobID == nil else { return }
+        guard let importScript = resolveScript("import_game.command") else { return }
+        let env = bottleEnvironment()
+        let configsDir = SavedProfileStore.configsDirectory()
+        DispatchQueue.global(qos: .utility).async {
+            guard let games = GogLibraryMonitor.listGames(importScript: importScript, environment: env) else { return }
+            let missing = GogLibraryMonitor.unregistered(games: games, configsDirectory: configsDir)
+            DispatchQueue.main.async {
+                pendingUnregisteredGogGames = missing.count
+            }
+        }
     }
 
     private func checkSteamLibraryForNewGames(autoSync: Bool) {
@@ -1211,6 +1252,72 @@ struct ContentView: View {
                 },
             ]
         )
+    }
+
+    @ViewBuilder
+    private var steamHealthNoticesSection: some View {
+        if isSteamReady {
+            VStack(alignment: .leading, spacing: 10) {
+                if steamHealth.needsMingwForWrapper {
+                    CosmosNoticeBanner(
+                        tint: .orange,
+                        systemImage: "hammer.fill",
+                        title: "mingw-w64 recommended",
+                        message: "Install Homebrew mingw-w64 so Cosmos can build the MIT steamwebhelper wrapper. Without it, Steam's store browser may be unstable. Run: brew install mingw-w64"
+                    )
+                }
+                if steamHealth.hasDualInstallWarning {
+                    let ids = steamHealth.dualInstallAppIDs.prefix(6).joined(separator: ", ")
+                    CosmosNoticeBanner(
+                        tint: .orange,
+                        systemImage: "icloud.slash",
+                        title: "Dual Steam installs",
+                        message: "\(steamHealth.dualInstallCount) App ID(s) exist in both Wine Steam and native macOS Steam (\(ids)). Steam Cloud saves use different paths — pick one client per game. See docs/STEAM_SETUP.md."
+                    )
+                }
+                if steamHealth.hasCloudWarning {
+                    CosmosNoticeBanner(
+                        tint: .orange,
+                        systemImage: "icloud.and.arrow.up",
+                        title: "Steam Cloud",
+                        message: "Cloud sync issues were detected in recent Steam logs or userdata is missing. Run Repair → Diagnose, or apply fix_steam_cloud_paths from the Library tab."
+                    )
+                }
+                if pendingUnregisteredGogGames > 0 {
+                    CosmosNoticeBanner(
+                        tint: .blue,
+                        systemImage: "opticaldisc.fill",
+                        title: "GOG games ready to register",
+                        message: "\(pendingUnregisteredGogGames) GOG install\(pendingUnregisteredGogGames == 1 ? "" : "s") found without launcher configs. Open Tools → List GOG Games, then use GOG Game to register each title."
+                    )
+                }
+            }
+        }
+    }
+
+    private var setupCompatibilityLookupSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Check compatibility before you buy")
+                .font(.subheadline.weight(.semibold))
+            Text("Enter a Steam App ID to see curated status and community hints before installing.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                TextField("Steam App ID (e.g. 1145360)", text: $setupCompatAppID)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 220)
+                Button("Lookup") {
+                    let appid = setupCompatAppID.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !appid.isEmpty else { return }
+                    consoleExpanded = true
+                    runCommand(script: "run.command", arguments: ["--compat-check", appid])
+                    runCommand(script: "cosmosdb.command", arguments: ["badge", appid, "--json"])
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isRunning || setupCompatAppID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
     }
 
     // MARK: - Quick launch
@@ -1502,6 +1609,17 @@ struct ContentView: View {
                         Text("Detach Steam from Terminal")
                             .font(.subheadline.weight(.medium))
                         Text("When on, you can close Terminal after launch without quitting Steam.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isRunning)
+
+                Toggle(isOn: steamNativeScanBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Scan native Steam libraries")
+                            .font(.subheadline.weight(.medium))
+                        Text("Also detect games installed in macOS Steam. Warns when the same App ID exists in both Wine and native Steam (Steam Cloud path conflicts).")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1830,6 +1948,16 @@ struct ContentView: View {
         Binding(
             get: { steamSettings.silentInstallEnabled },
             set: { applySteamSetting(key: "COSMOS_STEAM_SILENT", value: $0 ? "1" : "0") }
+        )
+    }
+
+    private var steamNativeScanBinding: Binding<Bool> {
+        Binding(
+            get: { steamSettings.nativeSteamScanEnabled },
+            set: {
+                applySteamSetting(key: "COSMOS_STEAM_NATIVE_SCAN", value: $0 ? "1" : "0")
+                refreshSteamHealth()
+            }
         )
     }
 
@@ -2438,7 +2566,9 @@ struct ContentView: View {
             } else if needsStoreTitle {
                 storeImportRequest = StoreImportRequest(
                     title: pathPrompt,
-                    message: "Provide the file or folder path and a display name for the Cosmos launcher.",
+                    message: arguments.contains("add-gog")
+                        ? "GOG offline installer (.exe) opens Terminal. For an already-installed game, enter a list-gog slug or drive_c/... path — registration runs in the console below."
+                        : "Provide the file or folder path and a display name for the Cosmos launcher.",
                     fields: [
                         .init(
                             id: .path,
@@ -2450,7 +2580,7 @@ struct ContentView: View {
                         ),
                         .init(id: .displayName, label: "Display name", placeholder: "Display name for launcher"),
                     ],
-                    submitLabel: "Run in Terminal",
+                    submitLabel: arguments.contains("add-gog") ? "Import" : "Run in Terminal",
                     script: script,
                     baseArguments: arguments,
                     forceTerminal: true
@@ -2500,7 +2630,14 @@ struct ContentView: View {
             args.append("--install")
         }
 
-        runInTerminal(script: request.script, arguments: args, environment: bottleEnvironment())
+        let lowerPath = path.lowercased()
+        let gogRegisterOnly = request.baseArguments.contains("add-gog")
+            && (!lowerPath.hasSuffix(".exe") || path.hasPrefix("drive_c/"))
+        if gogRegisterOnly || !request.forceTerminal {
+            runCommand(script: request.script, arguments: args, environment: bottleEnvironment())
+        } else {
+            runInTerminal(script: request.script, arguments: args, environment: bottleEnvironment())
+        }
     }
 
     private func repairEnvironment() -> [String: String] {
@@ -3422,6 +3559,8 @@ struct ContentView: View {
         }
 
         refreshCompatBadge()
+        refreshSteamHealth()
+        checkGogLibraryForUnregistered()
 
         if let message {
             output = message + "\n\n" + output

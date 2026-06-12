@@ -5,6 +5,7 @@ struct GameProfile: Identifiable, Hashable {
     let id: String
     let name: String
     let store: String
+    let gogSlug: String
     let steamAppID: String
     let status: String
     let recommendedBackend: String
@@ -100,11 +101,21 @@ enum GameProfileStore {
         load().first { $0.steamAppID == steamAppID }
     }
 
+    static func find(gogSlug: String) -> GameProfile? {
+        let normalized = gogSlug.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+        return load().first {
+            $0.gogSlug.lowercased() == normalized
+                || ($0.store == "gog" && $0.id.lowercased() == normalized)
+        }
+    }
+
     private static func parse(_ url: URL) -> GameProfile? {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let id = scalar(in: text, key: "id") ?? url.deletingPathExtension().lastPathComponent
         let name = scalar(in: text, key: "name") ?? id
         let store = scalar(in: text, key: "store") ?? "steam"
+        let gogSlug = scalar(in: text, key: "gog_slug") ?? ""
         let appid = scalar(in: text, key: "steam_appid") ?? ""
         let status = scalar(in: text, key: "status") ?? "playable"
         let backend = scalar(in: text, key: "recommended_backend") ?? "recommended"
@@ -119,6 +130,7 @@ enum GameProfileStore {
             id: id,
             name: name,
             store: store,
+            gogSlug: gogSlug,
             steamAppID: appid,
             status: status,
             recommendedBackend: backend,

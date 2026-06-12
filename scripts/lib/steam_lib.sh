@@ -635,6 +635,76 @@ steam_append_launch_args() {
   _cmd+=("${extra[@]}")
 }
 
+# Machine-readable Steam prefix health (key=value lines) for dashboard and CI.
+steam_health_lines() {
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local prefix_ok=0 steam_ok=0 mingw_ok=0 wrapper_ok=0 wrapper_pending=0
+  local native_scan=0 dual_count=0 userdata_ok=1 cloud_log_warn=0
+  local steam_exe="" steam_dir="" dual_csv="" log_file="" cef_root target
+
+  [[ -f "${pfx}/system.reg" ]] && prefix_ok=1
+
+  steam_exe="$(steam_find_exe_candidate 2>/dev/null || true)"
+  if [[ -n "${steam_exe}" ]] && steam_exe_is_valid "${steam_exe}"; then
+    steam_ok=1
+  fi
+
+  if steam_find_mingw_gcc >/dev/null 2>&1; then
+    mingw_ok=1
+  fi
+
+  if [[ "${COSMOS_STEAM_WEBHELPER_WRAPPER:-1}" == "1" && "${steam_ok}" -eq 1 ]]; then
+    cef_root="${pfx}/drive_c/Program Files (x86)/Steam/bin/cef"
+    if [[ -d "${cef_root}" ]]; then
+      while IFS= read -r -d '' target; do
+        [[ -f "${target}" ]] || continue
+        if steam_is_wrapper_like "${target}"; then
+          wrapper_ok=1
+          break
+        fi
+      done < <(find "${cef_root}" -type f -name 'steamwebhelper.exe' -print0 2>/dev/null)
+      (( wrapper_ok )) || wrapper_pending=1
+    else
+      wrapper_pending=1
+    fi
+  fi
+
+  [[ "${COSMOS_STEAM_NATIVE_SCAN:-0}" == "1" ]] && native_scan=1
+
+  steam_dir="$(steam_find_steam_dir 2>/dev/null || true)"
+  if [[ -n "${steam_dir}" ]]; then
+    [[ -d "${steam_dir}/userdata" ]] || userdata_ok=0
+    dual_csv="$(steam_dual_install_appids "${steam_dir}" | paste -sd, - 2>/dev/null || true)"
+    if [[ -n "${dual_csv}" ]]; then
+      dual_count="$(printf '%s' "${dual_csv}" | awk -F, '{print NF}')"
+    fi
+  fi
+
+  log_file="${COSMOS_LAUNCH_LOG:-}"
+  if [[ -z "${log_file}" ]]; then
+    log_file="${COSMOS_SUPPORT_DIR:-${HOME}/Library/Application Support/Cosmos}/logs/steam-launch.log"
+  fi
+  if [[ -f "${log_file}" ]]; then
+    local tail_blob
+    tail_blob="$(tail -n 400 "${log_file}" 2>/dev/null || true)"
+    if printf '%s' "${tail_blob}" | grep -Eiq \
+      'Unable to [Ss]ync|unable to sync|cloud.*out of sync|Steam Cloud|SteamRemoteStorage|remotecache|failed to resolve path'; then
+      cloud_log_warn=1
+    fi
+  fi
+
+  printf 'prefix_initialized=%s\n' "${prefix_ok}"
+  printf 'steam_installed=%s\n' "${steam_ok}"
+  printf 'mingw_available=%s\n' "${mingw_ok}"
+  printf 'webhelper_wrapper=%s\n' "${wrapper_ok}"
+  printf 'webhelper_wrapper_pending=%s\n' "${wrapper_pending}"
+  printf 'native_scan_enabled=%s\n' "${native_scan}"
+  printf 'dual_install_count=%s\n' "${dual_count}"
+  [[ -n "${dual_csv}" ]] && printf 'dual_install_appids=%s\n' "${dual_csv}"
+  printf 'userdata_present=%s\n' "${userdata_ok}"
+  printf 'cloud_log_warning=%s\n' "${cloud_log_warn}"
+}
+
 # Build the Wine command array for launching steam.exe (handles virtual desktop).
 steam_build_steam_launch_cmd() {
   local -n _out="$1"

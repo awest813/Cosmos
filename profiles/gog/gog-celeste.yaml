@@ -1,0 +1,15 @@
+id: celeste
+name: "Celeste"
+store: gog
+gog_slug: celeste
+steam_appid: 504230
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/Celeste/celeste.exe
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  FNA/XNA-based 2D platformer from a GOG offline installer. DXMT is enough;
+  no extra dependencies for the base game.
