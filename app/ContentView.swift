@@ -61,6 +61,7 @@ struct ContentView: View {
     @State private var pendingScrollToCompatibility = false
     @State private var pendingScrollToSteamSettings = false
     @State private var pendingScrollToPerformanceGraphics = false
+    @State private var pendingScrollToBottles = false
     @State private var showAddGameProfileSheet = false
 
     @State private var gameProfiles: [GameProfile] = []
@@ -205,6 +206,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSelectSection)) { notification in
             guard let section = notification.object as? DashboardSection else { return }
             focusDashboardSection(section)
+            if section == .bottles {
+                pendingScrollToBottles = true
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncSteamLibrary)) { _ in
             focusGameLibrary()
@@ -466,7 +470,7 @@ struct ContentView: View {
                         }
                         Divider()
                         Button("Bottles…") {
-                            focusDashboardSection(.bottles)
+                            focusBottlesSection()
                         }
                         Divider()
                         Button("Reveal steam.conf in Finder") {
@@ -2024,6 +2028,11 @@ struct ContentView: View {
         }
     }
 
+    private func focusBottlesSection() {
+        focusDashboardSection(.bottles)
+        pendingScrollToBottles = true
+    }
+
     /// Bitmask so ScrollViewReader can react when pending scroll flags are set on an already-visible tab.
     private var pendingScrollNonce: Int {
         var nonce = 0
@@ -2034,6 +2043,7 @@ struct ContentView: View {
         if pendingScrollToCompatibility { nonce |= 16 }
         if pendingScrollToSteamSettings { nonce |= 32 }
         if pendingScrollToPerformanceGraphics { nonce |= 64 }
+        if pendingScrollToBottles { nonce |= 128 }
         return nonce
     }
 
@@ -2066,6 +2076,9 @@ struct ContentView: View {
             } else if dashboardSection == .launch, pendingScrollToPerformanceGraphics {
                 pendingScrollToPerformanceGraphics = false
                 proxy.scrollTo(CosmosScrollAnchor.performanceGraphics, anchor: .top)
+            } else if dashboardSection == .bottles, pendingScrollToBottles {
+                pendingScrollToBottles = false
+                proxy.scrollTo(CosmosScrollAnchor.bottles, anchor: .top)
             }
         }
     }
@@ -3764,52 +3777,59 @@ struct ContentView: View {
     // MARK: - Bottles
 
     private var bottlesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                sectionHeader("Bottles", systemImage: "cylinder.split.1x2.fill")
-                Spacer()
-                Button {
-                    newBottleName = ""
-                    newBottleBackend = "recommended"
-                    newBottleWindows = "win10"
-                    newBottleRetina = false
-                    showNewBottleSheet = true
-                } label: {
-                    Label("New Bottle", systemImage: "plus.circle.fill")
-                        .font(.subheadline.weight(.medium))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.cosmosPrimary)
-                .disabled(isRunning)
-                .help("Create a new isolated Wine bottle")
-            }
-
-            if bottles.isEmpty {
-                CosmosEmptyState(
-                    systemImage: "cylinder.split.1x2.fill",
-                    title: "No bottles yet",
-                    message: "Each bottle is an isolated Wine prefix with its own graphics backend, Windows version, and Retina settings.",
-                    isRunning: isRunning,
-                    actions: [(title: "Create Bottle", prominent: true, action: {
+        CosmosSection(
+            title: "Bottles",
+            systemImage: "cylinder.split.1x2.fill",
+            caption: "Isolated Wine prefixes with their own graphics backend, Windows version, and sync settings."
+        ) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Button {
                         newBottleName = ""
                         newBottleBackend = "recommended"
                         newBottleWindows = "win10"
                         newBottleRetina = false
                         showNewBottleSheet = true
-                    })]
-                )
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
-                    ForEach(bottles) { bottle in
-                        bottleCard(bottle)
+                    } label: {
+                        Label("New Bottle", systemImage: "plus.circle.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isRunning)
+                    .help("Create a new isolated Wine bottle")
+                }
+
+                if bottles.isEmpty {
+                    CosmosEmptyState(
+                        systemImage: "cylinder.split.1x2.fill",
+                        title: "No bottles yet",
+                        message: "Each bottle is an isolated Wine prefix with its own graphics backend, Windows version, and Retina settings.",
+                        isRunning: isRunning,
+                        actions: [(title: "Create Bottle", prominent: true, action: {
+                            newBottleName = ""
+                            newBottleBackend = "recommended"
+                            newBottleWindows = "win10"
+                            newBottleRetina = false
+                            showNewBottleSheet = true
+                        })]
+                    )
+                } else {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: CosmosSpacing.gridColumnMin), spacing: CosmosSpacing.gridGap)],
+                        spacing: CosmosSpacing.gridGap
+                    ) {
+                        ForEach(bottles) { bottle in
+                            bottleCard(bottle)
+                        }
                     }
                 }
-            }
 
-            if let bottle = selectedBottle {
-                bottleControls(bottle)
+                if let bottle = selectedBottle {
+                    bottleControls(bottle)
+                }
             }
         }
+        .id(CosmosScrollAnchor.bottles)
         .sheet(isPresented: $showNewBottleSheet) { newBottleSheet }
         .confirmationDialog("Reset this bottle?", isPresented: $showBottleResetConfirmation, titleVisibility: .visible) {
             Button("Reset Prefix", role: .destructive) {
@@ -3835,38 +3855,16 @@ struct ContentView: View {
 
     private func bottleCard(_ bottle: Bottle) -> some View {
         let isSelected = bottle.id == selectedBottleID
-        return Button {
-            selectedBottleID = isSelected ? nil : bottle.id
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "cylinder.split.1x2.fill")
-                        .foregroundStyle(Color.cosmosPrimary)
-                    Text(bottle.name)
-                        .font(.headline)
-                        .lineLimit(1)
-                    Spacer()
-                }
-                Text(bottle.backend)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.cosmosBright)
-                Text(bottle.statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .cosmosSelectableSurface(isSelected: isSelected, minHeight: 86)
-        }
-        .buttonStyle(CosmosButtonStyle())
-        .disabled(isRunning)
-        .accessibilityLabel("\(bottle.name), \(bottle.backend), \(bottle.statusText)")
-        .accessibilityHint(isSelected ? "Double-click to deselect" : "Double-click to select and show controls")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .bottleContextMenu(
+        return BottleCard(
             bottle: bottle,
             isSelected: isSelected,
             isRunning: isRunning,
-            onSelect: { selectedBottleID = bottle.id },
+            onToggleSelection: {
+                selectedBottleID = isSelected ? nil : bottle.id
+            },
+            onSelect: {
+                selectedBottleID = bottle.id
+            },
             onLaunchSteam: {
                 selectedBottleID = bottle.id
                 runCommand(
@@ -3881,6 +3879,7 @@ struct ContentView: View {
                 runCommand(script: "bottle.command", arguments: ["logs", bottle.name])
             },
             onRevealPrefix: { revealInFinder(bottle.prefixURL) },
+            onRevealConfig: { revealInFinder(bottle.configURL) },
             onReset: {
                 selectedBottleID = bottle.id
                 showBottleResetConfirmation = true
@@ -3894,9 +3893,30 @@ struct ContentView: View {
 
     private func bottleControls(_ bottle: Bottle) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(bottle.name)
-                .font(.title3.weight(.semibold))
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(bottle.name)
+                        .font(.title3.weight(.semibold))
+                    HStack(spacing: 8) {
+                        BottleStatusChip(kind: bottle.statusKind)
+                        Text(bottle.cardDetailLine)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+                Button {
+                    selectedBottleID = nil
+                } label: {
+                    Label("Close", systemImage: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Deselect bottle")
+                .accessibilityLabel("Close bottle settings")
+            }
 
+            Divider()
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Graphics backend")
@@ -3962,6 +3982,17 @@ struct ContentView: View {
             }
 
             detailRow(title: "Prefix", value: bottle.prefixURL.path)
+
+            HStack(spacing: 12) {
+                Button {
+                    revealInFinder(bottle.configURL)
+                } label: {
+                    Label("Reveal bottle.conf", systemImage: "doc.text")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .font(.subheadline)
 
             HStack(spacing: 12) {
                 bottleActionButton("Launch", systemImage: "play.fill", prominent: true, help: "Launch Steam in this bottle") {

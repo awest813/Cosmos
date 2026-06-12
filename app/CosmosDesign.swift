@@ -4,6 +4,7 @@ import SwiftUI
 enum CosmosScrollAnchor {
     static let steamSettings = "steam-settings-section"
     static let performanceGraphics = "performance-graphics-section"
+    static let bottles = "bottles-section"
     static let gameLibrary = "game-library-section"
     static let gameProfiles = "game-profiles-section"
     static let repair = "repair-section"

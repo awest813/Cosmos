@@ -6,6 +6,7 @@ final class CosmosDesignTests: XCTestCase {
         let ids = [
             CosmosScrollAnchor.steamSettings,
             CosmosScrollAnchor.performanceGraphics,
+            CosmosScrollAnchor.bottles,
             CosmosScrollAnchor.gameLibrary,
             CosmosScrollAnchor.gameProfiles,
             CosmosScrollAnchor.repair,

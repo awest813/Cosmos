@@ -9,6 +9,7 @@ struct BottleContextMenuItems: View {
     var onLaunchSteam: () -> Void
     var onOpenLogs: () -> Void
     var onRevealPrefix: () -> Void
+    var onRevealConfig: () -> Void
     var onReset: () -> Void
     var onDelete: () -> Void
 
@@ -35,6 +36,10 @@ struct BottleContextMenuItems: View {
             Label("Reveal Prefix in Finder", systemImage: "folder")
         }
 
+        Button(action: onRevealConfig) {
+            Label("Reveal bottle.conf", systemImage: "doc.text")
+        }
+
         Divider()
 
         Button(role: .destructive, action: onReset) {
@@ -58,6 +63,7 @@ extension View {
         onLaunchSteam: @escaping () -> Void,
         onOpenLogs: @escaping () -> Void,
         onRevealPrefix: @escaping () -> Void,
+        onRevealConfig: @escaping () -> Void,
         onReset: @escaping () -> Void,
         onDelete: @escaping () -> Void
     ) -> some View {
@@ -70,6 +76,7 @@ extension View {
                 onLaunchSteam: onLaunchSteam,
                 onOpenLogs: onOpenLogs,
                 onRevealPrefix: onRevealPrefix,
+                onRevealConfig: onRevealConfig,
                 onReset: onReset,
                 onDelete: onDelete
             )
