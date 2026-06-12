@@ -202,7 +202,7 @@ struct CosmosNoticeBanner: View {
                         .font(.headline)
                 }
                 Text(message)
-                    .font(title == nil ? .subheadline : .subheadline)
+                    .font(.subheadline)
                     .foregroundStyle(title == nil ? .primary : .secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -495,7 +495,7 @@ struct CosmosDashboardTabBar: View {
                 }
                 .buttonStyle(CosmosButtonStyle())
                 .hoverBrighten()
-                .accessibilityLabel(section.rawValue)
+                .accessibilityLabel("\(section.rawValue). \(section.subtitle)")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
@@ -527,6 +527,7 @@ struct CosmosSearchField: View {
                 }
                 .buttonStyle(.plain)
                 .help("Clear search")
+                .accessibilityLabel("Clear search")
             }
         }
         .padding(.horizontal, 12)

@@ -62,10 +62,12 @@ struct StoreImportSheet: View {
                             TextField(field.placeholder, text: binding(for: field.id))
                                 .textFieldStyle(.roundedBorder)
                                 .focused($focusedField, equals: field.id)
+                                .accessibilityLabel(field.label)
                             if field.allowsFilePicker {
                                 Button("Choose…") {
                                     pickFile(for: field.id)
                                 }
+                                .accessibilityLabel("Choose \(field.label)")
                             }
                         }
                     }
