@@ -1,0 +1,24 @@
+id: fallout_new_vegas
+name: "Fallout: New Vegas"
+store: gog
+gog_slug: fallout-new-vegas
+steam_appid: 22380
+status: playable
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/Fallout New Vegas/FalloutNV.exe
+settings:
+  retina: false
+  windows_version: win10
+  esync: true
+dependencies:
+  - vcrun2010
+  - d3dx9
+fixes:
+  - clear_steam_caches
+tags:
+  - online
+anti_cheat: none
+notes: >
+  GOG offline installer. Use the in-game launcher first to set resolution.
+  For NVSE modded play, point GAME_EXE_PATH at nvse_loader.exe via an override.

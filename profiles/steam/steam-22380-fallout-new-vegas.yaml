@@ -2,6 +2,7 @@ id: fallout_new_vegas
 name: "Fallout: New Vegas"
 store: steam
 steam_appid: 22380
+launch_method: direct
 status: playable
 recommended_backend: dxmt
 wine_version: cosmos-stable

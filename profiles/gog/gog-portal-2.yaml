@@ -1,0 +1,23 @@
+id: portal_2
+name: "Portal 2"
+store: gog
+gog_slug: portal-2
+steam_appid: 620
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/Portal 2/portal2.exe
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2010
+fixes:
+  - fix_steam_networking
+tags:
+  - co-op
+  - online
+  - lan
+anti_cheat: none
+multiplayer_notes: "Co-op and LAN work out of the box; use in-game lobby or direct connect."
+notes: "Classic Source engine title. Runs reliably on DXMT with win10 reported version."

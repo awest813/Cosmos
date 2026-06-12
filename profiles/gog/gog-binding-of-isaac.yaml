@@ -1,0 +1,18 @@
+id: binding_of_isaac
+name: "The Binding of Isaac: Rebirth"
+store: gog
+gog_slug: the-binding-of-isaac-rebirth
+steam_appid: 250900
+status: playable
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/The Binding of Isaac Rebirth/isaac-ng.exe
+settings:
+  retina: false
+  windows_version: win10
+  esync: true
+  env:
+    DXMT_CONFIG: "d3d11.preferredMaxFrameRate=60;"
+fixes:
+  - fix_steam_networking
+notes: "Frame rate capped to 60 via DXMT. GOG offline installer."

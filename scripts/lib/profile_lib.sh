@@ -188,6 +188,24 @@ profile_compat_warning() {
   return 0
 }
 
+# launch_method for Steam profiles: applaunch (default) or direct (Wine .exe).
+profile_launch_method() {
+  local file="$1"
+  local method
+  method="$(profile_get_scalar "${file}" launch_method)"
+  [[ -n "${method}" ]] || method="applaunch"
+  printf '%s' "${method}"
+}
+
+profile_uses_direct_launch() {
+  local file="$1"
+  [[ "$(profile_launch_method "${file}")" == "direct" ]]
+}
+
+profile_get_exe_path() {
+  profile_get_scalar "$1" exe_path
+}
+
 # Write cosmos_configs/overrides/<appid>.env from a v0 YAML profile.
 profile_export_override_to() {
   local file="$1" appid="$2" out="$3"
@@ -195,7 +213,7 @@ profile_export_override_to() {
   appid="${appid:-$(profile_get_scalar "${file}" steam_appid)}"
   [[ "${appid}" =~ ^[0-9]+$ ]] || return 1
   mkdir -p "$(dirname -- "${out}")"
-  local backend windows retina sync_mode esync
+  local backend windows retina sync_mode esync method exe
   backend="$(profile_get_scalar "${file}" recommended_backend)"
   windows="$(profile_get_scalar "${file}" settings.windows_version)"
   retina="$(profile_get_scalar "${file}" settings.retina)"
@@ -204,6 +222,8 @@ profile_export_override_to() {
   if [[ -z "${sync_mode}" && ( "${esync}" == "1" || "${esync}" == "true" ) ]]; then
     sync_mode="esync"
   fi
+  method="$(profile_launch_method "${file}")"
+  exe="$(profile_get_exe_path "${file}")"
   {
     printf '# Generated from %s\n' "${file}"
     [[ -n "${backend}" ]] && printf 'COSMOS_BACKEND=%s\n' "${backend}"
@@ -212,6 +232,11 @@ profile_export_override_to() {
     case "${sync_mode}" in
       esync|msync) printf 'COSMOS_SYNC_MODE=%s\n' "${sync_mode}" ;;
     esac
+    if [[ "${method}" == "direct" ]]; then
+      printf 'COSMOS_STEAM_DIRECT_LAUNCH=1\n'
+      printf 'COSMOS_SKIP_STEAM=1\n'
+      [[ -n "${exe}" ]] && printf 'GAME_EXE_PATH=%s\n' "${exe}"
+    fi
     local k v
     for k in DXMT_CONFIG STEAM_GAME_ARGS WINEDLLOVERRIDES; do
       v="$(profile_get_env_line "${file}" "${k}")"

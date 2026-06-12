@@ -44,6 +44,7 @@ struct ContentView: View {
     @State private var steamHealthInFlight = false
     @State private var pendingUnregisteredGogGames = 0
     @State private var pendingBrokenSteamInstalls = 0
+    @State private var lastWarnedBrokenSteamInstalls = 0
     @State private var setupCompatAppID = ""
 
     @State private var gameProfiles: [GameProfile] = []
@@ -1157,6 +1158,7 @@ struct ContentView: View {
                     if newGames.count > 0 || pendingRemovedSteamGames > 0 {
                         syncSteamLibrary(announce: false)
                     }
+                    announceBrokenSteamInstallsIfNeeded()
                     return
                 }
 
@@ -1164,6 +1166,8 @@ struct ContentView: View {
                     showNewSteamGamesBanner(count: newGames.count)
                 } else if pendingRemovedSteamGames > 0 {
                     showSteamCleanupBanner(count: pendingRemovedSteamGames)
+                } else {
+                    announceBrokenSteamInstallsIfNeeded()
                 }
             }
         }
@@ -1309,6 +1313,28 @@ struct ContentView: View {
                 },
                 CommandBannerAction(title: "Build All", systemImage: "square.grid.2x2.fill") {
                     buildLaunchers()
+                },
+            ]
+        )
+    }
+
+    private func announceBrokenSteamInstallsIfNeeded() {
+        guard pendingBrokenSteamInstalls > 0,
+              pendingBrokenSteamInstalls > lastWarnedBrokenSteamInstalls else { return }
+        lastWarnedBrokenSteamInstalls = pendingBrokenSteamInstalls
+        showBrokenSteamInstallsBanner(count: pendingBrokenSteamInstalls)
+    }
+
+    private func showBrokenSteamInstallsBanner(count: Int) {
+        showBanner(
+            kind: .failure,
+            message: "\(count) Wine Steam install\(count == 1 ? "" : "s") missing a folder or game .exe.",
+            actions: [
+                CommandBannerAction(title: "Verify Library", systemImage: "checkmark.shield.fill") {
+                    runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
+                },
+                CommandBannerAction(title: "Sync Launchers", systemImage: "arrow.triangle.2.circlepath") {
+                    syncSteamLibrary(announce: true)
                 },
             ]
         )
@@ -2128,7 +2154,16 @@ struct ContentView: View {
             buildLaunchers()
         }
 
-        if pendingNewSteamGames > 0 {
+        if pendingBrokenSteamInstalls > 0 {
+            secondaryButton(
+                title: "Verify Broken Installs",
+                subtitle: "\(pendingBrokenSteamInstalls) need attention",
+                systemImage: "exclamationmark.triangle.fill",
+                help: "List Wine Steam games with missing install folders or game executables"
+            ) {
+                runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
+            }
+        } else if pendingNewSteamGames > 0 {
             secondaryButton(
                 title: "Sync New Games",
                 subtitle: "\(pendingNewSteamGames) detected",
@@ -3590,6 +3625,19 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .disabled(isRunning)
                 .help("Remove launcher configs for uninstalled Steam games")
+            } else if pendingBrokenSteamInstalls > 0, isSetupComplete {
+                Button {
+                    runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
+                } label: {
+                    statusRow(
+                        label: "\(pendingBrokenSteamInstalls) broken install\(pendingBrokenSteamInstalls == 1 ? "" : "s") — tap to verify",
+                        icon: "exclamationmark.triangle.fill",
+                        color: .orange
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunning)
+                .help("Verify Wine Steam install folders and game executables")
             }
             statusRow(
                 label: bottles.isEmpty
@@ -4266,6 +4314,9 @@ struct ContentView: View {
                 if shouldRefreshSteamAfterCommand(script: script, arguments: arguments) {
                     refreshSteamHealth()
                     checkSteamLibraryForNewGames(autoSync: false, force: true)
+                    if script == "run.command", arguments.contains("--verify-steam") {
+                        lastWarnedBrokenSteamInstalls = pendingBrokenSteamInstalls
+                    }
                 }
             }
         }
