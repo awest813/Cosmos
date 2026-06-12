@@ -26,7 +26,7 @@ final class ProfilePreferencesStoreTests: XCTestCase {
     func testRecentLaunchOrdering() {
         _ = ProfilePreferencesStore.recordRecentLaunch(profileID: "a.conf")
         _ = ProfilePreferencesStore.recordRecentLaunch(profileID: "b.conf")
-        var prefs = ProfilePreferencesStore.recordRecentLaunch(profileID: "a.conf")
+        let prefs = ProfilePreferencesStore.recordRecentLaunch(profileID: "a.conf")
         XCTAssertEqual(prefs.recentIDs.prefix(2).map { String($0) }, ["a.conf", "b.conf"])
     }
 
