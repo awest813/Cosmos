@@ -75,17 +75,20 @@ struct StoreImportSheet: View {
                                 .textFieldStyle(.roundedBorder)
                                 .focused($focusedField, equals: field.id)
                                 .accessibilityLabel(field.label)
+                                .disabled(isSubmitting)
                             if field.allowsFilePicker {
                                 Button("Choose…") {
                                     pickFile(for: field.id)
                                 }
                                 .accessibilityLabel("Choose \(field.label)")
+                                .disabled(isSubmitting)
                             }
                         }
                     }
                 }
             }
             .formStyle(.grouped)
+            .disabled(isSubmitting)
 
             HStack {
                 if isSubmitting {

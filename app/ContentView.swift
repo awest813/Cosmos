@@ -54,6 +54,7 @@ struct ContentView: View {
     @State private var lastWarnedBrokenSteamInstalls = 0
     @State private var setupCompatAppID = ""
     @State private var consoleHasNewOutput = false
+    @State private var pendingScrollToImport = false
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -245,11 +246,8 @@ struct ContentView: View {
                 dashboardSection = .library
             }
         }
-        .onChange(of: selectedProfileID) { newID in
+        .onChange(of: selectedProfileID) { _ in
             refreshCompatBadge()
-            if newID != nil, isSteamReady {
-                dashboardSection = .launch
-            }
             appState.updateCommandAvailability(
                 canAccept: !isRunning,
                 canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
@@ -289,7 +287,7 @@ struct ContentView: View {
             checkForUpdates()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenImportTools)) { _ in
-            dashboardSection = .tools
+            openImportTools()
         }
         .confirmationDialog(
             "Launch blocked title?",
@@ -313,6 +311,8 @@ struct ContentView: View {
                let appid = profile.steamAppID,
                let yaml = GameProfileStore.find(steamAppID: appid) {
                 Text(yaml.blockedLaunchMessage)
+            } else if let profile = pendingBlockedLaunch {
+                Text("\(profile.name) is marked blocked on macOS. Launch anyway?")
             }
         }
         .sheet(item: $storeImportRequest) { request in
@@ -330,26 +330,40 @@ struct ContentView: View {
                 if isSteamReady, let bottle = selectedBottle {
                     StatusChip(
                         label: "Bottle: \(bottle.name)",
-                        systemImage: "cylinder.split.1x2.fill"
+                        systemImage: "cylinder.split.1x2.fill",
+                        action: { dashboardSection = .bottles },
+                        accessibilityHint: "Open Bottles tab. Control-click to clear selection."
                     )
+                    .contextMenu {
+                        Button("Open Bottles Tab") {
+                            dashboardSection = .bottles
+                        }
+                        Button("Use Default Bottle") {
+                            selectedBottleID = nil
+                        }
+                    }
                 } else if isSteamReady {
                     StatusChip(
                         label: "Default bottle",
                         systemImage: "cylinder.split.1x2",
-                        tint: .secondary
+                        tint: .secondary,
+                        action: { dashboardSection = .bottles },
+                        accessibilityHint: "Open Bottles tab"
                     )
                 }
                 if isRunning {
                     StatusChip(
                         label: "Running…",
                         systemImage: "gearshape.arrow.triangle.2.circlepath",
-                        tint: Color.cosmosBright
+                        tint: Color.cosmosBright,
+                        accessibilityHint: "A command is running"
                     )
                 } else if steamHealthInFlight || steamLibraryCheckInFlight {
                     StatusChip(
                         label: "Checking library…",
                         systemImage: "arrow.triangle.2.circlepath",
-                        tint: .secondary
+                        tint: .secondary,
+                        accessibilityHint: "Checking Steam library for changes"
                     )
                 }
             }
@@ -361,6 +375,8 @@ struct ContentView: View {
                         Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
                     }
                     .help(setupPrimarySubtitle)
+                    .accessibilityLabel(setupPrimaryTitle)
+                    .accessibilityHint(setupPrimarySubtitle)
                     .disabled(isRunning)
                 }
                 Button {
@@ -369,6 +385,7 @@ struct ContentView: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .help("Reload installation status (⌘R)")
+                .accessibilityLabel("Refresh status")
                 .disabled(isRunning)
             }
             ToolbarItemGroup(placement: .automatic) {
@@ -378,6 +395,7 @@ struct ContentView: View {
                     Label("Setup Help", systemImage: "questionmark.circle")
                 }
                 .help("Open the Steam setup guide")
+                .accessibilityLabel("Setup help")
             }
         }
     }
@@ -636,56 +654,67 @@ struct ContentView: View {
     // MARK: - Detail
 
     private var detailContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: CosmosSpacing.section) {
-                if showSetupCompleteBanner && isSetupComplete {
-                    setupCompleteBanner
-                }
-                if let commandBanner = commandBannerQueue.current {
-                    VStack(alignment: .leading, spacing: 6) {
-                        CommandBannerView(banner: commandBanner) {
-                            dismissCommandBanner()
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: CosmosSpacing.section) {
+                    if showSetupCompleteBanner && isSetupComplete {
+                        setupCompleteBanner
+                    }
+                    if let commandBanner = commandBannerQueue.current {
+                        VStack(alignment: .leading, spacing: 6) {
+                            CommandBannerView(banner: commandBanner) {
+                                dismissCommandBanner()
+                            }
+                            if commandBannerQueue.pendingCount > 0 {
+                                Text("\(commandBannerQueue.pendingCount) more notification\(commandBannerQueue.pendingCount == 1 ? "" : "s") — dismiss to see next")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        if commandBannerQueue.pendingCount > 0 {
-                            Text("\(commandBannerQueue.pendingCount) more notification\(commandBannerQueue.pendingCount == 1 ? "" : "s") — dismiss to see next")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    }
+                    steamHealthNoticesSection
+                    heroSection
+                    if isSetupComplete {
+                        dashboardSectionPicker
+                    } else if isSteamReady {
+                        almostDoneSection
+                    }
+                    setupAssistantSection
+                    if isSetupComplete {
+                        dashboardSectionContent
+                    } else if !isSteamReady {
+                        setupLaunchHintSection
+                        if showAdvancedSetupOptions {
+                            steamWineSettingsSection
+                            setupToolsGrid
+                        } else {
+                            newUserMaintenanceSection
                         }
                     }
-                }
-                steamHealthNoticesSection
-                heroSection
-                if isSetupComplete {
-                    dashboardSectionPicker
-                } else if isSteamReady {
-                    almostDoneSection
-                }
-                setupAssistantSection
-                if isSetupComplete {
-                    dashboardSectionContent
-                } else if !isSteamReady {
-                    setupLaunchHintSection
-                    if showAdvancedSetupOptions {
-                        steamWineSettingsSection
-                        setupToolsGrid
-                    } else {
-                        newUserMaintenanceSection
+                    if isSteamReady, let selectedProfile {
+                        if isSetupComplete, dashboardSection != .launch {
+                            selectedProfileCompactBar(selectedProfile)
+                        } else {
+                            selectedProfileSection(selectedProfile)
+                        }
                     }
+                    consoleSection
                 }
-                if isSteamReady, let selectedProfile {
-                    if isSetupComplete, dashboardSection != .launch {
-                        selectedProfileCompactBar(selectedProfile)
-                    } else {
-                        selectedProfileSection(selectedProfile)
-                    }
-                }
-                consoleSection
+                .padding(CosmosSpacing.contentPadding)
+                .frame(maxWidth: 1000, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
-            .padding(CosmosSpacing.contentPadding)
-            .frame(maxWidth: 1000, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            .cosmosContentBackground()
+            .onChange(of: dashboardSection) { section in
+                guard section == .tools, pendingScrollToImport else { return }
+                pendingScrollToImport = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo("store-import-section", anchor: .top)
+                    }
+                }
+            }
         }
-        .cosmosContentBackground()
         .onChange(of: output) { _ in
             if !isSetupComplete, !consoleExpanded {
                 consoleHasNewOutput = true
@@ -735,7 +764,7 @@ struct ContentView: View {
                 .font(CosmosTypography.heroTitle)
                 .foregroundStyle(CosmosGradients.heroTitle)
             Text(heroSubtitle)
-                .font(.title3)
+                .font(.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1659,12 +1688,27 @@ struct ContentView: View {
                     }
                 }
                 if isPrefixReady, pendingLowConfidenceGogGames > 0 {
-                    CosmosNoticeBanner(
-                        tint: .orange,
-                        systemImage: "questionmark.circle.fill",
-                        title: "GOG exe detection uncertain",
-                        message: "\(pendingLowConfidenceGogGames) GOG install\(pendingLowConfidenceGogGames == 1 ? "" : "s") used scored .exe guessing instead of goggame metadata. Verify before launching."
-                    )
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "questionmark.circle.fill",
+                            title: "GOG exe detection uncertain",
+                            message: "\(pendingLowConfidenceGogGames) GOG install\(pendingLowConfidenceGogGames == 1 ? "" : "s") used scored .exe guessing instead of goggame metadata. Verify before launching."
+                        )
+                        HStack(spacing: 10) {
+                            Button("List GOG Games") {
+                                runCommand(script: "import_game.command", arguments: ["list-gog"], environment: bottleEnvironment())
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            Button("Register All") {
+                                syncGogLibrary(build: false, announce: true)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                        }
+                        .font(.subheadline)
+                    }
                 }
                 if isPrefixReady, pendingUnregisteredGogGames > 0 {
                     VStack(alignment: .leading, spacing: 8) {
@@ -1847,8 +1891,13 @@ struct ContentView: View {
     }
 
     private func listGogGames() {
-        dashboardSection = .tools
+        openImportTools()
         runCommand(script: "import_game.command", arguments: ["list-gog"], environment: bottleEnvironment())
+    }
+
+    private func openImportTools() {
+        dashboardSection = .tools
+        pendingScrollToImport = true
     }
 
     private func runDiagnose() {
@@ -1991,7 +2040,7 @@ struct ContentView: View {
                     tint: .blue,
                     systemImage: "cylinder.split.1x2.fill",
                     title: "Launches use bottle: \(bottle.name)",
-                    message: "Settings in this section apply to the default Steam prefix. Adjust \(bottle.name) under the Bottles tab, or clear the bottle selection in the toolbar to use defaults."
+                    message: "Settings below apply to the default Steam prefix. Adjust \(bottle.name) on the Bottles tab, or click the bottle chip in the toolbar and choose Use Default Bottle."
                 )
             } else {
                 Text("These apply to the default Steam prefix on the next launch. Use the Bottles tab for extra isolated prefixes.")
@@ -2611,7 +2660,7 @@ struct ContentView: View {
             },
             onListGog: { listGogGames() },
             onVerifySteam: { verifySteamInstall() },
-            onOpenImport: { dashboardSection = .tools }
+            onOpenImport: { openImportTools() }
         )
     }
 
@@ -2650,16 +2699,13 @@ struct ContentView: View {
             caption: "Known-good YAML recipes (roadmap 0.4). Apply writes overrides and runs winetricks/fixes."
         ) {
             if gameProfiles.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("No curated game profiles are bundled with this build.")
-                        .font(.subheadline)
-                        .foregroundStyle(.tertiary)
-                    Button("Check for Updates") {
-                        checkForUpdates()
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(isRunning)
-                }
+                CosmosEmptyState(
+                    systemImage: "doc.text",
+                    title: "No curated profiles bundled",
+                    message: "This build does not include YAML game profiles. Check for updates to download the latest community recipes.",
+                    isRunning: isRunning,
+                    actions: [(title: "Check for Updates", prominent: true, action: { checkForUpdates() })]
+                )
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -2674,9 +2720,13 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
 
                     if filteredGameProfiles.isEmpty {
-                        Text("No profiles match this filter. Try All or another chip.")
-                            .font(.subheadline)
-                            .foregroundStyle(.tertiary)
+                        CosmosEmptyState(
+                            systemImage: "line.3.horizontal.decrease.circle",
+                            title: "No profiles match",
+                            message: "Try the All filter or choose another chip to browse curated YAML recipes.",
+                            isRunning: isRunning,
+                            actions: [(title: "Show All", prominent: true, action: { curatedProfileFilter = .all })]
+                        )
                     } else {
                         LazyVGrid(
                             columns: [GridItem(.adaptive(minimum: 200), spacing: CosmosSpacing.gridGap)],
@@ -2751,6 +2801,7 @@ struct ContentView: View {
         .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
         .accessibilityLabel(curatedProfileAccessibilityLabel(profile, isSelected: isSelected))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .curatedProfileContextMenu(
             profile: profile,
             isRunning: isRunning,
@@ -2941,7 +2992,7 @@ struct ContentView: View {
                         environment: bottleEnvironment()
                     )
                 } label: {
-                    CosmosActionTile(title: recipe.id, subtitle: recipe.description)
+                    CosmosActionTile(title: recipe.displayTitle, subtitle: recipe.displaySubtitle)
                 }
                 .buttonStyle(CosmosButtonStyle())
                 .disabled(isRunning)
@@ -3095,6 +3146,7 @@ struct ContentView: View {
                 .disabled(isRunning)
             }
         }
+        .id("store-import-section")
     }
 
     private func storeActionButton(
@@ -3349,9 +3401,12 @@ struct ContentView: View {
                         .foregroundStyle(.tertiary)
                 }
             } else {
-                Text("Select a saved launcher or curated YAML profile (Steam App ID or GOG slug) to look up or apply compatibility settings.")
-                    .font(.subheadline)
-                    .foregroundStyle(.tertiary)
+                CosmosEmptyState(
+                    systemImage: "chart.bar.doc.horizontal",
+                    title: "No game selected",
+                    message: "Select a saved launcher from the sidebar or a curated YAML profile to look up compatibility, apply settings, or file a local report.",
+                    tint: .secondary
+                )
             }
         }
         .onChange(of: activeSteamAppID) { _ in refreshCompatBadge() }
@@ -3386,26 +3441,19 @@ struct ContentView: View {
             }
 
             if bottles.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("No bottles yet. Each bottle is an isolated Wine prefix with its own graphics backend and settings.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button {
+                CosmosEmptyState(
+                    systemImage: "cylinder.split.1x2.fill",
+                    title: "No bottles yet",
+                    message: "Each bottle is an isolated Wine prefix with its own graphics backend, Windows version, and Retina settings.",
+                    isRunning: isRunning,
+                    actions: [(title: "Create Bottle", prominent: true, action: {
                         newBottleName = ""
                         newBottleBackend = "recommended"
                         newBottleWindows = "win10"
                         newBottleRetina = false
                         showNewBottleSheet = true
-                    } label: {
-                        Label("Create your first bottle", systemImage: "plus.circle.fill")
-                            .font(.subheadline.weight(.medium))
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(Color.cosmosPrimary)
-                    .disabled(isRunning)
-                }
-                .accessibilityElement(children: .combine)
+                    })]
+                )
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
                     ForEach(bottles) { bottle in
@@ -3607,10 +3655,10 @@ struct ContentView: View {
     }
 
     private var newBottleSheet: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
             Text("New Bottle")
                 .font(.title2.weight(.bold))
-                .foregroundStyle(Color.cosmosPrimary)
+                .foregroundStyle(CosmosGradients.heroTitle)
 
             Text("Creates an isolated Wine prefix you can tune independently from the default bottle.")
                 .font(.subheadline)
@@ -3621,35 +3669,44 @@ struct ContentView: View {
                 TextField("Name", text: $newBottleName)
                     .textFieldStyle(.roundedBorder)
                     .focused($newBottleNameFocused)
+                    .disabled(isRunning)
                 Picker("Backend", selection: $newBottleBackend) {
                     ForEach(BottleStore.backendOptions, id: \.self) { Text($0).tag($0) }
                 }
+                .disabled(isRunning)
                 Picker("Windows version", selection: $newBottleWindows) {
                     ForEach(BottleStore.windowsOptions, id: \.self) { Text($0).tag($0) }
                 }
+                .disabled(isRunning)
                 Toggle("Enable Retina mode", isOn: $newBottleRetina)
+                    .disabled(isRunning)
             }
             .formStyle(.grouped)
 
             if !newBottleName.isEmpty && !BottleStore.isValidName(newBottleName) {
-                Text("Use letters, digits, '.', '_' or '-' (not starting with '.', '_' or '-').")
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                CosmosNoticeBanner(
+                    tint: .red,
+                    systemImage: "exclamationmark.triangle.fill",
+                    title: "Invalid name",
+                    message: "Use letters, digits, '.', '_' or '-' (not starting with '.', '_' or '-')."
+                )
             }
 
             HStack {
                 Spacer()
                 Button("Cancel") { showNewBottleSheet = false }
                     .keyboardShortcut(.cancelAction)
+                    .disabled(isRunning)
                 Button("Create") { createBottle() }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.cosmosPrimary)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!BottleStore.isValidName(newBottleName))
+                    .disabled(!BottleStore.isValidName(newBottleName) || isRunning)
             }
         }
         .padding(20)
         .frame(width: 420)
+        .background(Color.cosmosContentBackground)
         .onAppear { newBottleNameFocused = true }
     }
 
@@ -3919,6 +3976,8 @@ struct ContentView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .textSelection(.enabled)
                                 .foregroundStyle(Color.cosmosConsoleText)
+                                .accessibilityLabel("Command output log")
+                                .accessibilityValue(output.isEmpty ? "Empty" : output)
                             Color.clear
                                 .frame(height: 1)
                                 .id(consoleBottomID)

@@ -87,19 +87,26 @@ enum GameLibraryBlankSlateKind: Equatable {
     case unregisteredGog(Int)
     case emptyReady
     case searchEmpty(String)
+    case filterEmpty(GameLibrarySourceFilter)
 
     static func resolve(
         totalProfiles: Int,
         filteredCount: Int,
         searchQuery: String,
+        sourceFilter: GameLibrarySourceFilter,
         isSetupComplete: Bool,
         isSteamReady: Bool,
         pendingNewSteamGames: Int,
         pendingUnregisteredGogGames: Int
     ) -> GameLibraryBlankSlateKind? {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !query.isEmpty, filteredCount == 0 {
-            return .searchEmpty(query)
+        if filteredCount == 0, totalProfiles > 0 {
+            if !query.isEmpty {
+                return .searchEmpty(query)
+            }
+            if sourceFilter != .all {
+                return .filterEmpty(sourceFilter)
+            }
         }
         guard totalProfiles == 0 else { return nil }
         if !isSteamReady || !isSetupComplete {
@@ -292,6 +299,8 @@ struct GameLibraryBlankSlate: View {
     var onBuildLaunchers: () -> Void = {}
     var onLaunchSteam: () -> Void = {}
     var onContinueSetup: () -> Void = {}
+    var onClearSearch: () -> Void = {}
+    var onClearFilter: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 16) {
@@ -349,6 +358,7 @@ struct GameLibraryBlankSlate: View {
         case .unregisteredGog: return "opticaldisc.fill"
         case .emptyReady: return "gamecontroller.fill"
         case .searchEmpty: return "magnifyingglass"
+        case .filterEmpty: return "line.3.horizontal.decrease.circle"
         }
     }
 
@@ -359,6 +369,7 @@ struct GameLibraryBlankSlate: View {
         case .unregisteredGog: return .blue
         case .emptyReady: return Color.cosmosPrimary
         case .searchEmpty: return .secondary
+        case .filterEmpty: return Color.cosmosPrimary
         }
     }
 
@@ -374,6 +385,8 @@ struct GameLibraryBlankSlate: View {
             return "Your library is empty"
         case .searchEmpty:
             return "No matches"
+        case .filterEmpty(let filter):
+            return "No \(filter.label) games"
         }
     }
 
@@ -389,6 +402,8 @@ struct GameLibraryBlankSlate: View {
             return "Install a Windows game in Steam or import a GOG folder, then detect or sync to fill this view."
         case .searchEmpty(let query):
             return "No saved launcher matches “\(query)”."
+        case .filterEmpty(let filter):
+            return "None of your saved launchers are tagged as \(filter.label). Try another source filter or show all games."
         }
     }
 
@@ -412,7 +427,9 @@ struct GameLibraryBlankSlate: View {
                 SlateAction(title: "Build Launchers", prominent: false, handler: onBuildLaunchers),
             ]
         case .searchEmpty:
-            return []
+            return [SlateAction(title: "Clear Search", prominent: true, handler: onClearSearch)]
+        case .filterEmpty:
+            return [SlateAction(title: "Show All Sources", prominent: true, handler: onClearFilter)]
         }
     }
 }
@@ -449,6 +466,8 @@ struct GameLibraryPendingBanner: View {
             RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
                 .strokeBorder(kind.tint.opacity(0.2), lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(kind.title). \(kind.message)")
     }
 }
 
@@ -555,20 +574,7 @@ struct GameLibraryListRow: View {
                 CosmosCompatBadge(status: compatStatus, compact: true)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            isSelected ? Color.cosmosPrimary.opacity(0.12) : Color.cosmosTileFill,
-            in: RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: CosmosSpacing.tileRadius)
-                .strokeBorder(
-                    isSelected ? Color.cosmosBright.opacity(0.55) : Color.cosmosCardBorder,
-                    lineWidth: isSelected ? 1.5 : 1
-                )
-        )
-        .hoverBrighten()
+        .cosmosSelectableSurface(isSelected: isSelected, minHeight: 52)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(profile.libraryAccessibilityLabel(compatStatus: compatStatus))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -636,6 +642,7 @@ struct GameLibrarySection: View {
             totalProfiles: profiles.count,
             filteredCount: filteredProfiles.count,
             searchQuery: searchText,
+            sourceFilter: sourceFilter,
             isSetupComplete: isSetupComplete,
             isSteamReady: isSteamReady,
             pendingNewSteamGames: pendingNewSteamGames,
@@ -647,7 +654,7 @@ struct GameLibrarySection: View {
         CosmosSection(
             title: "Game Library",
             systemImage: "square.grid.2x2.fill",
-            caption: "Browse saved launchers — double-click or use Launch on the sidebar to play."
+            caption: "Browse saved launchers — double-click a tile to launch, or use Launch on the sidebar."
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 GameLibraryToolbar(
@@ -675,7 +682,9 @@ struct GameLibrarySection: View {
                         onRegisterGogBuild: onRegisterGogBuild,
                         onBuildLaunchers: onBuildLaunchers,
                         onLaunchSteam: onLaunchSteam,
-                        onContinueSetup: onContinueSetup
+                        onContinueSetup: onContinueSetup,
+                        onClearSearch: { searchText = "" },
+                        onClearFilter: { sourceFilter = .all }
                     )
                 } else {
                     pendingBanners
@@ -748,6 +757,7 @@ struct GameLibrarySection: View {
             }
         )
         .disabled(isRunning)
+        .opacity(isRunning ? 0.55 : 1)
         .help("Double-click to launch")
     }
 
@@ -783,6 +793,7 @@ struct GameLibrarySection: View {
             }
         )
         .disabled(isRunning)
+        .opacity(isRunning ? 0.55 : 1)
         .help("Double-click to launch")
     }
 }

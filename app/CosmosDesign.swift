@@ -249,6 +249,7 @@ struct CommandBannerView: View {
                             Label(item.title, systemImage: item.systemImage)
                         }
                         .buttonStyle(.bordered)
+                        .accessibilityLabel(item.title)
                     }
                 }
             }
@@ -426,6 +427,8 @@ struct CosmosFilterChip: View {
     let isSelected: Bool
     var action: () -> Void
 
+    @Environment(\.isEnabled) private var isEnabled
+
     var body: some View {
         Button(action: action) {
             Text(label)
@@ -450,6 +453,7 @@ struct CosmosFilterChip: View {
         }
         .buttonStyle(CosmosButtonStyle())
         .hoverBrighten()
+        .opacity(isEnabled ? 1 : 0.55)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -562,8 +566,25 @@ struct StatusChip: View {
     let label: String
     let systemImage: String
     var tint: Color = Color.cosmosPrimary
+    var action: (() -> Void)? = nil
+    var accessibilityHint: String? = nil
 
     var body: some View {
+        Group {
+            if let action {
+                Button(action: action) {
+                    chipLabel
+                }
+                .buttonStyle(.plain)
+            } else {
+                chipLabel
+            }
+        }
+        .accessibilityLabel(label)
+        .accessibilityHint(accessibilityHint ?? label)
+    }
+
+    private var chipLabel: some View {
         Label(label, systemImage: systemImage)
             .font(.caption.weight(.medium))
             .padding(.horizontal, 10)
@@ -577,6 +598,57 @@ struct StatusChip: View {
                     .strokeBorder(tint.opacity(0.22), lineWidth: 1)
             )
             .foregroundStyle(tint)
-            .help(label)
+            .help(accessibilityHint ?? label)
+    }
+}
+
+/// Reusable empty-state card for sections without dedicated blank-slate views.
+struct CosmosEmptyState: View {
+    let systemImage: String
+    let title: String
+    let message: String
+    var tint: Color = Color.cosmosPrimary
+    var isRunning: Bool = false
+    var actions: [(title: String, prominent: Bool, action: () -> Void)] = []
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 36))
+                .foregroundStyle(tint)
+                .symbolRenderingMode(.hierarchical)
+            VStack(spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !actions.isEmpty {
+                HStack(spacing: 10) {
+                    ForEach(Array(actions.enumerated()), id: \.offset) { _, item in
+                        if item.prominent {
+                            Button(item.title, action: item.action)
+                                .buttonStyle(.borderedProminent)
+                                .tint(Color.cosmosPrimary)
+                                .disabled(isRunning)
+                        } else {
+                            Button(item.title, action: item.action)
+                                .buttonStyle(.bordered)
+                                .disabled(isRunning)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 20)
+        .cosmosCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(message)")
     }
 }

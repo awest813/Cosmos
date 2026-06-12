@@ -53,6 +53,7 @@ final class GameLibraryUITests: XCTestCase {
             totalProfiles: 0,
             filteredCount: 0,
             searchQuery: "",
+            sourceFilter: .all,
             isSetupComplete: true,
             isSteamReady: true,
             pendingNewSteamGames: 2,
@@ -66,6 +67,7 @@ final class GameLibraryUITests: XCTestCase {
             totalProfiles: 0,
             filteredCount: 0,
             searchQuery: "",
+            sourceFilter: .all,
             isSetupComplete: true,
             isSteamReady: true,
             pendingNewSteamGames: 0,
@@ -79,6 +81,7 @@ final class GameLibraryUITests: XCTestCase {
             totalProfiles: 0,
             filteredCount: 0,
             searchQuery: "",
+            sourceFilter: .all,
             isSetupComplete: true,
             isSteamReady: true,
             pendingNewSteamGames: 1,
@@ -93,6 +96,7 @@ final class GameLibraryUITests: XCTestCase {
                 totalProfiles: 4,
                 filteredCount: 4,
                 searchQuery: "",
+                sourceFilter: .all,
                 isSetupComplete: true,
                 isSteamReady: true,
                 pendingNewSteamGames: 2,
@@ -106,11 +110,26 @@ final class GameLibraryUITests: XCTestCase {
             totalProfiles: 2,
             filteredCount: 0,
             searchQuery: "missing",
+            sourceFilter: .all,
             isSetupComplete: true,
             isSteamReady: true,
             pendingNewSteamGames: 0,
             pendingUnregisteredGogGames: 0
         )
         XCTAssertEqual(kind, .searchEmpty("missing"))
+    }
+
+    func testBlankSlateFilterEmpty() {
+        let kind = GameLibraryBlankSlateKind.resolve(
+            totalProfiles: 3,
+            filteredCount: 0,
+            searchQuery: "",
+            sourceFilter: .gog,
+            isSetupComplete: true,
+            isSteamReady: true,
+            pendingNewSteamGames: 0,
+            pendingUnregisteredGogGames: 0
+        )
+        XCTAssertEqual(kind, .filterEmpty(.gog))
     }
 }
