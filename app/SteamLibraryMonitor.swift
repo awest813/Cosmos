@@ -5,6 +5,11 @@ enum SteamLibraryMonitor {
     struct DetectedGame: Equatable {
         let appID: String
         let name: String
+        let installdirOK: Bool?
+        let exeOK: Bool?
+        let gameExe: String?
+        let installStatus: String?
+        let source: String?
     }
 
     struct SyncResult: Equatable {
@@ -71,7 +76,23 @@ enum SteamLibraryMonitor {
         else { return nil }
         return array.compactMap { item in
             guard let appID = item["appid"] as? String, let name = item["name"] as? String else { return nil }
-            return DetectedGame(appID: appID, name: name)
+            return DetectedGame(
+                appID: appID,
+                name: name,
+                installdirOK: item["installdir_ok"] as? Bool,
+                exeOK: item["exe_ok"] as? Bool,
+                gameExe: item["game_exe"] as? String,
+                installStatus: item["install_status"] as? String,
+                source: item["source"] as? String
+            )
+        }
+    }
+
+    static func brokenInstalls(in games: [DetectedGame]) -> [DetectedGame] {
+        games.filter { game in
+            if let exeOK = game.exeOK { return !exeOK }
+            if let installdirOK = game.installdirOK { return !installdirOK }
+            return false
         }
     }
 

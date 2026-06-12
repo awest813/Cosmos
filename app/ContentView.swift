@@ -43,6 +43,7 @@ struct ContentView: View {
     @State private var steamHealth = SteamHealthStatus.empty
     @State private var steamHealthInFlight = false
     @State private var pendingUnregisteredGogGames = 0
+    @State private var pendingBrokenSteamInstalls = 0
     @State private var setupCompatAppID = ""
 
     @State private var gameProfiles: [GameProfile] = []
@@ -1114,9 +1115,10 @@ struct ContentView: View {
         }
     }
 
-    private func checkSteamLibraryForNewGames(autoSync: Bool) {
+    private func checkSteamLibraryForNewGames(autoSync: Bool, force: Bool = false) {
         guard isSteamReady, !isRunning, !steamLibraryCheckInFlight, pendingTerminalJobID == nil else { return }
-        if let lastSteamLibraryCheck,
+        if !force,
+           let lastSteamLibraryCheck,
            Date().timeIntervalSince(lastSteamLibraryCheck) < steamLibraryCheckInterval {
             return
         }
@@ -1132,6 +1134,8 @@ struct ContentView: View {
                 steamLibraryCheckInFlight = false
                 lastSteamLibraryCheck = Date()
                 guard let games else { return }
+
+                pendingBrokenSteamInstalls = SteamLibraryMonitor.brokenInstalls(in: games).count
 
                 let snapshotExists = FileManager.default.fileExists(atPath: snapshotURL.path)
                 let snapshot = SteamLibraryMonitor.loadSnapshotAppIDs(bottleName: bottleName)
@@ -1314,13 +1318,53 @@ struct ContentView: View {
     private var steamHealthNoticesSection: some View {
         if isSteamReady {
             VStack(alignment: .leading, spacing: 10) {
-                if steamHealth.needsMingwForWrapper {
-                    CosmosNoticeBanner(
-                        tint: .orange,
-                        systemImage: "hammer.fill",
-                        title: "mingw-w64 recommended",
-                        message: "Install Homebrew mingw-w64 so Cosmos can build the MIT steamwebhelper wrapper. Without it, Steam's store browser may be unstable. Run: brew install mingw-w64"
-                    )
+                if steamHealth.needsMingwForWrapper || steamHealth.needsWrapperInstall {
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "hammer.fill",
+                            title: steamHealth.needsMingwForWrapper ? "mingw-w64 recommended" : "steamwebhelper wrapper missing",
+                            message: steamHealth.needsMingwForWrapper
+                                ? "Install Homebrew mingw-w64 so Cosmos can build the MIT steamwebhelper wrapper. Without it, Steam's store browser may be unstable."
+                                : "Steam is installed but the CEF wrapper is not active. Install it to stabilize the store browser and login pages."
+                        )
+                        if steamHealth.needsWrapperInstall {
+                            Button("Install Wrapper") {
+                                runCommand(
+                                    script: "repair.command",
+                                    arguments: ["apply-fix", "install_steamwebhelper_wrapper"],
+                                    environment: bottleEnvironment()
+                                )
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            .font(.subheadline)
+                        }
+                    }
+                }
+                if steamHealth.hasBrokenInstalls || pendingBrokenSteamInstalls > 0 {
+                    let broken = max(steamHealth.gamesBroken, pendingBrokenSteamInstalls)
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "exclamationmark.triangle.fill",
+                            title: "Steam installs need attention",
+                            message: "\(broken) Wine Steam game\(broken == 1 ? "" : "s") have a missing install folder or game .exe. Reinstall in Steam or verify the library."
+                        )
+                        HStack(spacing: 10) {
+                            Button("Verify Library") {
+                                runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            Button("Sync Launchers") {
+                                syncSteamLibrary(announce: true)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                        }
+                        .font(.subheadline)
+                    }
                 }
                 if steamHealth.hasDualInstallWarning {
                     let ids = steamHealth.dualInstallAppIDs.prefix(6).joined(separator: ", ")
@@ -4219,6 +4263,10 @@ struct ContentView: View {
                     }
                 }
                 refreshStatus()
+                if shouldRefreshSteamAfterCommand(script: script, arguments: arguments) {
+                    refreshSteamHealth()
+                    checkSteamLibraryForNewGames(autoSync: false, force: true)
+                }
             }
         }
 
@@ -4230,6 +4278,21 @@ struct ContentView: View {
             output = message
             showBanner(kind: .failure, message: message)
             refreshStatus()
+        }
+    }
+
+    private func shouldRefreshSteamAfterCommand(script: String, arguments: [String]) -> Bool {
+        switch script {
+        case "run.command":
+            return arguments.contains("--verify-steam") || arguments.contains("--install-steamwebhelper")
+        case "detect_steam_games.command":
+            return arguments.contains(where: { $0 == "--verify" || $0 == "--sync" || $0 == "--install" })
+        case "repair.command":
+            return arguments.contains(where: {
+                $0 == "install_steamwebhelper_wrapper" || $0 == "fix_steam_cloud_paths"
+            })
+        default:
+            return false
         }
     }
 

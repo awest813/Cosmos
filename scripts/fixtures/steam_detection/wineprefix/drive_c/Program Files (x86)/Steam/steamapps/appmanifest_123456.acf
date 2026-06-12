@@ -1,0 +1,9 @@
+"AppState"
+{
+	"appid"		"123456"
+	"Universe"		"1"
+	"name"		"Broken Install Test"
+	"StateFlags"		"4"
+	"installdir"		"broken-install-test"
+	"LastUpdated"		"1700000000"
+}

@@ -14,6 +14,8 @@ final class SteamHealthMonitorTests: XCTestCase {
         dual_install_appids=730,440
         userdata_present=0
         cloud_log_warning=1
+        games_installed=3
+        games_broken=1
         """
         let status = SteamHealthMonitor.parse(lines: sample)
         XCTAssertTrue(status.prefixInitialized)
@@ -26,5 +28,9 @@ final class SteamHealthMonitorTests: XCTestCase {
         XCTAssertTrue(status.needsMingwForWrapper)
         XCTAssertTrue(status.hasDualInstallWarning)
         XCTAssertTrue(status.hasCloudWarning)
+        XCTAssertEqual(status.gamesInstalled, 3)
+        XCTAssertEqual(status.gamesBroken, 1)
+        XCTAssertTrue(status.hasBrokenInstalls)
+        XCTAssertTrue(status.needsWrapperInstall)
     }
 }

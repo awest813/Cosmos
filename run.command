@@ -300,6 +300,8 @@ Actions:
   --sync-steam             Build launchers for newly installed Steam games only.
   --sync-gog [--build]     Register detected GOG games missing launcher configs.
   --steam-health           Print Steam prefix health (key=value), then exit.
+  --install-steamwebhelper Build/install MIT steamwebhelper wrapper (needs mingw-w64).
+  --verify-steam           List Wine Steam games and verify install folders/exes.
   --reset-bottle [--force] Delete the Wine prefix so it is recreated next launch.
 EOF
 }
@@ -393,6 +395,20 @@ parse_arguments() {
       shift
       COSMOS_SYNC_GOG_ARGS=("$@")
       COSMOS_LAUNCH_MODE="sync-gog"
+      return 0
+      ;;
+    --install-steamwebhelper)
+      if (($# > 1)); then
+        die "The --install-steamwebhelper flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="install-steamwebhelper"
+      return 0
+      ;;
+    --verify-steam)
+      if (($# > 1)); then
+        die "The --verify-steam flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="verify-steam"
       return 0
       ;;
     --status|--doctor)
@@ -1641,6 +1657,15 @@ main() {
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "sync-gog" ]]; then
     "${SCRIPT_DIR}/import_game.command" sync-gog "${COSMOS_SYNC_GOG_ARGS[@]:-}"
+    return $?
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "verify-steam" ]]; then
+    "${SCRIPT_DIR}/detect_steam_games.command" --list --verify
+    return $?
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "install-steamwebhelper" ]]; then
+    require_supported_macos
+    "${SCRIPT_DIR}/repair.command" apply-fix install_steamwebhelper_wrapper
     return $?
   fi
   require_supported_macos

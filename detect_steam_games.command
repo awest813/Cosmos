@@ -167,13 +167,31 @@ appid_in_snapshot() {
 }
 
 emit_json_game_list() {
-  local i
+  local i verify_lines installdir_ok exe_ok game_exe_rel status source
   printf '['
   for i in "${!appids[@]}"; do
     (( i > 0 )) && printf ','
-    python3 - "${appids[$i]}" "${names[$i]}" <<'PY'
+    verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appids[$i]}" 2>/dev/null || true)"
+    installdir_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="installdir_ok"{print $2; exit}')"
+    exe_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="exe_ok"{print $2; exit}')"
+    game_exe_rel="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="game_exe_rel"{print $2; exit}')"
+    status="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="status"{print $2; exit}')"
+    source="$(detect_appid_source_label "${appids[$i]}" | sed 's/^[[:space:]]*//;s/\[//g;s/\]//g')"
+    python3 - "${appids[$i]}" "${names[$i]}" "${installdir_ok:-0}" "${exe_ok:-0}" \
+      "${game_exe_rel:-}" "${status:-unknown}" "${source:-}" <<'PY'
 import json, sys
-print(json.dumps({"appid": sys.argv[1], "name": sys.argv[2]}), end="")
+item = {
+    "appid": sys.argv[1],
+    "name": sys.argv[2],
+    "installdir_ok": sys.argv[3] == "1",
+    "exe_ok": sys.argv[4] == "1",
+    "install_status": sys.argv[6] or "unknown",
+}
+if sys.argv[5]:
+    item["game_exe"] = sys.argv[5]
+if sys.argv[7]:
+    item["source"] = sys.argv[7]
+print(json.dumps(item), end="")
 PY
   done
   printf ']\n'
@@ -249,6 +267,16 @@ detect_appid_source_label() {
 
 detect_appid_in_wine_prefix() {
   [[ "${DETECT_WINE_APPIDS}" == *" $1 "* ]]
+}
+
+# True when installdir and a playable .exe exist on disk for a Wine-prefix title.
+detect_install_is_healthy() {
+  local appid="$1"
+  local verify_lines installdir_ok exe_ok
+  verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appid}" 2>/dev/null || true)"
+  installdir_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="installdir_ok"{print $2; exit}')"
+  exe_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="exe_ok"{print $2; exit}')"
+  [[ "${installdir_ok}" == "1" && "${exe_ok}" == "1" ]]
 }
 
 scan_steamapps_library() {
@@ -602,6 +630,20 @@ main() {
         backend="$(profile_get_scalar "${pf}" recommended_backend)"
         note+="  [profile: ${status:-?}/${backend:-?}]"
       fi
+      if detect_appid_in_wine_prefix "${appids[$i]}"; then
+        local verify_lines installdir_ok exe_ok install_status
+        verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appids[$i]}" 2>/dev/null || true)"
+        installdir_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="installdir_ok"{print $2; exit}')"
+        exe_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="exe_ok"{print $2; exit}')"
+        install_status="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="status"{print $2; exit}')"
+        if [[ "${installdir_ok}" != "1" ]]; then
+          note+="  [install: missing folder]"
+        elif [[ "${exe_ok}" != "1" ]]; then
+          note+="  [install: missing exe]"
+        elif [[ "${MODE}" == "verify" && -n "${install_status}" ]]; then
+          note+="  [install: ${install_status}]"
+        fi
+      fi
       printf '  %-8s %s%s\n' "${appids[$i]}" "${names[$i]}" "${note}"
     done
     if [[ "${MODE}" == "verify" ]]; then
@@ -641,6 +683,12 @@ main() {
   for i in "${!appids[@]}"; do
     if ! detect_appid_in_wine_prefix "${appids[$i]}"; then
       printf '  skip   %-8s %s (native Steam only — not in Wine prefix)\n' \
+        "${appids[$i]}" "${names[$i]}"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    if ! detect_install_is_healthy "${appids[$i]}"; then
+      printf '  skip   %-8s %s (broken install — missing folder or .exe)\n' \
         "${appids[$i]}" "${names[$i]}"
       skipped=$((skipped + 1))
       continue

@@ -13,8 +13,14 @@ final class SteamLibraryMonitorTests: XCTestCase {
 
     func testNewGamesComparedToSnapshot() {
         let current = [
-            SteamLibraryMonitor.DetectedGame(appID: "730", name: "CS2"),
-            SteamLibraryMonitor.DetectedGame(appID: "440", name: "TF2"),
+            SteamLibraryMonitor.DetectedGame(
+                appID: "730", name: "CS2", installdirOK: true, exeOK: true,
+                gameExe: nil, installStatus: "ok", source: nil
+            ),
+            SteamLibraryMonitor.DetectedGame(
+                appID: "440", name: "TF2", installdirOK: false, exeOK: false,
+                gameExe: nil, installStatus: "missing_installdir", source: nil
+            ),
         ]
         let snapshot: Set<String> = ["730"]
         let fresh = SteamLibraryMonitor.newGames(comparedTo: snapshot, current: current)
@@ -41,6 +47,20 @@ final class SteamLibraryMonitorTests: XCTestCase {
             status: "seeded", newCount: 0, removedCount: 0, exitCode: 0, output: ""
         )
         XCTAssertTrue(seeded.succeeded)
+    }
+
+    func testBrokenInstallsFilter() {
+        let games = [
+            SteamLibraryMonitor.DetectedGame(
+                appID: "570", name: "Dota", installdirOK: true, exeOK: true,
+                gameExe: "drive_c/x", installStatus: "ok", source: nil
+            ),
+            SteamLibraryMonitor.DetectedGame(
+                appID: "123", name: "Broken", installdirOK: false, exeOK: false,
+                gameExe: nil, installStatus: "missing_installdir", source: nil
+            ),
+        ]
+        XCTAssertEqual(SteamLibraryMonitor.brokenInstalls(in: games).map(\.appID), ["123"])
     }
 
     func testSnapshotURLUsesSupportDirectory() throws {
