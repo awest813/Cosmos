@@ -2489,8 +2489,8 @@ struct ContentView: View {
             onSyncSteam: { syncSteamLibrary(announce: true) },
             onSyncGog: { syncGogLibrary(build: false, announce: true) },
             onRegisterGogBuild: { syncGogLibrary(build: true, announce: true) },
-            onSyncAll: syncAllLibrarySources,
-            onBuildLaunchers: buildLaunchers,
+            onSyncAll: { syncAllLibrarySources() },
+            onBuildLaunchers: { buildLaunchers() },
             onLaunchSteam: launchSteamFromDashboard,
             onContinueSetup: {
                 dashboardSection = .launch
