@@ -134,14 +134,23 @@ enum SavedProfileStore {
 
         let launchPath = !path.isEmpty ? path : gameExePath
 
+        let gogSlug = Self.gogSlug(fromConfigBasename: fileURL.lastPathComponent)
+
         return SavedProfile(
             id: fileURL.lastPathComponent,
             name: appName,
             path: launchPath,
             args: args,
             steamAppID: steamAppID,
+            gogSlug: gogSlug,
             fileURL: fileURL
         )
+    }
+
+    private static func gogSlug(fromConfigBasename basename: String) -> String? {
+        guard basename.hasPrefix("gog-"), basename.hasSuffix(".conf") else { return nil }
+        let slug = String(basename.dropFirst(4).dropLast(5))
+        return slug.isEmpty ? nil : slug
     }
 }
 
@@ -151,6 +160,7 @@ struct SavedProfile: Identifiable, Hashable {
     let path: String
     let args: String
     let steamAppID: String?
+    let gogSlug: String?
     let fileURL: URL
 
     var canLaunchFromDashboard: Bool {

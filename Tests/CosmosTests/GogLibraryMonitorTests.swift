@@ -11,6 +11,18 @@ final class GogLibraryMonitorTests: XCTestCase {
         XCTAssertEqual(games?.first?.slug, "celeste")
     }
 
+    func testParseSyncOutput() {
+        let output = """
+        registered slug=celeste title=Celeste
+        sync_status=updated
+        sync_new=1
+        sync_skipped=0
+        """
+        XCTAssertEqual(GogLibraryMonitor.parseSyncStatus(from: output), "updated")
+        XCTAssertEqual(GogLibraryMonitor.parseSyncIntegerField("sync_new", from: output), 1)
+        XCTAssertEqual(GogLibraryMonitor.parseSyncIntegerField("sync_skipped", from: output), 0)
+    }
+
     func testUnregisteredFiltersExistingConfigs() throws {
         let games = [
             GogLibraryMonitor.DetectedGame(slug: "celeste", title: "Celeste", exe: "drive_c/x"),

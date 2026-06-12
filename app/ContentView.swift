@@ -144,6 +144,14 @@ struct ContentView: View {
         return nil
     }
 
+    /// GOG slug from a saved launcher config or curated GOG YAML profile.
+    private var activeGogSlug: String? {
+        if let slug = selectedProfile?.gogSlug, !slug.isEmpty { return slug }
+        if let slug = selectedGameProfile?.gogSlug, !slug.isEmpty { return slug }
+        if selectedGameProfile?.store == "gog" { return selectedGameProfile?.id }
+        return nil
+    }
+
     var body: some View {
         NavigationSplitView {
             sidebarContent
@@ -1058,6 +1066,54 @@ struct ContentView: View {
         }
     }
 
+    private func syncGogLibrary(build: Bool, announce: Bool) {
+        guard !isRunning, pendingTerminalJobID == nil else { return }
+        guard let importScript = resolveScript("import_game.command") else { return }
+        consoleExpanded = true
+        isRunning = true
+        let env = bottleEnvironment()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = GogLibraryMonitor.syncUnregistered(
+                importScript: importScript,
+                environment: env,
+                build: build
+            )
+            DispatchQueue.main.async {
+                isRunning = false
+                applyGogLibrarySyncResult(result, build: build, announce: announce)
+            }
+        }
+    }
+
+    private func applyGogLibrarySyncResult(
+        _ result: GogLibraryMonitor.SyncResult?,
+        build: Bool,
+        announce: Bool
+    ) {
+        guard let result else {
+            if announce {
+                showBanner(kind: .failure, message: "GOG sync failed — could not run import_game.command sync-gog.")
+            }
+            return
+        }
+        if !result.output.isEmpty {
+            output = result.output + "\n\n" + output
+        }
+        pendingUnregisteredGogGames = max(0, pendingUnregisteredGogGames - result.newCount)
+        refreshStatus()
+        checkGogLibraryForUnregistered()
+        guard announce else { return }
+        if result.newCount > 0 {
+            let built = build ? " Launchers built where possible." : ""
+            showBanner(
+                kind: .success,
+                message: "Registered \(result.newCount) GOG game\(result.newCount == 1 ? "" : "s").\(built)"
+            )
+        } else {
+            showBanner(kind: .info, message: "All detected GOG games already have launcher configs.")
+        }
+    }
+
     private func checkSteamLibraryForNewGames(autoSync: Bool) {
         guard isSteamReady, !isRunning, !steamLibraryCheckInFlight, pendingTerminalJobID == nil else { return }
         if let lastSteamLibraryCheck,
@@ -1276,20 +1332,59 @@ struct ContentView: View {
                     )
                 }
                 if steamHealth.hasCloudWarning {
-                    CosmosNoticeBanner(
-                        tint: .orange,
-                        systemImage: "icloud.and.arrow.up",
-                        title: "Steam Cloud",
-                        message: "Cloud sync issues were detected in recent Steam logs or userdata is missing. Run Repair → Diagnose, or apply fix_steam_cloud_paths from the Library tab."
-                    )
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "icloud.and.arrow.up",
+                            title: "Steam Cloud",
+                            message: "Cloud sync issues were detected in recent Steam logs or userdata is missing."
+                        )
+                        HStack(spacing: 10) {
+                            Button("Diagnose") {
+                                runCommand(script: "repair.command", arguments: ["diagnose"], environment: repairEnvironment())
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                            Button("Apply Cloud Fix") {
+                                runCommand(
+                                    script: "repair.command",
+                                    arguments: ["apply-fix", "fix_steam_cloud_paths"],
+                                    environment: repairEnvironment()
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                        }
+                        .font(.subheadline)
+                    }
                 }
                 if pendingUnregisteredGogGames > 0 {
-                    CosmosNoticeBanner(
-                        tint: .blue,
-                        systemImage: "opticaldisc.fill",
-                        title: "GOG games ready to register",
-                        message: "\(pendingUnregisteredGogGames) GOG install\(pendingUnregisteredGogGames == 1 ? "" : "s") found without launcher configs. Open Tools → List GOG Games, then use GOG Game to register each title."
-                    )
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .blue,
+                            systemImage: "opticaldisc.fill",
+                            title: "GOG games ready to register",
+                            message: "\(pendingUnregisteredGogGames) GOG install\(pendingUnregisteredGogGames == 1 ? "" : "s") found without launcher configs."
+                        )
+                        HStack(spacing: 10) {
+                            Button("Register All") {
+                                syncGogLibrary(build: false, announce: true)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            Button("Register + Build") {
+                                syncGogLibrary(build: true, announce: true)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                            Button("List Games") {
+                                runCommand(script: "import_game.command", arguments: ["list-gog"], environment: bottleEnvironment())
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                        }
+                        .font(.subheadline)
+                    }
                 }
             }
         }
@@ -2450,6 +2545,13 @@ struct ContentView: View {
                     arguments: ["list-gog"]
                 )
                 storeActionButton(
+                    title: "Sync GOG Games",
+                    subtitle: "Register + build launchers",
+                    systemImage: "arrow.triangle.2.circlepath",
+                    script: "import_game.command",
+                    arguments: ["sync-gog", "--build"]
+                )
+                storeActionButton(
                     title: "itch.io Folder",
                     subtitle: "Windows download",
                     systemImage: "folder.fill",
@@ -2693,7 +2795,19 @@ struct ContentView: View {
                     .buttonStyle(.bordered)
                     .disabled(isRunning)
 
-                    if selectedGameProfile != nil {
+                    if let profile = selectedGameProfile, profile.store == "gog", let slug = activeGogSlug {
+                        Button {
+                            runCommand(
+                                script: "profile.command",
+                                arguments: ["for-gog-slug", slug, "apply"],
+                                environment: bottleEnvironment()
+                            )
+                        } label: {
+                            Label("Apply GOG Profile", systemImage: "doc.text.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isRunning)
+                    } else if selectedGameProfile != nil {
                         Button {
                             runCommand(
                                 script: "profile.command",
@@ -2741,8 +2855,29 @@ struct ContentView: View {
                     .disabled(isRunning)
                 }
                 .padding(.top, 4)
+            } else if let slug = activeGogSlug, let profile = selectedGameProfile ?? GameProfileStore.find(gogSlug: slug) {
+                detailRow(title: "GOG slug", value: slug)
+                if profile.store == "gog" {
+                    CosmosCompatBadge(status: profile.statusLabel)
+                }
+                Button {
+                    runCommand(
+                        script: "profile.command",
+                        arguments: ["for-gog-slug", slug, "apply"],
+                        environment: bottleEnvironment()
+                    )
+                } label: {
+                    Label("Apply GOG Profile", systemImage: "doc.text.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning)
+                if !profile.steamAppID.isEmpty {
+                    Text("Steam App ID \(profile.steamAppID) — use a Steam launcher profile for CosmosDB lookup.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             } else {
-                Text("Select a saved launcher profile or curated YAML profile with a Steam App ID to look up or report compatibility.")
+                Text("Select a saved launcher or curated YAML profile (Steam App ID or GOG slug) to look up or apply compatibility settings.")
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
             }

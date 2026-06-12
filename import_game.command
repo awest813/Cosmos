@@ -58,6 +58,7 @@ Usage: import_game.command <command> [args]
 Commands:
   list                          List non-Steam launcher configs.
   list-gog [--json]               List GOG games detected under drive_c/GOG Games.
+  sync-gog [--build]              Register all detected GOG games missing launcher configs.
   add-exe <path> --name <title> [--slug <id>] [--bottle <name>]
                                 Register an installed .exe as a Cosmos launcher.
   run-installer <file>        Run a Windows .exe/.msi installer in the prefix.
@@ -205,6 +206,55 @@ PY
     echo "Install with: ./import_game.command add-gog <setup.exe> --name \"Game Title\""
     echo "GOG offline installers place games under drive_c/GOG Games/ by default."
   fi
+}
+
+cmd_sync_gog() {
+  local build=0
+  while (($#)); do
+    case "$1" in
+      --build) build=1; shift ;;
+      *) die "Unknown option: $1 (try: sync-gog [--build])" ;;
+    esac
+  done
+
+  local slug title exe new_count=0 skipped=0
+  local -a new_configs=()
+  while IFS=$'\t' read -r slug title exe; do
+    [[ -n "${slug}" ]] || continue
+    local conf="${CONFIGS_DIR}/gog-${slug}.conf"
+    if [[ -f "${conf}" ]]; then
+      skipped=$((skipped + 1))
+      continue
+    fi
+    local bundle_id="com.cosmos.gog-${slug}"
+    import_write_gog_config "${CONFIGS_DIR}" "${slug}" "${title}" "${bundle_id}" "${exe}" >/dev/null
+    new_configs+=("gog-${slug}.conf")
+    new_count=$((new_count + 1))
+    printf 'registered slug=%s title=%s\n' "${slug}" "${title}"
+  done < <(import_scan_gog_games "${WINEPREFIX}")
+
+  import_refresh_library
+
+  if (( build && new_count > 0 )); then
+    if [[ "$(uname -s)" == "Darwin" && -x "${SCRIPT_DIR}/install_cosmos.command" ]]; then
+      log "Building GOG launchers via install_cosmos.command"
+      COSMOS_ALLOW_USER_APPS="${COSMOS_ALLOW_USER_APPS:-1}" \
+        "${SCRIPT_DIR}/install_cosmos.command" "${new_configs[@]}"
+    else
+      echo "Skipped launcher build (macOS + install_cosmos.command required)."
+      echo "Next: ./install_cosmos.command ${new_configs[*]}"
+    fi
+  elif (( new_count > 0 )); then
+    echo "Next: ./install_cosmos.command ${new_configs[*]}"
+  fi
+
+  if (( new_count > 0 )); then
+    printf 'sync_status=updated\n'
+  else
+    printf 'sync_status=current\n'
+  fi
+  printf 'sync_new=%s\n' "${new_count}"
+  printf 'sync_skipped=%s\n' "${skipped}"
 }
 
 cmd_add_gog() {
@@ -454,6 +504,7 @@ main() {
     run-installer) cmd_run_installer "$@" ;;
     add-gog) cmd_add_gog "$@" ;;
     list-gog) cmd_list_gog "$@" ;;
+    sync-gog) cmd_sync_gog "$@" ;;
     add-itch) cmd_add_itch "$@" ;;
     install-battlenet) cmd_install_battlenet "$@" ;;
     list-battlenet) cmd_list_battlenet ;;
