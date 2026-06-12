@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// Scroll targets used by menus, context menus, and dashboard navigation.
+enum CosmosScrollAnchor {
+    static let gameLibrary = "game-library-section"
+    static let gameProfiles = "game-profiles-section"
+    static let repair = "repair-section"
+    static let compatibility = "compatibility-section"
+    static let storeImport = "store-import-section"
+}
+
 // MARK: - Design tokens
 
 enum CosmosSpacing {

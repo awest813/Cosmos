@@ -34,6 +34,10 @@ struct CosmosApp: App {
                     NotificationCenter.default.post(name: .cosmosShowSelectedInLibrary, object: nil)
                 }
                 .disabled(!appState.hasSelectedProfile || !appState.isSteamReady)
+                Button("Show Launch Details") {
+                    NotificationCenter.default.post(name: .cosmosShowSelectedOnLaunch, object: nil)
+                }
+                .disabled(!appState.hasSelectedProfile || !appState.isSteamReady)
             }
 
             CommandGroup(after: .sidebar) {

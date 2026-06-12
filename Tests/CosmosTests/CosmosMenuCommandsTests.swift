@@ -24,6 +24,7 @@ final class CosmosMenuCommandsTests: XCTestCase {
             .cosmosAddGameProfile,
             .cosmosSyncAllLibrary,
             .cosmosShowSelectedInLibrary,
+            .cosmosShowSelectedOnLaunch,
             .cosmosApplyInstalledProfiles,
         ]
         let raw = names.map(\.rawValue)

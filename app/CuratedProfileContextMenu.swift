@@ -7,6 +7,7 @@ struct CuratedProfileContextMenuItems: View {
     let isRunning: Bool
     var onApply: () -> Void
     var onShowCompatibility: () -> Void
+    var onFindLauncher: (() -> Void)?
 
     var body: some View {
         Button(action: onApply) {
@@ -18,6 +19,12 @@ struct CuratedProfileContextMenuItems: View {
             Label("Look Up Compatibility", systemImage: "magnifyingglass")
         }
         .disabled(isRunning || profile.steamAppID.isEmpty)
+
+        if let onFindLauncher {
+            Button(action: onFindLauncher) {
+                Label("Find in Game Library", systemImage: "square.grid.2x2")
+            }
+        }
 
         if profile.isUserAuthored {
             Button {
@@ -56,14 +63,16 @@ extension View {
         profile: GameProfile,
         isRunning: Bool,
         onApply: @escaping () -> Void,
-        onShowCompatibility: @escaping () -> Void
+        onShowCompatibility: @escaping () -> Void,
+        onFindLauncher: (() -> Void)? = nil
     ) -> some View {
         contextMenu {
             CuratedProfileContextMenuItems(
                 profile: profile,
                 isRunning: isRunning,
                 onApply: onApply,
-                onShowCompatibility: onShowCompatibility
+                onShowCompatibility: onShowCompatibility,
+                onFindLauncher: onFindLauncher
             )
         }
     }

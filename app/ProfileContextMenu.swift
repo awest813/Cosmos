@@ -4,6 +4,7 @@ import SwiftUI
 /// Optional extra actions for saved launcher profile menus.
 struct ProfileContextMenuExtras {
     var onShowInLibrary: (() -> Void)?
+    var onShowOnLaunch: (() -> Void)?
     var onApplyCurated: (() -> Void)?
     var onVerifyInstall: (() -> Void)?
 }
@@ -37,6 +38,12 @@ struct ProfileContextMenuItems: View {
         if let onShowInLibrary = extras.onShowInLibrary {
             Button(action: onShowInLibrary) {
                 Label("Show in Game Library", systemImage: "square.grid.2x2")
+            }
+        }
+
+        if let onShowOnLaunch = extras.onShowOnLaunch {
+            Button(action: onShowOnLaunch) {
+                Label("Show on Launch Tab", systemImage: "bolt.fill")
             }
         }
 

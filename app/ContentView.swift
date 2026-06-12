@@ -57,6 +57,8 @@ struct ContentView: View {
     @State private var pendingScrollToImport = false
     @State private var pendingScrollToRepair = false
     @State private var pendingScrollToGameProfiles = false
+    @State private var pendingScrollToGameLibrary = false
+    @State private var pendingScrollToCompatibility = false
     @State private var showAddGameProfileSheet = false
 
     @State private var gameProfiles: [GameProfile] = []
@@ -312,6 +314,9 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosShowSelectedInLibrary)) { _ in
             showSelectedProfileInLibrary()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosShowSelectedOnLaunch)) { _ in
+            showSelectedProfileOnLaunch()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosApplyInstalledProfiles)) { _ in
             focusGameLibrary(scrollToProfiles: true)
@@ -673,6 +678,17 @@ struct ContentView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(sidebarProfileAccessibilityLabel(profile, badge: badge))
         .accessibilityAddTraits(profile.id == selectedProfileID ? .isSelected : [])
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                guard profile.canLaunchFromDashboard,
+                      wineRuntime.canStartWineLaunch,
+                      !isRunning else { return }
+                selectedProfileID = profile.id
+                focusDashboardSection(.launch)
+                launchProfile(profile)
+            }
+        )
+        .help(profile.canLaunchFromDashboard ? "Double-click to launch" : "Select to view launch options")
         .profileContextMenu(
             profile: profile,
             isFavorite: ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences),
@@ -753,13 +769,19 @@ struct ContentView: View {
                     withAnimation(.easeOut(duration: 0.25)) {
                         if section == .tools, pendingScrollToImport {
                             pendingScrollToImport = false
-                            proxy.scrollTo("store-import-section", anchor: .top)
+                            proxy.scrollTo(CosmosScrollAnchor.storeImport, anchor: .top)
+                        } else if section == .library, pendingScrollToGameLibrary {
+                            pendingScrollToGameLibrary = false
+                            proxy.scrollTo(CosmosScrollAnchor.gameLibrary, anchor: .top)
                         } else if section == .library, pendingScrollToGameProfiles {
                             pendingScrollToGameProfiles = false
-                            proxy.scrollTo("game-profiles-section", anchor: .top)
+                            proxy.scrollTo(CosmosScrollAnchor.gameProfiles, anchor: .top)
                         } else if section == .library, pendingScrollToRepair {
                             pendingScrollToRepair = false
-                            proxy.scrollTo("repair-section", anchor: .top)
+                            proxy.scrollTo(CosmosScrollAnchor.repair, anchor: .top)
+                        } else if section == .library, pendingScrollToCompatibility {
+                            pendingScrollToCompatibility = false
+                            proxy.scrollTo(CosmosScrollAnchor.compatibility, anchor: .top)
                         }
                     }
                 }
@@ -1955,14 +1977,25 @@ struct ContentView: View {
         }
     }
 
-    private func focusGameLibrary(scrollToProfiles: Bool = false, scrollToRepair: Bool = false) {
+    private func focusGameLibrary(
+        scrollToLibrary: Bool = false,
+        scrollToProfiles: Bool = false,
+        scrollToRepair: Bool = false,
+        scrollToCompatibility: Bool = false
+    ) {
         focusDashboardSection(.library)
         consoleExpanded = true
+        if scrollToLibrary {
+            pendingScrollToGameLibrary = true
+        }
         if scrollToProfiles {
             pendingScrollToGameProfiles = true
         }
         if scrollToRepair {
             pendingScrollToRepair = true
+        }
+        if scrollToCompatibility {
+            pendingScrollToCompatibility = true
         }
     }
 
@@ -1984,12 +2017,34 @@ struct ContentView: View {
 
     private func showSelectedProfileInLibrary() {
         guard selectedProfile != nil else { return }
-        focusGameLibrary()
+        focusGameLibrary(scrollToLibrary: true)
+    }
+
+    private func showSelectedProfileOnLaunch() {
+        guard selectedProfile != nil else { return }
+        focusDashboardSection(.launch)
     }
 
     private func openImportTools() {
-        dashboardSection = .tools
+        focusToolsSection()
         pendingScrollToImport = true
+    }
+
+    private func findSavedLauncher(for profile: GameProfile) -> SavedProfile? {
+        if !profile.steamAppID.isEmpty,
+           let match = profiles.first(where: { $0.steamAppID == profile.steamAppID }) {
+            return match
+        }
+        if !profile.gogSlug.isEmpty,
+           let match = profiles.first(where: { $0.gogSlug?.lowercased() == profile.gogSlug.lowercased() }) {
+            return match
+        }
+        return profiles.first { $0.name.localizedCaseInsensitiveCompare(profile.name) == .orderedSame }
+    }
+
+    private func showSavedLauncherInLibrary(_ profile: SavedProfile) {
+        selectedProfileID = profile.id
+        focusGameLibrary(scrollToLibrary: true)
     }
 
     private func runDiagnose() {
@@ -2005,7 +2060,11 @@ struct ContentView: View {
         ProfileContextMenuExtras(
             onShowInLibrary: {
                 selectedProfileID = profile.id
-                focusGameLibrary()
+                focusGameLibrary(scrollToLibrary: true)
+            },
+            onShowOnLaunch: {
+                selectedProfileID = profile.id
+                focusDashboardSection(.launch)
             },
             onApplyCurated: {
                 focusGameLibrary(scrollToProfiles: true)
@@ -2021,7 +2080,7 @@ struct ContentView: View {
                 }
             },
             onVerifyInstall: profile.libraryStore == .steam ? {
-                focusGameLibrary()
+                focusGameLibrary(scrollToLibrary: true)
                 verifySteamInstall()
             } : nil
         )
@@ -2045,8 +2104,8 @@ struct ContentView: View {
     private func compatLookupForGameProfile(_ profile: GameProfile) {
         guard !profile.steamAppID.isEmpty else { return }
         selectedGameProfileID = profile.id
-        dashboardSection = .library
         setupCompatAppID = profile.steamAppID
+        focusGameLibrary(scrollToCompatibility: true)
         runCommand(script: "cosmosdb.command", arguments: ["lookup", profile.steamAppID])
     }
 
@@ -2765,6 +2824,7 @@ struct ContentView: View {
             onOpenImport: { openImportTools() },
             onAddProfile: { openAddGameProfile() }
         )
+        .id(CosmosScrollAnchor.gameLibrary)
     }
 
     private func syncAllLibrarySources(preferSteamOnly: Bool = false) {
@@ -2862,7 +2922,7 @@ struct ContentView: View {
                 curatedProfileControls(profile)
             }
         }
-        .id("game-profiles-section")
+        .id(CosmosScrollAnchor.gameProfiles)
     }
 
     private func curatedProfileFilterChip(_ filter: CuratedProfileFilter) -> some View {
@@ -2933,7 +2993,10 @@ struct ContentView: View {
             profile: profile,
             isRunning: isRunning,
             onApply: { applyCuratedGameProfile(profile) },
-            onShowCompatibility: { compatLookupForGameProfile(profile) }
+            onShowCompatibility: { compatLookupForGameProfile(profile) },
+            onFindLauncher: findSavedLauncher(for: profile).map { launcher in
+                { showSavedLauncherInLibrary(launcher) }
+            }
         )
     }
 
@@ -3104,7 +3167,7 @@ struct ContentView: View {
                 recipeButtonGrid(fixRecipes, prefix: "apply-fix")
             }
         }
-        .id("repair-section")
+        .id(CosmosScrollAnchor.repair)
     }
 
     private func recipeButtonGrid(_ recipes: [RepairRecipe], prefix: String) -> some View {
@@ -3274,7 +3337,7 @@ struct ContentView: View {
                 .disabled(isRunning)
             }
         }
-        .id("store-import-section")
+        .id(CosmosScrollAnchor.storeImport)
     }
 
     private func storeActionButton(
@@ -3539,6 +3602,7 @@ struct ContentView: View {
         }
         .onChange(of: activeSteamAppID) { _ in refreshCompatBadge() }
         .onChange(of: selectedGameProfileID) { _ in refreshCompatBadge() }
+        .id(CosmosScrollAnchor.compatibility)
     }
 
     private static let cosmosStatusOptions = [
@@ -3909,7 +3973,7 @@ struct ContentView: View {
             }
             Spacer(minLength: 8)
             Button("Show Details") {
-                dashboardSection = .launch
+                showSelectedProfileOnLaunch()
             }
             .buttonStyle(.bordered)
             Button("Launch") {

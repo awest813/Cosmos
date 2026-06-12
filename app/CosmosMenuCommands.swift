@@ -22,5 +22,5 @@ extension Notification.Name {
     static let cosmosAddGameProfile = Notification.Name("com.cosmos.addGameProfile")
     static let cosmosSyncAllLibrary = Notification.Name("com.cosmos.syncAllLibrary")
     static let cosmosShowSelectedInLibrary = Notification.Name("com.cosmos.showSelectedInLibrary")
-    static let cosmosApplyInstalledProfiles = Notification.Name("com.cosmos.applyInstalledProfiles")
+    static let cosmosShowSelectedOnLaunch = Notification.Name("com.cosmos.showSelectedOnLaunch")
 }
