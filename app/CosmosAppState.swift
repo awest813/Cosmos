@@ -8,8 +8,10 @@ final class CosmosAppState: ObservableObject {
     private static let setupCompleteKey = "CosmosSetupComplete"
 
     @Published private(set) var isSetupComplete: Bool
+    @Published private(set) var isSteamReady: Bool = false
     @Published private(set) var canAcceptCommands: Bool = true
     @Published private(set) var canLaunchSelectedProfile: Bool = false
+    @Published private(set) var hasSelectedProfile: Bool = false
 
     private init() {
         isSetupComplete = UserDefaults.standard.bool(forKey: Self.setupCompleteKey)
@@ -21,12 +23,21 @@ final class CosmosAppState: ObservableObject {
         UserDefaults.standard.set(complete, forKey: Self.setupCompleteKey)
     }
 
-    func updateCommandAvailability(canAccept: Bool, canLaunchSelected: Bool) {
+    func updateSteamReady(_ ready: Bool) {
+        if isSteamReady != ready {
+            isSteamReady = ready
+        }
+    }
+
+    func updateCommandAvailability(canAccept: Bool, canLaunchSelected: Bool, hasSelected: Bool) {
         if canAcceptCommands != canAccept {
             canAcceptCommands = canAccept
         }
         if canLaunchSelectedProfile != canLaunchSelected {
             canLaunchSelectedProfile = canLaunchSelected
+        }
+        if hasSelectedProfile != hasSelected {
+            hasSelectedProfile = hasSelected
         }
     }
 }

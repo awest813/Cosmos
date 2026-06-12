@@ -55,6 +55,8 @@ struct ContentView: View {
     @State private var setupCompatAppID = ""
     @State private var consoleHasNewOutput = false
     @State private var pendingScrollToImport = false
+    @State private var pendingScrollToRepair = false
+    @State private var pendingScrollToGameProfiles = false
     @State private var showAddGameProfileSheet = false
 
     @State private var gameProfiles: [GameProfile] = []
@@ -183,38 +185,45 @@ struct ContentView: View {
             }
             appState.updateCommandAvailability(
                 canAccept: !isRunning,
-                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+                hasSelected: selectedProfile != nil
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRefreshStatus)) { _ in
             refreshStatus(message: "Status refreshed.")
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosContinueSetup)) { _ in
-            performNextSetupStep()
+            menuContinueSetup()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenSetupHelp)) { _ in
             openSetupHelp()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSelectSection)) { notification in
             guard let section = notification.object as? DashboardSection else { return }
-            if section == .launch || isSetupComplete {
-                dashboardSection = section
-            }
+            focusDashboardSection(section)
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncSteamLibrary)) { _ in
+            focusGameLibrary()
             syncAllLibrarySources(preferSteamOnly: true)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncAllLibrary)) { _ in
+            focusGameLibrary()
+            syncAllLibrarySources()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncGogLibrary)) { _ in
+            focusGameLibrary()
             syncGogLibrary(build: false, announce: true)
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncGogLibraryBuild)) { _ in
+            focusGameLibrary()
             syncGogLibrary(build: true, announce: true)
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosBuildLaunchers)) { _ in
+            focusGameLibrary()
             buildLaunchers()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosDetectSteamGames)) { _ in
-            dashboardSection = .library
+            focusGameLibrary()
             runCommand(
                 script: "detect_steam_games.command",
                 arguments: ["--list"],
@@ -230,6 +239,7 @@ struct ContentView: View {
         }
         .onChange(of: isSetupComplete) { complete in
             appState.updateSetupComplete(complete)
+            appState.updateSteamReady(isSteamReady)
             if complete {
                 if !showSetupCompleteBanner {
                     showSetupCompleteBanner = true
@@ -251,7 +261,8 @@ struct ContentView: View {
             refreshCompatBadge()
             appState.updateCommandAvailability(
                 canAccept: !isRunning,
-                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+                hasSelected: selectedProfile != nil
             )
         }
         .onChange(of: isRunning) { running in
@@ -263,25 +274,31 @@ struct ContentView: View {
         .onChange(of: profiles.count) { _, _ in
             appState.updateCommandAvailability(
                 canAccept: !isRunning,
-                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+                hasSelected: selectedProfile != nil
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosLaunchSelectedGame)) { _ in
+            focusDashboardSection(.launch)
             launchSelectedProfile()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosLaunchSteam)) { _ in
+            focusDashboardSection(.launch)
             launchSteamFromDashboard()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosVerifySteam)) { _ in
+            focusGameLibrary()
             verifySteamInstall()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosListGogGames)) { _ in
-            listGogGames()
+            openImportTools()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenLogs)) { _ in
+            consoleExpanded = true
             openLatestLogs()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRunDiagnose)) { _ in
+            focusGameLibrary(scrollToRepair: true)
             runDiagnose()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosCheckForUpdates)) { _ in
@@ -289,6 +306,16 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenImportTools)) { _ in
             openImportTools()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosAddGameProfile)) { _ in
+            openAddGameProfile()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosShowSelectedInLibrary)) { _ in
+            showSelectedProfileInLibrary()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosApplyInstalledProfiles)) { _ in
+            focusGameLibrary(scrollToProfiles: true)
+            applyInstalledCuratedProfiles()
         }
         .confirmationDialog(
             "Launch blocked title?",
@@ -691,15 +718,13 @@ struct ContentView: View {
                     }
                     steamHealthNoticesSection
                     heroSection
-                    if isSetupComplete {
+                    if isSteamReady {
+                        if !isSetupComplete {
+                            almostDoneSection
+                        }
                         dashboardSectionPicker
-                    } else if isSteamReady {
-                        almostDoneSection
-                    }
-                    setupAssistantSection
-                    if isSetupComplete {
                         dashboardSectionContent
-                    } else if !isSteamReady {
+                    } else {
                         setupLaunchHintSection
                         if showAdvancedSetupOptions {
                             steamWineSettingsSection
@@ -708,6 +733,7 @@ struct ContentView: View {
                             newUserMaintenanceSection
                         }
                     }
+                    setupAssistantSection
                     if isSteamReady, let selectedProfile {
                         if isSetupComplete, dashboardSection != .launch {
                             selectedProfileCompactBar(selectedProfile)
@@ -723,11 +749,18 @@ struct ContentView: View {
             }
             .cosmosContentBackground()
             .onChange(of: dashboardSection) { section in
-                guard section == .tools, pendingScrollToImport else { return }
-                pendingScrollToImport = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     withAnimation(.easeOut(duration: 0.25)) {
-                        proxy.scrollTo("store-import-section", anchor: .top)
+                        if section == .tools, pendingScrollToImport {
+                            pendingScrollToImport = false
+                            proxy.scrollTo("store-import-section", anchor: .top)
+                        } else if section == .library, pendingScrollToGameProfiles {
+                            pendingScrollToGameProfiles = false
+                            proxy.scrollTo("game-profiles-section", anchor: .top)
+                        } else if section == .library, pendingScrollToRepair {
+                            pendingScrollToRepair = false
+                            proxy.scrollTo("repair-section", anchor: .top)
+                        }
                     }
                 }
             }
@@ -1912,6 +1945,48 @@ struct ContentView: View {
         runCommand(script: "import_game.command", arguments: ["list-gog"], environment: bottleEnvironment())
     }
 
+    private func focusDashboardSection(_ section: DashboardSection) {
+        switch section {
+        case .launch:
+            dashboardSection = .launch
+        case .library, .tools, .bottles:
+            guard isSteamReady else { return }
+            dashboardSection = section
+        }
+    }
+
+    private func focusGameLibrary(scrollToProfiles: Bool = false, scrollToRepair: Bool = false) {
+        focusDashboardSection(.library)
+        consoleExpanded = true
+        if scrollToProfiles {
+            pendingScrollToGameProfiles = true
+        }
+        if scrollToRepair {
+            pendingScrollToRepair = true
+        }
+    }
+
+    private func focusToolsSection() {
+        focusDashboardSection(.tools)
+        consoleExpanded = true
+    }
+
+    private func menuContinueSetup() {
+        focusDashboardSection(.launch)
+        consoleExpanded = true
+        performNextSetupStep()
+    }
+
+    private func openAddGameProfile() {
+        focusGameLibrary(scrollToProfiles: true)
+        showAddGameProfileSheet = true
+    }
+
+    private func showSelectedProfileInLibrary() {
+        guard selectedProfile != nil else { return }
+        focusGameLibrary()
+    }
+
     private func openImportTools() {
         dashboardSection = .tools
         pendingScrollToImport = true
@@ -1929,10 +2004,11 @@ struct ContentView: View {
     private func profileContextMenuExtras(for profile: SavedProfile) -> ProfileContextMenuExtras {
         ProfileContextMenuExtras(
             onShowInLibrary: {
-                dashboardSection = .library
                 selectedProfileID = profile.id
+                focusGameLibrary()
             },
             onApplyCurated: {
+                focusGameLibrary(scrollToProfiles: true)
                 if let appid = profile.steamAppID, !appid.isEmpty,
                    let curated = GameProfileStore.find(steamAppID: appid) {
                     applyCuratedGameProfile(curated)
@@ -1944,7 +2020,10 @@ struct ContentView: View {
                     )
                 }
             },
-            onVerifyInstall: profile.libraryStore == .steam ? { verifySteamInstall() } : nil
+            onVerifyInstall: profile.libraryStore == .steam ? {
+                focusGameLibrary()
+                verifySteamInstall()
+            } : nil
         )
     }
 
@@ -2679,12 +2758,12 @@ struct ContentView: View {
             onBuildLaunchers: { buildLaunchers() },
             onLaunchSteam: launchSteamFromDashboard,
             onContinueSetup: {
-                dashboardSection = .launch
-                NotificationCenter.default.post(name: .cosmosContinueSetup, object: nil)
+                menuContinueSetup()
             },
             onListGog: { listGogGames() },
             onVerifySteam: { verifySteamInstall() },
-            onOpenImport: { openImportTools() }
+            onOpenImport: { openImportTools() },
+            onAddProfile: { openAddGameProfile() }
         )
     }
 
@@ -2783,6 +2862,7 @@ struct ContentView: View {
                 curatedProfileControls(profile)
             }
         }
+        .id("game-profiles-section")
     }
 
     private func curatedProfileFilterChip(_ filter: CuratedProfileFilter) -> some View {
@@ -3024,6 +3104,7 @@ struct ContentView: View {
                 recipeButtonGrid(fixRecipes, prefix: "apply-fix")
             }
         }
+        .id("repair-section")
     }
 
     private func recipeButtonGrid(_ recipes: [RepairRecipe], prefix: String) -> some View {
@@ -4373,6 +4454,12 @@ struct ContentView: View {
         refreshSteamHealth()
         checkGogLibraryForUnregistered()
         appState.updateSetupComplete(isSetupComplete)
+        appState.updateSteamReady(isSteamReady)
+        appState.updateCommandAvailability(
+            canAccept: !isRunning,
+            canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+            hasSelected: selectedProfile != nil
+        )
 
         if let message {
             output = message + "\n\n" + output

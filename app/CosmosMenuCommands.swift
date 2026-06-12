@@ -19,4 +19,8 @@ extension Notification.Name {
     static let cosmosCheckForUpdates = Notification.Name("com.cosmos.checkForUpdates")
     static let cosmosRunDiagnose = Notification.Name("com.cosmos.runDiagnose")
     static let cosmosOpenImportTools = Notification.Name("com.cosmos.openImportTools")
+    static let cosmosAddGameProfile = Notification.Name("com.cosmos.addGameProfile")
+    static let cosmosSyncAllLibrary = Notification.Name("com.cosmos.syncAllLibrary")
+    static let cosmosShowSelectedInLibrary = Notification.Name("com.cosmos.showSelectedInLibrary")
+    static let cosmosApplyInstalledProfiles = Notification.Name("com.cosmos.applyInstalledProfiles")
 }

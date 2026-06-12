@@ -159,6 +159,7 @@ struct GameLibraryToolbar: View {
     var onListGog: () -> Void
     var onVerifySteam: () -> Void
     var onOpenImport: () -> Void
+    var onAddProfile: () -> Void = {}
 
     private var pendingTotal: Int {
         pendingNewSteamGames + pendingUnregisteredGogGames
@@ -197,6 +198,9 @@ struct GameLibraryToolbar: View {
             .help("Filter library by store source")
 
             Menu {
+                Button(action: onAddProfile) {
+                    Label("Add Game Profile…", systemImage: "doc.badge.plus")
+                }
                 Button(action: onOpenImport) {
                     Label("Import Non-Steam Game…", systemImage: "plus.rectangle.on.folder")
                 }
@@ -632,6 +636,7 @@ struct GameLibrarySection: View {
     var onListGog: () -> Void
     var onVerifySteam: () -> Void
     var onOpenImport: () -> Void
+    var onAddProfile: () -> Void = {}
 
     private var filteredProfiles: [SavedProfile] {
         GameLibraryFilter.filter(profiles, query: searchText, source: sourceFilter)
@@ -670,7 +675,8 @@ struct GameLibrarySection: View {
                     onSyncAll: onSyncAll,
                     onListGog: onListGog,
                     onVerifySteam: onVerifySteam,
-                    onOpenImport: onOpenImport
+                    onOpenImport: onOpenImport,
+                    onAddProfile: onAddProfile
                 )
 
                 if let blankSlate {
