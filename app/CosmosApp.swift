@@ -2,9 +2,12 @@ import SwiftUI
 
 @main
 struct CosmosApp: App {
+    @ObservedObject private var appState = CosmosAppState.shared
+
     var body: some Scene {
         WindowGroup("Cosmos") {
             ContentView()
+                .environmentObject(appState)
                 .frame(minWidth: 960, minHeight: 640)
         }
         .defaultSize(width: 1100, height: 760)
@@ -14,8 +17,12 @@ struct CosmosApp: App {
             // Cosmos manages a single dashboard window; drop the "New" menu item.
             CommandGroup(replacing: .newItem) {}
             CommandGroup(after: .sidebar) {
-                Button("Continue Setup") {
-                    NotificationCenter.default.post(name: .cosmosContinueSetup, object: nil)
+                Button(appState.isSetupComplete ? "Refresh Status" : "Continue Setup") {
+                    if appState.isSetupComplete {
+                        NotificationCenter.default.post(name: .cosmosRefreshStatus, object: nil)
+                    } else {
+                        NotificationCenter.default.post(name: .cosmosContinueSetup, object: nil)
+                    }
                 }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
                 Button("Refresh Status") {

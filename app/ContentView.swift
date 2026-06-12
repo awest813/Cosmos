@@ -29,7 +29,8 @@ struct ContentView: View {
     @State private var showSetupCompleteBanner = false
     @State private var didCopyOutput = false
     @State private var dashboardSection: DashboardSection = .launch
-    @State private var commandBanner: CommandBanner?
+    @State private var commandBannerQueue = CommandBannerQueue()
+    @EnvironmentObject private var appState: CosmosAppState
     @State private var outputWasTrimmed = false
     @State private var storeImportRequest: StoreImportRequest?
     @State private var pendingTerminalJobID: String?
@@ -195,6 +196,7 @@ struct ContentView: View {
             checkSteamLibraryForNewGames(autoSync: true)
         }
         .onChange(of: isSetupComplete) { complete in
+            appState.updateSetupComplete(complete)
             if complete {
                 if !showSetupCompleteBanner {
                     showSetupCompleteBanner = true
@@ -248,7 +250,7 @@ struct ContentView: View {
                 onCancel: { storeImportRequest = nil },
                 onSubmit: { values in
                     submitStoreImport(request, values: values)
-                    storeImportRequest = nil
+                    return nil
                 }
             )
         }
@@ -509,19 +511,15 @@ struct ContentView: View {
         let isFavorite = ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences)
         return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
+                if isFavorite {
+                    Image(systemName: "star.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.yellow)
+                        .accessibilityLabel("Favorite")
+                }
                 Text(profile.name)
                     .font(.headline)
                     .lineLimit(1)
-                Button {
-                    profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: profile.id)
-                } label: {
-                    Image(systemName: isFavorite ? "star.fill" : "star")
-                        .font(.caption2)
-                        .foregroundStyle(isFavorite ? .yellow : .secondary.opacity(0.55))
-                }
-                .buttonStyle(.plain)
-                .help(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                 if let badge {
                     CosmosCompatBadge(status: badge.status, compact: true)
                 }
@@ -584,9 +582,16 @@ struct ContentView: View {
                 if showSetupCompleteBanner && isSetupComplete {
                     setupCompleteBanner
                 }
-                if let commandBanner {
-                    CommandBannerView(banner: commandBanner) {
-                        self.commandBanner = nil
+                if let commandBanner = commandBannerQueue.current {
+                    VStack(alignment: .leading, spacing: 6) {
+                        CommandBannerView(banner: commandBanner) {
+                            dismissCommandBanner()
+                        }
+                        if commandBannerQueue.pendingCount > 0 {
+                            Text("\(commandBannerQueue.pendingCount) more notification\(commandBannerQueue.pendingCount == 1 ? "" : "s") — dismiss to see next")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 steamHealthNoticesSection
@@ -609,7 +614,11 @@ struct ContentView: View {
                     }
                 }
                 if isSteamReady, let selectedProfile {
-                    selectedProfileSection(selectedProfile)
+                    if isSetupComplete, dashboardSection != .launch {
+                        selectedProfileCompactBar(selectedProfile)
+                    } else {
+                        selectedProfileSection(selectedProfile)
+                    }
                 }
                 consoleSection
             }
@@ -1469,6 +1478,11 @@ struct ContentView: View {
                             message: "Cloud sync issues were detected in recent Steam logs or userdata is missing."
                         )
                         HStack(spacing: 10) {
+                            Button("Setup Guide") {
+                                openSetupHelp()
+                            }
+                            .buttonStyle(.bordered)
+                            .font(.subheadline)
                             Button("Diagnose") {
                                 runCommand(script: "repair.command", arguments: ["diagnose"], environment: repairEnvironment())
                             }
@@ -2229,6 +2243,17 @@ struct ContentView: View {
                 help: "Build launchers for newly installed Steam games since the last sync"
             ) {
                 syncSteamLibrary(announce: true)
+            }
+        }
+
+        if pendingUnregisteredGogGames > 0 {
+            secondaryButton(
+                title: "Register GOG Games",
+                subtitle: "\(pendingUnregisteredGogGames) unregistered",
+                systemImage: "opticaldisc.fill",
+                help: "Create launcher configs for detected GOG installs"
+            ) {
+                syncGogLibrary(build: false, announce: true)
             }
         }
     }
@@ -3353,6 +3378,35 @@ struct ContentView: View {
         runCommand(script: "bottle.command", arguments: args)
     }
 
+    private func selectedProfileCompactBar(_ profile: SavedProfile) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(profile.name)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(profile.launchMethodLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let badge = sidebarCompatBadge(for: profile) {
+                CosmosCompatBadge(status: badge.status, compact: true)
+            }
+            Spacer(minLength: 8)
+            Button("Show Details") {
+                dashboardSection = .launch
+            }
+            .buttonStyle(.bordered)
+            Button("Launch") {
+                launchProfile(profile)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!profile.canLaunchFromDashboard || !wineRuntime.canStartWineLaunch || isRunning)
+        }
+        .cosmosCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Selected launcher \(profile.name)")
+    }
+
     private func selectedProfileSection(_ profile: SavedProfile) -> some View {
         let curated = profile.steamAppID.flatMap { GameProfileStore.find(steamAppID: $0) }
         return VStack(alignment: .leading, spacing: 12) {
@@ -3707,6 +3761,19 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .disabled(isRunning)
                 .help("Verify Wine Steam install folders and game executables")
+            } else if pendingUnregisteredGogGames > 0, isSetupComplete {
+                Button {
+                    syncGogLibrary(build: false, announce: true)
+                } label: {
+                    statusRow(
+                        label: "\(pendingUnregisteredGogGames) GOG game\(pendingUnregisteredGogGames == 1 ? "" : "s") — tap to register",
+                        icon: "opticaldisc.fill",
+                        color: .blue
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunning)
+                .help("Register detected GOG installs as launcher configs")
             }
             statusRow(
                 label: bottles.isEmpty
@@ -3868,6 +3935,7 @@ struct ContentView: View {
         refreshCompatBadge()
         refreshSteamHealth()
         checkGogLibraryForUnregistered()
+        appState.updateSetupComplete(isSetupComplete)
 
         if let message {
             output = message + "\n\n" + output
@@ -4185,7 +4253,13 @@ struct ContentView: View {
         message: String,
         actions: [CommandBannerAction] = []
     ) {
-        commandBanner = CommandBanner(kind: kind, message: message, actions: actions)
+        commandBannerQueue.enqueue(
+            CommandBanner(kind: kind, message: message, actions: actions)
+        )
+    }
+
+    private func dismissCommandBanner() {
+        commandBannerQueue.dismissCurrent()
     }
 
     private func successMessage(for intent: CommandIntent) -> String {
@@ -4251,7 +4325,7 @@ struct ContentView: View {
     }
 
     private func beginCommandOutput() {
-        commandBanner = nil
+        commandBannerQueue.clearTransient()
         consoleExpanded = true
     }
 
@@ -4425,5 +4499,6 @@ extension Notification.Name {
 #if DEBUG
 #Preview {
     ContentView()
+        .environmentObject(CosmosAppState.shared)
 }
 #endif
