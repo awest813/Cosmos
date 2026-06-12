@@ -83,6 +83,7 @@ extension SavedProfile {
 
 enum GameLibraryBlankSlateKind: Equatable {
     case setupIncomplete
+    case launchersNeeded
     case newSteamGames(Int)
     case unregisteredGog(Int)
     case emptyReady
@@ -109,8 +110,11 @@ enum GameLibraryBlankSlateKind: Equatable {
             }
         }
         guard totalProfiles == 0 else { return nil }
-        if !isSteamReady || !isSetupComplete {
+        if !isSteamReady {
             return .setupIncomplete
+        }
+        if !isSetupComplete {
+            return .launchersNeeded
         }
         if pendingNewSteamGames > 0 {
             return .newSteamGames(pendingNewSteamGames)
@@ -212,12 +216,12 @@ struct GameLibraryToolbar: View {
                     Label("Verify Steam Library", systemImage: "checkmark.shield")
                 }
             } label: {
-                Label("Import", systemImage: "plus")
+                Label("Add & Import", systemImage: "plus")
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
             .disabled(isRunning)
-            .help("Import games and run detection")
+            .help("Add YAML profiles, import games, and run detection")
 
             Spacer(minLength: 0)
 
@@ -301,6 +305,7 @@ struct GameLibraryBlankSlate: View {
     var onSyncGog: () -> Void = {}
     var onRegisterGogBuild: () -> Void = {}
     var onBuildLaunchers: () -> Void = {}
+    var onDetectGames: () -> Void = {}
     var onLaunchSteam: () -> Void = {}
     var onContinueSetup: () -> Void = {}
     var onClearSearch: () -> Void = {}
@@ -358,6 +363,7 @@ struct GameLibraryBlankSlate: View {
     private var iconName: String {
         switch kind {
         case .setupIncomplete: return "wand.and.stars"
+        case .launchersNeeded: return "gamecontroller.fill"
         case .newSteamGames: return "arrow.triangle.2.circlepath"
         case .unregisteredGog: return "opticaldisc.fill"
         case .emptyReady: return "gamecontroller.fill"
@@ -369,6 +375,7 @@ struct GameLibraryBlankSlate: View {
     private var iconTint: Color {
         switch kind {
         case .setupIncomplete: return Color.cosmosPrimary
+        case .launchersNeeded: return Color.cosmosBright
         case .newSteamGames: return .orange
         case .unregisteredGog: return .blue
         case .emptyReady: return Color.cosmosPrimary
@@ -381,6 +388,8 @@ struct GameLibraryBlankSlate: View {
         switch kind {
         case .setupIncomplete:
             return "Finish setup first"
+        case .launchersNeeded:
+            return "Build launchers to populate the library"
         case .newSteamGames(let count):
             return "\(count) new Steam game\(count == 1 ? "" : "s")"
         case .unregisteredGog(let count):
@@ -397,9 +406,11 @@ struct GameLibraryBlankSlate: View {
     private var message: String {
         switch kind {
         case .setupIncomplete:
-            return "Complete the setup checklist, then build launchers to populate your game library."
+            return "Complete the setup checklist on the Launch tab, then return here to build launchers."
+        case .launchersNeeded:
+            return "Steam is ready. Install a Windows game in Steam, then detect or build launchers to create saved entries and Dock apps."
         case .newSteamGames:
-            return "New Steam installs were detected. Sync to create launcher configs and Dock apps."
+            return "New Steam installs were detected. Sync Steam library to create launcher configs and Dock apps."
         case .unregisteredGog:
             return "GOG games are on disk but not registered as Cosmos launchers yet."
         case .emptyReady:
@@ -415,9 +426,14 @@ struct GameLibraryBlankSlate: View {
         switch kind {
         case .setupIncomplete:
             return [SlateAction(title: "Continue Setup", prominent: true, handler: onContinueSetup)]
+        case .launchersNeeded:
+            return [
+                SlateAction(title: "Build Launchers", prominent: true, handler: onBuildLaunchers),
+                SlateAction(title: "Detect Games", prominent: false, handler: onDetectGames),
+            ]
         case .newSteamGames:
             return [
-                SlateAction(title: "Sync Launchers", prominent: true, handler: onSyncSteam),
+                SlateAction(title: "Sync Steam Library", prominent: true, handler: onSyncSteam),
                 SlateAction(title: "Build All", prominent: false, handler: onBuildLaunchers),
             ]
         case .unregisteredGog:
@@ -631,6 +647,7 @@ struct GameLibrarySection: View {
     var onRegisterGogBuild: () -> Void
     var onSyncAll: () -> Void
     var onBuildLaunchers: () -> Void
+    var onDetectGames: () -> Void = {}
     var onLaunchSteam: () -> Void
     var onContinueSetup: () -> Void
     var onListGog: () -> Void
@@ -687,6 +704,7 @@ struct GameLibrarySection: View {
                         onSyncGog: onSyncGog,
                         onRegisterGogBuild: onRegisterGogBuild,
                         onBuildLaunchers: onBuildLaunchers,
+                        onDetectGames: onDetectGames,
                         onLaunchSteam: onLaunchSteam,
                         onContinueSetup: onContinueSetup,
                         onClearSearch: { searchText = "" },
@@ -764,7 +782,8 @@ struct GameLibrarySection: View {
         )
         .disabled(isRunning)
         .opacity(isRunning ? 0.55 : 1)
-        .help("Double-click to launch")
+        .help(isRunning ? "Unavailable while a command is running" : "Double-click to launch")
+        .accessibilityHint(isRunning ? "Unavailable while a command is running" : "Double-click to launch")
     }
 
     private func libraryListButton(_ profile: SavedProfile) -> some View {
@@ -800,6 +819,7 @@ struct GameLibrarySection: View {
         )
         .disabled(isRunning)
         .opacity(isRunning ? 0.55 : 1)
-        .help("Double-click to launch")
+        .help(isRunning ? "Unavailable while a command is running" : "Double-click to launch")
+        .accessibilityHint(isRunning ? "Unavailable while a command is running" : "Double-click to launch")
     }
 }

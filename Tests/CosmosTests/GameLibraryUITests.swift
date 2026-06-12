@@ -132,4 +132,32 @@ final class GameLibraryUITests: XCTestCase {
         )
         XCTAssertEqual(kind, .filterEmpty(.gog))
     }
+
+    func testBlankSlateSetupIncompleteWhenSteamNotReady() {
+        let kind = GameLibraryBlankSlateKind.resolve(
+            totalProfiles: 0,
+            filteredCount: 0,
+            searchQuery: "",
+            sourceFilter: .all,
+            isSetupComplete: false,
+            isSteamReady: false,
+            pendingNewSteamGames: 0,
+            pendingUnregisteredGogGames: 0
+        )
+        XCTAssertEqual(kind, .setupIncomplete)
+    }
+
+    func testBlankSlateLaunchersNeededWhenSteamReady() {
+        let kind = GameLibraryBlankSlateKind.resolve(
+            totalProfiles: 0,
+            filteredCount: 0,
+            searchQuery: "",
+            sourceFilter: .all,
+            isSetupComplete: false,
+            isSteamReady: true,
+            pendingNewSteamGames: 0,
+            pendingUnregisteredGogGames: 0
+        )
+        XCTAssertEqual(kind, .launchersNeeded)
+    }
 }

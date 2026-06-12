@@ -34,7 +34,7 @@ struct CosmosApp: App {
                     NotificationCenter.default.post(name: .cosmosShowSelectedInLibrary, object: nil)
                 }
                 .disabled(!appState.hasSelectedProfile || !appState.isSteamReady)
-                Button("Show Launch Details") {
+                Button("Show on Launch Tab") {
                     NotificationCenter.default.post(name: .cosmosShowSelectedOnLaunch, object: nil)
                 }
                 .disabled(!appState.hasSelectedProfile || !appState.isSteamReady)

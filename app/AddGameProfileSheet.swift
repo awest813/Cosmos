@@ -35,97 +35,104 @@ struct AddGameProfileSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
-            Text("Add Game Profile")
-                .font(.title2.weight(.bold))
-                .foregroundStyle(CosmosGradients.heroTitle)
+        ScrollView {
+            VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
+                Text("Add Game Profile")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(CosmosGradients.heroTitle)
 
-            Text("Create a YAML compatibility recipe in your personal library. Steam drafts use community hints; GOG profiles use a starter template you can edit after saving.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                Text("Create a YAML compatibility recipe in your personal library. Steam drafts use community hints; GOG profiles use a starter template you can edit after saving.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            if let errorMessage {
-                CosmosNoticeBanner(
-                    tint: .red,
-                    systemImage: "exclamationmark.triangle.fill",
-                    title: "Could not save profile",
-                    message: errorMessage
-                )
-            }
-
-            Picker("Store", selection: $store) {
-                ForEach(AddGameProfileStore.allCases) { option in
-                    Text(option.label).tag(option)
+                if let errorMessage {
+                    CosmosNoticeBanner(
+                        tint: .red,
+                        systemImage: "exclamationmark.triangle.fill",
+                        title: "Could not save profile",
+                        message: errorMessage
+                    )
                 }
-            }
-            .pickerStyle(.segmented)
-            .disabled(isGenerating || isSaving)
 
-            Form {
-                switch store {
-                case .steam:
-                    TextField("Steam App ID", text: $steamAppID)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($focusedField, equals: .steamAppID)
-                        .disabled(isGenerating || isSaving)
-                case .gog:
-                    TextField("Display name", text: $gogName)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($focusedField, equals: .gogName)
-                        .disabled(isGenerating || isSaving)
-                    TextField("GOG slug", text: $gogSlug)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($focusedField, equals: .gogSlug)
-                        .disabled(isGenerating || isSaving)
-                    TextField("Executable path (optional)", text: $gogExePath, prompt: Text("drive_c/GOG Games/Title/game.exe"))
-                        .textFieldStyle(.roundedBorder)
-                        .focused($focusedField, equals: .gogExePath)
-                        .disabled(isGenerating || isSaving)
-                }
-            }
-            .formStyle(.grouped)
-
-            if !previewYAML.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Preview")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    ScrollView {
-                        Text(previewYAML)
-                            .font(CosmosTypography.monoBody)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
+                Picker("Store", selection: $store) {
+                    ForEach(AddGameProfileStore.allCases) { option in
+                        Text(option.label).tag(option)
                     }
-                    .frame(maxHeight: 180)
-                    .padding(10)
-                    .background(Color.cosmosConsoleBackground, in: RoundedRectangle(cornerRadius: 10))
                 }
-            }
-
-            HStack {
-                if isGenerating || isSaving {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text(isGenerating ? "Generating draft…" : "Saving profile…")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Cancel", action: onCancel)
-                    .keyboardShortcut(.cancelAction)
-                    .disabled(isGenerating || isSaving)
-                Button("Generate Draft") {
-                    generateDraft()
-                }
+                .pickerStyle(.segmented)
                 .disabled(isGenerating || isSaving)
-                Button("Save Profile") {
-                    saveProfile()
+                .accessibilityLabel("Profile store")
+
+                Form {
+                    switch store {
+                    case .steam:
+                        TextField("Steam App ID", text: $steamAppID)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focusedField, equals: .steamAppID)
+                            .disabled(isGenerating || isSaving)
+                            .accessibilityLabel("Steam App ID")
+                    case .gog:
+                        TextField("Display name", text: $gogName)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focusedField, equals: .gogName)
+                            .disabled(isGenerating || isSaving)
+                            .accessibilityLabel("GOG display name")
+                        TextField("GOG slug", text: $gogSlug)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focusedField, equals: .gogSlug)
+                            .disabled(isGenerating || isSaving)
+                            .accessibilityLabel("GOG slug")
+                        TextField("Executable path (optional)", text: $gogExePath, prompt: Text("drive_c/GOG Games/Title/game.exe"))
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focusedField, equals: .gogExePath)
+                            .disabled(isGenerating || isSaving)
+                            .accessibilityLabel("GOG executable path")
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.cosmosPrimary)
-                .keyboardShortcut(.defaultAction)
-                .disabled(previewYAML.isEmpty || isGenerating || isSaving)
+                .formStyle(.grouped)
+
+                if !previewYAML.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Preview")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ScrollView {
+                            Text(previewYAML)
+                                .font(CosmosTypography.monoBody)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                        }
+                        .frame(maxHeight: 180)
+                        .padding(10)
+                        .background(Color.cosmosConsoleBackground, in: RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+
+                HStack {
+                    if isGenerating || isSaving {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text(isGenerating ? "Generating draft…" : "Saving profile…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Cancel", action: onCancel)
+                        .keyboardShortcut(.cancelAction)
+                        .disabled(isGenerating || isSaving)
+                    Button("Generate Draft") {
+                        generateDraft()
+                    }
+                    .disabled(isGenerating || isSaving)
+                    Button("Save Profile") {
+                        saveProfile()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.cosmosPrimary)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(previewYAML.isEmpty || isGenerating || isSaving)
+                }
             }
         }
         .padding(20)
