@@ -23,6 +23,21 @@ enum SettingLabels {
         }
     }
 
+    static func backendDisplayName(_ backend: String) -> String {
+        switch backend {
+        case "recommended": return "Recommended"
+        case "dxmt": return "DXMT"
+        case "d3dmetal": return "D3DMetal (GPTK)"
+        case "dxvk": return "DXVK (experimental)"
+        case "wined3d": return "WineD3D"
+        default: return backend
+        }
+    }
+
+    static func windowsDisplayName(_ version: String) -> String {
+        version.isEmpty ? "Wine default" : version
+    }
+
     static func savedMessage(for key: String, appliesToSteam: Bool = true) -> String {
         let label = displayName(for: key)
         if appliesToSteam {

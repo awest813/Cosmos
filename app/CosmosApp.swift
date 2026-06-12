@@ -75,6 +75,32 @@ struct CosmosApp: App {
                 .disabled(!appState.isSteamReady)
             }
 
+            // Steam prefix, graphics, and bottles.
+            CommandMenu("Settings") {
+                Button("Steam & Wine…") {
+                    NotificationCenter.default.post(name: .cosmosOpenSteamSettings, object: nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+                .disabled(!appState.isSteamReady)
+                Button("Performance & Graphics…") {
+                    NotificationCenter.default.post(name: .cosmosOpenPerformanceGraphics, object: nil)
+                }
+                .disabled(!appState.isSteamReady)
+                Divider()
+                Button("Bottles…") {
+                    NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.bottles)
+                }
+                .disabled(!appState.isSteamReady)
+                Divider()
+                Button("Reveal steam.conf in Finder") {
+                    NotificationCenter.default.post(name: .cosmosRevealSteamConf, object: nil)
+                }
+                .disabled(!appState.isSteamReady)
+                Button("Graphics Backends Guide…") {
+                    NotificationCenter.default.post(name: .cosmosOpenBackendsGuide, object: nil)
+                }
+            }
+
             // Saved launchers: sync, detect, import.
             CommandMenu("Library") {
                 Button("Sync All Pending…") {

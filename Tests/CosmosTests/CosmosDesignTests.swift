@@ -4,6 +4,8 @@ import XCTest
 final class CosmosDesignTests: XCTestCase {
     func testScrollAnchorIDsAreUnique() {
         let ids = [
+            CosmosScrollAnchor.steamSettings,
+            CosmosScrollAnchor.performanceGraphics,
             CosmosScrollAnchor.gameLibrary,
             CosmosScrollAnchor.gameProfiles,
             CosmosScrollAnchor.repair,

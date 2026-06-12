@@ -59,6 +59,8 @@ struct ContentView: View {
     @State private var pendingScrollToGameProfiles = false
     @State private var pendingScrollToGameLibrary = false
     @State private var pendingScrollToCompatibility = false
+    @State private var pendingScrollToSteamSettings = false
+    @State private var pendingScrollToPerformanceGraphics = false
     @State private var showAddGameProfileSheet = false
 
     @State private var gameProfiles: [GameProfile] = []
@@ -322,6 +324,22 @@ struct ContentView: View {
             focusGameLibrary(scrollToProfiles: true)
             applyInstalledCuratedProfiles()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenSteamSettings)) { _ in
+            openSteamSettings()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenPerformanceGraphics)) { _ in
+            openPerformanceGraphicsSettings(expandAdvanced: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosRevealSteamConf)) { _ in
+            revealSteamConf()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenBackendsGuide)) { _ in
+            openRepositoryDoc(
+                relativePath: "docs/BACKENDS.md",
+                bundleName: "BACKENDS.md",
+                fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
+            )
+        }
         .confirmationDialog(
             "Launch blocked title?",
             isPresented: Binding(
@@ -438,6 +456,32 @@ struct ContentView: View {
                 .disabled(isRunning)
             }
             ToolbarItemGroup(placement: .automatic) {
+                if isSteamReady {
+                    Menu {
+                        Button("Steam & Wine…") {
+                            openSteamSettings()
+                        }
+                        Button("Performance & Graphics…") {
+                            openPerformanceGraphicsSettings()
+                        }
+                        Divider()
+                        Button("Bottles…") {
+                            focusDashboardSection(.bottles)
+                        }
+                        Divider()
+                        Button("Reveal steam.conf in Finder") {
+                            revealSteamConf()
+                        }
+                        Button("Graphics Backends Guide…") {
+                            NotificationCenter.default.post(name: .cosmosOpenBackendsGuide, object: nil)
+                        }
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .help("Steam prefix, graphics, and bottle settings (⌘,)")
+                    .accessibilityLabel("Settings")
+                    .disabled(isRunning)
+                }
                 Button {
                     openSetupHelp()
                 } label: {
@@ -1988,6 +2032,8 @@ struct ContentView: View {
         if pendingScrollToGameProfiles { nonce |= 4 }
         if pendingScrollToRepair { nonce |= 8 }
         if pendingScrollToCompatibility { nonce |= 16 }
+        if pendingScrollToSteamSettings { nonce |= 32 }
+        if pendingScrollToPerformanceGraphics { nonce |= 64 }
         return nonce
     }
 
@@ -2014,8 +2060,34 @@ struct ContentView: View {
             } else if dashboardSection == .library, pendingScrollToCompatibility {
                 pendingScrollToCompatibility = false
                 proxy.scrollTo(CosmosScrollAnchor.compatibility, anchor: .top)
+            } else if dashboardSection == .launch, pendingScrollToSteamSettings {
+                pendingScrollToSteamSettings = false
+                proxy.scrollTo(CosmosScrollAnchor.steamSettings, anchor: .top)
+            } else if dashboardSection == .launch, pendingScrollToPerformanceGraphics {
+                pendingScrollToPerformanceGraphics = false
+                proxy.scrollTo(CosmosScrollAnchor.performanceGraphics, anchor: .top)
             }
         }
+    }
+
+    private func openSteamSettings() {
+        focusDashboardSection(.launch)
+        consoleExpanded = true
+        pendingScrollToSteamSettings = true
+    }
+
+    private func openPerformanceGraphicsSettings(expandAdvanced: Bool = false) {
+        focusDashboardSection(.launch)
+        consoleExpanded = true
+        if expandAdvanced {
+            showAdvancedGraphics = true
+        }
+        pendingScrollToPerformanceGraphics = true
+    }
+
+    private func revealSteamConf() {
+        SteamSettingsStore.ensureOnDisk()
+        revealInFinder(SteamSettingsStore.confURL)
     }
 
     private func focusGameLibrary(
@@ -2235,21 +2307,18 @@ struct ContentView: View {
     // MARK: - Steam Wine settings
 
     private var steamWineSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Steam Wine Settings", systemImage: "gearshape.2.fill")
-
+        CosmosSection(
+            title: "Steam & Wine",
+            systemImage: "gearshape.2.fill",
+            caption: "Default Steam prefix — backend, Windows version, install behavior, and prefix details."
+        ) {
             if let bottle = selectedBottle {
                 CosmosNoticeBanner(
                     tint: .blue,
                     systemImage: "cylinder.split.1x2.fill",
                     title: "Launches use bottle: \(bottle.name)",
-                    message: "Settings below apply to the default Steam prefix. Adjust \(bottle.name) on the Bottles tab, or click the bottle chip in the toolbar and choose Use Default Bottle."
+                    message: "These settings apply to the default Steam prefix. Adjust \(bottle.name) on the Bottles tab, or choose Use Default Bottle from the toolbar bottle chip."
                 )
-            } else {
-                Text("These apply to the default Steam prefix on the next launch. Use the Bottles tab for extra isolated prefixes.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             VStack(alignment: .leading, spacing: 16) {
@@ -2260,14 +2329,16 @@ struct ContentView: View {
                             .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
                             .textCase(.uppercase)
                         Picker("Backend", selection: steamBackendBinding) {
-                            ForEach(SteamSettingsStore.backendOptions, id: \.self) { Text($0).tag($0) }
+                            ForEach(SteamSettingsStore.backendOptions, id: \.self) { backend in
+                                Text(SettingLabels.backendDisplayName(backend)).tag(backend)
+                            }
                         }
                         .pickerStyle(.menu)
                         .labelsHidden()
-                        .frame(maxWidth: 220, alignment: .leading)
+                        .frame(maxWidth: 240, alignment: .leading)
                         .disabled(isRunning)
                         .accessibilityLabel("Graphics backend")
-                        .accessibilityValue(steamSettings.backend)
+                        .accessibilityValue(SettingLabels.backendDisplayName(steamSettings.backend))
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -2278,7 +2349,7 @@ struct ContentView: View {
                         Picker("Windows", selection: steamWindowsBinding) {
                             Text("Wine default").tag("")
                             ForEach(SteamSettingsStore.windowsOptions.filter { !$0.isEmpty }, id: \.self) {
-                                Text($0).tag($0)
+                                Text(SettingLabels.windowsDisplayName($0)).tag($0)
                             }
                         }
                         .pickerStyle(.menu)
@@ -2286,7 +2357,7 @@ struct ContentView: View {
                         .frame(maxWidth: 200, alignment: .leading)
                         .disabled(isRunning)
                         .accessibilityLabel("Windows version")
-                        .accessibilityValue(steamSettings.windowsVersion.isEmpty ? "Wine default" : steamSettings.windowsVersion)
+                        .accessibilityValue(steamSettings.windowsDisplay)
                     }
                 }
 
@@ -2300,6 +2371,7 @@ struct ContentView: View {
                     }
                 }
                 .disabled(isRunning)
+                .accessibilityHint("Applies on the next Steam or game launch")
 
                 Toggle(isOn: steamSilentBinding) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -2354,9 +2426,23 @@ struct ContentView: View {
                 if wineRuntime.wineInstalled {
                     detailRow(title: "Wine binary", value: wineRuntime.wineBinaryPath)
                 }
+
+                HStack(spacing: 12) {
+                    Button {
+                        revealSteamConf()
+                    } label: {
+                        Label("Reveal steam.conf", systemImage: "folder")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isRunning)
+                    .help("Open ~/Library/Application Support/Cosmos/steam.conf in Finder")
+                }
+                .font(.subheadline)
             }
             .cosmosCard()
         }
+        .id(CosmosScrollAnchor.steamSettings)
     }
 
     // MARK: - Performance & graphics (Phase E)
@@ -2380,6 +2466,8 @@ struct ContentView: View {
                     }
                     .pickerStyle(.segmented)
                     .disabled(isRunning)
+                    .accessibilityLabel("Thread sync mode")
+                    .accessibilityValue(graphicsSettings.syncMode)
                     Text(graphicsSettings.syncModeLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -2403,6 +2491,8 @@ struct ContentView: View {
                             }
                             .pickerStyle(.segmented)
                             .disabled(isRunning)
+                            .accessibilityLabel("DXMT channel")
+                            .accessibilityValue(graphicsSettings.dxmtChannel == "latest" ? "Latest LGPL" : "Pinned 0.80")
                             Text(graphicsSettings.dxmtChannel == "latest"
                                 ? "Tracks the newest DXMT from the runtime manifest (LGPL). Source offer: runtime/DXMT-SOURCE-OFFER.txt."
                                 : "Uses the pinned runtime manifest (DXMT 0.80, MIT).")
@@ -2434,6 +2524,8 @@ struct ContentView: View {
                             }
                             .pickerStyle(.segmented)
                             .disabled(isRunning)
+                            .accessibilityLabel("MoltenVK preset for DXVK")
+                            .accessibilityValue(graphicsSettings.moltenvkPreset)
                             Text("Sets MVK_CONFIG_* env vars when using the experimental DXVK backend.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -2448,6 +2540,7 @@ struct ContentView: View {
             }
             .cosmosCard()
         }
+        .id(CosmosScrollAnchor.performanceGraphics)
     }
 
     private var gptkSetupCard: some View {
@@ -2476,6 +2569,7 @@ struct ContentView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.caption)
                     .disabled(isRunning)
+                    .accessibilityLabel("Game Porting Toolkit install path")
                 Button("Browse…") { browseForGptkPath() }
                     .disabled(isRunning)
             }
@@ -3810,12 +3904,16 @@ struct ContentView: View {
                         .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
                         .textCase(.uppercase)
                     Picker("Backend", selection: backendBinding(for: bottle)) {
-                        ForEach(BottleStore.backendOptions, id: \.self) { Text($0).tag($0) }
+                        ForEach(BottleStore.backendOptions, id: \.self) { backend in
+                            Text(SettingLabels.backendDisplayName(backend)).tag(backend)
+                        }
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
                     .frame(maxWidth: 200, alignment: .leading)
                     .disabled(isRunning)
+                    .accessibilityLabel("Graphics backend")
+                    .accessibilityValue(SettingLabels.backendDisplayName(bottle.backend))
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -3825,12 +3923,16 @@ struct ContentView: View {
                         .textCase(.uppercase)
                     Picker("Windows", selection: windowsBinding(for: bottle)) {
                         Text("Wine default").tag("")
-                        ForEach(BottleStore.windowsOptions, id: \.self) { Text($0).tag($0) }
+                        ForEach(BottleStore.windowsOptions, id: \.self) { version in
+                            Text(SettingLabels.windowsDisplayName(version)).tag(version)
+                        }
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
                     .frame(maxWidth: 160, alignment: .leading)
                     .disabled(isRunning)
+                    .accessibilityLabel("Windows version")
+                    .accessibilityValue(bottle.windowsVersion.isEmpty ? "Wine default" : bottle.windowsVersion)
                 }
             }
 
@@ -3850,6 +3952,8 @@ struct ContentView: View {
                 }
                 .pickerStyle(.segmented)
                 .disabled(isRunning)
+                .accessibilityLabel("Thread sync mode")
+                .accessibilityValue(bottle.syncMode)
             }
 
             HStack(alignment: .top, spacing: 24) {
@@ -3921,7 +4025,9 @@ struct ContentView: View {
                     .focused($newBottleNameFocused)
                     .disabled(isRunning)
                 Picker("Backend", selection: $newBottleBackend) {
-                    ForEach(BottleStore.backendOptions, id: \.self) { Text($0).tag($0) }
+                    ForEach(BottleStore.backendOptions, id: \.self) { backend in
+                        Text(SettingLabels.backendDisplayName(backend)).tag(backend)
+                    }
                 }
                 .disabled(isRunning)
                 Picker("Windows version", selection: $newBottleWindows) {

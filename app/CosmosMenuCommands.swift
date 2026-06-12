@@ -23,4 +23,9 @@ extension Notification.Name {
     static let cosmosSyncAllLibrary = Notification.Name("com.cosmos.syncAllLibrary")
     static let cosmosShowSelectedInLibrary = Notification.Name("com.cosmos.showSelectedInLibrary")
     static let cosmosShowSelectedOnLaunch = Notification.Name("com.cosmos.showSelectedOnLaunch")
+    static let cosmosApplyInstalledProfiles = Notification.Name("com.cosmos.applyInstalledProfiles")
+    static let cosmosOpenSteamSettings = Notification.Name("com.cosmos.openSteamSettings")
+    static let cosmosOpenPerformanceGraphics = Notification.Name("com.cosmos.openPerformanceGraphics")
+    static let cosmosRevealSteamConf = Notification.Name("com.cosmos.revealSteamConf")
+    static let cosmosOpenBackendsGuide = Notification.Name("com.cosmos.openBackendsGuide")
 }

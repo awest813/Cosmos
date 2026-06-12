@@ -2,6 +2,8 @@ import SwiftUI
 
 /// Scroll targets used by menus, context menus, and dashboard navigation.
 enum CosmosScrollAnchor {
+    static let steamSettings = "steam-settings-section"
+    static let performanceGraphics = "performance-graphics-section"
     static let gameLibrary = "game-library-section"
     static let gameProfiles = "game-profiles-section"
     static let repair = "repair-section"
@@ -47,7 +49,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .launch: return "Quick launch and Steam settings"
+        case .launch: return "Quick launch, Steam & Wine, and graphics settings"
         case .library: return "Launcher library, profiles, and repairs"
         case .tools: return "Maintenance, imports, and diagnostics"
         case .bottles: return "Isolated Wine prefixes"

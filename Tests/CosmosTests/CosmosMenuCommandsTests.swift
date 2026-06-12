@@ -26,6 +26,10 @@ final class CosmosMenuCommandsTests: XCTestCase {
             .cosmosShowSelectedInLibrary,
             .cosmosShowSelectedOnLaunch,
             .cosmosApplyInstalledProfiles,
+            .cosmosOpenSteamSettings,
+            .cosmosOpenPerformanceGraphics,
+            .cosmosRevealSteamConf,
+            .cosmosOpenBackendsGuide,
         ]
         let raw = names.map(\.rawValue)
         XCTAssertEqual(Set(raw).count, raw.count)
