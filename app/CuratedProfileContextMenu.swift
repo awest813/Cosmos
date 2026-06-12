@@ -19,6 +19,14 @@ struct CuratedProfileContextMenuItems: View {
         }
         .disabled(isRunning || profile.steamAppID.isEmpty)
 
+        if profile.isUserAuthored {
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([profile.fileURL])
+            } label: {
+                Label("Reveal Profile in Finder", systemImage: "folder")
+            }
+        }
+
         Divider()
 
         if !profile.steamAppID.isEmpty {

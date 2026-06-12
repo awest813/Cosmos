@@ -1,0 +1,13 @@
+id: example_wine_game
+name: "Example Standalone Game"
+store: standalone
+exe_path: drive_c/Games/example-game/game.exe
+status: playable
+recommended_backend: recommended
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Template for standalone Windows games registered with import_game.command add-exe.
+  Copy this file when adding a new manual import profile and update exe_path.

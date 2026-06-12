@@ -1,0 +1,18 @@
+id: starcraft_ii
+name: "StarCraft II"
+store: battlenet
+exe_path: drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe
+status: playable
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+tags:
+  - online
+  - pvp
+anti_cheat: none
+multiplayer_notes: "Requires Battle.net client online; expect longer shader compile on first launch."
+notes: >
+  Example Battle.net profile for games registered with import_game.command add-battlenet.
+  Install the Battle.net client first, then register using the slug from list-battlenet.

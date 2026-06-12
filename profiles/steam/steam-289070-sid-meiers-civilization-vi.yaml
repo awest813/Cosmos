@@ -1,0 +1,16 @@
+id: civilization_vi
+name: "Sid Meier's Civilization VI"
+store: steam
+steam_appid: 289070
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+  - vcrun2019
+notes: >
+  Turn-based strategy with D3D11. Install VC++ runtimes via Apply Profile if the
+  game fails to start. Late-game turns are CPU-heavy on Apple Silicon.

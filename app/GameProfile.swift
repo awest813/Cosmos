@@ -18,6 +18,12 @@ struct GameProfile: Identifiable, Hashable {
     let fileURL: URL
     /// Relative path for `profile.command apply`.
     let commandRelativePath: String
+    /// True when loaded from Application Support rather than bundled profiles.
+    let isUserAuthored: Bool
+
+    var sourceLabel: String {
+        isUserAuthored ? "My Profile" : "Bundled"
+    }
 
     var statusLabel: String {
         status.isEmpty ? "unknown" : status
@@ -61,7 +67,34 @@ enum GameProfileStore {
     private static let fileManager = FileManager.default
 
     static func load() -> [GameProfile] {
-        guard let root = CosmosPaths.profilesDirectory else { return [] }
+        var profiles: [GameProfile] = []
+        profiles.append(contentsOf: loadFrom(directory: CosmosPaths.profilesDirectory, userAuthored: false))
+        profiles.append(contentsOf: loadFrom(directory: CosmosPaths.userGameProfilesDirectory, userAuthored: true))
+        return profiles.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
+    static func find(steamAppID: String) -> GameProfile? {
+        let matches = load().filter { $0.steamAppID == steamAppID }
+        return matches.first(where: \.isUserAuthored) ?? matches.first
+    }
+
+    static func find(gogSlug: String) -> GameProfile? {
+        let normalized = gogSlug.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+        let matches = load().filter {
+            $0.gogSlug.lowercased() == normalized
+                || ($0.store == "gog" && $0.id.lowercased() == normalized)
+        }
+        return matches.first(where: \.isUserAuthored) ?? matches.first
+    }
+
+    private static func loadFrom(directory: URL?, userAuthored: Bool) -> [GameProfile] {
+        guard let root = directory else { return [] }
+        guard fileManager.fileExists(atPath: root.path) else { return [] }
+        let shippedStores: Set<String> = ["steam", "gog", "itch", "battlenet", "standalone"]
+        var profiles: [GameProfile] = []
         guard let storeDirs = try? fileManager.contentsOfDirectory(
             at: root,
             includingPropertiesForKeys: [.isDirectoryKey],
@@ -69,9 +102,6 @@ enum GameProfileStore {
         ) else {
             return []
         }
-
-        let shippedStores: Set<String> = ["steam", "gog", "itch", "battlenet", "standalone"]
-        var profiles: [GameProfile] = []
         for storeDir in storeDirs where shippedStores.contains(storeDir.lastPathComponent) {
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: storeDir.path, isDirectory: &isDirectory),
@@ -86,31 +116,19 @@ enum GameProfileStore {
                 continue
             }
             for file in files where ["yaml", "yml"].contains(file.pathExtension) {
-                if let profile = parse(file) {
+                if let profile = parse(file, userAuthored: userAuthored) {
                     profiles.append(profile)
                 }
             }
         }
-
-        return profiles.sorted {
-            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
+        return profiles
     }
 
-    static func find(steamAppID: String) -> GameProfile? {
-        load().first { $0.steamAppID == steamAppID }
+    static func scalarPreview(in text: String, key: String) -> String? {
+        scalar(in: text, key: key)
     }
 
-    static func find(gogSlug: String) -> GameProfile? {
-        let normalized = gogSlug.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !normalized.isEmpty else { return nil }
-        return load().first {
-            $0.gogSlug.lowercased() == normalized
-                || ($0.store == "gog" && $0.id.lowercased() == normalized)
-        }
-    }
-
-    private static func parse(_ url: URL) -> GameProfile? {
+    private static func parse(_ url: URL, userAuthored: Bool) -> GameProfile? {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let id = scalar(in: text, key: "id") ?? url.deletingPathExtension().lastPathComponent
         let name = scalar(in: text, key: "name") ?? id
@@ -141,7 +159,8 @@ enum GameProfileStore {
             dependencyCount: deps.count,
             fixCount: fixes.count,
             fileURL: url,
-            commandRelativePath: relative
+            commandRelativePath: relative,
+            isUserAuthored: userAuthored
         )
     }
 

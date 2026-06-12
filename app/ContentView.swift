@@ -55,6 +55,7 @@ struct ContentView: View {
     @State private var setupCompatAppID = ""
     @State private var consoleHasNewOutput = false
     @State private var pendingScrollToImport = false
+    @State private var showAddGameProfileSheet = false
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -324,6 +325,22 @@ struct ContentView: View {
                     return nil
                 }
             )
+        }
+        .sheet(isPresented: $showAddGameProfileSheet) {
+            if let root = repositoryRootURL {
+                AddGameProfileSheet(
+                    repositoryRoot: root,
+                    onCancel: { showAddGameProfileSheet = false },
+                    onSaved: { profile in
+                        showAddGameProfileSheet = false
+                        gameProfiles = GameProfileStore.load()
+                        selectedGameProfileID = profile.id
+                        curatedProfileFilter = .mine
+                        dashboardSection = .library
+                        showBanner(kind: .success, message: "Saved game profile “\(profile.name)” to your personal library.")
+                    }
+                )
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
@@ -1932,9 +1949,16 @@ struct ContentView: View {
     }
 
     private func applyCuratedGameProfile(_ profile: GameProfile) {
+        let path = profile.fileURL.path
+        let arguments: [String]
+        if let relative = CosmosPaths.profileCommandPath(for: profile.fileURL) {
+            arguments = ["apply", relative]
+        } else {
+            arguments = ["apply", path]
+        }
         runCommand(
             script: "profile.command",
-            arguments: ["apply", profile.commandRelativePath],
+            arguments: arguments,
             environment: bottleEnvironment()
         )
     }
@@ -2694,17 +2718,32 @@ struct ContentView: View {
 
     private var curatedProfilesSection: some View {
         CosmosSection(
-            title: "Curated Game Profiles",
+            title: "Game Profiles",
             systemImage: "doc.text.fill",
-            caption: "Known-good YAML recipes (roadmap 0.4). Apply writes overrides and runs winetricks/fixes."
+            caption: "Bundled YAML recipes plus personal profiles you add. Apply writes overrides and runs winetricks/fixes."
         ) {
+            HStack {
+                Spacer(minLength: 0)
+                Button {
+                    showAddGameProfileSheet = true
+                } label: {
+                    Label("Add Profile", systemImage: "plus.circle.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning)
+                .help("Create a personal YAML profile from a Steam App ID or GOG slug")
+            }
+
             if gameProfiles.isEmpty {
                 CosmosEmptyState(
                     systemImage: "doc.text",
-                    title: "No curated profiles bundled",
-                    message: "This build does not include YAML game profiles. Check for updates to download the latest community recipes.",
+                    title: "No game profiles yet",
+                    message: "Add a personal profile from a Steam App ID or GOG slug, or check for updates to download bundled community recipes.",
                     isRunning: isRunning,
-                    actions: [(title: "Check for Updates", prominent: true, action: { checkForUpdates() })]
+                    actions: [
+                        (title: "Add Profile", prominent: true, action: { showAddGameProfileSheet = true }),
+                        (title: "Check for Updates", prominent: false, action: { checkForUpdates() }),
+                    ]
                 )
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -2776,6 +2815,14 @@ struct ContentView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.cosmosBright)
                     Spacer()
+                    if profile.isUserAuthored {
+                        Text("Mine")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.cosmosPrimary.opacity(0.15), in: Capsule())
+                            .foregroundStyle(Color.cosmosPrimary)
+                    }
                     CosmosCompatBadge(status: profile.statusLabel, compact: true)
                 }
                 HStack(spacing: 8) {

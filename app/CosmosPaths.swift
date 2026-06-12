@@ -40,7 +40,14 @@ enum CosmosPaths {
         CosmosBadgeStore.communityGamesDirectory()
     }
 
-    /// User-authored profiles under Application Support (or `COSMOS_SUPPORT_DIR`).
+    /// User-authored YAML game profiles (separate from `.conf` launcher configs).
+    static var userGameProfilesDirectory: URL {
+        let dir = supportDirectory.appendingPathComponent("GameProfiles", isDirectory: true)
+        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// User-authored launcher configs under Application Support (or `COSMOS_SUPPORT_DIR`).
     static var userProfilesDirectory: URL {
         supportDirectory.appendingPathComponent("Profiles", isDirectory: true)
     }

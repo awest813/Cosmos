@@ -384,6 +384,7 @@ enum CuratedProfileFilter: String, CaseIterable, Identifiable {
     case dxmt
     case d3dmetal
     case recommended
+    case mine
 
     var id: String { rawValue }
 
@@ -396,6 +397,7 @@ enum CuratedProfileFilter: String, CaseIterable, Identifiable {
         case .dxmt: return "DXMT"
         case .d3dmetal: return "D3D Metal"
         case .recommended: return "Recommended"
+        case .mine: return "My Profiles"
         }
     }
 
@@ -403,6 +405,8 @@ enum CuratedProfileFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all:
             return true
+        case .mine:
+            return profile.isUserAuthored
         case .coOp:
             return profile.tags.contains("co-op")
                 || profile.notes.localizedCaseInsensitiveContains("co-op")

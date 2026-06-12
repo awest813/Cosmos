@@ -1,0 +1,21 @@
+id: team_fortress_2
+name: "Team Fortress 2"
+store: steam
+steam_appid: 440
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  esync: true
+fixes:
+  - fix_steam_networking
+tags:
+  - online
+  - pvp
+anti_cheat: vac
+multiplayer_notes: "Valve servers work for casual play; apply fix_steam_networking if socket errors appear."
+notes: >
+  Source engine title. DXMT handles the renderer; first launch may compile shaders.
+  VAC is present but Cosmos does not inject — use offline/training modes if concerned.
