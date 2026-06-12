@@ -4,11 +4,13 @@ import XCTest
 final class GogLibraryMonitorTests: XCTestCase {
     func testParseGameList() throws {
         let json = """
-        [{"slug":"celeste","title":"Celeste","exe":"drive_c/GOG Games/Celeste/celeste.exe"}]
+        [{"slug":"celeste","title":"Celeste","exe":"drive_c/GOG Games/Celeste/celeste.exe","exe_source":"scored","exe_score":120}]
         """.data(using: .utf8)!
         let games = GogLibraryMonitor.parseGameList(jsonData: json)
         XCTAssertEqual(games?.count, 1)
         XCTAssertEqual(games?.first?.slug, "celeste")
+        XCTAssertEqual(games?.first?.exeSource, "scored")
+        XCTAssertEqual(games?.first?.exeScore, 120)
     }
 
     func testParseSyncOutput() {
@@ -25,8 +27,8 @@ final class GogLibraryMonitorTests: XCTestCase {
 
     func testUnregisteredFiltersExistingConfigs() throws {
         let games = [
-            GogLibraryMonitor.DetectedGame(slug: "celeste", title: "Celeste", exe: "drive_c/x"),
-            GogLibraryMonitor.DetectedGame(slug: "hades", title: "Hades", exe: "drive_c/y"),
+            GogLibraryMonitor.DetectedGame(slug: "celeste", title: "Celeste", exe: "drive_c/x", exeSource: nil, exeScore: nil),
+            GogLibraryMonitor.DetectedGame(slug: "hades", title: "Hades", exe: "drive_c/y", exeSource: nil, exeScore: nil),
         ]
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

@@ -2520,13 +2520,22 @@ struct ContentView: View {
                     pathPrompt: "Path to Windows installer (.exe or .msi)"
                 )
                 storeActionButton(
+                    title: "Find EXE",
+                    subtitle: "Detect main binary",
+                    systemImage: "magnifyingglass",
+                    script: "import_game.command",
+                    arguments: ["find-exe"],
+                    needsPath: true,
+                    pathPrompt: "Install folder (drive_c/GOG Games/Title or host path)"
+                )
+                storeActionButton(
                     title: "Register EXE",
                     subtitle: "Already installed",
                     systemImage: "app.badge.checkmark.fill",
                     script: "import_game.command",
                     arguments: ["add-exe"],
                     needsPath: true,
-                    pathPrompt: "Game .exe path (drive_c/... or inside prefix)"
+                    pathPrompt: "Game .exe path or install folder"
                 )
                 storeActionButton(
                     title: "GOG Game",

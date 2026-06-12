@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-FIXTURE_PREFIX="${REPO_ROOT}/scripts/fixtures/steam_detection/wineprefix"
+FIXTURE_PREFIX="${REPO_ROOT}/scripts/fixtures/gog_detection/wineprefix"
 
 pass=0
 fail=0
@@ -28,6 +28,13 @@ if python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, lis
   pass=$((pass + 1))
   count="$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' <<<"${json}")"
   printf '  ok  parsed json array (%s game(s))\n' "${count}"
+  if python3 -c 'import json,sys; d=json.load(sys.stdin); assert all("exe_source" in g for g in d)' <<<"${json}" 2>/dev/null; then
+    pass=$((pass + 1))
+    printf '  ok  json includes exe_source metadata\n'
+  else
+    fail=$((fail + 1))
+    printf '  FAIL json missing exe_source\n' >&2
+  fi
 else
   fail=$((fail + 1))
   printf '  FAIL list-gog --json did not return a JSON array\n' >&2

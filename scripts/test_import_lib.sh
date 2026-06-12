@@ -58,6 +58,22 @@ gog_scan="$(import_scan_gog_games "${gog_fixture}")"
 printf '%s' "${gog_scan}" | grep -q $'celeste\tCeleste\t' \
   || fail "gog game scan failed: ${gog_scan}"
 
+witcher_exe="$(import_find_gog_game_exe "${gog_fixture}" "The Witcher 3")"
+[[ "${witcher_exe}" == *"/bin/x64/witcher3.exe" ]] \
+  || fail "gog info metadata exe failed: ${witcher_exe}"
+
+depth_exe="$(import_find_best_game_exe "${gog_fixture}/drive_c/GOG Games/Depth Test" "Depth Test")"
+[[ "${depth_exe}" == *"/bin/x64/depth-test.exe" ]] \
+  || fail "scored exe should prefer bin/x64 game: ${depth_exe}"
+
+nested_exe="$(import_find_best_game_exe "${gog_fixture}/drive_c/GOG Games/Nested Game" "Nested Game")"
+[[ "${nested_exe}" == *"/Nested Game/nested-game.exe" ]] \
+  || fail "nested install folder exe failed: ${nested_exe}"
+
+meta="$(import_describe_game_exe "${gog_fixture}/drive_c/GOG Games/The Witcher 3 Wild Hunt" "Witcher")"
+printf '%s' "${meta}" | grep -q $'goggame-info' \
+  || fail "describe should report goggame-info source: ${meta}"
+
 gog_file="$(import_write_gog_config "${tmpdir}" "celeste" "Celeste" "com.cosmos.gog-celeste" \
   "drive_c/GOG Games/Celeste/celeste.exe")"
 [[ "${gog_file}" == *"/gog-celeste.conf" ]] || fail "gog config wrong filename"
@@ -67,5 +83,12 @@ grep -q 'GAME_EXE_PATH="drive_c/GOG Games/Celeste/celeste.exe"' "${gog_file}" \
 import_exe_is_helper "uninstall.exe" || fail "uninstall should be helper"
 import_exe_is_helper "vcredist_x64.exe" || fail "vcredist should be helper"
 import_exe_is_helper "celeste.exe" && fail "celeste should not be helper"
+import_exe_is_helper "bootstrap.exe" || fail "bootstrap should be helper"
+import_exe_is_helper "vcredist_x64.exe" || fail "vcredist should be helper"
+
+import_exe_has_pe_header "${gog_fixture}/drive_c/GOG Games/Celeste/celeste.exe" \
+  || fail "celeste fixture should look like PE"
+import_exe_has_pe_header "${gog_fixture}/drive_c/GOG Games/Celeste/redist/vcredist.exe" \
+  || fail "vcredist fixture should look like PE"
 
 printf 'OK: import_lib tests passed\n'

@@ -6,6 +6,8 @@ enum GogLibraryMonitor {
         let slug: String
         let title: String
         let exe: String
+        let exeSource: String?
+        let exeScore: Int?
     }
 
     static func listGames(importScript: URL, environment: [String: String] = [:]) -> [DetectedGame]? {
@@ -52,7 +54,9 @@ enum GogLibraryMonitor {
             guard let slug = item["slug"] as? String,
                   let title = item["title"] as? String,
                   let exe = item["exe"] as? String else { return nil }
-            return DetectedGame(slug: slug, title: title, exe: exe)
+            let source = item["exe_source"] as? String
+            let score = item["exe_score"] as? Int
+            return DetectedGame(slug: slug, title: title, exe: exe, exeSource: source, exeScore: score)
         }
     }
 
