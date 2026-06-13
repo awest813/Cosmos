@@ -11,5 +11,5 @@ settings:
 dependencies:
   - d3dx9
 notes: >
-  2D D3D9/XNA-style title. Install d3dx9 if you see missing DirectX errors.
+  2D D3D9/XNA-style title on the default backend (WineD3D for D3D9). Install d3dx9 if you see missing DirectX errors.
   DXMT handles the renderer well at 60 fps.

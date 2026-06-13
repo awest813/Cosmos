@@ -9,5 +9,5 @@ settings:
   retina: false
   windows_version: win10
 notes: >
-  Classic Source multiplayer. DXMT handles D3D9 paths. Expect higher input latency
+  Classic Source multiplayer. Default DXMT bottle — WineD3D handles D3D9. Expect higher input latency
   than native for competitive play.
