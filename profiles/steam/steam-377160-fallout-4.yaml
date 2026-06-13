@@ -17,4 +17,6 @@ fixes:
 notes: >
   Same Creation Engine family as Skyrim SE. Disable intro videos in the launcher
   if startup hangs. Protonfix reference (GPL): Bethesda titles may swap the game
-  exe for f4se_loader.exe when using F4SE. Expect longer first-launch shader compile.
+  exe for f4se_loader.exe when using F4SE. F4SE/SKSE in-memory patches need Cauldron's
+  VirtualProtect COW Wine patch on stock Gcenx (see docs/CAULDRON_WINE_PATCHES.md).
+  Expect longer first-launch shader compile.

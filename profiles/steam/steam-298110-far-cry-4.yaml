@@ -1,0 +1,19 @@
+id: far_cry_4
+name: "Far Cry 4"
+store: steam
+steam_appid: 298110
+status: bronze
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "16:1"
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Dunia-engine sequel. Cauldron reference: WINE_CPU_TOPOLOGY=16:1 to avoid engine
+  crashes when Wine reports too many logical CPUs.

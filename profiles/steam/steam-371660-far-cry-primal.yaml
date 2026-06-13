@@ -1,0 +1,19 @@
+id: far_cry_primal
+name: "Far Cry Primal"
+store: steam
+steam_appid: 371660
+status: bronze
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "31:1"
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: >
+  Dunia-engine prequel. Cauldron reference: WINE_CPU_TOPOLOGY=31:1 — highest topology
+  cap in the Far Cry series seed data.

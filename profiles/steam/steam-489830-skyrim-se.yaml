@@ -19,4 +19,5 @@ notes: >
   Creation Engine D3D11 game. Direct launch skips the Bethesda launcher when possible.
   Install SKSE in the game folder and ensure skse64_loader.exe is present for modded play.
   Cauldron reference: macdrv cursor ghosting — force_borderless disables display capture
-  and Retina for SkyrimSE.exe. Mod-heavy installs may need extra winetricks deps.
+  and Retina for SkyrimSE.exe. SKSE/F4SE code caves need Cauldron's VirtualProtect COW
+  Wine patch (see docs/CAULDRON_WINE_PATCHES.md) — stock Gcenx Wine may still break mods.

@@ -183,6 +183,7 @@ ported into curated YAML profiles. See [CAULDRON.md](CAULDRON.md).
 | `db/seed.sql` | LGPL-2.1 (project) | Profile hints via `scripts/import_cauldron_hints.sh` |
 | Launch resolver design | LGPL-2.1 | Field mapping documented; bash `profile.command apply` |
 | Wine fork / Rust core | LGPL-2.1 | Not imported (Cosmos uses Gcenx Wine + shell runtime) |
+| Wine patch audit | LGPL-2.1 | Reference: [CAULDRON_WINE_PATCHES.md](CAULDRON_WINE_PATCHES.md) |
 | Bundled D3DMetal | CrossOver proprietary | Not imported |
 
 

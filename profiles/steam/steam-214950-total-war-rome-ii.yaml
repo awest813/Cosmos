@@ -1,0 +1,18 @@
+id: total_war_rome_ii
+name: "Total War: Rome II"
+store: steam
+steam_appid: 214950
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  sync_mode: off
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Large-scale strategy. Cauldron reference: disable esync and msync for stability
+  during long campaign sessions.

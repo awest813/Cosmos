@@ -1,0 +1,17 @@
+id: state_of_decay_2
+name: "State of Decay 2"
+store: steam
+steam_appid: 495420
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win7
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: >
+  Unreal Engine 4 survival. Cauldron reference: report Windows 7 (win7) for
+  launcher compatibility. Co-op requires stable networking.

@@ -1,0 +1,19 @@
+id: far_cry_3
+name: "Far Cry 3"
+store: steam
+steam_appid: 220240
+status: bronze
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "24:1"
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Dunia-engine open-world shooter. Cauldron reference: limit CPU topology (24:1).
+  Ubisoft launcher may need manual uplay setup. Expect rough performance on Apple Silicon.

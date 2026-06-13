@@ -55,6 +55,13 @@ From Cauldron's launch pipeline (see upstream README):
 5. **macdrv per-app registry** — Skyrim SE cursor ghosting: `force_borderless`
    fix or manual `AppDefaults\<exe>\Mac Driver` keys.
 
+## Wine fork patches (not bundled)
+
+Cauldron's custom Wine 11.6 fork includes macOS-specific patches (VirtualProtect
+COW for SKSE/F4SE, native DLL search order, macdrv flicker). Cosmos uses Gcenx
+Wine — see [CAULDRON_WINE_PATCHES.md](CAULDRON_WINE_PATCHES.md) for impact and
+workarounds.
+
 ## Refreshing hints from upstream
 
 ```bash
@@ -67,7 +74,15 @@ Re-run after Cauldron updates to find new candidates for Cosmos profiles.
 
 ## Ported profile batches
 
-**2026-06** — Initial port from Cauldron `db/seed.sql`:
+**2026-06 (batch 2)** — Far Cry series, sync-off strategy titles, launcher bypasses:
+
+- Added: Far Cry 3, 4, 5, Primal, Blood Dragon
+- Added: Yakuza Kiwami, Supreme Commander: Forged Alliance, Total War: Rome II,
+  Dead or Alive 5, State of Decay 2, Little Nightmares, Dawn of War II, Prototype,
+  Conan Exiles, Evil Genius 2, Strange Brigade, The Evil Within
+- Documented: [CAULDRON_WINE_PATCHES.md](CAULDRON_WINE_PATCHES.md)
+
+**2026-06 (batch 1)** — Initial port from Cauldron `db/seed.sql`:
 
 - Updated: BioShock, Skyrim SE, The Forest
 - Added: Borderlands 2, Borderlands: The Pre-Sequel, BioShock 2 Remastered,

@@ -1,0 +1,19 @@
+id: far_cry_blood_dragon
+name: "Far Cry 3: Blood Dragon"
+store: steam
+steam_appid: 233270
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "24:1"
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Standalone Far Cry 3 spin-off. Cauldron reference: WINE_CPU_TOPOLOGY=24:1.
+  Generally lighter than main-series entries.

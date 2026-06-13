@@ -1,0 +1,19 @@
+id: conan_exiles
+name: "Conan Exiles"
+store: steam
+steam_appid: 440900
+launch_method: direct
+status: bronze
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: >
+  Unreal Engine 4 survival MMO. Cauldron reference: bypass the launcher — direct
+  launch targets ConanSandbox/Binaries/Win64/ConanSandbox.exe when auto-detected.
+  Online play and anti-cheat may block macOS clients.
