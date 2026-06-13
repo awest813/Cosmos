@@ -25,7 +25,8 @@ VERB_TO_RECIPE = {
     "vcrun2019": "vcrun2019",
     "vcrun2017": "vcrun2019",
     "vcrun2013": "vcrun2015",
-    "vcrun2022": "vcrun2019",
+    "vcrun2022": "vcrun2022",
+    "d3dcompiler_47": "d3dcompiler_47",
     "d3dx9": "d3dx9",
     "d3dx9_43": "d3dx9",
     "d3dx11_43": "d3dx9",
@@ -34,6 +35,8 @@ VERB_TO_RECIPE = {
     "dotnet35sp1": "dotnet48",
     "corefonts": "corefonts",
     "allfonts": "corefonts",
+    "quartz": "quartz",
+    "lavfilters": "lavfilters",
 }
 
 

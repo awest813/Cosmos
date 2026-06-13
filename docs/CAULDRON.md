@@ -74,6 +74,22 @@ Re-run after Cauldron updates to find new candidates for Cosmos profiles.
 
 ## Ported profile batches
 
+**2026-06 (batch 4)** — Media codec deps + final Cauldron seed ports:
+
+- Recipes: `quartz`, `lavfilters` (DirectShow / FMV cutscenes)
+- Added: Final Fantasy IX, Resident Evil 7, Devil May Cry HD Collection, Gothic,
+  Assetto Corsa, Mashed
+- All Cauldron `game_recommended_settings` rows now have Cosmos profiles
+
+**2026-06 (batch 3)** — AAA D3D12 / D3DMetal DXR profiles + runtime deps:
+
+- Recipes: `vcrun2022`, `d3dcompiler_47`
+- Added: God of War, Spider-Man Remastered, Alan Wake 2, Ghost of Tsushima,
+  Ratchet & Clank: Rift Apart, The Last of Us Part I, Returnal, Control Ultimate,
+  Horizon Zero Dawn, Forza Horizon 4
+- Roadmap: [Wine #29384](https://bugs.winehq.org/show_bug.cgi?id=29384) tracked
+  against Gcenx pin in [ROADMAP.md](ROADMAP.md)
+
 **2026-06 (batch 2)** — Far Cry series, sync-off strategy titles, launcher bypasses:
 
 - Added: Far Cry 3, 4, 5, Primal, Blood Dragon

@@ -1,0 +1,21 @@
+id: spider_man_remastered
+name: "Marvel's Spider-Man Remastered"
+store: steam
+steam_appid: 1817070
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    D3DM_SUPPORT_DXR: "1"
+dependencies:
+  - vcrun2022
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  D3D12 open-world. Set GPTK_PATH and use d3dmetal backend. Cauldron reference:
+  vcrun2022 + d3dcompiler_47. DXR (D3DM_SUPPORT_DXR) may work on M3+ GPUs with a
+  compatible D3DMetal runtime. CPU-bound in dense city scenes on Apple Silicon.

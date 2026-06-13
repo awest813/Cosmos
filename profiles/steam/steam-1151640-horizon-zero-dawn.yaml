@@ -1,0 +1,18 @@
+id: horizon_zero_dawn
+name: "Horizon Zero Dawn Complete Edition"
+store: steam
+steam_appid: 1151640
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  D3D12 open-world. Cauldron reference: vcrun2019. Use d3dmetal with GPTK_PATH;
+  first launch builds shader cache. Long initial load times are normal.

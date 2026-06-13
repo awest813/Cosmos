@@ -1,0 +1,17 @@
+id: forza_horizon_4
+name: "Forza Horizon 4"
+store: steam
+steam_appid: 1293830
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+fixes:
+  - disable_retina
+notes: >
+  D3D12 racing sandbox. Cauldron reference: vcrun2019. Online features use
+  Microsoft account services; Xbox Live networking may be flaky under Wine.

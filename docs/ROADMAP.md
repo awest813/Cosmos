@@ -185,6 +185,28 @@ success criterion — if that sentence isn't true, the release isn't done.
   `Cosmos DXMT`, `Cosmos D3DMetal`
 - **Success:** Cosmos is useful to ordinary Mac gamers, not just its author.
 
+#### Tracked Wine gaps (Gcenx pin)
+
+Cosmos ships Gcenx Wine from [RUNTIME.md](RUNTIME.md) (`cosmos-runtime.json`).
+Custom patches are not applied in-tree today; track upstream merge status before
+rebasing the pin.
+
+| Tracker | Issue | Affects | Cosmos mitigation | Target |
+| --- | --- | --- | --- | --- |
+| **VirtualProtect COW** | [Wine #29384](https://bugs.winehq.org/show_bug.cgi?id=29384) | SKSE, F4SE, OBSE, ASI/ReShade loaders | Profile notes; no in-memory patch survival on stock Wine | Cherry-pick [Cauldron 0001](https://github.com/cashcon57/cauldron/blob/main/patches/cauldron/0001-ntdll-Preserve-private-pages-on-VirtualProtect.patch) or upstream fix when validated on pinned Gcenx |
+| **Native DLL load order** | Cauldron 0004 | DXMT/DXVK DLLs in game dir without overrides | `WINEDLLOVERRIDES`, prefix `system32` install | Evaluate for Gcenx pin + macOS launch CI |
+| **macdrv flicker** | wine-staging `winemac.drv` | Fullscreen compositor flicker | `force_borderless`, Retina off | Monitor staging + Gcenx release notes |
+
+**Verification checklist** when bumping the Gcenx Wine pin — see
+**[WINE_GAP_VALIDATION.md](WINE_GAP_VALIDATION.md)** (required):
+
+1. `./scripts/validate_wine_gaps.sh check` — manifest ↔ `runtime/wine-gap-validation.json`
+2. `./scripts/validate_wine_gaps.sh probe` — synthetic `cow_probe.exe` (macOS)
+3. Skyrim SE + SKSE / Fallout 4 + F4SE manual smoke
+4. Steam CEF (`steamwebhelper.exe`) regression
+5. Record results: `./scripts/validate_wine_gaps.sh record …`
+6. `./scripts/test_wine_gap_validation.sh`
+
 ### Later / optional — Console mode
 - Fullscreen game grid, controller navigation, large cover art, Play button,
   compatibility badge, settings, repair, "Quit to Cosmos"
@@ -221,6 +243,7 @@ Statuses: **Platinum** (works out of box) · **Gold** (small fixes) ·
 - `[Profiles]` Load local YAML profiles
 - `[Games]` Add Steam App ID launcher support
 - `[Graphics]` Add backend enum: d3dmetal, dxmt, dxvk, wined3d
+- `[Wine]` Track [Wine #29384](https://bugs.winehq.org/show_bug.cgi?id=29384) VirtualProtect COW against Gcenx pin — [WINE_GAP_VALIDATION.md](WINE_GAP_VALIDATION.md)
 - `[Repair]` Add "kill Wine processes" action
 - [x] `[Docs]` Write manual Steam setup fallback — [STEAM_SETUP.md](STEAM_SETUP.md)
 

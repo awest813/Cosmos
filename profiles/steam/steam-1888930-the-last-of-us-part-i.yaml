@@ -1,0 +1,18 @@
+id: the_last_of_us_part_i
+name: "The Last of Us Part I"
+store: steam
+steam_appid: 1888930
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2022
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  D3D12 only — d3dmetal + GPTK_PATH required. Cauldron reference: CPU-bound in
+  open areas with shader stutter on first run. Very demanding on Apple Silicon.

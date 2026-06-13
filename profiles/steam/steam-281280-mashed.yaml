@@ -1,0 +1,17 @@
+id: mashed
+name: "Mashed"
+store: steam
+steam_appid: 281280
+status: bronze
+recommended_backend: wined3d
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: winxp
+dependencies:
+  - d3dx9
+fixes:
+  - disable_retina
+notes: >
+  Top-down vehicular combat party game. Cauldron reference: report Windows XP (winxp).
+  Legacy D3D title — wined3d backend for best compatibility.

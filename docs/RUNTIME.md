@@ -15,6 +15,19 @@ Versioned, pinned stack for Wine-on-macOS. Manifest:
 `run.command` loads the manifest on startup unless you override versions via
 environment variables.
 
+### Gcenx Wine pin bumps
+
+When updating `components.wine.version` in this manifest, follow
+[WINE_GAP_VALIDATION.md](WINE_GAP_VALIDATION.md):
+
+```bash
+./scripts/validate_wine_gaps.sh check      # fails until validation JSON updated
+./scripts/validate_wine_gaps.sh probe      # macOS: Wine #29384 synthetic test
+./scripts/test_wine_gap_validation.sh
+```
+
+Tracked state: `runtime/wine-gap-validation.json`.
+
 ## Experimental DXVK auto-fetch
 
 ```bash

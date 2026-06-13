@@ -1,0 +1,55 @@
+{
+  "schema": "cosmos-wine-gap-validation-1",
+  "pinned_wine_version": "11.8",
+  "gcenx_release": "https://github.com/Gcenx/macOS_Wine_builds/releases/tag/11.8",
+  "last_reviewed": "2026-06-11",
+  "reviewer": "cosmos-maintainers",
+  "gaps": {
+    "wine_29384_virtualprotect_cow": {
+      "title": "VirtualProtect preserves COW-written PE pages",
+      "winehq": "https://bugs.winehq.org/show_bug.cgi?id=29384",
+      "status": "fail",
+      "status_meaning": "fail = probe fails or SKSE/F4SE broken; pass = fixed on this pin; untested = pin bumped, re-run validation",
+      "cauldron_patch": "https://github.com/cashcon57/cauldron/blob/main/patches/cauldron/0001-ntdll-Preserve-private-pages-on-VirtualProtect.patch",
+      "affects": ["SKSE", "F4SE", "OBSE", "ASI loaders", "ReShade"],
+      "profiles": [
+        "profiles/steam/steam-489830-skyrim-se.yaml",
+        "profiles/steam/steam-377160-fallout-4.yaml",
+        "profiles/steam/steam-22380-fallout-new-vegas.yaml"
+      ],
+      "tests": {
+        "synthetic_cow_probe": {
+          "status": "untested",
+          "fixture": "scripts/fixtures/wine_gap/cow_probe.exe",
+          "expected_exit_code_fail": 2,
+          "notes": "PE .text patch survives VirtualProtect RX; exit 0 = pass, 2 = COW lost"
+        },
+        "skse64_loader": {
+          "status": "untested",
+          "steam_appid": 489830,
+          "notes": "Manual: install SKSE, launch skse64_loader.exe via profile direct launch"
+        },
+        "f4se_loader": {
+          "status": "untested",
+          "steam_appid": 377160,
+          "notes": "Manual: install F4SE, launch f4se_loader.exe"
+        },
+        "steamwebhelper_cef": {
+          "status": "untested",
+          "notes": "Regression guard: Steam CEF still launches with builtin D3D overrides"
+        }
+      },
+      "notes": "Stock Gcenx 11.8 lacks Cauldron 0001 / upstream fix. Re-validate when bumping runtime/cosmos-runtime.json wine.version."
+    },
+    "cauldron_0004_native_dll_order": {
+      "title": "Prefer native graphics DLLs from game directory",
+      "status": "mitigated",
+      "notes": "Cosmos uses WINEDLLOVERRIDES + prefix system32 DXMT/DXVK staging"
+    },
+    "macdrv_flicker": {
+      "title": "macdrv compositor flicker",
+      "status": "mitigated",
+      "notes": "force_borderless + disable_retina recipes; track wine-staging winemac.drv"
+    }
+  }
+}

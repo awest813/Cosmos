@@ -1,0 +1,21 @@
+id: ratchet_and_clank_rift_apart
+name: "Ratchet & Clank: Rift Apart"
+store: steam
+steam_appid: 1895880
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    D3DM_ENABLE_METALFX: "1"
+dependencies:
+  - vcrun2022
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  D3D12 showcase title. Cauldron reference: D3DM_ENABLE_METALFX as a DLSS
+  replacement when the D3DMetal runtime supports MetalFX. Dimension-shift scenes
+  are GPU-heavy on Apple Silicon.

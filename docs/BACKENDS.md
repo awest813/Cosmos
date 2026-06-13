@@ -107,6 +107,17 @@ D3D12 titles need Apple's Game Porting Toolkit (not redistributed). Use the dash
 **Save & Test Steam**. Set `COSMOS_BACKEND=d3dmetal` (or `recommended` with
 `GPTK_PATH` set).
 
+Optional D3DMetal env hints (from Cauldron/CrossOver lineage; require a runtime
+that supports them):
+
+| Variable | Purpose |
+| --- | --- |
+| `D3DM_SUPPORT_DXR=1` | Enable DXR ray tracing on supported GPUs (typically M3+) |
+| `D3DM_ENABLE_METALFX=1` | MetalFX upscaling where available |
+
+Set via profile `settings.env` or `overrides/<appid>.env`. See curated AAA
+profiles (God of War, Alan Wake 2, etc.) in `profiles/steam/`.
+
 > A dedicated bottle per backend is recommended so native DLLs from different
 > backends don't accumulate in one `system32`. The 0.3 bottle manager and a UI
 > backend picker build on this selector.

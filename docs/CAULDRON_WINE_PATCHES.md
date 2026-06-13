@@ -107,6 +107,8 @@ packaging.
 1. **Profiles and env workarounds first** — CPU topology, sync off, audio period,
    launcher bypasses (see [CAULDRON.md](CAULDRON.md)).
 2. **Track upstream** — Wine #29384, wine-staging gaming patches, Gcenx changelog.
+   Validation workflow: [WINE_GAP_VALIDATION.md](WINE_GAP_VALIDATION.md).
+   Status table: [ROADMAP.md §1.0 tracked Wine gaps](ROADMAP.md#tracked-wine-gaps-gcenx-pin).
 3. **Cherry-pick only with CI** — Any custom Wine pin needs macOS launch regression
    tests (Skyrim SE + SKSE, Fallout 4 + F4SE, Steam CEF).
 4. **LGPL compliance** — Forked Wine must ship source offers per [LICENSING.md](LICENSING.md).

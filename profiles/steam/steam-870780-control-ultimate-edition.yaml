@@ -1,0 +1,21 @@
+id: control_ultimate_edition
+name: "Control Ultimate Edition"
+store: steam
+steam_appid: 870780
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    D3DM_SUPPORT_DXR: "1"
+dependencies:
+  - vcrun2019
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  D3D12 action title with optional ray tracing. Cauldron reference: D3DM_SUPPORT_DXR
+  on M3+ when using d3dmetal. Vulkan launch option exists on Windows; Cosmos path is
+  GPTK/D3DMetal.
