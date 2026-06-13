@@ -1,0 +1,21 @@
+id: devil_may_cry_hd_collection
+name: "Devil May Cry HD Collection"
+store: steam
+steam_appid: 631510
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2010
+  - d3dx9
+  - quartz
+  - lavfilters
+fixes:
+  - disable_retina
+notes: >
+  DMC 1–3 HD remasters. Cauldron reference: quartz + lavfilters for cutscene
+  codecs. D3D9 via WineD3D on the default backend; try a wined3d bottle if menus
+  or FMV glitch.

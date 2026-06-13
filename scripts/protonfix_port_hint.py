@@ -35,6 +35,8 @@ VERB_TO_RECIPE = {
     "dotnet35sp1": "dotnet48",
     "corefonts": "corefonts",
     "allfonts": "corefonts",
+    "quartz": "quartz",
+    "lavfilters": "lavfilters",
 }
 
 

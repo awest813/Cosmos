@@ -218,6 +218,18 @@ repair_diagnose_scan_log() {
   Try: ./repair.command install-dep d3dcompiler_47"
   fi
 
+  if printf '%s' "${blob}" | grep -Eiq 'quartz\.dll|QUARTZ|DirectShow|MFPlat|0x800402|video codec|cannot play.*cutscene'; then
+    repair_diagnose_suggest dep quartz \
+      "[media] DirectShow / Quartz filter may be missing (FMV cutscenes)
+  Try: ./repair.command install-dep quartz"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'lavfilters|LAV Video|wmvcore|windowscodecs|0x80040265'; then
+    repair_diagnose_suggest dep lavfilters \
+      "[media] LAV Filters codecs may be missing (WMV/MPEG video)
+  Try: ./repair.command install-dep lavfilters"
+  fi
+
   if printf '%s' "${blob}" | grep -Eiq 'mscoree|mscoree\.dll|\.NET Framework|clr\.dll|mscorlib'; then
     repair_diagnose_suggest fix grounded-mscoree-fix \
       "[runtime] .NET / mscoree.dll issues detected (common Unity black screen)

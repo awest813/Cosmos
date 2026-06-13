@@ -1,0 +1,19 @@
+id: gothic
+name: "Gothic"
+store: steam
+steam_appid: 65540
+status: bronze
+recommended_backend: wined3d
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: winxp
+  env:
+    STAGING_AUDIO_PERIOD: "60"
+dependencies:
+  - d3dx9
+fixes:
+  - disable_retina
+notes: >
+  Classic open-world RPG (2001). Cauldron reference: STAGING_AUDIO_PERIOD=60 for
+  audio stability. Dedicated wined3d backend recommended for legacy D3D8/D3D9 paths.

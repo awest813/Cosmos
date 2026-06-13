@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=quartz
+DESCRIPTION=Quartz DirectShow filter (winetricks; video cutscene playback)
+WINETRICKS=quartz

@@ -74,6 +74,13 @@ Re-run after Cauldron updates to find new candidates for Cosmos profiles.
 
 ## Ported profile batches
 
+**2026-06 (batch 4)** — Media codec deps + final Cauldron seed ports:
+
+- Recipes: `quartz`, `lavfilters` (DirectShow / FMV cutscenes)
+- Added: Final Fantasy IX, Resident Evil 7, Devil May Cry HD Collection, Gothic,
+  Assetto Corsa, Mashed
+- All Cauldron `game_recommended_settings` rows now have Cosmos profiles
+
 **2026-06 (batch 3)** — AAA D3D12 / D3DMetal DXR profiles + runtime deps:
 
 - Recipes: `vcrun2022`, `d3dcompiler_47`

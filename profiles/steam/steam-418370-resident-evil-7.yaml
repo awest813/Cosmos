@@ -1,0 +1,19 @@
+id: resident_evil_7
+name: "Resident Evil 7 Biohazard"
+store: steam
+steam_appid: 418370
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+  - quartz
+  - lavfilters
+fixes:
+  - disable_retina
+notes: >
+  RE Engine horror. Cauldron reference: quartz + lavfilters for in-engine and
+  pre-rendered video playback. DX11 via DXMT; VR mode is not supported on macOS.

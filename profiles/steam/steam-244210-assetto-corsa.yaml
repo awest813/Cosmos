@@ -1,0 +1,20 @@
+id: assetto_corsa
+name: "Assetto Corsa"
+store: steam
+steam_appid: 244210
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    STAGING_AUDIO_PERIOD: "60"
+dependencies:
+  - vcrun2015
+  - d3dx9
+fixes:
+  - disable_retina
+notes: >
+  Racing sim. Cauldron reference: STAGING_AUDIO_PERIOD=60 reduces audio crackling
+  under Wine. DX11 via DXMT; wheel/controller input may need manual binding.

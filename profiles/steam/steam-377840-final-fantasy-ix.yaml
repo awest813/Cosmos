@@ -1,0 +1,22 @@
+id: final_fantasy_ix
+name: "FINAL FANTASY IX"
+store: steam
+steam_appid: 377840
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    STAGING_AUDIO_PERIOD: "60"
+dependencies:
+  - vcrun2019
+  - quartz
+  - lavfilters
+fixes:
+  - disable_retina
+notes: >
+  Classic JRPG port. Cauldron reference: quartz + lavfilters for FMV cutscenes,
+  vcrun2019 for runtime errors, STAGING_AUDIO_PERIOD=60 for audio crackle.
+  D3D9 paths use WineD3D on the default backend.

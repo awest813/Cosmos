@@ -76,7 +76,7 @@ notes: "Use launcher first, then set resolution."
 | `settings.esync` | no | Legacy boolean; exports `COSMOS_SYNC_MODE=esync` when true. |
 | `settings.sync_mode` | no | `off`, `esync`, or `msync` — thread sync for netcode/performance (Phase E). |
 | `settings.env` | no | Map of extra environment variables (`WINE_CPU_TOPOLOGY`, `STAGING_AUDIO_PERIOD`, `DXVK_CUSTOM_VENDOR_ID`, …). |
-| `dependencies` | no | List of dependency recipe IDs from `recipes/dependencies/`. |
+| `dependencies` | no | List of dependency recipe IDs from `recipes/dependencies/` (`vcrun2022`, `quartz`, `lavfilters`, …). |
 | `fixes` | no | List of fix recipe IDs from `recipes/fixes/`. |
 | `tags` | no | Play-mode labels: `co-op`, `online`, `lan`, `pvp`. Shown in the dashboard. |
 | `anti_cheat` | no | `none`, `eac`, `battleye`, `vac`, or `custom`. Use with `status: blocked` for unsupported titles. |

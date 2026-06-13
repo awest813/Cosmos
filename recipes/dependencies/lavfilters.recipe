@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=lavfilters
+DESCRIPTION=LAV Filters DirectShow codecs (winetricks; WMV/MPEG cutscenes)
+WINETRICKS=lavfilters
