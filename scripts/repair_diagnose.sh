@@ -206,6 +206,18 @@ repair_diagnose_scan_log() {
   Try: ./repair.command install-dep vcrun2019"
   fi
 
+  if printf '%s' "${blob}" | grep -Eiq 'vcrun2022|VCRUNTIME140\.dll.*2022|Visual C\+\+.*2022'; then
+    repair_diagnose_suggest dep vcrun2022 \
+      "[runtime] Visual C++ 2022 runtime may be missing
+  Try: ./repair.command install-dep vcrun2022"
+  fi
+
+  if printf '%s' "${blob}" | grep -Eiq 'd3dcompiler_47|D3DCOMPILER_47'; then
+    repair_diagnose_suggest dep d3dcompiler_47 \
+      "[runtime] d3dcompiler_47 may be missing (D3D12 shader compile)
+  Try: ./repair.command install-dep d3dcompiler_47"
+  fi
+
   if printf '%s' "${blob}" | grep -Eiq 'mscoree|mscoree\.dll|\.NET Framework|clr\.dll|mscorlib'; then
     repair_diagnose_suggest fix grounded-mscoree-fix \
       "[runtime] .NET / mscoree.dll issues detected (common Unity black screen)

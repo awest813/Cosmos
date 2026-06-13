@@ -1,0 +1,20 @@
+id: ghost_of_tsushima
+name: "Ghost of Tsushima Director's Cut"
+store: steam
+steam_appid: 2215430
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    D3DM_SUPPORT_DXR: "1"
+dependencies:
+  - vcrun2022
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  D3D12 PlayStation port. Cauldron reference: D3DMetal with DXR on M3+. Frame
+  pacing may vary on macOS; shader cache builds over first sessions.

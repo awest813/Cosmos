@@ -1,0 +1,21 @@
+id: alan_wake_2
+name: "Alan Wake 2"
+store: steam
+steam_appid: 2118960
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    D3DM_SUPPORT_DXR: "1"
+dependencies:
+  - vcrun2022
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  Very GPU-heavy D3D12 horror. GPTK_PATH + d3dmetal required. Cauldron reference:
+  D3DM_SUPPORT_DXR for ray tracing on M3+ when supported. Epic Games ownership is
+  common — import via Legendary if not in the Steam library.

@@ -1,0 +1,20 @@
+id: returnal
+name: "Returnal"
+store: steam
+steam_appid: 1649240
+status: bronze
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    D3DM_SUPPORT_DXR: "1"
+dependencies:
+  - vcrun2022
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  UE5 D3D12 roguelike. Cauldron reference: D3DM_SUPPORT_DXR on M3+. Extremely
+  demanding; expect reduced settings and long shader compiles.

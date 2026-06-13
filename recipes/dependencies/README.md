@@ -29,6 +29,8 @@ Winetricks is **LGPL** — invoked as an external tool; see [docs/LICENSING.md](
 | `vcrun2010` | `vcrun2010` |
 | `vcrun2015` | `vcrun2015` |
 | `vcrun2019` | `vcrun2019` |
+| `vcrun2022` | `vcrun2022` |
+| `d3dcompiler_47` | `d3dcompiler_47` |
 | `dotnet48` | `dotnet48` |
 | `corefonts` | `corefonts` |
 | `d3dx9` | `d3dx9` |

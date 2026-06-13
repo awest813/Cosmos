@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=vcrun2022
+DESCRIPTION=Microsoft Visual C++ 2022 Redistributable (winetricks)
+WINETRICKS=vcrun2022

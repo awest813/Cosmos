@@ -1,0 +1,4 @@
+TYPE=dependency
+ID=d3dcompiler_47
+DESCRIPTION=Direct3D HLSL Compiler d3dcompiler_47.dll (winetricks)
+WINETRICKS=d3dcompiler_47

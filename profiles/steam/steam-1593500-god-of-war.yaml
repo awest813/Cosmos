@@ -1,0 +1,22 @@
+id: god_of_war
+name: "God of War"
+store: steam
+steam_appid: 1593500
+status: silver
+recommended_backend: d3dmetal
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    D3DM_SUPPORT_DXR: "1"
+dependencies:
+  - vcrun2022
+  - d3dcompiler_47
+fixes:
+  - disable_retina
+notes: >
+  D3D12 AAA port. Requires user-supplied GPTK_PATH and d3dmetal backend.
+  Cauldron reference: vcrun2022 + d3dcompiler_47; D3DM_SUPPORT_DXR enables ray
+  tracing on M3+ when the D3DMetal runtime supports DXR. Expect shader compile
+  stutter on first run.
