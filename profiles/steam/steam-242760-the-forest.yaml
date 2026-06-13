@@ -8,8 +8,10 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "4:1"
 dependencies:
   - vcrun2015
 notes: >
   Unity survival horror. DXMT handles D3D11 rendering. Co-op needs stable networking.
-  Protonfix reference (GPL): check umu-protonfixes for port ideas if startup fails.
+  Cauldron reference: limit CPU topology (WINE_CPU_TOPOLOGY=4:1) to avoid engine crashes.

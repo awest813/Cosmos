@@ -165,9 +165,26 @@ Parsers and HTTP helpers live in `scripts/lib/cosmosdb_lib.sh`. Unit tests:
 ./scripts/import_macos_wine_steam.sh --write-drafts
 ./scripts/protonfix_port_hint.py 22380
 ./profile.command port-hint 22380
+./scripts/import_cauldron_hints.sh --diff
 ```
 
-See [PROTONFIXES_PORTING.md](PROTONFIXES_PORTING.md).
+See [PROTONFIXES_PORTING.md](PROTONFIXES_PORTING.md) and [CAULDRON.md](CAULDRON.md).
+
+## 4b. Cauldron (LGPL-2.1 reference)
+
+Upstream: https://github.com/cashcon57/cauldron (paused; Rust + SwiftUI + Wine fork)
+
+**Reference only** — Cosmos does not bundle Cauldron. Its `db/seed.sql` per-game
+launch intelligence (sync off, CPU topology, exe overrides, registry entries) is
+ported into curated YAML profiles. See [CAULDRON.md](CAULDRON.md).
+
+| Asset | License | Cosmos use |
+| --- | --- | --- |
+| `db/seed.sql` | LGPL-2.1 (project) | Profile hints via `scripts/import_cauldron_hints.sh` |
+| Launch resolver design | LGPL-2.1 | Field mapping documented; bash `profile.command apply` |
+| Wine fork / Rust core | LGPL-2.1 | Not imported (Cosmos uses Gcenx Wine + shell runtime) |
+| Bundled D3DMetal | CrossOver proprietary | Not imported |
+
 
 ## 5. CrossOver / CodeWeavers (hints and LGPL Wine source)
 

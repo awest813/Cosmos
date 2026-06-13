@@ -1,0 +1,17 @@
+id: age_of_empires_iii
+name: "Age of Empires III: Definitive Edition"
+store: steam
+steam_appid: 105450
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: winxp
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Classic RTS. Cauldron reference: report Windows XP (winxp) for older engine
+  compatibility. Install vcrun2010 if the game complains about missing runtimes.

@@ -1,0 +1,18 @@
+id: dark_souls_ptde
+name: "Dark Souls: Prepare to Die Edition"
+store: steam
+steam_appid: 211420
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win7
+dependencies:
+  - vcrun2010
+  - d3dx9
+fixes:
+  - disable_retina
+notes: >
+  D3D9 action RPG. Cauldron reference: report Windows 7 (win7). Install vcrun2010
+  and d3dx9 for missing runtime errors. D3D9 runs via WineD3D on the default backend.

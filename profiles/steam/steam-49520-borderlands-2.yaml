@@ -1,0 +1,20 @@
+id: borderlands_2
+name: "Borderlands 2"
+store: steam
+steam_appid: 49520
+launch_method: direct
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  sync_mode: off
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Unreal Engine 3 D3D9 title. Cauldron reference: disable esync and bypass the
+  broken launcher — direct launch targets Binaries/Win32/Borderlands2.exe when
+  auto-detected. Try a wined3d bottle if rendering glitches persist.
