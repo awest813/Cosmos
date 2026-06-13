@@ -167,13 +167,45 @@ appid_in_snapshot() {
 }
 
 emit_json_game_list() {
-  local i
+  local i verify_lines installdir_ok exe_ok game_exe_rel status source sync_eligible
   printf '['
   for i in "${!appids[@]}"; do
     (( i > 0 )) && printf ','
-    python3 - "${appids[$i]}" "${names[$i]}" <<'PY'
+    source="$(detect_appid_source_label "${appids[$i]}" | sed 's/^[[:space:]]*//;s/\[//g;s/\]//g')"
+    if detect_appid_in_wine_prefix "${appids[$i]}"; then
+      verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appids[$i]}" 2>/dev/null || true)"
+      installdir_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="installdir_ok"{print $2; exit}')"
+      exe_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="exe_ok"{print $2; exit}')"
+      game_exe_rel="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="game_exe_rel"{print $2; exit}')"
+      status="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="status"{print $2; exit}')"
+      sync_eligible=0
+      [[ "${installdir_ok}" == "1" && "${exe_ok}" == "1" ]] && sync_eligible=1
+    else
+      installdir_ok=""
+      exe_ok=""
+      game_exe_rel=""
+      status="native_only"
+      sync_eligible=0
+      [[ -z "${source}" ]] && source="native only"
+    fi
+    python3 - "${appids[$i]}" "${names[$i]}" "${installdir_ok:-}" "${exe_ok:-}" \
+      "${game_exe_rel:-}" "${status:-unknown}" "${source:-}" "${sync_eligible}" <<'PY'
 import json, sys
-print(json.dumps({"appid": sys.argv[1], "name": sys.argv[2]}), end="")
+item = {
+    "appid": sys.argv[1],
+    "name": sys.argv[2],
+    "install_status": sys.argv[6] or "unknown",
+    "sync_eligible": sys.argv[8] == "1",
+}
+if sys.argv[3]:
+    item["installdir_ok"] = sys.argv[3] == "1"
+if sys.argv[4]:
+    item["exe_ok"] = sys.argv[4] == "1"
+if sys.argv[5]:
+    item["game_exe"] = sys.argv[5]
+if sys.argv[7]:
+    item["source"] = sys.argv[7]
+print(json.dumps(item), end="")
 PY
   done
   printf ']\n'
@@ -249,6 +281,16 @@ detect_appid_source_label() {
 
 detect_appid_in_wine_prefix() {
   [[ "${DETECT_WINE_APPIDS}" == *" $1 "* ]]
+}
+
+# True when installdir and a playable .exe exist on disk for a Wine-prefix title.
+detect_install_is_healthy() {
+  local appid="$1"
+  local verify_lines installdir_ok exe_ok
+  verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appid}" 2>/dev/null || true)"
+  installdir_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="installdir_ok"{print $2; exit}')"
+  exe_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="exe_ok"{print $2; exit}')"
+  [[ "${installdir_ok}" == "1" && "${exe_ok}" == "1" ]]
 }
 
 scan_steamapps_library() {
@@ -454,6 +496,37 @@ prune_orphan_icons() {
   shopt -u nullglob
 }
 
+# True when generated configs should launch the detected game .exe instead of -applaunch.
+config_wants_direct_launch() {
+  local appid="$1"
+  [[ "${COSMOS_STEAM_DIRECT_LAUNCH:-0}" == "1" ]] && return 0
+  local n
+  for n in ${OVERRIDE_NAMES[@]+"${OVERRIDE_NAMES[@]}"}; do
+    case "${n}" in
+      COSMOS_STEAM_DIRECT_LAUNCH|GAME_EXE_PATH|COSMOS_SKIP_STEAM) return 0 ;;
+    esac
+  done
+  local profile_file method
+  profile_file="$(profile_find_by_appid "${PROFILES_DIR}" "${appid}" 2>/dev/null || true)"
+  [[ -n "${profile_file}" ]] || return 1
+  method="$(profile_launch_method "${profile_file}")"
+  [[ "${method}" == "direct" ]]
+}
+
+# Prefix-relative game .exe for direct launch (profile exe_path or detected install).
+config_resolve_game_exe_path() {
+  local appid="$1"
+  local profile_file profile_exe verify_lines game_exe_rel
+  profile_file="$(profile_find_by_appid "${PROFILES_DIR}" "${appid}" 2>/dev/null || true)"
+  if [[ -n "${profile_file}" ]]; then
+    profile_exe="$(profile_get_exe_path "${profile_file}")"
+    [[ -n "${profile_exe}" ]] && { printf '%s' "${profile_exe}"; return 0; }
+  fi
+  verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appid}" 2>/dev/null || true)"
+  game_exe_rel="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="game_exe_rel"{print $2; exit}')"
+  [[ -n "${game_exe_rel}" ]] && printf '%s' "${game_exe_rel}"
+}
+
 write_config() {
   local appid="$1" name="$2"
   local slug app_name bundle_id file
@@ -467,9 +540,32 @@ write_config() {
   local icns=""
   icns="$(generate_icon "${appid}")" || icns=""
 
+  local direct_exe="" has_game_exe=0 has_skip_steam=0 n l
+  if config_wants_direct_launch "${appid}"; then
+    for n in ${OVERRIDE_NAMES[@]+"${OVERRIDE_NAMES[@]}"}; do
+      [[ "${n}" == "GAME_EXE_PATH" ]] && has_game_exe=1
+      [[ "${n}" == "COSMOS_SKIP_STEAM" ]] && has_skip_steam=1
+    done
+    if (( ! has_game_exe )); then
+      direct_exe="$(config_resolve_game_exe_path "${appid}")"
+      if [[ -n "${direct_exe}" ]]; then
+        OVERRIDE_NAMES+=("GAME_EXE_PATH")
+        OVERRIDE_LINES+=("GAME_EXE_PATH=\"${direct_exe}\"")
+        has_game_exe=1
+      fi
+    fi
+    if (( has_game_exe && ! has_skip_steam )); then
+      OVERRIDE_NAMES+=("COSMOS_SKIP_STEAM")
+      OVERRIDE_LINES+=('COSMOS_SKIP_STEAM="1"')
+    fi
+  fi
+
   {
     printf '%s\n' "${AUTO_HEADER}"
     printf '# Steam: %s (App ID %s)\n' "${name}" "${appid}"
+    if [[ -n "${direct_exe}" ]]; then
+      printf '# Direct launch: %s\n' "${direct_exe}"
+    fi
     if (( ${#OVERRIDE_NAMES[@]} > 0 )); then
       printf '# Merged extras from overrides/%s.env: %s\n' "${appid}" "${OVERRIDE_NAMES[*]}"
     else
@@ -492,14 +588,12 @@ write_config() {
     printf '\n'
     printf 'RUN_ENV_NAMES=(\n'
     printf '  STEAM_GAME_ID\n'
-    local n
     for n in ${OVERRIDE_NAMES[@]+"${OVERRIDE_NAMES[@]}"}; do
       printf '  %s\n' "${n}"
     done
     printf ')\n'
     printf '\n'
     printf 'STEAM_GAME_ID="%s"\n' "${appid}"
-    local l
     for l in ${OVERRIDE_LINES[@]+"${OVERRIDE_LINES[@]}"}; do
       printf '%s\n' "${l}"
     done
@@ -602,6 +696,20 @@ main() {
         backend="$(profile_get_scalar "${pf}" recommended_backend)"
         note+="  [profile: ${status:-?}/${backend:-?}]"
       fi
+      if detect_appid_in_wine_prefix "${appids[$i]}"; then
+        local verify_lines installdir_ok exe_ok install_status
+        verify_lines="$(steam_verify_game_install "${STEAM_DIR}" "${appids[$i]}" 2>/dev/null || true)"
+        installdir_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="installdir_ok"{print $2; exit}')"
+        exe_ok="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="exe_ok"{print $2; exit}')"
+        install_status="$(printf '%s\n' "${verify_lines}" | awk -F= '$1=="status"{print $2; exit}')"
+        if [[ "${installdir_ok}" != "1" ]]; then
+          note+="  [install: missing folder]"
+        elif [[ "${exe_ok}" != "1" ]]; then
+          note+="  [install: missing exe]"
+        elif [[ "${MODE}" == "verify" && -n "${install_status}" ]]; then
+          note+="  [install: ${install_status}]"
+        fi
+      fi
       printf '  %-8s %s%s\n' "${appids[$i]}" "${names[$i]}" "${note}"
     done
     if [[ "${MODE}" == "verify" ]]; then
@@ -641,6 +749,12 @@ main() {
   for i in "${!appids[@]}"; do
     if ! detect_appid_in_wine_prefix "${appids[$i]}"; then
       printf '  skip   %-8s %s (native Steam only — not in Wine prefix)\n' \
+        "${appids[$i]}" "${names[$i]}"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    if ! detect_install_is_healthy "${appids[$i]}"; then
+      printf '  skip   %-8s %s (broken install — missing folder or .exe)\n' \
         "${appids[$i]}" "${names[$i]}"
       skipped=$((skipped + 1))
       continue

@@ -40,7 +40,14 @@ enum CosmosPaths {
         CosmosBadgeStore.communityGamesDirectory()
     }
 
-    /// User-authored profiles under Application Support (or `COSMOS_SUPPORT_DIR`).
+    /// User-authored YAML game profiles (separate from `.conf` launcher configs).
+    static var userGameProfilesDirectory: URL {
+        let dir = supportDirectory.appendingPathComponent("GameProfiles", isDirectory: true)
+        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// User-authored launcher configs under Application Support (or `COSMOS_SUPPORT_DIR`).
     static var userProfilesDirectory: URL {
         supportDirectory.appendingPathComponent("Profiles", isDirectory: true)
     }
@@ -48,6 +55,24 @@ enum CosmosPaths {
     /// Generated/imported launcher configs under Application Support.
     static var userConfigsDirectory: URL {
         supportDirectory.appendingPathComponent("cosmos_configs", isDirectory: true)
+    }
+
+    /// Launcher configs directory aligned with `detect_steam_games.command` / `import_game.command`.
+    static func resolvedConfigsDirectory() -> URL {
+        if let override = ProcessInfo.processInfo.environment["COSMOS_CONFIGS_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        if let resourceURL = Bundle.main.resourceURL,
+           resourceURL.path.contains(".app/Contents/Resources") {
+            let data = supportDirectory.appendingPathComponent("cosmos_configs", isDirectory: true)
+            try? fileManager.createDirectory(at: data, withIntermediateDirectories: true)
+            return data
+        }
+        if let bundled = cosmosRoot()?.appendingPathComponent("cosmos_configs", isDirectory: true),
+           fileManager.fileExists(atPath: bundled.path) {
+            return bundled
+        }
+        return userConfigsDirectory
     }
 
     /// Writable user-data root (`~/Library/Application Support/Cosmos`, or `COSMOS_SUPPORT_DIR`).

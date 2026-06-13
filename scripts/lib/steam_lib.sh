@@ -315,6 +315,103 @@ steam_verify_installdir() {
   printf '%s' "${common}"
 }
 
+# Load import_lib scoring helpers when available (same directory as this file).
+steam_load_import_lib() {
+  declare -F import_find_best_game_exe >/dev/null 2>&1 && return 0
+  local here
+  here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  # shellcheck source=scripts/lib/import_lib.sh
+  [[ -f "${here}/import_lib.sh" ]] && source "${here}/import_lib.sh"
+}
+
+# Find the main game .exe inside a Steam common/<installdir> folder.
+steam_find_game_exe() {
+  local common_dir="$1" game_name="${2:-}"
+  [[ -d "${common_dir}" ]] || return 1
+  steam_load_import_lib
+  if declare -F import_find_best_game_exe >/dev/null 2>&1; then
+    import_find_best_game_exe "${common_dir}" "${game_name}"
+    return $?
+  fi
+  local f base
+  while IFS= read -r f; do
+    base="$(basename "${f}")"
+    if declare -F import_exe_is_helper >/dev/null 2>&1; then
+      import_exe_is_helper "${base}" && continue
+    fi
+    printf '%s' "${f}"
+    return 0
+  done < <(find "${common_dir}" -type f \( -iname '*.exe' \) 2>/dev/null | head -n 80)
+  return 1
+}
+
+# Print playable Wine-prefix App IDs from steam_dir (one per line).
+steam_collect_wine_playable_appids() {
+  local steam_dir="$1"
+  local steamapps acf appid
+  while IFS= read -r steamapps; do
+    [[ -d "${steamapps}" ]] || continue
+    shopt -s nullglob
+    for acf in "${steamapps}"/appmanifest_*.acf; do
+      appid="${acf##*/appmanifest_}"; appid="${appid%.acf}"
+      [[ "${appid}" =~ ^[0-9]+$ ]] || continue
+      steam_acf_is_playable "${acf}" || continue
+      printf '%s\n' "${appid}"
+    done
+    shopt -u nullglob
+  done < <(steam_collect_steamapps_dirs "${steam_dir}")
+}
+
+# Verify a Wine Steam install on disk. Prints key=value lines; returns 0 when healthy.
+steam_verify_game_install() {
+  local steam_dir="$1" appid="$2"
+  local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local acf common exe rel name
+  printf 'appid=%s\n' "${appid}"
+  acf="$(steam_find_app_manifest "${steam_dir}" "${appid}" 2>/dev/null || true)"
+  if [[ -z "${acf}" ]]; then
+    printf 'installdir_ok=0\nexe_ok=0\nstatus=missing_manifest\n'
+    return 1
+  fi
+  common="$(steam_verify_installdir "${acf}" 2>/dev/null || true)"
+  if [[ -z "${common}" ]]; then
+    printf 'installdir_ok=0\nexe_ok=0\nstatus=missing_installdir\n'
+    return 1
+  fi
+  printf 'installdir_ok=1\n'
+  printf 'common_path=%s\n' "${common}"
+  name="$(steam_acf_read_field "${acf}" "name")"
+  exe="$(steam_find_game_exe "${common}" "${name}" 2>/dev/null || true)"
+  if [[ -n "${exe}" ]]; then
+    printf 'exe_ok=1\n'
+    printf 'game_exe=%s\n' "${exe}"
+    rel="${exe#${pfx}/}"
+    [[ "${rel}" != "${exe}" ]] && printf 'game_exe_rel=%s\n' "${rel}"
+    printf 'status=ok\n'
+    return 0
+  fi
+  printf 'exe_ok=0\nstatus=missing_exe\n'
+  return 1
+}
+
+# Count installed vs broken Wine Steam games. Prints games_installed / games_broken lines.
+steam_inventory_counts() {
+  local steam_dir="$1"
+  local total=0 broken=0 appid
+  [[ -n "${steam_dir}" && -d "${steam_dir}" ]] || {
+    printf 'games_installed=0\n'
+    printf 'games_broken=0\n'
+    return 0
+  }
+  while IFS= read -r appid || [[ -n "${appid}" ]]; do
+    [[ -n "${appid}" ]] || continue
+    total=$((total + 1))
+    steam_verify_game_install "${steam_dir}" "${appid}" >/dev/null 2>&1 || broken=$((broken + 1))
+  done < <(steam_collect_wine_playable_appids "${steam_dir}")
+  printf 'games_installed=%s\n' "${total}"
+  printf 'games_broken=%s\n' "${broken}"
+}
+
 # --- Prefix preparation (steam-on-m1-wine 02, 05) ---------------------------
 
 steam_wine_run() {
@@ -703,6 +800,13 @@ steam_health_lines() {
   [[ -n "${dual_csv}" ]] && printf 'dual_install_appids=%s\n' "${dual_csv}"
   printf 'userdata_present=%s\n' "${userdata_ok}"
   printf 'cloud_log_warning=%s\n' "${cloud_log_warn}"
+
+  if [[ -n "${steam_dir}" ]]; then
+    steam_inventory_counts "${steam_dir}"
+  else
+    printf 'games_installed=0\n'
+    printf 'games_broken=0\n'
+  fi
 }
 
 # Build the Wine command array for launching steam.exe (handles virtual desktop).

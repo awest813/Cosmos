@@ -16,15 +16,7 @@ enum SavedProfileStore {
     }
 
     static func configsDirectory() -> URL {
-        let support = CosmosPaths.userConfigsDirectory
-        if fileManager.fileExists(atPath: support.path) {
-            return support
-        }
-        if let bundled = CosmosPaths.cosmosRoot()?.appendingPathComponent("cosmos_configs", isDirectory: true),
-           fileManager.fileExists(atPath: bundled.path) {
-            return bundled
-        }
-        return support
+        CosmosPaths.resolvedConfigsDirectory()
     }
 
     static func cosmosAppsDirectory() -> URL {
@@ -109,7 +101,7 @@ enum SavedProfileStore {
             }
 
             let key = String(trimmed[..<separatorIndex]).trimmingCharacters(in: .whitespaces)
-            var value = String(trimmed[trimmed.index(after: separatorIndex)...])
+            let value = String(trimmed[trimmed.index(after: separatorIndex)...])
                 .trimmingCharacters(in: CharacterSet(charactersIn: "\" "))
 
             switch key {

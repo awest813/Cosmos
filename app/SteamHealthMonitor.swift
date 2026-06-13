@@ -12,6 +12,8 @@ struct SteamHealthStatus: Equatable {
     let dualInstallAppIDs: [String]
     let userdataPresent: Bool
     let cloudLogWarning: Bool
+    let gamesInstalled: Int
+    let gamesBroken: Int
 
     static let empty = SteamHealthStatus(
         prefixInitialized: false,
@@ -23,16 +25,24 @@ struct SteamHealthStatus: Equatable {
         dualInstallCount: 0,
         dualInstallAppIDs: [],
         userdataPresent: true,
-        cloudLogWarning: false
+        cloudLogWarning: false,
+        gamesInstalled: 0,
+        gamesBroken: 0
     )
 
     var needsMingwForWrapper: Bool {
         steamInstalled && !mingwAvailable && webhelperWrapperPending && !webhelperWrapper
     }
 
+    var needsWrapperInstall: Bool {
+        steamInstalled && mingwAvailable && webhelperWrapperPending && !webhelperWrapper
+    }
+
     var hasDualInstallWarning: Bool { dualInstallCount > 0 }
 
     var hasCloudWarning: Bool { cloudLogWarning || !userdataPresent }
+
+    var hasBrokenInstalls: Bool { gamesBroken > 0 }
 }
 
 enum SteamHealthMonitor {
@@ -90,7 +100,9 @@ enum SteamHealthMonitor {
             dualInstallCount: Int(fields["dual_install_count"] ?? "0") ?? 0,
             dualInstallAppIDs: appIDs,
             userdataPresent: fields["userdata_present"] != "0",
-            cloudLogWarning: fields["cloud_log_warning"] == "1"
+            cloudLogWarning: fields["cloud_log_warning"] == "1",
+            gamesInstalled: Int(fields["games_installed"] ?? "0") ?? 0,
+            gamesBroken: Int(fields["games_broken"] ?? "0") ?? 0
         )
     }
 

@@ -1,0 +1,23 @@
+id: valheim
+name: "Valheim"
+store: steam
+steam_appid: 892970
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  esync: true
+dependencies:
+  - vcrun2019
+fixes:
+  - fix_steam_networking
+tags:
+  - co-op
+  - online
+anti_cheat: none
+multiplayer_notes: "Join friends via Steam; dedicated servers need the same fix_steam_networking overrides as other Unity netcode titles."
+notes: >
+  Unity/Vulkan-friendly DXMT path. Install vcrun2019 if the game exits on startup.
+  World saves are under the prefix — back up before resetting the bottle.

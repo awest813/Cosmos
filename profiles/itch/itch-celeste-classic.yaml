@@ -1,0 +1,13 @@
+id: celeste_classic
+name: "Celeste Classic"
+store: itch
+exe_path: drive_c/Games/celeste-classic/celeste.exe
+status: platinum
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+notes: >
+  Example itch.io profile for games imported with import_game.command add-itch.
+  Adjust exe_path to match the folder copied into the prefix.

@@ -14,6 +14,10 @@ struct ContentView: View {
     @State private var profiles: [SavedProfile] = []
     @State private var selectedProfileID: String?
     @State private var profileSearchText = ""
+    @State private var librarySearchText = ""
+    @State private var libraryViewMode: GameLibraryViewMode = .grid
+    @State private var librarySourceFilter: GameLibrarySourceFilter = .all
+    @State private var librarySyncFollowUp: (() -> Void)?
     @State private var cosmosInstalled = false
     @State private var cosmosAppCount = 0
     @State private var steamSettings = SteamSettings.defaults
@@ -29,7 +33,8 @@ struct ContentView: View {
     @State private var showSetupCompleteBanner = false
     @State private var didCopyOutput = false
     @State private var dashboardSection: DashboardSection = .launch
-    @State private var commandBanner: CommandBanner?
+    @State private var commandBannerQueue = CommandBannerQueue()
+    @EnvironmentObject private var appState: CosmosAppState
     @State private var outputWasTrimmed = false
     @State private var storeImportRequest: StoreImportRequest?
     @State private var pendingTerminalJobID: String?
@@ -43,7 +48,21 @@ struct ContentView: View {
     @State private var steamHealth = SteamHealthStatus.empty
     @State private var steamHealthInFlight = false
     @State private var pendingUnregisteredGogGames = 0
+    @State private var pendingLowConfidenceGogGames = 0
+    @State private var gogDetectionWarning: String?
+    @State private var pendingBrokenSteamInstalls = 0
+    @State private var lastWarnedBrokenSteamInstalls = 0
     @State private var setupCompatAppID = ""
+    @State private var consoleHasNewOutput = false
+    @State private var pendingScrollToImport = false
+    @State private var pendingScrollToRepair = false
+    @State private var pendingScrollToGameProfiles = false
+    @State private var pendingScrollToGameLibrary = false
+    @State private var pendingScrollToCompatibility = false
+    @State private var pendingScrollToSteamSettings = false
+    @State private var pendingScrollToPerformanceGraphics = false
+    @State private var pendingScrollToBottles = false
+    @State private var showAddGameProfileSheet = false
 
     @State private var gameProfiles: [GameProfile] = []
     @State private var selectedGameProfileID: String?
@@ -169,20 +188,55 @@ struct ContentView: View {
             if isSetupComplete {
                 checkSteamLibraryForNewGames(autoSync: true)
             }
+            appState.updateCommandAvailability(
+                canAccept: !isRunning,
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+                hasSelected: selectedProfile != nil
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosRefreshStatus)) { _ in
             refreshStatus(message: "Status refreshed.")
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosContinueSetup)) { _ in
-            performNextSetupStep()
+            menuContinueSetup()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenSetupHelp)) { _ in
             openSetupHelp()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cosmosSelectSection)) { notification in
-            if let section = notification.object as? DashboardSection, isSteamReady {
-                dashboardSection = section
+            guard let section = notification.object as? DashboardSection else { return }
+            focusDashboardSection(section)
+            if section == .bottles {
+                pendingScrollToBottles = true
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncSteamLibrary)) { _ in
+            focusGameLibrary()
+            syncAllLibrarySources(preferSteamOnly: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncAllLibrary)) { _ in
+            focusGameLibrary()
+            syncAllLibrarySources()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncGogLibrary)) { _ in
+            focusGameLibrary()
+            syncGogLibrary(build: false, announce: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosSyncGogLibraryBuild)) { _ in
+            focusGameLibrary()
+            syncGogLibrary(build: true, announce: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosBuildLaunchers)) { _ in
+            focusGameLibrary()
+            buildLaunchers()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosDetectSteamGames)) { _ in
+            focusGameLibrary()
+            runCommand(
+                script: "detect_steam_games.command",
+                arguments: ["--list"],
+                environment: steamDetectionEnvironment()
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshStatus()
@@ -192,6 +246,8 @@ struct ContentView: View {
             checkSteamLibraryForNewGames(autoSync: true)
         }
         .onChange(of: isSetupComplete) { complete in
+            appState.updateSetupComplete(complete)
+            appState.updateSteamReady(isSteamReady)
             if complete {
                 if !showSetupCompleteBanner {
                     showSetupCompleteBanner = true
@@ -209,11 +265,84 @@ struct ContentView: View {
                 dashboardSection = .library
             }
         }
-        .onChange(of: selectedProfileID) { newID in
+        .onChange(of: selectedProfileID) { _ in
             refreshCompatBadge()
-            if newID != nil, isSteamReady {
-                dashboardSection = .launch
-            }
+            appState.updateCommandAvailability(
+                canAccept: !isRunning,
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+                hasSelected: selectedProfile != nil
+            )
+        }
+        .onChange(of: isRunning) { running in
+            appState.updateCommandAvailability(
+                canAccept: !running,
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+            )
+        }
+        .onChange(of: profiles.count) { _, _ in
+            appState.updateCommandAvailability(
+                canAccept: !isRunning,
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+                hasSelected: selectedProfile != nil
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosLaunchSelectedGame)) { _ in
+            focusDashboardSection(.launch)
+            launchSelectedProfile()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosLaunchSteam)) { _ in
+            focusDashboardSection(.launch)
+            launchSteamFromDashboard()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosVerifySteam)) { _ in
+            focusGameLibrary()
+            verifySteamInstall()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosListGogGames)) { _ in
+            openImportTools()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenLogs)) { _ in
+            consoleExpanded = true
+            openLatestLogs()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosRunDiagnose)) { _ in
+            focusGameLibrary(scrollToRepair: true)
+            runDiagnose()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosCheckForUpdates)) { _ in
+            checkForUpdates()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenImportTools)) { _ in
+            openImportTools()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosAddGameProfile)) { _ in
+            openAddGameProfile()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosShowSelectedInLibrary)) { _ in
+            showSelectedProfileInLibrary()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosShowSelectedOnLaunch)) { _ in
+            showSelectedProfileOnLaunch()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosApplyInstalledProfiles)) { _ in
+            focusGameLibrary(scrollToProfiles: true)
+            applyInstalledCuratedProfiles()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenSteamSettings)) { _ in
+            openSteamSettings()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenPerformanceGraphics)) { _ in
+            openPerformanceGraphicsSettings(expandAdvanced: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosRevealSteamConf)) { _ in
+            revealSteamConf()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cosmosOpenBackendsGuide)) { _ in
+            openRepositoryDoc(
+                relativePath: "docs/BACKENDS.md",
+                bundleName: "BACKENDS.md",
+                fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
+            )
         }
         .confirmationDialog(
             "Launch blocked title?",
@@ -237,6 +366,8 @@ struct ContentView: View {
                let appid = profile.steamAppID,
                let yaml = GameProfileStore.find(steamAppID: appid) {
                 Text(yaml.blockedLaunchMessage)
+            } else if let profile = pendingBlockedLaunch {
+                Text("\(profile.name) is marked blocked on macOS. Launch anyway?")
             }
         }
         .sheet(item: $storeImportRequest) { request in
@@ -245,29 +376,65 @@ struct ContentView: View {
                 onCancel: { storeImportRequest = nil },
                 onSubmit: { values in
                     submitStoreImport(request, values: values)
-                    storeImportRequest = nil
+                    return nil
                 }
             )
+        }
+        .sheet(isPresented: $showAddGameProfileSheet) {
+            if let root = repositoryRootURL {
+                AddGameProfileSheet(
+                    repositoryRoot: root,
+                    onCancel: { showAddGameProfileSheet = false },
+                    onSaved: { profile in
+                        showAddGameProfileSheet = false
+                        gameProfiles = GameProfileStore.load()
+                        selectedGameProfileID = profile.id
+                        curatedProfileFilter = .mine
+                        dashboardSection = .library
+                        showBanner(kind: .success, message: "Saved game profile “\(profile.name)” to your personal library.")
+                    }
+                )
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 if isSteamReady, let bottle = selectedBottle {
                     StatusChip(
                         label: "Bottle: \(bottle.name)",
-                        systemImage: "cylinder.split.1x2.fill"
+                        systemImage: "cylinder.split.1x2.fill",
+                        action: { dashboardSection = .bottles },
+                        accessibilityHint: "Open Bottles tab. Control-click to clear selection."
                     )
+                    .contextMenu {
+                        Button("Open Bottles Tab") {
+                            dashboardSection = .bottles
+                        }
+                        Button("Use Default Bottle") {
+                            selectedBottleID = nil
+                        }
+                    }
                 } else if isSteamReady {
                     StatusChip(
                         label: "Default bottle",
                         systemImage: "cylinder.split.1x2",
-                        tint: .secondary
+                        tint: .secondary,
+                        action: { dashboardSection = .bottles },
+                        accessibilityHint: "Open Bottles tab"
                     )
                 }
                 if isRunning {
                     StatusChip(
                         label: "Running…",
                         systemImage: "gearshape.arrow.triangle.2.circlepath",
-                        tint: Color.cosmosBright
+                        tint: Color.cosmosBright,
+                        accessibilityHint: "A command is running"
+                    )
+                } else if steamHealthInFlight || steamLibraryCheckInFlight {
+                    StatusChip(
+                        label: "Checking library…",
+                        systemImage: "arrow.triangle.2.circlepath",
+                        tint: .secondary,
+                        accessibilityHint: "Checking Steam library for changes"
                     )
                 }
             }
@@ -279,6 +446,8 @@ struct ContentView: View {
                         Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
                     }
                     .help(setupPrimarySubtitle)
+                    .accessibilityLabel(setupPrimaryTitle)
+                    .accessibilityHint(setupPrimarySubtitle)
                     .disabled(isRunning)
                 }
                 Button {
@@ -287,15 +456,43 @@ struct ContentView: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .help("Reload installation status (⌘R)")
+                .accessibilityLabel("Refresh status")
                 .disabled(isRunning)
             }
             ToolbarItemGroup(placement: .automatic) {
+                if isSteamReady {
+                    Menu {
+                        Button("Steam & Wine…") {
+                            openSteamSettings()
+                        }
+                        Button("Performance & Graphics…") {
+                            openPerformanceGraphicsSettings()
+                        }
+                        Divider()
+                        Button("Bottles…") {
+                            focusBottlesSection()
+                        }
+                        Divider()
+                        Button("Reveal steam.conf in Finder") {
+                            revealSteamConf()
+                        }
+                        Button("Graphics Backends Guide…") {
+                            NotificationCenter.default.post(name: .cosmosOpenBackendsGuide, object: nil)
+                        }
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .help("Steam prefix, graphics, and bottle settings (⌘,)")
+                    .accessibilityLabel("Settings")
+                    .disabled(isRunning)
+                }
                 Button {
                     openSetupHelp()
                 } label: {
                     Label("Setup Help", systemImage: "questionmark.circle")
                 }
                 .help("Open the Steam setup guide")
+                .accessibilityLabel("Setup help")
             }
         }
     }
@@ -355,7 +552,7 @@ struct ContentView: View {
                         }
                     }
                 } else if profiles.isEmpty {
-                    Section("Saved Profiles") {
+                    Section("Saved Launchers") {
                         sidebarEmptyProfilesRow
                     }
                 } else {
@@ -417,7 +614,7 @@ struct ContentView: View {
     }
 
     private var profileSectionTitle: String {
-        "All Games (\(catalogProfiles.count))"
+        "Saved Launchers (\(catalogProfiles.count))"
     }
 
     private var sidebarProfileFilterChips: some View {
@@ -442,13 +639,12 @@ struct ContentView: View {
             Label("No profiles yet", systemImage: "tray")
                 .foregroundStyle(.secondary)
                 .font(.subheadline)
-            Text(isSteamReady ? "Run Detect Games or Build Launchers to populate saved profiles." : "Complete setup above, then build launchers to see games here.")
+            Text(isSteamReady ? "Run Detect Games or Build Launchers to populate saved launchers." : "Complete setup on the Launch tab, then build launchers to see games here.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("No saved game profiles. Run Detect Games after installing Steam.")
     }
 
     private var sidebarEmptySearchRow: some View {
@@ -500,19 +696,15 @@ struct ContentView: View {
         let isFavorite = ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences)
         return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
+                if isFavorite {
+                    Image(systemName: "star.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.yellow)
+                        .accessibilityLabel("Favorite")
+                }
                 Text(profile.name)
                     .font(.headline)
                     .lineLimit(1)
-                Button {
-                    profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: profile.id)
-                } label: {
-                    Image(systemName: isFavorite ? "star.fill" : "star")
-                        .font(.caption2)
-                        .foregroundStyle(isFavorite ? .yellow : .secondary.opacity(0.55))
-                }
-                .buttonStyle(.plain)
-                .help(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                 if let badge {
                     CosmosCompatBadge(status: badge.status, compact: true)
                 }
@@ -533,80 +725,105 @@ struct ContentView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(sidebarProfileAccessibilityLabel(profile, badge: badge))
         .accessibilityAddTraits(profile.id == selectedProfileID ? .isSelected : [])
-        .contextMenu {
-            Button {
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                guard profile.canLaunchFromDashboard,
+                      wineRuntime.canStartWineLaunch,
+                      !isRunning else { return }
+                selectedProfileID = profile.id
+                focusDashboardSection(.launch)
+                launchProfile(profile)
+            }
+        )
+        .help(profile.canLaunchFromDashboard ? "Double-click to launch" : "Select to view launch options")
+        .profileContextMenu(
+            profile: profile,
+            isFavorite: ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences),
+            canLaunch: profile.canLaunchFromDashboard && wineRuntime.canStartWineLaunch,
+            isRunning: isRunning,
+            extras: profileContextMenuExtras(for: profile),
+            onLaunch: {
                 selectedProfileID = profile.id
                 launchProfile(profile)
-            } label: {
-                Label("Launch", systemImage: "play.fill")
-            }
-            .disabled(!profile.canLaunchFromDashboard || !wineRuntime.canStartWineLaunch || isRunning)
-
-            Button {
+            },
+            onToggleFavorite: {
                 profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: profile.id)
-            } label: {
-                let isFavorite = ProfilePreferencesStore.isFavorite(profileID: profile.id, in: profilePreferences)
-                Label(isFavorite ? "Remove Favorite" : "Add to Favorites", systemImage: isFavorite ? "star.slash" : "star")
+            },
+            onReveal: { revealInFinder(profile.fileURL) },
+            onCopyPath: {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(profile.path, forType: .string)
             }
-
-            Button {
-                revealInFinder(profile.fileURL)
-            } label: {
-                Label("Reveal Config in Finder", systemImage: "folder")
-            }
-
-            if !profile.path.isEmpty {
-                Button {
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(profile.path, forType: .string)
-                } label: {
-                    Label("Copy Executable Path", systemImage: "doc.on.doc")
-                }
-            }
-        }
+        )
     }
 
     // MARK: - Detail
 
     private var detailContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: CosmosSpacing.section) {
-                if showSetupCompleteBanner && isSetupComplete {
-                    setupCompleteBanner
-                }
-                if let commandBanner {
-                    CommandBannerView(banner: commandBanner) {
-                        self.commandBanner = nil
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: CosmosSpacing.section) {
+                    if showSetupCompleteBanner && isSetupComplete {
+                        setupCompleteBanner
                     }
-                }
-                steamHealthNoticesSection
-                heroSection
-                if isSteamReady {
-                    dashboardSectionPicker
-                }
-                setupAssistantSection
-                if isSteamReady {
-                    dashboardSectionContent
-                } else {
-                    setupLaunchHintSection
-                    if showAdvancedSetupOptions {
-                        steamWineSettingsSection
-                        setupToolsGrid
+                    if let commandBanner = commandBannerQueue.current {
+                        VStack(alignment: .leading, spacing: 6) {
+                            CommandBannerView(banner: commandBanner) {
+                                dismissCommandBanner()
+                            }
+                            if commandBannerQueue.pendingCount > 0 {
+                                Text("\(commandBannerQueue.pendingCount) more notification\(commandBannerQueue.pendingCount == 1 ? "" : "s") — dismiss to see next")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    steamHealthNoticesSection
+                    heroSection
+                    if isSteamReady {
+                        if !isSetupComplete {
+                            almostDoneSection
+                        }
+                        dashboardSectionPicker
+                        dashboardSectionContent
                     } else {
-                        newUserMaintenanceSection
+                        setupLaunchHintSection
+                        if showAdvancedSetupOptions {
+                            steamWineSettingsSection
+                            setupToolsGrid
+                        } else {
+                            newUserMaintenanceSection
+                        }
                     }
+                    setupAssistantSection
+                    if isSteamReady, let selectedProfile {
+                        if isSetupComplete, dashboardSection != .launch {
+                            selectedProfileCompactBar(selectedProfile)
+                        } else {
+                            selectedProfileSection(selectedProfile)
+                        }
+                    }
+                    consoleSection
                 }
-                if (!isSteamReady || dashboardSection == .launch), let selectedProfile {
-                    selectedProfileSection(selectedProfile)
-                }
-                consoleSection
+                .padding(CosmosSpacing.contentPadding)
+                .frame(maxWidth: 1000, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
-            .padding(CosmosSpacing.contentPadding)
-            .frame(maxWidth: 1000, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            .cosmosContentBackground()
+            .onChange(of: dashboardSection) { _ in
+                schedulePendingScroll(using: proxy)
+            }
+            .onChange(of: pendingScrollNonce) { nonce in
+                guard nonce != 0 else { return }
+                schedulePendingScroll(using: proxy)
+            }
         }
-        .cosmosContentBackground()
+        .onChange(of: output) { _ in
+            if !isSetupComplete, !consoleExpanded {
+                consoleHasNewOutput = true
+            }
+        }
     }
 
     /// Tab navigation for the post-setup dashboard — one focus area at a time.
@@ -633,6 +850,7 @@ struct ContentView: View {
             steamWineSettingsSection
             performanceGraphicsSection
         case .library:
+            gameLibrarySection
             curatedProfilesSection
             compatibilitySection
             repairSection
@@ -650,7 +868,7 @@ struct ContentView: View {
                 .font(CosmosTypography.heroTitle)
                 .foregroundStyle(CosmosGradients.heroTitle)
             Text(heroSubtitle)
-                .font(.title3)
+                .font(.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -776,7 +994,7 @@ struct ContentView: View {
             }
             return "This profile has no launch path — edit its config file or pick another profile."
         }
-        if let selectedBottle {
+        if selectedBottle != nil {
             return "Bottle selected — adjust backend and launch Steam from the controls below."
         }
         if !cosmosInstalled {
@@ -800,6 +1018,18 @@ struct ContentView: View {
         Group {
             if isSetupComplete {
                 EmptyView()
+            } else if isSteamReady {
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 10) {
+                        setupChecklistSteps
+                        setupAssistantUtilityButtons
+                    }
+                } label: {
+                    Label("Setup checklist", systemImage: "checklist")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary)
+                }
+                .font(.subheadline)
             } else {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -831,10 +1061,14 @@ struct ContentView: View {
                         title: setupPrimaryTitle,
                         subtitle: setupPrimarySubtitle,
                         systemImage: setupPrimarySystemImage,
-                        help: "Run the next recommended setup step"
+                        help: "Run the next recommended setup step (⌘⇧L)"
                     ) {
                         performNextSetupStep()
                     }
+
+                    Text("Shortcut: ⌘⇧L continues setup · ⌘R refreshes status")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
 
                     CosmosNoticeBanner(
                         tint: .orange,
@@ -844,89 +1078,95 @@ struct ContentView: View {
                     )
 
                     setupCompatibilityLookupSection
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        if wineRuntime.needsRosetta {
-                            setupStep(
-                                done: wineRuntime.rosettaReady,
-                                title: "Install Rosetta 2",
-                                detail: wineRuntime.rosettaReady
-                                    ? "x86_64 Wine can run on Apple Silicon"
-                                    : "Required before Wine can launch on Apple Silicon"
-                            )
-                        }
-                        setupStep(
-                            done: cosmosInstalled,
-                            title: "Install Cosmos",
-                            detail: cosmosInstalled
-                                ? "Launchers are in /Applications/Cosmos Apps"
-                                : "Wine runtime and Spotlight-friendly launchers"
-                        )
-                        setupStep(
-                            done: steamSettings.isPrefixInitialized,
-                            title: "Prepare Steam bottle",
-                            detail: steamSettings.isPrefixInitialized
-                                ? "Prefix at \(steamSettings.prefixURL.lastPathComponent)"
-                                : "Wine + graphics backend (DXMT by default)"
-                        )
-                        setupStep(
-                            done: steamSettings.isSteamInstalled,
-                            title: "Install Steam",
-                            detail: steamSettings.isSteamInstalled
-                                ? "Steam is in the Wine prefix"
-                                : (steamSettings.silentInstallEnabled
-                                    ? "Unattended install (wizard fallback if needed)"
-                                    : "Complete the graphical Steam installer wizard")
-                        )
-                        setupStep(
-                            done: hasGameLaunchers,
-                            title: "Build game launchers",
-                            detail: hasGameLaunchers
-                                ? launcherSummaryText
-                                : "After you install a Windows game in Steam"
-                        )
-                    }
-
-                    HStack(spacing: 12) {
-                        Button {
-                            runInTerminal(script: "setup.command", intent: .setup)
-                        } label: {
-                            Label("All-in-one setup", systemImage: "terminal.fill")
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isRunning)
-
-                        Button {
-                            openSetupHelp()
-                        } label: {
-                            Label("Help", systemImage: "questionmark.circle")
-                        }
-                        .buttonStyle(.bordered)
-
-                        if steamSettings.isSteamInstalled {
-                            Button {
-                                openMultiplayerHelp()
-                            } label: {
-                                Label("Multiplayer", systemImage: "person.2.fill")
-                            }
-                            .buttonStyle(.bordered)
-                        }
-
-                        Button {
-                            runCommand(script: "run.command", arguments: ["--logs"])
-                        } label: {
-                            Label("Logs", systemImage: "doc.text")
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isRunning)
-                    }
-                    .font(.subheadline)
+                    setupChecklistSteps
+                    setupAssistantUtilityButtons
                 }
                 .cosmosCard(prominent: true)
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("First-time setup guide, step \(setupStepNumber) of \(setupStepTotal)")
             }
         }
+    }
+
+    private var setupChecklistSteps: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if wineRuntime.needsRosetta {
+                setupStep(
+                    done: wineRuntime.rosettaReady,
+                    title: "Install Rosetta 2",
+                    detail: wineRuntime.rosettaReady
+                        ? "x86_64 Wine can run on Apple Silicon"
+                        : "Required before Wine can launch on Apple Silicon"
+                )
+            }
+            setupStep(
+                done: cosmosInstalled,
+                title: "Install Cosmos",
+                detail: cosmosInstalled
+                    ? "Launchers are in /Applications/Cosmos Apps"
+                    : "Wine runtime and Spotlight-friendly launchers"
+            )
+            setupStep(
+                done: steamSettings.isPrefixInitialized,
+                title: "Prepare Steam bottle",
+                detail: steamSettings.isPrefixInitialized
+                    ? "Prefix at \(steamSettings.prefixURL.lastPathComponent)"
+                    : "Wine + graphics backend (DXMT by default)"
+            )
+            setupStep(
+                done: steamSettings.isSteamInstalled,
+                title: "Install Steam",
+                detail: steamSettings.isSteamInstalled
+                    ? "Steam is in the Wine prefix"
+                    : (steamSettings.silentInstallEnabled
+                        ? "Unattended install (wizard fallback if needed)"
+                        : "Complete the graphical Steam installer wizard")
+            )
+            setupStep(
+                done: hasGameLaunchers,
+                title: "Build game launchers",
+                detail: hasGameLaunchers
+                    ? launcherSummaryText
+                    : "After you install a Windows game in Steam"
+            )
+        }
+    }
+
+    private var setupAssistantUtilityButtons: some View {
+        HStack(spacing: 12) {
+            Button {
+                runInTerminal(script: "setup.command", intent: .setup)
+            } label: {
+                Label("All-in-one setup", systemImage: "terminal.fill")
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRunning)
+
+            Button {
+                openSetupHelp()
+            } label: {
+                Label("Help", systemImage: "questionmark.circle")
+            }
+            .buttonStyle(.bordered)
+
+            if steamSettings.isSteamInstalled {
+                Button {
+                    openMultiplayerHelp()
+                } label: {
+                    Label("Multiplayer", systemImage: "person.2.fill")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Button {
+                runCommand(script: "run.command", arguments: ["--logs"])
+            } label: {
+                Label("Logs", systemImage: "doc.text")
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRunning)
+        }
+        .font(.subheadline)
     }
 
     private func setupStep(done: Bool, title: String, detail: String) -> some View {
@@ -955,6 +1195,35 @@ struct ContentView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Steam is ready but launchers are not — keep focus on the last setup step.
+    private var almostDoneSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            CosmosNoticeBanner(
+                tint: Color.cosmosBright,
+                systemImage: "gamecontroller.fill",
+                title: "Almost there",
+                message: "Steam is ready. Install a Windows game in Steam, then build launchers to finish setup and unlock the full dashboard tabs."
+            )
+            HStack(spacing: 10) {
+                Button("Build Game Launchers") {
+                    buildLaunchers()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isRunning)
+                Button("Detect Games") {
+                    runCommand(
+                        script: "detect_steam_games.command",
+                        arguments: ["--list"],
+                        environment: bottleEnvironment()
+                    )
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning)
+            }
+            .font(.subheadline)
         }
     }
 
@@ -1052,17 +1321,45 @@ struct ContentView: View {
         }
     }
 
+    private var isPrefixReady: Bool {
+        steamSettings.isPrefixInitialized || selectedBottle != nil
+    }
+
     private func checkGogLibraryForUnregistered() {
-        guard isSteamReady, !isRunning, pendingTerminalJobID == nil else { return }
+        guard isPrefixReady, !isRunning, pendingTerminalJobID == nil else { return }
         guard let importScript = resolveScript("import_game.command") else { return }
         let env = bottleEnvironment()
         let configsDir = SavedProfileStore.configsDirectory()
         DispatchQueue.global(qos: .utility).async {
-            guard let games = GogLibraryMonitor.listGames(importScript: importScript, environment: env) else { return }
-            let missing = GogLibraryMonitor.unregistered(games: games, configsDirectory: configsDir)
+            let result = GogLibraryMonitor.listGames(importScript: importScript, environment: env)
             DispatchQueue.main.async {
-                pendingUnregisteredGogGames = missing.count
+                switch result {
+                case .success(let games):
+                    gogDetectionWarning = nil
+                    let missing = GogLibraryMonitor.unregistered(games: games, configsDirectory: configsDir)
+                    pendingUnregisteredGogGames = missing.count
+                    pendingLowConfidenceGogGames = GogLibraryMonitor.lowConfidenceInstalls(in: games).count
+                default:
+                    gogDetectionWarning = gogDetectionFailureMessage(result)
+                    pendingUnregisteredGogGames = 0
+                    pendingLowConfidenceGogGames = 0
+                }
             }
+        }
+    }
+
+    private func gogDetectionFailureMessage(_ result: GameListResult<GogLibraryMonitor.DetectedGame>) -> String {
+        switch result {
+        case .timedOut:
+            return "GOG library detection timed out."
+        case .failed:
+            return "GOG library detection failed."
+        case .parseFailed:
+            return "GOG library detection returned invalid data."
+        case .scriptUnavailable:
+            return "GOG detection script is not available."
+        case .success:
+            return ""
         }
     }
 
@@ -1114,9 +1411,10 @@ struct ContentView: View {
         }
     }
 
-    private func checkSteamLibraryForNewGames(autoSync: Bool) {
+    private func checkSteamLibraryForNewGames(autoSync: Bool, force: Bool = false) {
         guard isSteamReady, !isRunning, !steamLibraryCheckInFlight, pendingTerminalJobID == nil else { return }
-        if let lastSteamLibraryCheck,
+        if !force,
+           let lastSteamLibraryCheck,
            Date().timeIntervalSince(lastSteamLibraryCheck) < steamLibraryCheckInterval {
             return
         }
@@ -1127,16 +1425,24 @@ struct ContentView: View {
         let snapshotURL = SteamLibraryMonitor.snapshotURL(bottleName: bottleName)
         steamLibraryCheckInFlight = true
         DispatchQueue.global(qos: .utility).async {
-            let games = SteamLibraryMonitor.listInstalledGames(detectScript: detectScript, environment: env)
+            let result = SteamLibraryMonitor.listInstalledGames(detectScript: detectScript, environment: env)
             DispatchQueue.main.async {
                 steamLibraryCheckInFlight = false
                 lastSteamLibraryCheck = Date()
-                guard let games else { return }
+                guard case .success(let games) = result else {
+                    if force || !autoSync {
+                        showSteamDetectionFailureBanner(result)
+                    }
+                    return
+                }
+
+                pendingBrokenSteamInstalls = SteamLibraryMonitor.brokenInstalls(in: games).count
 
                 let snapshotExists = FileManager.default.fileExists(atPath: snapshotURL.path)
                 let snapshot = SteamLibraryMonitor.loadSnapshotAppIDs(bottleName: bottleName)
-                let currentIDs = Set(games.map(\.appID))
-                let newGames = SteamLibraryMonitor.newGames(comparedTo: snapshot, current: games)
+                let wineGames = games.filter(SteamLibraryMonitor.isWineManaged)
+                let currentIDs = Set(wineGames.map(\.appID))
+                let syncableNew = SteamLibraryMonitor.syncEligibleNewGames(comparedTo: snapshot, current: games)
                 pendingRemovedSteamGames = snapshotExists ? snapshot.subtracting(currentIDs).count : 0
 
                 if !snapshotExists {
@@ -1147,22 +1453,57 @@ struct ContentView: View {
                     return
                 }
 
-                pendingNewSteamGames = newGames.count
+                pendingNewSteamGames = syncableNew.count
 
                 if autoSync && isSetupComplete {
-                    if newGames.count > 0 || pendingRemovedSteamGames > 0 {
+                    if syncableNew.count > 0 || pendingRemovedSteamGames > 0 {
                         syncSteamLibrary(announce: false)
                     }
+                    announceBrokenSteamInstallsIfNeeded()
                     return
                 }
 
-                if newGames.count > 0 {
-                    showNewSteamGamesBanner(count: newGames.count)
+                if syncableNew.count > 0 {
+                    showNewSteamGamesBanner(count: syncableNew.count)
                 } else if pendingRemovedSteamGames > 0 {
                     showSteamCleanupBanner(count: pendingRemovedSteamGames)
+                } else {
+                    announceBrokenSteamInstallsIfNeeded()
                 }
             }
         }
+    }
+
+    private func showSteamDetectionFailureBanner(_ result: GameListResult<SteamLibraryMonitor.DetectedGame>) {
+        let message: String
+        switch result {
+        case .timedOut:
+            message = "Steam library detection timed out."
+        case .failed:
+            message = "Steam library detection failed."
+        case .parseFailed:
+            message = "Steam library detection returned invalid data."
+        case .scriptUnavailable:
+            message = "Steam detection script is not available."
+        case .success:
+            return
+        }
+        showBanner(
+            kind: .failure,
+            message: message,
+            actions: [
+                CommandBannerAction(title: "Retry", systemImage: "arrow.clockwise") {
+                    checkSteamLibraryForNewGames(autoSync: false, force: true)
+                },
+                CommandBannerAction(title: "Detect in Console", systemImage: "terminal.fill") {
+                    runCommand(
+                        script: "detect_steam_games.command",
+                        arguments: ["--list"],
+                        environment: steamDetectionEnvironment()
+                    )
+                },
+            ]
+        )
     }
 
     private func syncSteamLibrary(announce: Bool, seedOnly: Bool = false) {
@@ -1264,8 +1605,13 @@ struct ContentView: View {
             )
         } else {
             showBanner(
-                kind: .info,
-                message: "Background Steam library sync failed. Open Tools → Sync Steam Library to retry."
+                kind: .failure,
+                message: "Background Steam library sync failed.",
+                actions: [
+                    CommandBannerAction(title: "Retry Sync", systemImage: "arrow.triangle.2.circlepath") {
+                        syncSteamLibrary(announce: true)
+                    },
+                ]
             )
         }
     }
@@ -1310,28 +1656,101 @@ struct ContentView: View {
         )
     }
 
+    private func announceBrokenSteamInstallsIfNeeded() {
+        guard pendingBrokenSteamInstalls > 0,
+              pendingBrokenSteamInstalls > lastWarnedBrokenSteamInstalls else { return }
+        lastWarnedBrokenSteamInstalls = pendingBrokenSteamInstalls
+        showBrokenSteamInstallsBanner(count: pendingBrokenSteamInstalls)
+    }
+
+    private func showBrokenSteamInstallsBanner(count: Int) {
+        showBanner(
+            kind: .failure,
+            message: "\(count) Wine Steam install\(count == 1 ? "" : "s") missing a folder or game .exe. Reinstall in Steam, then verify.",
+            actions: [
+                CommandBannerAction(title: "Verify Library", systemImage: "checkmark.shield.fill") {
+                    runCommand(script: "run.command", arguments: ["--verify-steam"], environment: steamDetectionEnvironment())
+                },
+                CommandBannerAction(title: "Launch Steam", systemImage: "play.fill") {
+                    launchSteamFromDashboard()
+                },
+            ]
+        )
+    }
+
     @ViewBuilder
     private var steamHealthNoticesSection: some View {
-        if isSteamReady {
+        if isSteamReady || isPrefixReady {
             VStack(alignment: .leading, spacing: 10) {
-                if steamHealth.needsMingwForWrapper {
-                    CosmosNoticeBanner(
-                        tint: .orange,
-                        systemImage: "hammer.fill",
-                        title: "mingw-w64 recommended",
-                        message: "Install Homebrew mingw-w64 so Cosmos can build the MIT steamwebhelper wrapper. Without it, Steam's store browser may be unstable. Run: brew install mingw-w64"
-                    )
+                if isSteamReady, steamHealth.needsMingwForWrapper || steamHealth.needsWrapperInstall {
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "hammer.fill",
+                            title: steamHealth.needsMingwForWrapper ? "mingw-w64 recommended" : "steamwebhelper wrapper missing",
+                            message: steamHealth.needsMingwForWrapper
+                                ? "Install Homebrew mingw-w64 so Cosmos can build the MIT steamwebhelper wrapper. Without it, Steam's store browser may be unstable."
+                                : "Steam is installed but the CEF wrapper is not active. Install it to stabilize the store browser and login pages."
+                        )
+                        if steamHealth.needsWrapperInstall {
+                            Button("Install Wrapper") {
+                                runCommand(
+                                    script: "repair.command",
+                                    arguments: ["apply-fix", "install_steamwebhelper_wrapper"],
+                                    environment: bottleEnvironment()
+                                )
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            .font(.subheadline)
+                        }
+                    }
                 }
-                if steamHealth.hasDualInstallWarning {
+                if isSteamReady, steamHealth.hasBrokenInstalls || pendingBrokenSteamInstalls > 0 {
+                    let broken = max(steamHealth.gamesBroken, pendingBrokenSteamInstalls)
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "exclamationmark.triangle.fill",
+                            title: "Steam installs need attention",
+                            message: "\(broken) Wine Steam game\(broken == 1 ? "" : "s") have a missing install folder or game .exe. Reinstall in Steam or verify the library."
+                        )
+                        HStack(spacing: 10) {
+                            Button("Verify Library") {
+                                runCommand(
+                                    script: "run.command",
+                                    arguments: ["--verify-steam"],
+                                    environment: steamDetectionEnvironment()
+                                )
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            Button("Launch Steam") {
+                                launchSteamFromDashboard()
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+                if isSteamReady, steamHealth.hasDualInstallWarning {
                     let ids = steamHealth.dualInstallAppIDs.prefix(6).joined(separator: ", ")
-                    CosmosNoticeBanner(
-                        tint: .orange,
-                        systemImage: "icloud.slash",
-                        title: "Dual Steam installs",
-                        message: "\(steamHealth.dualInstallCount) App ID(s) exist in both Wine Steam and native macOS Steam (\(ids)). Steam Cloud saves use different paths — pick one client per game. See docs/STEAM_SETUP.md."
-                    )
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "icloud.slash",
+                            title: "Dual Steam installs",
+                            message: "\(steamHealth.dualInstallCount) App ID(s) exist in both Wine Steam and native macOS Steam (\(ids)). Steam Cloud saves use different paths — pick one client per game."
+                        )
+                        Button("Open Setup Guide") {
+                            openSetupHelp()
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.subheadline)
+                    }
                 }
-                if steamHealth.hasCloudWarning {
+                if isSteamReady, steamHealth.hasCloudWarning {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
                             tint: .orange,
@@ -1340,6 +1759,11 @@ struct ContentView: View {
                             message: "Cloud sync issues were detected in recent Steam logs or userdata is missing."
                         )
                         HStack(spacing: 10) {
+                            Button("Setup Guide") {
+                                openSetupHelp()
+                            }
+                            .buttonStyle(.bordered)
+                            .font(.subheadline)
                             Button("Diagnose") {
                                 runCommand(script: "repair.command", arguments: ["diagnose"], environment: repairEnvironment())
                             }
@@ -1358,7 +1782,57 @@ struct ContentView: View {
                         .font(.subheadline)
                     }
                 }
-                if pendingUnregisteredGogGames > 0 {
+                if isPrefixReady, let warning = gogDetectionWarning, !warning.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "exclamationmark.triangle.fill",
+                            title: "GOG detection issue",
+                            message: warning
+                        )
+                        HStack(spacing: 10) {
+                            Button("Retry") {
+                                checkGogLibraryForUnregistered()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            Button("Detect in Console") {
+                                runCommand(
+                                    script: "import_game.command",
+                                    arguments: ["list-gog"],
+                                    environment: bottleEnvironment()
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+                if isPrefixReady, pendingLowConfidenceGogGames > 0 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        CosmosNoticeBanner(
+                            tint: .orange,
+                            systemImage: "questionmark.circle.fill",
+                            title: "GOG exe detection uncertain",
+                            message: "\(pendingLowConfidenceGogGames) GOG install\(pendingLowConfidenceGogGames == 1 ? "" : "s") used scored .exe guessing instead of goggame metadata. Verify before launching."
+                        )
+                        HStack(spacing: 10) {
+                            Button("List GOG Games") {
+                                runCommand(script: "import_game.command", arguments: ["list-gog"], environment: bottleEnvironment())
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isRunning)
+                            Button("Register All") {
+                                syncGogLibrary(build: false, announce: true)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRunning)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+                if isPrefixReady, pendingUnregisteredGogGames > 0 {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
                             tint: .blue,
@@ -1402,12 +1876,17 @@ struct ContentView: View {
                 TextField("Steam App ID (e.g. 1145360)", text: $setupCompatAppID)
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 220)
+                    .accessibilityLabel("Steam App ID for compatibility lookup")
                 Button("Lookup") {
                     let appid = setupCompatAppID.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !appid.isEmpty else { return }
                     consoleExpanded = true
                     runCommand(script: "run.command", arguments: ["--compat-check", appid])
-                    runCommand(script: "cosmosdb.command", arguments: ["badge", appid, "--json"])
+                    runCommand(
+                        script: "cosmosdb.command",
+                        arguments: ["badge", appid, "--json"],
+                        chain: true
+                    )
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(isRunning || setupCompatAppID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1460,12 +1939,12 @@ struct ContentView: View {
         guard ensureRosettaForWineLaunch() else { return }
         profilePreferences = ProfilePreferencesStore.recordRecentLaunch(profileID: profile.id)
         if !profile.path.isEmpty {
-        runCommand(
-            script: "run.command",
-            arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args),
-            environment: dashboardLaunchEnvironment(),
-            intent: .gameLaunch
-        )
+            runCommand(
+                script: "run.command",
+                arguments: ["--game", profile.path] + ShellArgumentParser.parse(profile.args),
+                environment: dashboardLaunchEnvironment(),
+                intent: .gameLaunch
+            )
             return
         }
         guard let appid = profile.steamAppID, !appid.isEmpty else { return }
@@ -1521,6 +2000,241 @@ struct ContentView: View {
         )
     }
 
+    private func launchSelectedProfile() {
+        guard let profile = selectedProfile else { return }
+        launchProfile(profile)
+    }
+
+    private func verifySteamInstall() {
+        runCommand(
+            script: "run.command",
+            arguments: ["--verify-steam"],
+            environment: steamDetectionEnvironment()
+        )
+    }
+
+    private func listGogGames() {
+        openImportTools()
+        runCommand(script: "import_game.command", arguments: ["list-gog"], environment: bottleEnvironment())
+    }
+
+    private func focusDashboardSection(_ section: DashboardSection) {
+        switch section {
+        case .launch:
+            dashboardSection = .launch
+        case .library, .tools, .bottles:
+            guard isSteamReady else { return }
+            dashboardSection = section
+        }
+    }
+
+    private func focusBottlesSection() {
+        focusDashboardSection(.bottles)
+        pendingScrollToBottles = true
+    }
+
+    /// Bitmask so ScrollViewReader can react when pending scroll flags are set on an already-visible tab.
+    private var pendingScrollNonce: Int {
+        var nonce = 0
+        if pendingScrollToImport { nonce |= 1 }
+        if pendingScrollToGameLibrary { nonce |= 2 }
+        if pendingScrollToGameProfiles { nonce |= 4 }
+        if pendingScrollToRepair { nonce |= 8 }
+        if pendingScrollToCompatibility { nonce |= 16 }
+        if pendingScrollToSteamSettings { nonce |= 32 }
+        if pendingScrollToPerformanceGraphics { nonce |= 64 }
+        if pendingScrollToBottles { nonce |= 128 }
+        return nonce
+    }
+
+    private func schedulePendingScroll(using proxy: ScrollViewProxy) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            consumePendingScrolls(using: proxy)
+        }
+    }
+
+    private func consumePendingScrolls(using proxy: ScrollViewProxy) {
+        withAnimation(.easeOut(duration: 0.25)) {
+            if dashboardSection == .tools, pendingScrollToImport {
+                pendingScrollToImport = false
+                proxy.scrollTo(CosmosScrollAnchor.storeImport, anchor: .top)
+            } else if dashboardSection == .library, pendingScrollToGameLibrary {
+                pendingScrollToGameLibrary = false
+                proxy.scrollTo(CosmosScrollAnchor.gameLibrary, anchor: .top)
+            } else if dashboardSection == .library, pendingScrollToGameProfiles {
+                pendingScrollToGameProfiles = false
+                proxy.scrollTo(CosmosScrollAnchor.gameProfiles, anchor: .top)
+            } else if dashboardSection == .library, pendingScrollToRepair {
+                pendingScrollToRepair = false
+                proxy.scrollTo(CosmosScrollAnchor.repair, anchor: .top)
+            } else if dashboardSection == .library, pendingScrollToCompatibility {
+                pendingScrollToCompatibility = false
+                proxy.scrollTo(CosmosScrollAnchor.compatibility, anchor: .top)
+            } else if dashboardSection == .launch, pendingScrollToSteamSettings {
+                pendingScrollToSteamSettings = false
+                proxy.scrollTo(CosmosScrollAnchor.steamSettings, anchor: .top)
+            } else if dashboardSection == .launch, pendingScrollToPerformanceGraphics {
+                pendingScrollToPerformanceGraphics = false
+                proxy.scrollTo(CosmosScrollAnchor.performanceGraphics, anchor: .top)
+            } else if dashboardSection == .bottles, pendingScrollToBottles {
+                pendingScrollToBottles = false
+                proxy.scrollTo(CosmosScrollAnchor.bottles, anchor: .top)
+            }
+        }
+    }
+
+    private func openSteamSettings() {
+        focusDashboardSection(.launch)
+        consoleExpanded = true
+        pendingScrollToSteamSettings = true
+    }
+
+    private func openPerformanceGraphicsSettings(expandAdvanced: Bool = false) {
+        focusDashboardSection(.launch)
+        consoleExpanded = true
+        if expandAdvanced {
+            showAdvancedGraphics = true
+        }
+        pendingScrollToPerformanceGraphics = true
+    }
+
+    private func revealSteamConf() {
+        SteamSettingsStore.ensureOnDisk()
+        revealInFinder(SteamSettingsStore.confURL)
+    }
+
+    private func focusGameLibrary(
+        scrollToLibrary: Bool = false,
+        scrollToProfiles: Bool = false,
+        scrollToRepair: Bool = false,
+        scrollToCompatibility: Bool = false
+    ) {
+        focusDashboardSection(.library)
+        consoleExpanded = true
+        if scrollToLibrary {
+            pendingScrollToGameLibrary = true
+        }
+        if scrollToProfiles {
+            pendingScrollToGameProfiles = true
+        }
+        if scrollToRepair {
+            pendingScrollToRepair = true
+        }
+        if scrollToCompatibility {
+            pendingScrollToCompatibility = true
+        }
+    }
+
+    private func focusToolsSection() {
+        focusDashboardSection(.tools)
+        consoleExpanded = true
+    }
+
+    private func menuContinueSetup() {
+        focusDashboardSection(.launch)
+        consoleExpanded = true
+        performNextSetupStep()
+    }
+
+    private func openAddGameProfile() {
+        focusGameLibrary(scrollToProfiles: true)
+        showAddGameProfileSheet = true
+    }
+
+    private func showSelectedProfileInLibrary() {
+        guard selectedProfile != nil else { return }
+        focusGameLibrary(scrollToLibrary: true)
+    }
+
+    private func showSelectedProfileOnLaunch() {
+        guard selectedProfile != nil else { return }
+        focusDashboardSection(.launch)
+    }
+
+    private func openImportTools() {
+        focusToolsSection()
+        pendingScrollToImport = true
+    }
+
+    private func findSavedLauncher(for profile: GameProfile) -> SavedProfile? {
+        if !profile.steamAppID.isEmpty,
+           let match = profiles.first(where: { $0.steamAppID == profile.steamAppID }) {
+            return match
+        }
+        if !profile.gogSlug.isEmpty,
+           let match = profiles.first(where: { $0.gogSlug?.lowercased() == profile.gogSlug.lowercased() }) {
+            return match
+        }
+        return profiles.first { $0.name.localizedCaseInsensitiveCompare(profile.name) == .orderedSame }
+    }
+
+    private func showSavedLauncherInLibrary(_ profile: SavedProfile) {
+        selectedProfileID = profile.id
+        focusGameLibrary(scrollToLibrary: true)
+    }
+
+    private func runDiagnose() {
+        runCommand(
+            script: "repair.command",
+            arguments: ["diagnose"],
+            environment: repairEnvironment(),
+            intent: .diagnose
+        )
+    }
+
+    private func profileContextMenuExtras(for profile: SavedProfile, inLibrary: Bool = false) -> ProfileContextMenuExtras {
+        ProfileContextMenuExtras(
+            onShowInLibrary: inLibrary ? nil : {
+                selectedProfileID = profile.id
+                focusGameLibrary(scrollToLibrary: true)
+            },
+            onShowOnLaunch: {
+                selectedProfileID = profile.id
+                focusDashboardSection(.launch)
+            },
+            onApplyCurated: {
+                focusGameLibrary(scrollToProfiles: true)
+                if let appid = profile.steamAppID, !appid.isEmpty,
+                   let curated = GameProfileStore.find(steamAppID: appid) {
+                    applyCuratedGameProfile(curated)
+                } else if let slug = profile.gogSlug, !slug.isEmpty {
+                    runCommand(
+                        script: "profile.command",
+                        arguments: ["for-gog-slug", slug, "apply"],
+                        environment: bottleEnvironment()
+                    )
+                }
+            },
+            onVerifyInstall: profile.libraryStore == .steam ? {
+                focusGameLibrary(scrollToLibrary: true)
+                verifySteamInstall()
+            } : nil
+        )
+    }
+
+    private func applyCuratedGameProfile(_ profile: GameProfile) {
+        let path = profile.fileURL.path
+        let arguments: [String]
+        if let relative = CosmosPaths.profileCommandPath(for: profile.fileURL) {
+            arguments = ["apply", relative]
+        } else {
+            arguments = ["apply", path]
+        }
+        runCommand(
+            script: "profile.command",
+            arguments: arguments,
+            environment: bottleEnvironment()
+        )
+    }
+
+    private func compatLookupForGameProfile(_ profile: GameProfile) {
+        guard !profile.steamAppID.isEmpty else { return }
+        selectedGameProfileID = profile.id
+        setupCompatAppID = profile.steamAppID
+        focusGameLibrary(scrollToCompatibility: true)
+        runCommand(script: "cosmosdb.command", arguments: ["lookup", profile.steamAppID])
+    }
+
     private func applyInstalledCuratedProfiles() {
         runCommand(
             script: "profile.command",
@@ -1573,14 +2287,14 @@ struct ContentView: View {
     private var wineRuntimeSection: some View {
         Group {
             if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
-                runtimeNoticeBanner(
+                CosmosNoticeBanner(
                     tint: .orange,
                     systemImage: "cpu",
                     title: "Rosetta 2 required",
                     message: "Cosmos downloads x86_64 Wine builds from Gcenx. Apple Silicon Macs need Rosetta 2 before Wine can run. Install Rosetta, then continue setup."
                 )
             } else if !wineRuntime.wineInstalled {
-                runtimeNoticeBanner(
+                CosmosNoticeBanner(
                     tint: Color.cosmosPrimary,
                     systemImage: "wineglass",
                     title: "Wine not downloaded yet",
@@ -1588,35 +2302,6 @@ struct ContentView: View {
                 )
             }
         }
-    }
-
-    private func runtimeNoticeBanner(
-        tint: Color,
-        systemImage: String,
-        title: String,
-        message: String
-    ) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(16)
-        .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(tint.opacity(0.2), lineWidth: 1)
-        )
-        .accessibilityElement(children: .combine)
     }
 
     private var launchSection: some View {
@@ -1635,13 +2320,19 @@ struct ContentView: View {
     // MARK: - Steam Wine settings
 
     private var steamWineSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Steam Wine Settings", systemImage: "gearshape.2.fill")
-
-            Text("These apply to the default Steam prefix on the next launch. Use Bottles below for extra isolated prefixes.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        CosmosSection(
+            title: "Steam & Wine",
+            systemImage: "gearshape.2.fill",
+            caption: "Default Steam prefix — backend, Windows version, install behavior, and prefix details."
+        ) {
+            if let bottle = selectedBottle {
+                CosmosNoticeBanner(
+                    tint: .blue,
+                    systemImage: "cylinder.split.1x2.fill",
+                    title: "Launches use bottle: \(bottle.name)",
+                    message: "These settings apply to the default Steam prefix. Adjust \(bottle.name) on the Bottles tab, or choose Use Default Bottle from the toolbar bottle chip."
+                )
+            }
 
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 20) {
@@ -1651,12 +2342,16 @@ struct ContentView: View {
                             .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
                             .textCase(.uppercase)
                         Picker("Backend", selection: steamBackendBinding) {
-                            ForEach(SteamSettingsStore.backendOptions, id: \.self) { Text($0).tag($0) }
+                            ForEach(SteamSettingsStore.backendOptions, id: \.self) { backend in
+                                Text(SettingLabels.backendDisplayName(backend)).tag(backend)
+                            }
                         }
                         .pickerStyle(.menu)
                         .labelsHidden()
-                        .frame(maxWidth: 220, alignment: .leading)
+                        .frame(maxWidth: 240, alignment: .leading)
                         .disabled(isRunning)
+                        .accessibilityLabel("Graphics backend")
+                        .accessibilityValue(SettingLabels.backendDisplayName(steamSettings.backend))
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -1667,13 +2362,15 @@ struct ContentView: View {
                         Picker("Windows", selection: steamWindowsBinding) {
                             Text("Wine default").tag("")
                             ForEach(SteamSettingsStore.windowsOptions.filter { !$0.isEmpty }, id: \.self) {
-                                Text($0).tag($0)
+                                Text(SettingLabels.windowsDisplayName($0)).tag($0)
                             }
                         }
                         .pickerStyle(.menu)
                         .labelsHidden()
                         .frame(maxWidth: 200, alignment: .leading)
                         .disabled(isRunning)
+                        .accessibilityLabel("Windows version")
+                        .accessibilityValue(steamSettings.windowsDisplay)
                     }
                 }
 
@@ -1687,6 +2384,7 @@ struct ContentView: View {
                     }
                 }
                 .disabled(isRunning)
+                .accessibilityHint("Applies on the next Steam or game launch")
 
                 Toggle(isOn: steamSilentBinding) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -1741,9 +2439,23 @@ struct ContentView: View {
                 if wineRuntime.wineInstalled {
                     detailRow(title: "Wine binary", value: wineRuntime.wineBinaryPath)
                 }
+
+                HStack(spacing: 12) {
+                    Button {
+                        revealSteamConf()
+                    } label: {
+                        Label("Reveal steam.conf", systemImage: "folder")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isRunning)
+                    .help("Open ~/Library/Application Support/Cosmos/steam.conf in Finder")
+                }
+                .font(.subheadline)
             }
             .cosmosCard()
         }
+        .id(CosmosScrollAnchor.steamSettings)
     }
 
     // MARK: - Performance & graphics (Phase E)
@@ -1767,6 +2479,8 @@ struct ContentView: View {
                     }
                     .pickerStyle(.segmented)
                     .disabled(isRunning)
+                    .accessibilityLabel("Thread sync mode")
+                    .accessibilityValue(graphicsSettings.syncMode)
                     Text(graphicsSettings.syncModeLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -1790,6 +2504,8 @@ struct ContentView: View {
                             }
                             .pickerStyle(.segmented)
                             .disabled(isRunning)
+                            .accessibilityLabel("DXMT channel")
+                            .accessibilityValue(graphicsSettings.dxmtChannel == "latest" ? "Latest LGPL" : "Pinned 0.80")
                             Text(graphicsSettings.dxmtChannel == "latest"
                                 ? "Tracks the newest DXMT from the runtime manifest (LGPL). Source offer: runtime/DXMT-SOURCE-OFFER.txt."
                                 : "Uses the pinned runtime manifest (DXMT 0.80, MIT).")
@@ -1821,6 +2537,8 @@ struct ContentView: View {
                             }
                             .pickerStyle(.segmented)
                             .disabled(isRunning)
+                            .accessibilityLabel("MoltenVK preset for DXVK")
+                            .accessibilityValue(graphicsSettings.moltenvkPreset)
                             Text("Sets MVK_CONFIG_* env vars when using the experimental DXVK backend.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -1835,6 +2553,7 @@ struct ContentView: View {
             }
             .cosmosCard()
         }
+        .id(CosmosScrollAnchor.performanceGraphics)
     }
 
     private var gptkSetupCard: some View {
@@ -1863,6 +2582,7 @@ struct ContentView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.caption)
                     .disabled(isRunning)
+                    .accessibilityLabel("Game Porting Toolkit install path")
                 Button("Browse…") { browseForGptkPath() }
                     .disabled(isRunning)
             }
@@ -1951,11 +2671,12 @@ struct ContentView: View {
         do {
             try SteamSettingsStore.set(key: key, value: value)
             reloadGraphicsSettings()
-            let message = "Saved \(key). Changes apply on the next launch."
-            output = message + "\n\n" + output
+            let message = SettingLabels.savedMessage(for: key, appliesToSteam: false)
+            output = "Saved \(key)=\(value)\n\n" + output
             showBanner(kind: .success, message: message)
         } catch {
-            let message = "Could not save \(key): \(error.localizedDescription)"
+            let label = SettingLabels.displayName(for: key)
+            let message = "Could not save \(label): \(error.localizedDescription)"
             output = message + "\n\n" + output
             showBanner(kind: .failure, message: message)
         }
@@ -2060,11 +2781,12 @@ struct ContentView: View {
         do {
             try SteamSettingsStore.set(key: key, value: value)
             steamSettings = SteamSettingsStore.load()
-            let message = "Saved \(key). Changes apply on the next Steam or game launch."
-            output = message + "\n\n" + output
+            let message = SettingLabels.savedMessage(for: key)
+            output = "Saved \(key)=\(value)\n\n" + output
             showBanner(kind: .success, message: message)
         } catch {
-            let message = "Could not save \(key): \(error.localizedDescription)"
+            let label = SettingLabels.displayName(for: key)
+            let message = "Could not save \(label): \(error.localizedDescription)"
             output = message + "\n\n" + output
             showBanner(kind: .failure, message: message)
         }
@@ -2073,18 +2795,27 @@ struct ContentView: View {
     @ViewBuilder
     private var gameDiscoveryButtons: some View {
         secondaryButton(title: "Detect Games", subtitle: "List Steam library", systemImage: "magnifyingglass", help: "Scan the Steam library and list installable titles in the output pane") {
-            runCommand(script: "detect_steam_games.command", arguments: ["--list"], environment: bottleEnvironment())
+            runCommand(script: "detect_steam_games.command", arguments: ["--list"], environment: steamDetectionEnvironment())
         }
 
         secondaryButton(title: "Verify Detection", subtitle: "Check install folders", systemImage: "checkmark.shield.fill", help: "List games and verify each installdir exists on disk") {
-            runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: bottleEnvironment())
+            runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: steamDetectionEnvironment())
         }
 
         secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps", systemImage: "square.grid.2x2.fill", help: "Detect games and install Spotlight launchers into Cosmos Apps") {
             buildLaunchers()
         }
 
-        if pendingNewSteamGames > 0 {
+        if pendingBrokenSteamInstalls > 0 {
+            secondaryButton(
+                title: "Verify Broken Installs",
+                subtitle: "\(pendingBrokenSteamInstalls) need attention",
+                systemImage: "exclamationmark.triangle.fill",
+                help: "List Wine Steam games with missing install folders or game executables"
+            ) {
+                runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
+            }
+        } else if pendingNewSteamGames > 0 {
             secondaryButton(
                 title: "Sync New Games",
                 subtitle: "\(pendingNewSteamGames) detected",
@@ -2101,6 +2832,17 @@ struct ContentView: View {
                 help: "Build launchers for newly installed Steam games since the last sync"
             ) {
                 syncSteamLibrary(announce: true)
+            }
+        }
+
+        if pendingUnregisteredGogGames > 0 {
+            secondaryButton(
+                title: "Register GOG Games",
+                subtitle: "\(pendingUnregisteredGogGames) unregistered",
+                systemImage: "opticaldisc.fill",
+                help: "Create launcher configs for detected GOG installs"
+            ) {
+                syncGogLibrary(build: false, announce: true)
             }
         }
     }
@@ -2195,18 +2937,108 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Game library (saved launchers)
+
+    private var gameLibrarySection: some View {
+        GameLibrarySection(
+            profiles: profiles,
+            searchText: $librarySearchText,
+            viewMode: $libraryViewMode,
+            sourceFilter: $librarySourceFilter,
+            selectedProfileID: $selectedProfileID,
+            pendingNewSteamGames: pendingNewSteamGames,
+            pendingUnregisteredGogGames: pendingUnregisteredGogGames,
+            isSetupComplete: isSetupComplete,
+            isSteamReady: isSteamReady,
+            isRunning: isRunning,
+            compatBadge: sidebarCompatBadge(for:),
+            isFavorite: { ProfilePreferencesStore.isFavorite(profileID: $0.id, in: profilePreferences) },
+            canLaunch: { $0.canLaunchFromDashboard && wineRuntime.canStartWineLaunch },
+            profileExtras: { profileContextMenuExtras(for: $0, inLibrary: true) },
+            onToggleFavorite: { profilePreferences = ProfilePreferencesStore.toggleFavorite(profileID: $0.id) },
+            onReveal: { revealInFinder($0.fileURL) },
+            onLaunch: launchProfile,
+            onSyncSteam: { syncSteamLibrary(announce: true) },
+            onSyncGog: { syncGogLibrary(build: false, announce: true) },
+            onRegisterGogBuild: { syncGogLibrary(build: true, announce: true) },
+            onSyncAll: { syncAllLibrarySources() },
+            onBuildLaunchers: { buildLaunchers() },
+            onDetectGames: {
+                runCommand(
+                    script: "detect_steam_games.command",
+                    arguments: ["--list"],
+                    environment: bottleEnvironment()
+                )
+            },
+            onLaunchSteam: launchSteamFromDashboard,
+            onContinueSetup: {
+                menuContinueSetup()
+            },
+            onListGog: { listGogGames() },
+            onVerifySteam: { verifySteamInstall() },
+            onOpenImport: { openImportTools() },
+            onAddProfile: { openAddGameProfile() }
+        )
+        .id(CosmosScrollAnchor.gameLibrary)
+    }
+
+    private func syncAllLibrarySources(preferSteamOnly: Bool = false) {
+        let needsSteam = pendingNewSteamGames > 0
+        let needsGog = pendingUnregisteredGogGames > 0
+
+        if preferSteamOnly || (!needsSteam && !needsGog) {
+            syncSteamLibrary(announce: true)
+            return
+        }
+        if needsSteam, needsGog {
+            librarySyncFollowUp = { syncGogLibrary(build: false, announce: true) }
+            syncSteamLibrary(announce: true)
+            return
+        }
+        if needsSteam {
+            syncSteamLibrary(announce: true)
+        } else if needsGog {
+            syncGogLibrary(build: false, announce: true)
+        }
+    }
+
+    private func runLibrarySyncFollowUpIfNeeded() {
+        guard let followUp = librarySyncFollowUp else { return }
+        librarySyncFollowUp = nil
+        followUp()
+    }
+
     // MARK: - Curated profiles (YAML)
 
     private var curatedProfilesSection: some View {
         CosmosSection(
-            title: "Curated Game Profiles",
+            title: "Game Profiles",
             systemImage: "doc.text.fill",
-            caption: "Known-good YAML recipes (roadmap 0.4). Apply writes overrides and runs winetricks/fixes."
+            caption: "Bundled YAML recipes plus personal profiles you add. Apply writes overrides and runs winetricks/fixes."
         ) {
+            HStack {
+                Spacer(minLength: 0)
+                Button {
+                    showAddGameProfileSheet = true
+                } label: {
+                    Label("Add Profile", systemImage: "plus.circle.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning)
+                .help("Create a personal YAML profile from a Steam App ID or GOG slug")
+            }
+
             if gameProfiles.isEmpty {
-                Text("No profiles found in profiles/. Rebuild the app bundle or run from the repository checkout.")
-                    .font(.subheadline)
-                    .foregroundStyle(.tertiary)
+                CosmosEmptyState(
+                    systemImage: "doc.text",
+                    title: "No game profiles yet",
+                    message: "Add a personal profile from a Steam App ID or GOG slug, or check for updates to download bundled community recipes.",
+                    isRunning: isRunning,
+                    actions: [
+                        (title: "Add Profile", prominent: true, action: { showAddGameProfileSheet = true }),
+                        (title: "Check for Updates", prominent: false, action: { checkForUpdates() }),
+                    ]
+                )
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -2221,9 +3053,13 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
 
                     if filteredGameProfiles.isEmpty {
-                        Text("No profiles match this filter. Try All or another chip.")
-                            .font(.subheadline)
-                            .foregroundStyle(.tertiary)
+                        CosmosEmptyState(
+                            systemImage: "line.3.horizontal.decrease.circle",
+                            title: "No profiles match",
+                            message: "Try the All filter or choose another chip to browse curated YAML recipes.",
+                            isRunning: isRunning,
+                            actions: [(title: "Show All", prominent: true, action: { curatedProfileFilter = .all })]
+                        )
                     } else {
                         LazyVGrid(
                             columns: [GridItem(.adaptive(minimum: 200), spacing: CosmosSpacing.gridGap)],
@@ -2241,6 +3077,7 @@ struct ContentView: View {
                 curatedProfileControls(profile)
             }
         }
+        .id(CosmosScrollAnchor.gameProfiles)
     }
 
     private func curatedProfileFilterChip(_ filter: CuratedProfileFilter) -> some View {
@@ -2273,6 +3110,14 @@ struct ContentView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.cosmosBright)
                     Spacer()
+                    if profile.isUserAuthored {
+                        Text("Mine")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.cosmosPrimary.opacity(0.15), in: Capsule())
+                            .foregroundStyle(Color.cosmosPrimary)
+                    }
                     CosmosCompatBadge(status: profile.statusLabel, compact: true)
                 }
                 HStack(spacing: 8) {
@@ -2298,6 +3143,16 @@ struct ContentView: View {
         .buttonStyle(CosmosButtonStyle())
         .disabled(isRunning)
         .accessibilityLabel(curatedProfileAccessibilityLabel(profile, isSelected: isSelected))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .curatedProfileContextMenu(
+            profile: profile,
+            isRunning: isRunning,
+            onApply: { applyCuratedGameProfile(profile) },
+            onShowCompatibility: { compatLookupForGameProfile(profile) },
+            onFindLauncher: findSavedLauncher(for: profile).map { launcher in
+                { showSavedLauncherInLibrary(launcher) }
+            }
+        )
     }
 
     private func curatedProfileAccessibilityLabel(_ profile: GameProfile, isSelected: Bool) -> String {
@@ -2466,7 +3321,18 @@ struct ContentView: View {
                     .padding(.top, 4)
                 recipeButtonGrid(fixRecipes, prefix: "apply-fix")
             }
+
+            if dependencyRecipes.isEmpty && fixRecipes.isEmpty {
+                CosmosEmptyState(
+                    systemImage: "bandage",
+                    title: "No repair recipes loaded",
+                    message: "Recipes ship with Cosmos and load from the repair bundle. Check for updates or run Diagnose Logs if this section stays empty.",
+                    isRunning: isRunning,
+                    actions: [(title: "Check for Updates", prominent: false, action: { checkForUpdates() })]
+                )
+            }
         }
+        .id(CosmosScrollAnchor.repair)
     }
 
     private func recipeButtonGrid(_ recipes: [RepairRecipe], prefix: String) -> some View {
@@ -2482,7 +3348,7 @@ struct ContentView: View {
                         environment: bottleEnvironment()
                     )
                 } label: {
-                    CosmosActionTile(title: recipe.id, subtitle: recipe.description)
+                    CosmosActionTile(title: recipe.displayTitle, subtitle: recipe.displaySubtitle)
                 }
                 .buttonStyle(CosmosButtonStyle())
                 .disabled(isRunning)
@@ -2553,13 +3419,17 @@ struct ContentView: View {
                     script: "import_game.command",
                     arguments: ["list-gog"]
                 )
-                storeActionButton(
-                    title: "Sync GOG Games",
-                    subtitle: "Register + build launchers",
-                    systemImage: "arrow.triangle.2.circlepath",
-                    script: "import_game.command",
-                    arguments: ["sync-gog", "--build"]
-                )
+                Button {
+                    syncGogLibrary(build: true, announce: true)
+                } label: {
+                    CosmosActionTile(
+                        title: "Sync GOG Games",
+                        subtitle: "Register + build launchers",
+                        systemImage: "arrow.triangle.2.circlepath"
+                    )
+                }
+                .buttonStyle(CosmosButtonStyle())
+                .disabled(isRunning)
                 storeActionButton(
                     title: "itch.io Folder",
                     subtitle: "Windows download",
@@ -2632,6 +3502,7 @@ struct ContentView: View {
                 .disabled(isRunning)
             }
         }
+        .id(CosmosScrollAnchor.storeImport)
     }
 
     private func storeActionButton(
@@ -2886,14 +3757,17 @@ struct ContentView: View {
                         .foregroundStyle(.tertiary)
                 }
             } else {
-                Text("Select a saved launcher or curated YAML profile (Steam App ID or GOG slug) to look up or apply compatibility settings.")
-                    .font(.subheadline)
-                    .foregroundStyle(.tertiary)
+                CosmosEmptyState(
+                    systemImage: "chart.bar.doc.horizontal",
+                    title: "No game selected",
+                    message: "Select a saved launcher from the sidebar or a curated YAML profile to look up compatibility, apply settings, or file a local report.",
+                    tint: .secondary
+                )
             }
         }
-        .cosmosCard()
         .onChange(of: activeSteamAppID) { _ in refreshCompatBadge() }
         .onChange(of: selectedGameProfileID) { _ in refreshCompatBadge() }
+        .id(CosmosScrollAnchor.compatibility)
     }
 
     private static let cosmosStatusOptions = [
@@ -2903,32 +3777,14 @@ struct ContentView: View {
     // MARK: - Bottles
 
     private var bottlesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                sectionHeader("Bottles", systemImage: "cylinder.split.1x2.fill")
-                Spacer()
-                Button {
-                    newBottleName = ""
-                    newBottleBackend = "recommended"
-                    newBottleWindows = "win10"
-                    newBottleRetina = false
-                    showNewBottleSheet = true
-                } label: {
-                    Label("New Bottle", systemImage: "plus.circle.fill")
-                        .font(.subheadline.weight(.medium))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.cosmosPrimary)
-                .disabled(isRunning)
-                .help("Create a new isolated Wine bottle")
-            }
-
-            if bottles.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("No bottles yet. Each bottle is an isolated Wine prefix with its own graphics backend and settings.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+        CosmosSection(
+            title: "Bottles",
+            systemImage: "cylinder.split.1x2.fill",
+            caption: "Isolated Wine prefixes with their own graphics backend, Windows version, and sync settings."
+        ) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Spacer(minLength: 0)
                     Button {
                         newBottleName = ""
                         newBottleBackend = "recommended"
@@ -2936,26 +3792,44 @@ struct ContentView: View {
                         newBottleRetina = false
                         showNewBottleSheet = true
                     } label: {
-                        Label("Create your first bottle", systemImage: "plus.circle.fill")
-                            .font(.subheadline.weight(.medium))
+                        Label("New Bottle", systemImage: "plus.circle.fill")
                     }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(Color.cosmosPrimary)
+                    .buttonStyle(.bordered)
                     .disabled(isRunning)
+                    .help("Create a new isolated Wine bottle")
                 }
-                .accessibilityElement(children: .combine)
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
-                    ForEach(bottles) { bottle in
-                        bottleCard(bottle)
+
+                if bottles.isEmpty {
+                    CosmosEmptyState(
+                        systemImage: "cylinder.split.1x2.fill",
+                        title: "No bottles yet",
+                        message: "Each bottle is an isolated Wine prefix with its own graphics backend, Windows version, and Retina settings.",
+                        isRunning: isRunning,
+                        actions: [(title: "Create Bottle", prominent: true, action: {
+                            newBottleName = ""
+                            newBottleBackend = "recommended"
+                            newBottleWindows = "win10"
+                            newBottleRetina = false
+                            showNewBottleSheet = true
+                        })]
+                    )
+                } else {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: CosmosSpacing.gridColumnMin), spacing: CosmosSpacing.gridGap)],
+                        spacing: CosmosSpacing.gridGap
+                    ) {
+                        ForEach(bottles) { bottle in
+                            bottleCard(bottle)
+                        }
                     }
                 }
-            }
 
-            if let bottle = selectedBottle {
-                bottleControls(bottle)
+                if let bottle = selectedBottle {
+                    bottleControls(bottle)
+                }
             }
         }
+        .id(CosmosScrollAnchor.bottles)
         .sheet(isPresented: $showNewBottleSheet) { newBottleSheet }
         .confirmationDialog("Reset this bottle?", isPresented: $showBottleResetConfirmation, titleVisibility: .visible) {
             Button("Reset Prefix", role: .destructive) {
@@ -2981,40 +3855,68 @@ struct ContentView: View {
 
     private func bottleCard(_ bottle: Bottle) -> some View {
         let isSelected = bottle.id == selectedBottleID
-        return Button {
-            selectedBottleID = isSelected ? nil : bottle.id
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "cylinder.split.1x2.fill")
-                        .foregroundStyle(Color.cosmosPrimary)
-                    Text(bottle.name)
-                        .font(.headline)
-                        .lineLimit(1)
-                    Spacer()
-                }
-                Text(bottle.backend)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.cosmosBright)
-                Text(bottle.statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+        return BottleCard(
+            bottle: bottle,
+            isSelected: isSelected,
+            isRunning: isRunning,
+            onToggleSelection: {
+                selectedBottleID = isSelected ? nil : bottle.id
+            },
+            onSelect: {
+                selectedBottleID = bottle.id
+            },
+            onLaunchSteam: {
+                selectedBottleID = bottle.id
+                runCommand(
+                    script: "bottle.command",
+                    arguments: ["launch", bottle.name, "--steam"],
+                    environment: dashboardLaunchEnvironment(),
+                    intent: .gameLaunch
+                )
+            },
+            onOpenLogs: {
+                selectedBottleID = bottle.id
+                runCommand(script: "bottle.command", arguments: ["logs", bottle.name])
+            },
+            onRevealPrefix: { revealInFinder(bottle.prefixURL) },
+            onRevealConfig: { revealInFinder(bottle.configURL) },
+            onReset: {
+                selectedBottleID = bottle.id
+                showBottleResetConfirmation = true
+            },
+            onDelete: {
+                selectedBottleID = bottle.id
+                showBottleDeleteConfirmation = true
             }
-            .cosmosSelectableSurface(isSelected: isSelected, minHeight: 86)
-        }
-        .buttonStyle(CosmosButtonStyle())
-        .disabled(isRunning)
-        .accessibilityLabel("\(bottle.name), \(bottle.backend), \(bottle.statusText)")
-        .accessibilityHint(isSelected ? "Double-tap to deselect" : "Double-tap to select and show controls")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        )
     }
 
     private func bottleControls(_ bottle: Bottle) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(bottle.name)
-                .font(.title3.weight(.semibold))
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(bottle.name)
+                        .font(.title3.weight(.semibold))
+                    HStack(spacing: 8) {
+                        BottleStatusChip(kind: bottle.statusKind)
+                        Text(bottle.cardDetailLine)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+                Button {
+                    selectedBottleID = nil
+                } label: {
+                    Label("Close", systemImage: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Deselect bottle")
+                .accessibilityLabel("Close bottle settings")
+            }
 
+            Divider()
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Graphics backend")
@@ -3022,12 +3924,16 @@ struct ContentView: View {
                         .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
                         .textCase(.uppercase)
                     Picker("Backend", selection: backendBinding(for: bottle)) {
-                        ForEach(BottleStore.backendOptions, id: \.self) { Text($0).tag($0) }
+                        ForEach(BottleStore.backendOptions, id: \.self) { backend in
+                            Text(SettingLabels.backendDisplayName(backend)).tag(backend)
+                        }
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
                     .frame(maxWidth: 200, alignment: .leading)
                     .disabled(isRunning)
+                    .accessibilityLabel("Graphics backend")
+                    .accessibilityValue(SettingLabels.backendDisplayName(bottle.backend))
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -3037,12 +3943,16 @@ struct ContentView: View {
                         .textCase(.uppercase)
                     Picker("Windows", selection: windowsBinding(for: bottle)) {
                         Text("Wine default").tag("")
-                        ForEach(BottleStore.windowsOptions, id: \.self) { Text($0).tag($0) }
+                        ForEach(BottleStore.windowsOptions, id: \.self) { version in
+                            Text(SettingLabels.windowsDisplayName(version)).tag(version)
+                        }
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
                     .frame(maxWidth: 160, alignment: .leading)
                     .disabled(isRunning)
+                    .accessibilityLabel("Windows version")
+                    .accessibilityValue(bottle.windowsVersion.isEmpty ? "Wine default" : bottle.windowsVersion)
                 }
             }
 
@@ -3062,6 +3972,8 @@ struct ContentView: View {
                 }
                 .pickerStyle(.segmented)
                 .disabled(isRunning)
+                .accessibilityLabel("Thread sync mode")
+                .accessibilityValue(bottle.syncMode)
             }
 
             HStack(alignment: .top, spacing: 24) {
@@ -3070,6 +3982,17 @@ struct ContentView: View {
             }
 
             detailRow(title: "Prefix", value: bottle.prefixURL.path)
+
+            HStack(spacing: 12) {
+                Button {
+                    revealInFinder(bottle.configURL)
+                } label: {
+                    Label("Reveal bottle.conf", systemImage: "doc.text")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .font(.subheadline)
 
             HStack(spacing: 12) {
                 bottleActionButton("Launch", systemImage: "play.fill", prominent: true, help: "Launch Steam in this bottle") {
@@ -3117,10 +4040,10 @@ struct ContentView: View {
     }
 
     private var newBottleSheet: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
             Text("New Bottle")
                 .font(.title2.weight(.bold))
-                .foregroundStyle(Color.cosmosPrimary)
+                .foregroundStyle(CosmosGradients.heroTitle)
 
             Text("Creates an isolated Wine prefix you can tune independently from the default bottle.")
                 .font(.subheadline)
@@ -3131,35 +4054,46 @@ struct ContentView: View {
                 TextField("Name", text: $newBottleName)
                     .textFieldStyle(.roundedBorder)
                     .focused($newBottleNameFocused)
+                    .disabled(isRunning)
                 Picker("Backend", selection: $newBottleBackend) {
-                    ForEach(BottleStore.backendOptions, id: \.self) { Text($0).tag($0) }
+                    ForEach(BottleStore.backendOptions, id: \.self) { backend in
+                        Text(SettingLabels.backendDisplayName(backend)).tag(backend)
+                    }
                 }
+                .disabled(isRunning)
                 Picker("Windows version", selection: $newBottleWindows) {
                     ForEach(BottleStore.windowsOptions, id: \.self) { Text($0).tag($0) }
                 }
+                .disabled(isRunning)
                 Toggle("Enable Retina mode", isOn: $newBottleRetina)
+                    .disabled(isRunning)
             }
             .formStyle(.grouped)
 
             if !newBottleName.isEmpty && !BottleStore.isValidName(newBottleName) {
-                Text("Use letters, digits, '.', '_' or '-' (not starting with '.', '_' or '-').")
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                CosmosNoticeBanner(
+                    tint: .red,
+                    systemImage: "exclamationmark.triangle.fill",
+                    title: "Invalid name",
+                    message: "Use letters, digits, '.', '_' or '-' (not starting with '.', '_' or '-')."
+                )
             }
 
             HStack {
                 Spacer()
                 Button("Cancel") { showNewBottleSheet = false }
                     .keyboardShortcut(.cancelAction)
+                    .disabled(isRunning)
                 Button("Create") { createBottle() }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.cosmosPrimary)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!BottleStore.isValidName(newBottleName))
+                    .disabled(!BottleStore.isValidName(newBottleName) || isRunning)
             }
         }
         .padding(20)
         .frame(width: 420)
+        .background(Color.cosmosContentBackground)
         .onAppear { newBottleNameFocused = true }
     }
 
@@ -3219,13 +4153,42 @@ struct ContentView: View {
         runCommand(script: "bottle.command", arguments: args)
     }
 
+    private func selectedProfileCompactBar(_ profile: SavedProfile) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(profile.name)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(profile.launchMethodLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let badge = sidebarCompatBadge(for: profile) {
+                CosmosCompatBadge(status: badge.status, compact: true)
+            }
+            Spacer(minLength: 8)
+            Button("Show on Launch Tab") {
+                showSelectedProfileOnLaunch()
+            }
+            .buttonStyle(.bordered)
+            Button("Launch") {
+                launchProfile(profile)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!profile.canLaunchFromDashboard || !wineRuntime.canStartWineLaunch || isRunning)
+        }
+        .cosmosCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Selected launcher \(profile.name)")
+    }
+
     private func selectedProfileSection(_ profile: SavedProfile) -> some View {
         let curated = profile.steamAppID.flatMap { GameProfileStore.find(steamAppID: $0) }
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 sectionHeader("Selected Launcher", systemImage: "gamecontroller.fill")
                 Spacer()
-                if let curated, let badge = sidebarCompatBadge(for: profile) {
+                if let badge = sidebarCompatBadge(for: profile) {
                     CosmosCompatBadge(status: badge.status)
                 }
                 Button {
@@ -3317,10 +4280,24 @@ struct ContentView: View {
             } else {
                 DisclosureGroup(isExpanded: $consoleExpanded) {
                     consoleOutputPanel
+                        .onAppear { consoleHasNewOutput = false }
                 } label: {
-                    Label("Technical output", systemImage: "terminal.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.cosmosPrimary)
+                    HStack(spacing: 8) {
+                        Label("Technical output", systemImage: "terminal.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.cosmosPrimary)
+                        if consoleHasNewOutput && !consoleExpanded {
+                            Text("Updated")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.15), in: Capsule())
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
+                .onChange(of: consoleExpanded) { expanded in
+                    if expanded { consoleHasNewOutput = false }
                 }
             }
         }
@@ -3386,6 +4363,8 @@ struct ContentView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .textSelection(.enabled)
                                 .foregroundStyle(Color.cosmosConsoleText)
+                                .accessibilityLabel("Command output log")
+                                .accessibilityValue(output.isEmpty ? "Empty" : output)
                             Color.clear
                                 .frame(height: 1)
                                 .id(consoleBottomID)
@@ -3546,6 +4525,32 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .disabled(isRunning)
                 .help("Remove launcher configs for uninstalled Steam games")
+            } else if pendingBrokenSteamInstalls > 0, isSetupComplete {
+                Button {
+                    runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
+                } label: {
+                    statusRow(
+                        label: "\(pendingBrokenSteamInstalls) broken install\(pendingBrokenSteamInstalls == 1 ? "" : "s") — tap to verify",
+                        icon: "exclamationmark.triangle.fill",
+                        color: .orange
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunning)
+                .help("Verify Wine Steam install folders and game executables")
+            } else if pendingUnregisteredGogGames > 0, isSetupComplete {
+                Button {
+                    syncGogLibrary(build: false, announce: true)
+                } label: {
+                    statusRow(
+                        label: "\(pendingUnregisteredGogGames) GOG game\(pendingUnregisteredGogGames == 1 ? "" : "s") — tap to register",
+                        icon: "opticaldisc.fill",
+                        color: .blue
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunning)
+                .help("Register detected GOG installs as launcher configs")
             }
             statusRow(
                 label: bottles.isEmpty
@@ -3556,8 +4561,7 @@ struct ContentView: View {
             )
         }
         .font(.subheadline)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Setup status")
+        .accessibilityElement(children: .contain)
     }
 
     private func statusRow(label: String, icon: String, color: Color) -> some View {
@@ -3566,11 +4570,14 @@ struct ContentView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(color)
                 .frame(width: 18)
+                .accessibilityHidden(true)
             Text(label)
                 .foregroundStyle(.primary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(label)
     }
 
     private func sectionHeader(_ title: String, systemImage: String) -> some View {
@@ -3705,6 +4712,13 @@ struct ContentView: View {
         refreshCompatBadge()
         refreshSteamHealth()
         checkGogLibraryForUnregistered()
+        appState.updateSetupComplete(isSetupComplete)
+        appState.updateSteamReady(isSteamReady)
+        appState.updateCommandAvailability(
+            canAccept: !isRunning,
+            canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+            hasSelected: selectedProfile != nil
+        )
 
         if let message {
             output = message + "\n\n" + output
@@ -3724,11 +4738,19 @@ struct ContentView: View {
 
     /// Pass the selected bottle into CLI tools that honor COSMOS_BOTTLE / WINEPREFIX.
     private func bottleEnvironment() -> [String: String] {
-        guard let bottle = selectedBottle else { return [:] }
-        return [
-            "COSMOS_BOTTLE": bottle.name,
-            "WINEPREFIX": bottle.prefixURL.path,
+        var env: [String: String] = [
+            "COSMOS_CONFIGS_DIR": CosmosPaths.resolvedConfigsDirectory().path,
         ]
+        if let bottle = selectedBottle {
+            env["COSMOS_BOTTLE"] = bottle.name
+            env["WINEPREFIX"] = bottle.prefixURL.path
+        } else {
+            env["WINEPREFIX"] = steamSettings.prefixURL.path
+        }
+        if steamSettings.nativeSteamScanEnabled {
+            env["COSMOS_STEAM_NATIVE_SCAN"] = "1"
+        }
+        return env
     }
 
     // Locate a helper script, preferring a copy bundled into the app's
@@ -3918,14 +4940,17 @@ struct ContentView: View {
             : "\n\nTerminal command exited with status \(exitCode): \(displayedCommand)"
         refreshStatus()
         if succeeded {
-            showBanner(kind: .success, message: successMessage(for: intent))
-            if autoContinueSetup, intent == .setup, !isSetupComplete, !isRunning, pendingTerminalJobID == nil {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    guard !isRunning, pendingTerminalJobID == nil, !isSetupComplete else { return }
-                    performNextSetupStep()
-                }
+            var actions: [CommandBannerAction] = []
+            if autoContinueSetup, intent == .setup, !isSetupComplete {
+                actions.append(
+                    CommandBannerAction(title: "Continue Setup", systemImage: "arrow.right.circle") {
+                        performNextSetupStep()
+                    }
+                )
             }
+            showBanner(kind: .success, message: successMessage(for: intent), actions: actions)
         } else {
+            consoleExpanded = true
             let failureMessage = CommandOutputParser.failureMessage(
                 exitCode: Int32(exitCode),
                 intent: intent,
@@ -4019,7 +5044,13 @@ struct ContentView: View {
         message: String,
         actions: [CommandBannerAction] = []
     ) {
-        commandBanner = CommandBanner(kind: kind, message: message, actions: actions)
+        commandBannerQueue.enqueue(
+            CommandBanner(kind: kind, message: message, actions: actions)
+        )
+    }
+
+    private func dismissCommandBanner() {
+        commandBannerQueue.dismissCurrent()
     }
 
     private func successMessage(for intent: CommandIntent) -> String {
@@ -4085,7 +5116,7 @@ struct ContentView: View {
     }
 
     private func beginCommandOutput() {
-        commandBanner = nil
+        commandBannerQueue.clearTransient()
         consoleExpanded = true
     }
 
@@ -4168,6 +5199,7 @@ struct ContentView: View {
                             output: output
                         )
                         applySteamLibrarySyncResult(syncResult, announce: true, seedOnly: false)
+                        runLibrarySyncFollowUpIfNeeded()
                     } else {
                         if script == "detect_steam_games.command" {
                             pendingNewSteamGames = 0
@@ -4186,6 +5218,7 @@ struct ContentView: View {
                         }
                     }
                 } else {
+                    librarySyncFollowUp = nil
                     let failureMessage = CommandOutputParser.failureMessage(
                         exitCode: exitCode,
                         intent: intent,
@@ -4202,23 +5235,22 @@ struct ContentView: View {
                            arguments.contains(where: { $0 == "--sync" || $0 == "--install" }) {
                             actions.append(contentsOf: steamSyncTerminalActions())
                         }
+                        consoleExpanded = true
                         showBanner(
                             kind: .failure,
                             message: failureMessage,
                             actions: actions
                         )
                     }
-                    if intent == .gameLaunch {
-                        runCommand(
-                            script: "repair.command",
-                            arguments: ["diagnose"],
-                            environment: repairEnvironment(),
-                            intent: .diagnose,
-                            chain: true
-                        )
-                    }
                 }
                 refreshStatus()
+                if shouldRefreshSteamAfterCommand(script: script, arguments: arguments) {
+                    refreshSteamHealth()
+                    checkSteamLibraryForNewGames(autoSync: false, force: true)
+                    if script == "run.command", arguments.contains("--verify-steam") {
+                        lastWarnedBrokenSteamInstalls = pendingBrokenSteamInstalls
+                    }
+                }
             }
         }
 
@@ -4233,17 +5265,26 @@ struct ContentView: View {
         }
     }
 
-}
+    private func shouldRefreshSteamAfterCommand(script: String, arguments: [String]) -> Bool {
+        switch script {
+        case "run.command":
+            return arguments.contains("--verify-steam") || arguments.contains("--install-steamwebhelper")
+        case "detect_steam_games.command":
+            return arguments.contains(where: { $0 == "--verify" || $0 == "--sync" || $0 == "--install" })
+        case "repair.command":
+            return arguments.contains(where: {
+                $0 == "install_steamwebhelper_wrapper" || $0 == "fix_steam_cloud_paths"
+            })
+        default:
+            return false
+        }
+    }
 
-extension Notification.Name {
-    static let cosmosRefreshStatus = Notification.Name("com.cosmos.refreshStatus")
-    static let cosmosContinueSetup = Notification.Name("com.cosmos.continueSetup")
-    static let cosmosOpenSetupHelp = Notification.Name("com.cosmos.openSetupHelp")
-    static let cosmosSelectSection = Notification.Name("com.cosmos.selectSection")
 }
 
 #if DEBUG
 #Preview {
     ContentView()
+        .environmentObject(CosmosAppState.shared)
 }
 #endif

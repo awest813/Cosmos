@@ -186,5 +186,49 @@ esac
 
 unset COSMOS_STEAM_NATIVE_PATH COSMOS_STEAM_NATIVE_SCAN
 
+printf '\n== detect_steam_games.command --list --json ==\n'
+
+json_out="$("${REPO_ROOT}/detect_steam_games.command" --list --json 2>/dev/null || true)"
+if python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, list)' <<<"${json_out}" 2>/dev/null; then
+  assert_ok "json list parses as array" true
+else
+  assert_fail "json list parses as array" false
+fi
+
+dota_json="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(g for g in d if g.get("appid")=="570"))' <<<"${json_out}" 2>/dev/null || true)"
+case "${dota_json}" in
+  *'"sync_eligible": true'*) assert_ok "dota sync_eligible true" true ;;
+  *) assert_fail "dota sync_eligible true" false ;;
+esac
+case "${dota_json}" in
+  *'"installdir_ok": true'*) assert_ok "dota installdir_ok in json" true ;;
+  *) assert_fail "dota installdir_ok in json" false ;;
+esac
+
+rust_json="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(g for g in d if g.get("appid")=="252490"))' <<<"${json_out}" 2>/dev/null || true)"
+case "${rust_json}" in
+  *'"sync_eligible": false'*) assert_ok "rust sync_eligible false when exe missing" true ;;
+  *) assert_fail "rust sync_eligible false when exe missing" false ;;
+esac
+
+COSMOS_STEAM_NATIVE_PATH="${NATIVE_FIXTURE}"
+COSMOS_STEAM_NATIVE_SCAN=1
+export COSMOS_STEAM_NATIVE_PATH COSMOS_STEAM_NATIVE_SCAN
+json_native="$("${REPO_ROOT}/detect_steam_games.command" --list --json 2>/dev/null || true)"
+portal_json="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(g for g in d if g.get("appid")=="620"))' <<<"${json_native}" 2>/dev/null || true)"
+case "${portal_json}" in
+  *'"install_status": "native_only"'*) assert_ok "native portal install_status" true ;;
+  *) assert_fail "native portal install_status" false ;;
+esac
+case "${portal_json}" in
+  *'"sync_eligible": false'*) assert_ok "native portal not sync eligible" true ;;
+  *) assert_fail "native portal not sync eligible" false ;;
+esac
+case "${portal_json}" in
+  *installdir_ok*) assert_fail "native portal omits installdir_ok" false ;;
+  *) assert_ok "native portal omits installdir_ok" true ;;
+esac
+unset COSMOS_STEAM_NATIVE_PATH COSMOS_STEAM_NATIVE_SCAN
+
 printf '\nResults: %s passed, %s failed\n' "${pass}" "${fail}"
 (( fail == 0 ))

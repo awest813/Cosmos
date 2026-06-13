@@ -1,0 +1,31 @@
+import Foundation
+
+/// Cross-view notifications for the menu bar and dashboard chrome.
+extension Notification.Name {
+    static let cosmosRefreshStatus = Notification.Name("com.cosmos.refreshStatus")
+    static let cosmosContinueSetup = Notification.Name("com.cosmos.continueSetup")
+    static let cosmosOpenSetupHelp = Notification.Name("com.cosmos.openSetupHelp")
+    static let cosmosSelectSection = Notification.Name("com.cosmos.selectSection")
+    static let cosmosSyncSteamLibrary = Notification.Name("com.cosmos.syncSteamLibrary")
+    static let cosmosSyncGogLibrary = Notification.Name("com.cosmos.syncGogLibrary")
+    static let cosmosSyncGogLibraryBuild = Notification.Name("com.cosmos.syncGogLibraryBuild")
+    static let cosmosBuildLaunchers = Notification.Name("com.cosmos.buildLaunchers")
+    static let cosmosDetectSteamGames = Notification.Name("com.cosmos.detectSteamGames")
+    static let cosmosLaunchSelectedGame = Notification.Name("com.cosmos.launchSelectedGame")
+    static let cosmosLaunchSteam = Notification.Name("com.cosmos.launchSteam")
+    static let cosmosVerifySteam = Notification.Name("com.cosmos.verifySteam")
+    static let cosmosListGogGames = Notification.Name("com.cosmos.listGogGames")
+    static let cosmosOpenLogs = Notification.Name("com.cosmos.openLogs")
+    static let cosmosCheckForUpdates = Notification.Name("com.cosmos.checkForUpdates")
+    static let cosmosRunDiagnose = Notification.Name("com.cosmos.runDiagnose")
+    static let cosmosOpenImportTools = Notification.Name("com.cosmos.openImportTools")
+    static let cosmosAddGameProfile = Notification.Name("com.cosmos.addGameProfile")
+    static let cosmosSyncAllLibrary = Notification.Name("com.cosmos.syncAllLibrary")
+    static let cosmosShowSelectedInLibrary = Notification.Name("com.cosmos.showSelectedInLibrary")
+    static let cosmosShowSelectedOnLaunch = Notification.Name("com.cosmos.showSelectedOnLaunch")
+    static let cosmosApplyInstalledProfiles = Notification.Name("com.cosmos.applyInstalledProfiles")
+    static let cosmosOpenSteamSettings = Notification.Name("com.cosmos.openSteamSettings")
+    static let cosmosOpenPerformanceGraphics = Notification.Name("com.cosmos.openPerformanceGraphics")
+    static let cosmosRevealSteamConf = Notification.Name("com.cosmos.revealSteamConf")
+    static let cosmosOpenBackendsGuide = Notification.Name("com.cosmos.openBackendsGuide")
+}

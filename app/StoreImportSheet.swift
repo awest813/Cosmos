@@ -30,9 +30,12 @@ struct StoreImportRequest: Identifiable {
 struct StoreImportSheet: View {
     let request: StoreImportRequest
     var onCancel: () -> Void
-    var onSubmit: (_ values: [StoreImportRequest.FieldKind: String]) -> Void
+    /// Return `nil` to close the sheet, or an error message to show inline.
+    var onSubmit: (_ values: [StoreImportRequest.FieldKind: String]) -> String?
 
     @State private var values: [StoreImportRequest.FieldKind: String] = [:]
+    @State private var errorMessage: String?
+    @State private var isSubmitting = false
     @FocusState private var focusedField: StoreImportRequest.FieldKind?
 
     private var canSubmit: Bool {
@@ -52,6 +55,15 @@ struct StoreImportSheet: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if let errorMessage {
+                CosmosNoticeBanner(
+                    tint: .red,
+                    systemImage: "exclamationmark.triangle.fill",
+                    title: "Could not import",
+                    message: errorMessage
+                )
+            }
+
             Form {
                 ForEach(request.fields) { field in
                     VStack(alignment: .leading, spacing: 6) {
@@ -62,28 +74,53 @@ struct StoreImportSheet: View {
                             TextField(field.placeholder, text: binding(for: field.id))
                                 .textFieldStyle(.roundedBorder)
                                 .focused($focusedField, equals: field.id)
+                                .accessibilityLabel(field.label)
+                                .disabled(isSubmitting)
                             if field.allowsFilePicker {
                                 Button("Choose…") {
                                     pickFile(for: field.id)
                                 }
+                                .accessibilityLabel("Choose \(field.label)")
+                                .disabled(isSubmitting)
                             }
                         }
                     }
                 }
             }
             .formStyle(.grouped)
+            .disabled(isSubmitting)
 
             HStack {
+                if isSubmitting {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Starting import…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .keyboardShortcut(.cancelAction)
+                    .disabled(isSubmitting)
                 Button(request.submitLabel) {
-                    onSubmit(values)
+                    errorMessage = nil
+                    isSubmitting = true
+                    if let validationError = StoreImportValidation.validate(request: request, values: values) {
+                        errorMessage = validationError
+                        isSubmitting = false
+                        return
+                    }
+                    if let submitError = onSubmit(values) {
+                        errorMessage = submitError
+                        isSubmitting = false
+                        return
+                    }
+                    onCancel()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.cosmosPrimary)
                 .keyboardShortcut(.defaultAction)
-                .disabled(!canSubmit)
+                .disabled(!canSubmit || isSubmitting)
             }
         }
         .padding(20)

@@ -229,7 +229,7 @@ validate_one() {
 
   # store-specific required identifiers
   if [[ "${store}" == "steam" ]]; then
-    local appid; appid="$(profile_get_scalar "${file}" steam_appid)"
+    local appid method; appid="$(profile_get_scalar "${file}" steam_appid)"
     if [[ "${appid}" =~ ^[0-9]+$ ]]; then
       # filename convention: steam-<appid>-<slug>.yaml
       local base="${file##*/}"
@@ -237,6 +237,10 @@ validate_one() {
         || err "filename ${base} does not match steam_appid ${appid}"
     else
       err "store: steam requires numeric steam_appid"
+    fi
+    method="$(profile_launch_method "${file}")"
+    if [[ -n "${method}" ]] && ! in_set "${method}" applaunch direct; then
+      err "invalid launch_method: ${method} (use applaunch or direct)"
     fi
   elif [[ "${store}" == "standalone" || "${store}" == "itch" || "${store}" == "battlenet" || "${store}" == "gog" ]]; then
     local exe; exe="$(profile_get_scalar "${file}" exe_path)"

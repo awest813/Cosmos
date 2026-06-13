@@ -8,10 +8,16 @@ enum GogLibraryMonitor {
         let exe: String
         let exeSource: String?
         let exeScore: Int?
+        let configRegistered: Bool?
     }
 
-    static func listGames(importScript: URL, environment: [String: String] = [:]) -> [DetectedGame]? {
-        guard let scriptURL = resolveImportScript(near: importScript) else { return nil }
+    static func listGames(
+        importScript: URL,
+        environment: [String: String] = [:]
+    ) -> GameListResult<DetectedGame> {
+        guard let scriptURL = resolveImportScript(near: importScript) else {
+            return .scriptUnavailable
+        }
 
         let task = Process()
         task.executableURL = scriptURL
@@ -19,9 +25,10 @@ enum GogLibraryMonitor {
         task.currentDirectoryURL = scriptURL.deletingLastPathComponent()
         task.environment = mergedEnvironment(environment)
 
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
+        let stdout = Pipe()
+        let stderr = Pipe()
+        task.standardOutput = stdout
+        task.standardError = stderr
 
         let semaphore = DispatchSemaphore(value: 0)
         var exitCode: Int32 = -1
@@ -33,17 +40,18 @@ enum GogLibraryMonitor {
         do {
             try task.run()
         } catch {
-            return nil
+            return .scriptUnavailable
         }
 
         guard semaphore.wait(timeout: .now() + 60) != .timedOut else {
             task.terminate()
-            return nil
+            return .timedOut
         }
-        guard exitCode == 0 else { return nil }
+        guard exitCode == 0 else { return .failed(exitCode: exitCode) }
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return parseGameList(jsonData: data)
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        guard let games = parseGameList(jsonData: data) else { return .parseFailed }
+        return .success(games)
     }
 
     static func parseGameList(jsonData: Data) -> [DetectedGame]? {
@@ -56,7 +64,24 @@ enum GogLibraryMonitor {
                   let exe = item["exe"] as? String else { return nil }
             let source = item["exe_source"] as? String
             let score = item["exe_score"] as? Int
-            return DetectedGame(slug: slug, title: title, exe: exe, exeSource: source, exeScore: score)
+            let registered = item["config_registered"] as? Bool
+            return DetectedGame(
+                slug: slug,
+                title: title,
+                exe: exe,
+                exeSource: source,
+                exeScore: score,
+                configRegistered: registered
+            )
+        }
+    }
+
+    /// GOG folders where exe detection had low confidence.
+    static func lowConfidenceInstalls(in games: [DetectedGame]) -> [DetectedGame] {
+        games.filter { game in
+            if let score = game.exeScore, score < 50 { return true }
+            if game.exeSource == "scored" { return true }
+            return false
         }
     }
 

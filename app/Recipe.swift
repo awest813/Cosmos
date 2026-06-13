@@ -9,6 +9,20 @@ struct RepairRecipe: Identifiable, Hashable {
     let id: String
     let kind: Kind
     let description: String
+
+    /// Human-friendly label for repair recipe tiles.
+    var displayTitle: String {
+        if !description.isEmpty, description != id {
+            return description
+        }
+        return id
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+    }
+
+    var displaySubtitle: String {
+        description.isEmpty || description == id ? id : id
+    }
 }
 
 enum RecipeStore {

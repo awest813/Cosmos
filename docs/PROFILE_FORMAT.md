@@ -30,7 +30,9 @@ id: fallout_new_vegas          # required, unique slug
 name: "Fallout: New Vegas"     # required, display name
 store: steam                   # steam | gog | epic | itch | battlenet | standalone
 steam_appid: 22380             # required when store == steam
-exe_path: ""                   # required when store == itch | battlenet | standalone (relative to bottle drive_c)
+launch_method: applaunch       # optional for steam: applaunch (default) or direct (Wine .exe)
+exe_path: ""                   # required when store == gog | itch | battlenet | standalone; optional for steam direct launch
+gog_slug: celeste              # required when store == gog (GOG folder slug)
 status: playable               # see status values below
 recommended_backend: dxmt      # recommended | d3dmetal | dxmt | dxvk | wined3d
 wine_version: cosmos-stable    # runtime identifier or pinned Wine version
@@ -63,7 +65,9 @@ notes: "Use launcher first, then set resolution."
 | `name` | yes | Human-readable title. |
 | `store` | yes | One of `steam`, `gog`, `epic`, `itch`, `battlenet`, `standalone`. |
 | `steam_appid` | when `store: steam` | Steam application ID. |
-| `exe_path` | when `store: itch`, `battlenet`, or `standalone` | Path to the game EXE, relative to the bottle's `drive_c`. |
+| `launch_method` | no | For `store: steam`: `applaunch` (default, `steam -applaunch`) or `direct` (Wine-launches detected `game_exe`). |
+| `exe_path` | when `store: gog`, `itch`, `battlenet`, or `standalone` | Path to the game EXE, relative to the bottle's `drive_c`. Optional on Steam when `launch_method: direct` to override auto-detection. |
+| `gog_slug` | when `store: gog` | GOG install folder slug used by `sync-gog` and `profile.command for-gog-slug`. |
 | `status` | yes | Compatibility rating (see below). |
 | `recommended_backend` | yes | Graphics backend; see [BACKENDS.md](BACKENDS.md). |
 | `wine_version` | yes | Runtime identifier (e.g. `cosmos-stable`) or pinned version. |

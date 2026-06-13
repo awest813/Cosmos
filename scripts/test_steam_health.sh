@@ -25,6 +25,18 @@ assert_line() {
   fi
 }
 
+assert_ok() {
+  local label="$1"
+  shift
+  if "$@"; then
+    pass=$((pass + 1))
+    printf '  ok  %s\n' "${label}"
+  else
+    fail=$((fail + 1))
+    printf '  FAIL %s\n' "${label}" >&2
+  fi
+}
+
 tmp_prefix="$(mktemp -d)"
 trap 'rm -rf "${tmp_prefix}"' EXIT
 
@@ -50,6 +62,19 @@ COSMOS_STEAM_NATIVE_SCAN=1
 export COSMOS_STEAM_NATIVE_SCAN
 lines_native="$(steam_health_lines)"
 assert_line "native scan on" native_scan_enabled 1 "${lines_native}"
+
+printf '\nsteam inventory on fixture\n'
+FIXTURE_PREFIX="${REPO_ROOT}/scripts/fixtures/steam_detection/wineprefix"
+WINEPREFIX="${FIXTURE_PREFIX}"
+export WINEPREFIX
+fixture_steam="$(steam_find_steam_dir 2>/dev/null || true)"
+if [[ -n "${fixture_steam}" ]]; then
+  inv="$(steam_inventory_counts "${fixture_steam}")"
+  installed="$(printf '%s\n' "${inv}" | awk -F= '$1=="games_installed"{print $2; exit}')"
+  assert_ok "fixture has installed games" test "${installed:-0}" -gt 0
+  broken="$(printf '%s\n' "${inv}" | awk -F= '$1=="games_broken"{print $2; exit}')"
+  assert_ok "fixture reports broken installs" test "${broken:-0}" -ge 1
+fi
 
 printf '\nrun.command --steam-health\n'
 out="$(WINEPREFIX="${tmp_prefix}" COSMOS_STEAM_NATIVE_SCAN=1 \
