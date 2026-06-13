@@ -47,6 +47,7 @@ UNIT_TESTS=(
   scripts/test_wine_lib.sh
   scripts/test_cosmosdb_lib.sh
   scripts/test_runtime_lib.sh
+  scripts/test_wine_gap_validation.sh
   scripts/test_offline_runtime.sh
   scripts/test_cosmosdb_community.sh
   scripts/test_profile_export_reg.sh

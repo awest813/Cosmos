@@ -50,6 +50,9 @@ jobs:
           APP_BUNDLE: build/Cosmos.app
         run: scripts/audit_release.sh
 
+      - name: Wine gap validation (manifest sync)
+        run: ./scripts/validate_wine_gaps.sh check
+
       - name: Ad-hoc DMG smoke
         env:
           SKIP_BUILD: "1"
@@ -65,3 +68,6 @@ jobs:
 
       - name: Full shell test suite
         run: ./scripts/test_all.sh
+
+      - name: Wine gap validation (Gcenx pin sync)
+        run: ./scripts/validate_wine_gaps.sh check

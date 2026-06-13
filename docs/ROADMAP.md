@@ -197,14 +197,15 @@ rebasing the pin.
 | **Native DLL load order** | Cauldron 0004 | DXMT/DXVK DLLs in game dir without overrides | `WINEDLLOVERRIDES`, prefix `system32` install | Evaluate for Gcenx pin + macOS launch CI |
 | **macdrv flicker** | wine-staging `winemac.drv` | Fullscreen compositor flicker | `force_borderless`, Retina off | Monitor staging + Gcenx release notes |
 
-**Verification checklist** when bumping the Gcenx Wine pin:
+**Verification checklist** when bumping the Gcenx Wine pin — see
+**[WINE_GAP_VALIDATION.md](WINE_GAP_VALIDATION.md)** (required):
 
-1. Skyrim SE + SKSE (`skse64_loader.exe`) — mod loader survives load?
-2. Fallout 4 + F4SE — same VirtualProtect path
-3. Steam CEF (`steamwebhelper.exe`) — still stable with builtin D3D overrides
-4. Re-run `./profile.command validate` and `./scripts/test_profile_lib.sh`
-
-See [CAULDRON_WINE_PATCHES.md](CAULDRON_WINE_PATCHES.md) for full patch audit context.
+1. `./scripts/validate_wine_gaps.sh check` — manifest ↔ `runtime/wine-gap-validation.json`
+2. `./scripts/validate_wine_gaps.sh probe` — synthetic `cow_probe.exe` (macOS)
+3. Skyrim SE + SKSE / Fallout 4 + F4SE manual smoke
+4. Steam CEF (`steamwebhelper.exe`) regression
+5. Record results: `./scripts/validate_wine_gaps.sh record …`
+6. `./scripts/test_wine_gap_validation.sh`
 
 ### Later / optional — Console mode
 - Fullscreen game grid, controller navigation, large cover art, Play button,
@@ -242,7 +243,7 @@ Statuses: **Platinum** (works out of box) · **Gold** (small fixes) ·
 - `[Profiles]` Load local YAML profiles
 - `[Games]` Add Steam App ID launcher support
 - `[Graphics]` Add backend enum: d3dmetal, dxmt, dxvk, wined3d
-- `[Wine]` Track [Wine #29384](https://bugs.winehq.org/show_bug.cgi?id=29384) VirtualProtect COW against Gcenx pin — see ROADMAP §1.0 tracked gaps
+- `[Wine]` Track [Wine #29384](https://bugs.winehq.org/show_bug.cgi?id=29384) VirtualProtect COW against Gcenx pin — [WINE_GAP_VALIDATION.md](WINE_GAP_VALIDATION.md)
 - `[Repair]` Add "kill Wine processes" action
 - [x] `[Docs]` Write manual Steam setup fallback — [STEAM_SETUP.md](STEAM_SETUP.md)
 
