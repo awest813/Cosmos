@@ -1,0 +1,20 @@
+id: the_evil_within
+name: "The Evil Within"
+store: steam
+steam_appid: 268050
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    STAGING_AUDIO_PERIOD: "90"
+dependencies:
+  - vcrun2010
+  - d3dx9
+fixes:
+  - disable_retina
+notes: >
+  id Tech 5 horror. Cauldron reference: STAGING_AUDIO_PERIOD=90 reduces audio
+  crackling. D3D9 via WineD3D on the default backend.

@@ -1,0 +1,19 @@
+id: dawn_of_war_ii
+name: "Warhammer 40,000: Dawn of War II"
+store: steam
+steam_appid: 15620
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "8:1"
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Relic RTS. Cauldron reference: WINE_CPU_TOPOLOGY=8:1. D3D9 via WineD3D on the
+  default backend.

@@ -1,0 +1,19 @@
+id: little_nightmares
+name: "Little Nightmares"
+store: steam
+steam_appid: 424840
+status: gold
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "1:1"
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: >
+  Unity horror platformer. Cauldron reference: WINE_CPU_TOPOLOGY=1:1 — strict
+  single-core cap for engine stability on Wine/macOS.

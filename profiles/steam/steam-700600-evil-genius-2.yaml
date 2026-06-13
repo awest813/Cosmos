@@ -1,0 +1,19 @@
+id: evil_genius_2
+name: "Evil Genius 2: World Domination"
+store: steam
+steam_appid: 700600
+launch_method: direct
+status: silver
+recommended_backend: dxvk
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2019
+fixes:
+  - disable_retina
+notes: >
+  Strategy sim with Vulkan renderer. Cauldron reference: direct launch prefers
+  evilgenius_vulkan.exe. DXVK backend is experimental on macOS (needs DXVK_PATH +
+  MoltenVK); try dxmt if Vulkan path is unavailable.

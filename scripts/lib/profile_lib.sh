@@ -56,6 +56,23 @@ profile_get_scalar() {
   ' "${file}" 2>/dev/null
 }
 
+profile_list_env_keys() {
+  local file="$1"
+  awk '
+    /^settings:/ { in_settings=1; next }
+    in_settings && /^  env:/ { in_env=1; next }
+    in_env && /^    / {
+      line=$0; sub(/^    /, "", line)
+      split(line, a, ":")
+      k=a[1]; gsub(/[[:space:]]+$/, "", k)
+      if (k != "") print k
+      next
+    }
+    in_env && /^  [a-z]/ && $0 !~ /^    / { in_env=0 }
+    /^[a-z]/ && $0 !~ /^  / { in_settings=0; in_env=0 }
+  ' "${file}" 2>/dev/null
+}
+
 profile_get_env_line() {
   local file="$1" env_key="$2"
   awk -v want="${env_key}" '
@@ -230,6 +247,7 @@ profile_export_override_to() {
     [[ -n "${windows}" ]] && printf 'WINDOWS_VERSION=%s\n' "${windows}"
     [[ "${retina}" == "1" || "${retina}" == "true" ]] && printf 'WINE_RETINA_MODE=1\n'
     case "${sync_mode}" in
+      off) printf 'COSMOS_SYNC_MODE=off\n' ;;
       esync|msync) printf 'COSMOS_SYNC_MODE=%s\n' "${sync_mode}" ;;
     esac
     if [[ "${method}" == "direct" ]]; then
@@ -237,11 +255,12 @@ profile_export_override_to() {
       printf 'COSMOS_SKIP_STEAM=1\n'
       [[ -n "${exe}" ]] && printf 'GAME_EXE_PATH=%s\n' "${exe}"
     fi
-    local k v
-    for k in DXMT_CONFIG STEAM_GAME_ARGS WINEDLLOVERRIDES; do
-      v="$(profile_get_env_line "${file}" "${k}")"
-      [[ -n "${v}" ]] && printf '%s=%s\n' "${k}" "${v}"
-    done
+    local env_key env_val
+    while IFS= read -r env_key; do
+      [[ -n "${env_key}" ]] || continue
+      env_val="$(profile_get_env_line "${file}" "${env_key}")"
+      [[ -n "${env_val}" ]] && printf '%s=%s\n' "${env_key}" "${env_val}"
+    done < <(profile_list_env_keys "${file}")
   } > "${out}"
   return 0
 }

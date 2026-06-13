@@ -13,4 +13,4 @@ dependencies:
   - d3dx9
 notes: >
   Classic Rockstar title on older DirectX. Install vcrun2010 and d3dx9. DXMT for
-  D3D9 rendering. Set resolution in the launcher before entering the world.
+  D3D9 rendering via WineD3D on the default bottle. Set resolution in the launcher before entering the world.

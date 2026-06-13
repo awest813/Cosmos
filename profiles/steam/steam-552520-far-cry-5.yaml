@@ -1,0 +1,19 @@
+id: far_cry_5
+name: "Far Cry 5"
+store: steam
+steam_appid: 552520
+status: bronze
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "16:1"
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: >
+  Dunia-engine AAA title. Cauldron reference: WINE_CPU_TOPOLOGY=16:1. DX11 via DXMT;
+  first launch may compile shaders for several minutes.

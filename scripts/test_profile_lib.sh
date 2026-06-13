@@ -45,6 +45,24 @@ grep -q 'DXMT_CONFIG=' "${tmpdir}/250900.env" || fail "override missing DXMT_CON
 profile_export_override_to "${PROFILE}" "250900" "${tmpdir}/250900-esync.env"
 grep -q 'COSMOS_SYNC_MODE=esync' "${tmpdir}/250900-esync.env" || fail "override missing COSMOS_SYNC_MODE=esync for esync profile"
 
+SYNC_OFF="${tmpdir}/sync-off.yaml"
+cat > "${SYNC_OFF}" <<'EOF'
+id: sync_off_test
+name: "Sync Off Test"
+store: steam
+steam_appid: 999998
+status: playable
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  sync_mode: off
+  env:
+    WINE_CPU_TOPOLOGY: "4:1"
+EOF
+profile_export_override_to "${SYNC_OFF}" "999998" "${tmpdir}/999998.env"
+grep -q 'COSMOS_SYNC_MODE=off' "${tmpdir}/999998.env" || fail "override missing COSMOS_SYNC_MODE=off"
+grep -q 'WINE_CPU_TOPOLOGY=4:1' "${tmpdir}/999998.env" || fail "override missing WINE_CPU_TOPOLOGY"
+
 tags="$(profile_list_tags "${ROOT}/profiles/steam/steam-105600-terraria.yaml" | tr '\n' ' ')"
 [[ "${tags}" == *"co-op"* && "${tags}" == *"online"* ]] || fail "expected co-op/online tags on terraria"
 

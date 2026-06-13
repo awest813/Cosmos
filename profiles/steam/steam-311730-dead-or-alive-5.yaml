@@ -1,0 +1,19 @@
+id: dead_or_alive_5
+name: "DEAD OR ALIVE 5 Last Round"
+store: steam
+steam_appid: 311730
+status: bronze
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  sync_mode: off
+dependencies:
+  - vcrun2010
+  - d3dx9
+fixes:
+  - disable_retina
+notes: >
+  Fighting game with D3D9 rendering. Cauldron reference: disable esync and msync.
+  Online features may be limited on macOS.

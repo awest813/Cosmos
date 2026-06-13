@@ -8,9 +8,12 @@ wine_version: cosmos-stable
 settings:
   retina: false
   windows_version: win10
+  sync_mode: off
 dependencies:
   - vcrun2010
   - d3dx9
 notes: >
   Unreal Engine 2.5 classic. Install vcrun2010 and d3dx9 for missing DirectX errors.
-  DXMT for D3D9 rendering. Disable Retina if menus look blurry on HiDPI displays.
+  D3D9 via WineD3D on the default backend. Try a wined3d bottle if glitches persist.
+  Disable Retina if menus look blurry on HiDPI displays. Cauldron reference: disable
+  esync and msync for this title.

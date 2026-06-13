@@ -1,0 +1,18 @@
+id: supreme_commander
+name: "Supreme Commander: Forged Alliance"
+store: steam
+steam_appid: 9350
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  sync_mode: off
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Large-scale RTS. Cauldron reference: disable esync and msync — sync primitives
+  can destabilize long multiplayer sessions. D3D9 paths use WineD3D on the default backend.

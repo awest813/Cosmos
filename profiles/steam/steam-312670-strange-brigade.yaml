@@ -1,0 +1,18 @@
+id: strange_brigade
+name: "Strange Brigade"
+store: steam
+steam_appid: 312670
+launch_method: direct
+status: silver
+recommended_backend: dxvk
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: >
+  Co-op shooter with Vulkan option. Cauldron reference: direct launch prefers
+  StrangeBrigade_Vulkan.exe. DXVK path is experimental; fall back to dxmt if needed.

@@ -1,0 +1,19 @@
+id: borderlands_presequel
+name: "Borderlands: The Pre-Sequel"
+store: steam
+steam_appid: 261640
+launch_method: direct
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  sync_mode: off
+dependencies:
+  - vcrun2010
+fixes:
+  - disable_retina
+notes: >
+  Same engine family as Borderlands 2. Cauldron reference: disable esync and
+  bypass the launcher via direct launch (Binaries/Win32/BorderlandsPreSequel.exe).

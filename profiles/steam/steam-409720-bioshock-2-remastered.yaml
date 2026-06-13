@@ -1,0 +1,19 @@
+id: bioshock_2_remastered
+name: "BioShock 2 Remastered"
+store: steam
+steam_appid: 409720
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  sync_mode: off
+dependencies:
+  - vcrun2010
+  - d3dx9
+fixes:
+  - disable_retina
+notes: >
+  Unreal Engine 2.5 remaster. Cauldron reference: disable esync and msync.
+  D3D9 via WineD3D on the default backend; try a wined3d bottle for glitches.

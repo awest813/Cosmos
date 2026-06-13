@@ -2467,6 +2467,13 @@ struct ContentView: View {
             caption: "Thread sync, D3D12 (GPTK), and advanced DXMT / MoltenVK tuning for the default Steam bottle."
         ) {
             VStack(alignment: .leading, spacing: 16) {
+                CosmosNoticeBanner(
+                    tint: Color.cosmosBright,
+                    systemImage: "info.circle.fill",
+                    title: "Direct3D 9 games",
+                    message: "DXMT translates D3D10/11 only. D3D9 on the default backend still runs through WineD3D. For glitches, try a dedicated wined3d bottle; for stubborn titles, dgVoodoo in the game folder can uplift D3D9 → D3D11 while keeping DXMT. Experimental: SpockD3D9 (macOS D3D9 → Vulkan) PE d3d9.dll in the game folder with WINEDLLOVERRIDES=d3d9=n,b — see docs/BACKENDS.md."
+                )
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Thread sync")
                         .font(.caption.weight(.semibold))

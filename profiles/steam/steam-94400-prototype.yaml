@@ -1,0 +1,20 @@
+id: prototype
+name: "Prototype"
+store: steam
+steam_appid: 94400
+status: bronze
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    WINE_CPU_TOPOLOGY: "8:1"
+dependencies:
+  - vcrun2010
+  - d3dx9
+fixes:
+  - disable_retina
+notes: >
+  Open-world action. Cauldron reference: WINE_CPU_TOPOLOGY=8:1. D3D9 title — try a
+  wined3d bottle if the default DXMT path glitches.

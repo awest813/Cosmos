@@ -1,0 +1,21 @@
+id: hitman_3
+name: "HITMAN World of Assassination"
+store: steam
+steam_appid: 1659040
+status: silver
+recommended_backend: dxvk
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  env:
+    DXVK_CUSTOM_VENDOR_ID: "10de"
+    STEAM_GAME_ARGS: "--skip-version-check"
+dependencies:
+  - vcrun2019
+fixes:
+  - disable_retina
+notes: >
+  DX12/DX11 AAA title. Cauldron reference: spoof NVIDIA vendor ID and pass
+  --skip-version-check. DXVK path is experimental on macOS (needs DXVK_PATH +
+  MoltenVK); try dxmt or d3dmetal if DXVK is unavailable.

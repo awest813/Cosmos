@@ -1,0 +1,18 @@
+id: yakuza_0
+name: "Yakuza 0"
+store: steam
+steam_appid: 638970
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  sync_mode: off
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: >
+  DX11 SEGA title. Cauldron reference: disable msync to reduce startup crashes.
+  Install vcrun2015 if the game reports missing Visual C++ runtimes.

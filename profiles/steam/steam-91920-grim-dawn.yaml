@@ -12,5 +12,5 @@ dependencies:
   - vcrun2010
   - d3dx9
 notes: >
-  Titan Quest–engine ARPG. DXMT for D3D9/D3D11 paths. Install vcrun2010 and d3dx9
+  Titan Quest–engine ARPG. Default bottle for D3D9; try a wined3d bottle if glitches. Install vcrun2010 and d3dx9
   for older runtime errors. LAN co-op works when both players use Wine Steam.

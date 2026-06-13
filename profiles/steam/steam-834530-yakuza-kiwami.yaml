@@ -1,0 +1,18 @@
+id: yakuza_kiwami
+name: "Yakuza Kiwami"
+store: steam
+steam_appid: 834530
+status: silver
+recommended_backend: dxmt
+wine_version: cosmos-stable
+settings:
+  retina: false
+  windows_version: win10
+  sync_mode: off
+dependencies:
+  - vcrun2015
+fixes:
+  - disable_retina
+notes: >
+  DX11 SEGA remake. Cauldron reference: disable msync to reduce startup crashes
+  (same family as Yakuza 0).
