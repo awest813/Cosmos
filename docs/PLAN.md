@@ -5,7 +5,7 @@ A user-facing gap analysis and prioritized plan for closing the distance between
 today**. This complements [ROADMAP.md](ROADMAP.md) (engineering milestones) and
 [PROTON_GAP_ANALYSIS.md](PROTON_GAP_ANALYSIS.md) (technical comparison).
 
-**Last reviewed:** 2026-06-10 · **Baseline:** `main` (Phases A–E shipped; Phase F in progress; post-0.7 polish on launch/errors/Intel)
+**Last reviewed:** 2026-06-14 · **Baseline:** `main` (Phases A–E shipped; Phase F in progress; post-0.7 polish on launch/errors/Intel)
 
 ---
 
@@ -94,7 +94,7 @@ flowchart TD
 
 | Gap | User impact | Status | Plan |
 | --- | --- | --- | --- |
-| Curated profile library | Most games “unknown” without YAML | **105** shipped profiles | Keep growing library |
+| Curated profile library | Most games “unknown” without YAML | **149** shipped profiles | Keep growing library |
 | Badge not on sidebar saved profiles | User launches blocked game unaware | `CosmosCompatBadge` on each `profileRow` | **Done** |
 | Anti-cheat titles not in library | Surprise bans / wasted installs | Destiny 2 only on main; **PR #36/39** add more | Blocked profiles + pre-launch `compat_preflight` (shipped) |
 | No “search ProtonDB before buy” in Store | Research friction | `cosmosdb.command lookup` exists | “Check compatibility” field on Welcome tab |
@@ -206,7 +206,7 @@ flowchart TD
 
 **Outcome:** When a game fails, Cosmos fixes common cases without wiki archaeology.
 
-- [x] Expand `fixes:` on top 30 profiles (SSL, networking, intro skip, retina) — **34** profiles
+- [x] Expand `fixes:` on top 30 profiles (SSL, networking, intro skip, retina) — **77** profiles
 - [x] Log fixtures + diagnose patterns for top failure modes (6 repair fixtures + UMU hint fixture)
 - [x] Auto-diagnose on non-zero launch exit (dashboard chains `repair.command diagnose`)
 - [x] Parsed script errors in failure banners (`CommandOutputParser`)
@@ -233,7 +233,7 @@ flowchart TD
 
 - [x] Notarized `Cosmos.dmg` + GitHub Releases (`build_dmg.command` + `release.yml`; sign when secrets configured)
 - [x] Bundled Cosmos Runtime (Wine + DXMT + notices) — `runtime/cosmos-runtime.json` **1.1.0-preview**
-- [x] 100+ shipped profiles (**105** Steam YAMLs; drafts excluded)
+- [x] 100+ shipped profiles (**149** Steam YAMLs; drafts excluded)
 - [x] Auto-update **check** (`run.command --check-update` + dashboard)
 - [x] Auto-update **install** (`run.command --install-update` + dashboard; shell-based DMG installer)
 - [x] Sidebar **Favorites / Recent** + filter chips; deduplicated catalog at scale
@@ -261,11 +261,11 @@ flowchart TD
 
 | Metric | Current (`main`) | Target (Phase F) |
 | --- | --- | --- |
-| Shipped Steam profiles | **105** | 100+ ✅ |
-| Profiles with `fixes:` | **34** | 30+ ✅ |
+| Shipped Steam profiles | **149** | 100+ ✅ |
+| Profiles with `fixes:` | **77** | 30+ ✅ |
 | Blocked anti-cheat profiles | **25** | 25+ ✅ |
-| Multiplayer-tagged profiles | **30** (`online`/`co-op`/`pvp`/`lan`) | 15+ ✅ |
-| Fix recipes | **26** | 25+ ✅ |
+| Multiplayer-tagged profiles | **32** (`online`/`co-op`/`pvp`/`lan`) | 15+ ✅ |
+| Fix recipes | **27** | 25+ ✅ |
 | Setup steps requiring Terminal | 4/5 (Rosetta + install still Terminal) | 2/4 (stretch: 0/4) |
 | Sidebar compat badge | **Yes** | Yes ✅ |
 | Signed DMG release | `release.yml` on `v*` tags | Yes (when secrets set) |
