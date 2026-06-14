@@ -57,7 +57,7 @@ struct StoreImportSheet: View {
 
             if let errorMessage {
                 CosmosNoticeBanner(
-                    tint: .red,
+                    tint: Color.cosmosDanger,
                     systemImage: "exclamationmark.triangle.fill",
                     title: "Could not import",
                     message: errorMessage

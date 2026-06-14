@@ -26,8 +26,8 @@ enum BottleStatusKind: Equatable {
     var tint: Color {
         switch self {
         case .notCreated: return .secondary
-        case .initialized: return .orange
-        case .steamReady: return .green
+        case .initialized: return Color.cosmosWarning
+        case .steamReady: return Color.cosmosSuccess
         }
     }
 }

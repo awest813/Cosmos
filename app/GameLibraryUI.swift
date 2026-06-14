@@ -229,7 +229,7 @@ struct GameLibraryToolbar: View {
                 StatusChip(
                     label: "\(pendingTotal) pending",
                     systemImage: "arrow.triangle.2.circlepath",
-                    tint: .orange
+                    tint: Color.cosmosWarning
                 )
             }
 

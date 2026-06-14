@@ -711,7 +711,7 @@ struct ContentView: View {
                 if !profile.canLaunchFromDashboard {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.caption2)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.cosmosWarning)
                         .help("No launch method configured — edit the profile config")
                 }
             }
@@ -1071,7 +1071,7 @@ struct ContentView: View {
                         .foregroundStyle(.tertiary)
 
                     CosmosNoticeBanner(
-                        tint: .orange,
+                        tint: Color.cosmosWarning,
                         systemImage: "terminal.fill",
                         title: "Terminal steps",
                         message: "Most setup steps open Terminal for passwords or sudo. If a step fails, use Open Logs below before retrying — then press Refresh (⌘R)."
@@ -1172,7 +1172,7 @@ struct ContentView: View {
     private func setupStep(done: Bool, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(done ? Color.green : Color.secondary)
+                .foregroundStyle(done ? Color.cosmosSuccess : Color.secondary)
                 .font(.body.weight(.semibold))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
@@ -1685,7 +1685,7 @@ struct ContentView: View {
                 if isSteamReady, steamHealth.needsMingwForWrapper || steamHealth.needsWrapperInstall {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
-                            tint: .orange,
+                            tint: Color.cosmosWarning,
                             systemImage: "hammer.fill",
                             title: steamHealth.needsMingwForWrapper ? "mingw-w64 recommended" : "steamwebhelper wrapper missing",
                             message: steamHealth.needsMingwForWrapper
@@ -1710,7 +1710,7 @@ struct ContentView: View {
                     let broken = max(steamHealth.gamesBroken, pendingBrokenSteamInstalls)
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
-                            tint: .orange,
+                            tint: Color.cosmosWarning,
                             systemImage: "exclamationmark.triangle.fill",
                             title: "Steam installs need attention",
                             message: "\(broken) Wine Steam game\(broken == 1 ? "" : "s") have a missing install folder or game .exe. Reinstall in Steam or verify the library."
@@ -1738,7 +1738,7 @@ struct ContentView: View {
                     let ids = steamHealth.dualInstallAppIDs.prefix(6).joined(separator: ", ")
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
-                            tint: .orange,
+                            tint: Color.cosmosWarning,
                             systemImage: "icloud.slash",
                             title: "Dual Steam installs",
                             message: "\(steamHealth.dualInstallCount) App ID(s) exist in both Wine Steam and native macOS Steam (\(ids)). Steam Cloud saves use different paths — pick one client per game."
@@ -1753,7 +1753,7 @@ struct ContentView: View {
                 if isSteamReady, steamHealth.hasCloudWarning {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
-                            tint: .orange,
+                            tint: Color.cosmosWarning,
                             systemImage: "icloud.and.arrow.up",
                             title: "Steam Cloud",
                             message: "Cloud sync issues were detected in recent Steam logs or userdata is missing."
@@ -1785,7 +1785,7 @@ struct ContentView: View {
                 if isPrefixReady, let warning = gogDetectionWarning, !warning.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
-                            tint: .orange,
+                            tint: Color.cosmosWarning,
                             systemImage: "exclamationmark.triangle.fill",
                             title: "GOG detection issue",
                             message: warning
@@ -1812,7 +1812,7 @@ struct ContentView: View {
                 if isPrefixReady, pendingLowConfidenceGogGames > 0 {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
-                            tint: .orange,
+                            tint: Color.cosmosWarning,
                             systemImage: "questionmark.circle.fill",
                             title: "GOG exe detection uncertain",
                             message: "\(pendingLowConfidenceGogGames) GOG install\(pendingLowConfidenceGogGames == 1 ? "" : "s") used scored .exe guessing instead of goggame metadata. Verify before launching."
@@ -2288,7 +2288,7 @@ struct ContentView: View {
         Group {
             if wineRuntime.needsRosetta && !wineRuntime.rosettaReady {
                 CosmosNoticeBanner(
-                    tint: .orange,
+                    tint: Color.cosmosWarning,
                     systemImage: "cpu",
                     title: "Rosetta 2 required",
                     message: "Cosmos downloads x86_64 Wine builds from Gcenx. Apple Silicon Macs need Rosetta 2 before Wine can run. Install Rosetta, then continue setup."
@@ -2572,11 +2572,11 @@ struct ContentView: View {
                 if gptkValidation.valid {
                     Label("Valid", systemImage: "checkmark.circle.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.cosmosSuccess)
                 } else if graphicsSettings.gptkConfigured {
                     Label("Invalid", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.cosmosWarning)
                 }
             }
             Text("Apple's GPTK is not bundled. Download from developer.apple.com, then point Cosmos at the install folder for D3D12 titles (Cyberpunk, Elden Ring, etc.).")
@@ -2597,7 +2597,7 @@ struct ContentView: View {
             if !gptkValidation.errorMessage.isEmpty, !gptkValidation.valid {
                 Text(gptkValidation.errorMessage)
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.cosmosWarning)
                     .fixedSize(horizontal: false, vertical: true)
             } else if gptkValidation.valid {
                 Text("Found \(gptkValidation.dllCount) DLL(s) in \(gptkValidation.dllDirectory)")
@@ -3184,7 +3184,7 @@ struct ContentView: View {
 
             if profile.isBlocked {
                 CosmosNoticeBanner(
-                    tint: .red,
+                    tint: Color.cosmosDanger,
                     systemImage: "exclamationmark.octagon.fill",
                     title: "Blocked on macOS",
                     message: profile.blockedLaunchMessage
@@ -3210,7 +3210,7 @@ struct ContentView: View {
                     if !profile.antiCheat.isEmpty, profile.antiCheat != "none" {
                         Text("Anti-cheat: \(profile.antiCheat)")
                             .font(.subheadline)
-                            .foregroundStyle(profile.status == "blocked" ? .red : .primary)
+                            .foregroundStyle(profile.status == "blocked" ? Color.cosmosDanger : .primary)
                     }
                     if !profile.multiplayerNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(profile.multiplayerNotes)
@@ -4032,13 +4032,13 @@ struct ContentView: View {
         help: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
-        let tint: Color = destructive ? Color.red : Color.cosmosPrimary
+        let tint: Color = destructive ? Color.cosmosDanger : Color.cosmosPrimary
         return Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(.subheadline.weight(.medium))
                 .padding(.vertical, 8)
                 .padding(.horizontal, 14)
-                .background(tint.opacity(prominent ? 0.18 : 0.10), in: RoundedRectangle(cornerRadius: 10))
+                .background(tint.opacity(prominent ? 0.18 : 0.10), in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
                 .foregroundStyle(tint)
         }
         .buttonStyle(.plain)
@@ -4079,7 +4079,7 @@ struct ContentView: View {
 
             if !newBottleName.isEmpty && !BottleStore.isValidName(newBottleName) {
                 CosmosNoticeBanner(
-                    tint: .red,
+                    tint: Color.cosmosDanger,
                     systemImage: "exclamationmark.triangle.fill",
                     title: "Invalid name",
                     message: "Use letters, digits, '.', '_' or '-' (not starting with '.', '_' or '-')."
@@ -4211,7 +4211,7 @@ struct ContentView: View {
 
             if let curated, curated.isBlocked {
                 CosmosNoticeBanner(
-                    tint: .red,
+                    tint: Color.cosmosDanger,
                     systemImage: "exclamationmark.octagon.fill",
                     title: "Blocked on macOS",
                     message: curated.blockedLaunchMessage
@@ -4240,6 +4240,8 @@ struct ContentView: View {
                     Text("Curated preset: \(yaml.name) · \(yaml.recommendedBackend) backend")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     Spacer()
                     Button("Apply") {
                         runCommand(
@@ -4249,6 +4251,8 @@ struct ContentView: View {
                         )
                     }
                     .disabled(isRunning)
+                    .help("Apply the curated preset for \(yaml.name)")
+                    .accessibilityLabel("Apply curated preset for \(yaml.name)")
                 }
             }
         }
@@ -4298,8 +4302,8 @@ struct ContentView: View {
                                 .font(.caption2.weight(.semibold))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.orange.opacity(0.15), in: Capsule())
-                                .foregroundStyle(.orange)
+                                .background(Color.cosmosWarning.opacity(0.15), in: Capsule())
+                                .foregroundStyle(Color.cosmosWarning)
                         }
                     }
                 }
@@ -4334,7 +4338,7 @@ struct ContentView: View {
                         .font(.caption.weight(.medium))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(didCopyOutput ? Color.green : .secondary)
+                .foregroundStyle(didCopyOutput ? Color.cosmosSuccess : .secondary)
                 .disabled(output.isEmpty)
                 .help("Copy the output log to the clipboard")
                 .accessibilityLabel(didCopyOutput ? "Output copied" : "Copy output")
@@ -4395,7 +4399,7 @@ struct ContentView: View {
     private var setupCompleteBanner: some View {
         VStack(alignment: .leading, spacing: CosmosSpacing.sectionInner) {
             CosmosNoticeBanner(
-                tint: .green,
+                tint: Color.cosmosSuccess,
                 systemImage: "party.popper.fill",
                 title: "Setup complete",
                 message: setupCompleteBannerMessage,
@@ -4483,7 +4487,7 @@ struct ContentView: View {
                 statusRow(
                     label: wineRuntime.rosettaLabel,
                     icon: wineRuntime.rosettaReady ? "checkmark.circle.fill" : "cpu",
-                    color: wineRuntime.rosettaReady ? Color.green : Color.orange
+                    color: wineRuntime.rosettaReady ? Color.cosmosSuccess : Color.cosmosWarning
                 )
             }
             statusRow(
@@ -4494,7 +4498,7 @@ struct ContentView: View {
             statusRow(
                 label: cosmosInstalled ? "Cosmos installed" : "Cosmos required",
                 icon: cosmosInstalled ? "checkmark.circle.fill" : "arrow.down.circle",
-                color: cosmosInstalled ? Color.green : Color.orange
+                color: cosmosInstalled ? Color.cosmosSuccess : Color.cosmosWarning
             )
             statusRow(
                 label: steamPrefixStatusLabel,
@@ -4513,7 +4517,7 @@ struct ContentView: View {
                     statusRow(
                         label: "\(pendingNewSteamGames) new Steam game\(pendingNewSteamGames == 1 ? "" : "s") — tap to sync",
                         icon: "arrow.triangle.2.circlepath",
-                        color: .orange
+                        color: Color.cosmosWarning
                     )
                 }
                 .buttonStyle(.plain)
@@ -4526,7 +4530,7 @@ struct ContentView: View {
                     statusRow(
                         label: "\(pendingRemovedSteamGames) uninstalled — tap to clean up",
                         icon: "trash.circle",
-                        color: .orange
+                        color: Color.cosmosWarning
                     )
                 }
                 .buttonStyle(.plain)
@@ -4539,7 +4543,7 @@ struct ContentView: View {
                     statusRow(
                         label: "\(pendingBrokenSteamInstalls) broken install\(pendingBrokenSteamInstalls == 1 ? "" : "s") — tap to verify",
                         icon: "exclamationmark.triangle.fill",
-                        color: .orange
+                        color: Color.cosmosWarning
                     )
                 }
                 .buttonStyle(.plain)
@@ -4552,7 +4556,7 @@ struct ContentView: View {
                     statusRow(
                         label: "\(pendingUnregisteredGogGames) GOG game\(pendingUnregisteredGogGames == 1 ? "" : "s") — tap to register",
                         icon: "opticaldisc.fill",
-                        color: .blue
+                        color: Color.cosmosWarning
                     )
                 }
                 .buttonStyle(.plain)
@@ -4649,7 +4653,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: systemImage)
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(destructive ? Color.red.opacity(0.8) : Color.cosmosPrimary)
+                    .foregroundStyle(destructive ? Color.cosmosDanger.opacity(0.8) : Color.cosmosPrimary)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
@@ -4667,7 +4671,7 @@ struct ContentView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
                     .strokeBorder(
-                        destructive ? Color.red.opacity(0.25) : Color.cosmosCardBorder,
+                        destructive ? Color.cosmosDanger.opacity(0.25) : Color.cosmosCardBorder,
                         lineWidth: 1
                     )
             )
