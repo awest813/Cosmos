@@ -75,8 +75,8 @@ enum CommandBannerKind {
 
     var tint: Color {
         switch self {
-        case .success: return .green
-        case .failure: return .red
+        case .success: return Color.cosmosSuccess
+        case .failure: return Color.cosmosDanger
         case .info: return Color.cosmosPrimary
         }
     }
@@ -361,10 +361,10 @@ struct CosmosCompatBadge: View {
 
     static func color(for status: String) -> Color {
         switch status.lowercased() {
-        case "platinum", "gold": return .green
+        case "platinum", "gold": return Color.cosmosSuccess
         case "silver", "playable": return Color.cosmosPrimary
-        case "bronze": return .orange
-        case "broken", "blocked": return .red
+        case "bronze": return Color.cosmosWarning
+        case "broken", "blocked": return Color.cosmosDanger
         default: return .secondary
         }
     }

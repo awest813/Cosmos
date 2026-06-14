@@ -48,6 +48,15 @@ extension Color {
         dark: NSColor(red: 0.85, green: 0.80, blue: 1.0, alpha: 1)
     )
 
+    // MARK: Semantic status colors
+
+    /// Single source of truth for success / warning / danger states across the
+    /// dashboard (status rows, command banners, compatibility badges). Centralized
+    /// so status semantics stay consistent and can be retuned in one place.
+    static let cosmosSuccess = Color.green
+    static let cosmosWarning = Color.orange
+    static let cosmosDanger = Color.red
+
     private static func adaptive(light: NSColor, dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

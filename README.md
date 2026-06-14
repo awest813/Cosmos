@@ -10,7 +10,7 @@ Licensed under [LGPL-3.0-or-later](LICENSE).
 |---|---|
 | **Platform** | Apple Silicon (M1–M4) and Intel Macs (x86_64) |
 | **macOS** | 11+ for scripts · **13+** for the desktop app (15 Sequoia tested) |
-| **Status** | Milestone **0.7.1** — **105** curated profiles, repair engine, CosmosDB, Intel + Apple Silicon, parsed error recovery; Phases A–E of [user gaps plan](docs/PLAN.md) complete |
+| **Status** | Milestone **0.7.1** — **149** curated profiles, repair engine, CosmosDB, Intel + Apple Silicon, parsed error recovery; Phases A–E of [user gaps plan](docs/PLAN.md) complete |
 | **Developers** | See [README_DEV.md](README_DEV.md) for scripts, env vars, and architecture |
 
 > **Upgrading from Merlot?** Your Wine prefix and saved profiles are reused. `MERLOT_*` environment variables still work; `uninstall.command` also removes the legacy `Merlot Apps` folder.

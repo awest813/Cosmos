@@ -48,7 +48,7 @@ struct AddGameProfileSheet: View {
 
                 if let errorMessage {
                     CosmosNoticeBanner(
-                        tint: .red,
+                        tint: Color.cosmosDanger,
                         systemImage: "exclamationmark.triangle.fill",
                         title: "Could not save profile",
                         message: errorMessage
@@ -104,8 +104,8 @@ struct AddGameProfileSheet: View {
                                 .textSelection(.enabled)
                         }
                         .frame(maxHeight: 180)
-                        .padding(10)
-                        .background(Color.cosmosConsoleBackground, in: RoundedRectangle(cornerRadius: 10))
+                        .padding(CosmosSpacing.tilePadding)
+                        .background(Color.cosmosConsoleBackground, in: RoundedRectangle(cornerRadius: CosmosSpacing.cardRadius))
                     }
                 }
 
