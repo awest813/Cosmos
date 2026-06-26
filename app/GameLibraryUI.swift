@@ -376,8 +376,8 @@ struct GameLibraryBlankSlate: View {
         switch kind {
         case .setupIncomplete: return Color.cosmosPrimary
         case .launchersNeeded: return Color.cosmosBright
-        case .newSteamGames: return .orange
-        case .unregisteredGog: return .blue
+        case .newSteamGames: return Color.cosmosWarning
+        case .unregisteredGog: return Color.cosmosInfo
         case .emptyReady: return Color.cosmosPrimary
         case .searchEmpty: return .secondary
         case .filterEmpty: return Color.cosmosPrimary
@@ -501,8 +501,8 @@ private extension GameLibraryPendingBanner.Kind {
 
     var tint: Color {
         switch self {
-        case .steam: return .orange
-        case .gog: return .blue
+        case .steam: return Color.cosmosWarning
+        case .gog: return Color.cosmosInfo
         }
     }
 
