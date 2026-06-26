@@ -1835,7 +1835,7 @@ struct ContentView: View {
                 if isPrefixReady, pendingUnregisteredGogGames > 0 {
                     VStack(alignment: .leading, spacing: 8) {
                         CosmosNoticeBanner(
-                            tint: .blue,
+                            tint: Color.cosmosInfo,
                             systemImage: "opticaldisc.fill",
                             title: "GOG games ready to register",
                             message: "\(pendingUnregisteredGogGames) GOG install\(pendingUnregisteredGogGames == 1 ? "" : "s") found without launcher configs."
@@ -2327,7 +2327,7 @@ struct ContentView: View {
         ) {
             if let bottle = selectedBottle {
                 CosmosNoticeBanner(
-                    tint: .blue,
+                    tint: Color.cosmosInfo,
                     systemImage: "cylinder.split.1x2.fill",
                     title: "Launches use bottle: \(bottle.name)",
                     message: "These settings apply to the default Steam prefix. Adjust \(bottle.name) on the Bottles tab, or choose Use Default Bottle from the toolbar bottle chip."

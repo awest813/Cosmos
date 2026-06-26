@@ -56,6 +56,8 @@ extension Color {
     static let cosmosSuccess = Color.green
     static let cosmosWarning = Color.orange
     static let cosmosDanger = Color.red
+    /// Shared informational accent for non-blocking guidance and ready states.
+    static let cosmosInfo = Color.accentColor
 
     private static func adaptive(light: NSColor, dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
