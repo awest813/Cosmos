@@ -35,17 +35,31 @@ die() { printf "Error: %s\n" "$1" >&2; exit 1; }
 [[ "$(uname -s)" == "Darwin" ]] || die "Building the DMG requires macOS (uses hdiutil)."
 command -v hdiutil >/dev/null 2>&1 || die "hdiutil not found; cannot create a disk image."
 
+OFFLINE_TAR="${OUTPUT_DIR}/offline-runtime/cosmos-runtime-offline.tar.xz"
+
+if [[ "${COSMOS_RELEASE_BUILD:-0}" == "1" && "${COSMOS_OFFLINE_FIXTURE:-0}" == "1" ]]; then
+  die "Release builds cannot use COSMOS_OFFLINE_FIXTURE=1."
+fi
+
+reject_fixture_offline_tar() {
+  [[ "${COSMOS_RELEASE_BUILD:-0}" == "1" && -f "${OFFLINE_TAR}" ]] || return 0
+  local marker
+  marker="$(tar -xOf "${OFFLINE_TAR}" ./.cosmos-offline-bundle 2>/dev/null || true)"
+  [[ "${marker}" != *fixture* ]] \
+    || die "Release build found fixture offline runtime tarball: ${OFFLINE_TAR}"
+}
+
 # Build the app unless asked to reuse an existing bundle.
 if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
   [[ -d "${APP_BUNDLE}" ]] || die "SKIP_BUILD=1 but ${APP_BUNDLE} does not exist. Run scripts/build_cosmos_app.command first."
   log "Reusing existing ${APP_BUNDLE} (SKIP_BUILD=1)"
 else
-  OFFLINE_TAR="${OUTPUT_DIR}/offline-runtime/cosmos-runtime-offline.tar.xz"
   if [[ "${COSMOS_OFFLINE_RUNTIME:-1}" == "1" && ! -f "${OFFLINE_TAR}" ]]; then
     log "Staging offline Wine+DXMT runtime bundle"
     FIXTURE="${COSMOS_OFFLINE_FIXTURE:-0}" OUTPUT_DIR="${OUTPUT_DIR}/offline-runtime" \
       "${SCRIPT_DIR}/stage_offline_runtime.command"
   fi
+  reject_fixture_offline_tar
   log "Building ${APP_NAME}.app via scripts/build_cosmos_app.command"
   OUTPUT_DIR="${OUTPUT_DIR}" COSMOS_BUILD_ARCHS="${COSMOS_BUILD_ARCHS:-}" \
     "${SCRIPT_DIR}/build_cosmos_app.command"
@@ -67,7 +81,7 @@ trap cleanup EXIT
 log "Staging disk image contents"
 cp -R "${APP_BUNDLE}" "${staging}/${APP_NAME}.app"
 ln -s /Applications "${staging}/Applications"
-OFFLINE_TAR="${OUTPUT_DIR}/offline-runtime/cosmos-runtime-offline.tar.xz"
+reject_fixture_offline_tar
 if [[ -f "${OFFLINE_TAR}" ]]; then
   cp "${OFFLINE_TAR}" "${staging}/CosmosRuntime.tar.xz"
   printf '%s\n' \

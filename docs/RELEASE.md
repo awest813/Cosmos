@@ -40,6 +40,12 @@ Tagged releases run `.github/workflows/release.yml` on the standard Apple Silico
 `macos-15` runner. The workflow publishes `Cosmos-macos-arm64.dmg` for every tag
 whose `v*` tag matches `VERSION`.
 
+Release builds set `COSMOS_RELEASE_BUILD=1`; that forces the DMG builder to reject
+fixture offline runtime bundles. The tagged workflow therefore downloads and
+packages the real Wine + DXMT runtime from `runtime/cosmos-runtime.json`. Fixture
+runtime bundles (`COSMOS_OFFLINE_FIXTURE=1`) are only for CI smoke tests and local
+release-mechanics checks.
+
 For a Gatekeeper-clean release, configure all of these repository secrets:
 
 - `APPLE_CERTIFICATE_BASE64` — base64-encoded Developer ID Application `.p12`
@@ -75,3 +81,5 @@ shasum -a 256 build/Cosmos-macos-arm64.dmg > build/Cosmos-macos-arm64.dmg.sha256
 ```bash
 COSMOS_OFFLINE_FIXTURE=1 COSMOS_BUILD_ARCHS=arm64 DMG_NAME=Cosmos-macos-arm64.dmg scripts/build_dmg.command
 ```
+
+Do not set `COSMOS_OFFLINE_FIXTURE=1` for a user-facing tagged release.
