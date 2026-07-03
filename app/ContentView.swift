@@ -296,7 +296,8 @@ struct ContentView: View {
         .onChange(of: isRunning) { running in
             appState.updateCommandAvailability(
                 canAccept: !running,
-                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch
+                canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
+                hasSelected: selectedProfile != nil
             )
         }
         .onChange(of: profiles.count) { _, _ in
