@@ -300,7 +300,7 @@ struct ContentView: View {
                 hasSelected: selectedProfile != nil
             )
         }
-        .onChange(of: profiles.count) { _, _ in
+        .onChange(of: profiles.count) { _ in
             appState.updateCommandAvailability(
                 canAccept: !isRunning,
                 canLaunchSelected: selectedProfileCanLaunch && wineRuntime.canStartWineLaunch,
