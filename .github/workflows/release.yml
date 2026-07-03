@@ -15,7 +15,7 @@ concurrency:
 jobs:
   build-release:
     name: Build and publish Apple Silicon DMG
-    runs-on: macos-15-xlarge
+    runs-on: macos-15
     env:
       COSMOS_BUILD_ARCHS: arm64
       DMG_NAME: Cosmos-macos-arm64.dmg

@@ -11,7 +11,7 @@ The output is `build/Cosmos-macos-arm64.dmg`.
 
 ## Prerequisites
 
-- Apple Silicon Mac or GitHub Actions `macos-15-xlarge` runner.
+- Apple Silicon Mac or GitHub Actions `macos-15` runner.
 - Xcode or Xcode Command Line Tools with Swift 5.9+.
 - Developer ID Application certificate for public releases.
 - Apple notarization credentials:
