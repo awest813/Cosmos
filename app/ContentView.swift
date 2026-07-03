@@ -172,13 +172,29 @@ struct ContentView: View {
     }
 
     var body: some View {
+        presentationModifiers(
+            commandNotificationHandlers(
+                stateChangeHandlers(
+                    lifecycleHandlers(
+                        dashboardRoot
+                            .tint(Color.cosmosPrimary)
+                    )
+                )
+            )
+        )
+    }
+
+    private var dashboardRoot: some View {
         NavigationSplitView {
             sidebarContent
                 .frame(minWidth: 270)
         } detail: {
             detailContent
         }
-        .tint(Color.cosmosPrimary)
+    }
+
+    private func lifecycleHandlers<Content: View>(_ content: Content) -> some View {
+        content
         .task {
             refreshStatus()
             resumeTerminalJobs()
@@ -245,6 +261,10 @@ struct ContentView: View {
             checkGogLibraryForUnregistered()
             checkSteamLibraryForNewGames(autoSync: true)
         }
+    }
+
+    private func stateChangeHandlers<Content: View>(_ content: Content) -> some View {
+        content
         .onChange(of: isSetupComplete) { complete in
             appState.updateSetupComplete(complete)
             appState.updateSteamReady(isSteamReady)
@@ -286,6 +306,10 @@ struct ContentView: View {
                 hasSelected: selectedProfile != nil
             )
         }
+    }
+
+    private func commandNotificationHandlers<Content: View>(_ content: Content) -> some View {
+        content
         .onReceive(NotificationCenter.default.publisher(for: .cosmosLaunchSelectedGame)) { _ in
             focusDashboardSection(.launch)
             launchSelectedProfile()
@@ -344,6 +368,10 @@ struct ContentView: View {
                 fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
             )
         }
+    }
+
+    private func presentationModifiers<Content: View>(_ content: Content) -> some View {
+        content
         .confirmationDialog(
             "Launch blocked title?",
             isPresented: Binding(
@@ -397,103 +425,108 @@ struct ContentView: View {
             }
         }
         .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
-                if isSteamReady, let bottle = selectedBottle {
-                    StatusChip(
-                        label: "Bottle: \(bottle.name)",
-                        systemImage: "cylinder.split.1x2.fill",
-                        action: { dashboardSection = .bottles },
-                        accessibilityHint: "Open Bottles tab. Control-click to clear selection."
-                    )
-                    .contextMenu {
-                        Button("Open Bottles Tab") {
-                            dashboardSection = .bottles
-                        }
-                        Button("Use Default Bottle") {
-                            selectedBottleID = nil
-                        }
+            dashboardToolbar
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var dashboardToolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigation) {
+            if isSteamReady, let bottle = selectedBottle {
+                StatusChip(
+                    label: "Bottle: \(bottle.name)",
+                    systemImage: "cylinder.split.1x2.fill",
+                    action: { dashboardSection = .bottles },
+                    accessibilityHint: "Open Bottles tab. Control-click to clear selection."
+                )
+                .contextMenu {
+                    Button("Open Bottles Tab") {
+                        dashboardSection = .bottles
                     }
-                } else if isSteamReady {
-                    StatusChip(
-                        label: "Default bottle",
-                        systemImage: "cylinder.split.1x2",
-                        tint: .secondary,
-                        action: { dashboardSection = .bottles },
-                        accessibilityHint: "Open Bottles tab"
-                    )
+                    Button("Use Default Bottle") {
+                        selectedBottleID = nil
+                    }
                 }
-                if isRunning {
-                    StatusChip(
-                        label: "Running…",
-                        systemImage: "gearshape.arrow.triangle.2.circlepath",
-                        tint: Color.cosmosBright,
-                        accessibilityHint: "A command is running"
-                    )
-                } else if steamHealthInFlight || steamLibraryCheckInFlight {
-                    StatusChip(
-                        label: "Checking library…",
-                        systemImage: "arrow.triangle.2.circlepath",
-                        tint: .secondary,
-                        accessibilityHint: "Checking Steam library for changes"
-                    )
-                }
+            } else if isSteamReady {
+                StatusChip(
+                    label: "Default bottle",
+                    systemImage: "cylinder.split.1x2",
+                    tint: .secondary,
+                    action: { dashboardSection = .bottles },
+                    accessibilityHint: "Open Bottles tab"
+                )
             }
-            ToolbarItemGroup(placement: .primaryAction) {
-                if !isSetupComplete {
-                    Button {
-                        performNextSetupStep()
-                    } label: {
-                        Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
-                    }
-                    .help(setupPrimarySubtitle)
-                    .accessibilityLabel(setupPrimaryTitle)
-                    .accessibilityHint(setupPrimarySubtitle)
-                    .disabled(isRunning)
-                }
+            if isRunning {
+                StatusChip(
+                    label: "Running…",
+                    systemImage: "gearshape.arrow.triangle.2.circlepath",
+                    tint: Color.cosmosBright,
+                    accessibilityHint: "A command is running"
+                )
+            } else if steamHealthInFlight || steamLibraryCheckInFlight {
+                StatusChip(
+                    label: "Checking library…",
+                    systemImage: "arrow.triangle.2.circlepath",
+                    tint: .secondary,
+                    accessibilityHint: "Checking Steam library for changes"
+                )
+            }
+        }
+        ToolbarItemGroup(placement: .primaryAction) {
+            if !isSetupComplete {
                 Button {
-                    refreshStatus(message: "Status refreshed.")
+                    performNextSetupStep()
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Label(setupPrimaryTitle, systemImage: setupPrimarySystemImage)
                 }
-                .help("Reload installation status (⌘R)")
-                .accessibilityLabel("Refresh status")
+                .help(setupPrimarySubtitle)
+                .accessibilityLabel(setupPrimaryTitle)
+                .accessibilityHint(setupPrimarySubtitle)
                 .disabled(isRunning)
             }
-            ToolbarItemGroup(placement: .automatic) {
-                if isSteamReady {
-                    Menu {
-                        Button("Steam & Wine…") {
-                            openSteamSettings()
-                        }
-                        Button("Performance & Graphics…") {
-                            openPerformanceGraphicsSettings()
-                        }
-                        Divider()
-                        Button("Bottles…") {
-                            focusBottlesSection()
-                        }
-                        Divider()
-                        Button("Reveal steam.conf in Finder") {
-                            revealSteamConf()
-                        }
-                        Button("Graphics Backends Guide…") {
-                            NotificationCenter.default.post(name: .cosmosOpenBackendsGuide, object: nil)
-                        }
-                    } label: {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                    .help("Steam prefix, graphics, and bottle settings (⌘,)")
-                    .accessibilityLabel("Settings")
-                    .disabled(isRunning)
-                }
-                Button {
-                    openSetupHelp()
-                } label: {
-                    Label("Setup Help", systemImage: "questionmark.circle")
-                }
-                .help("Open the Steam setup guide")
-                .accessibilityLabel("Setup help")
+            Button {
+                refreshStatus(message: "Status refreshed.")
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
             }
+            .help("Reload installation status (⌘R)")
+            .accessibilityLabel("Refresh status")
+            .disabled(isRunning)
+        }
+        ToolbarItemGroup(placement: .automatic) {
+            if isSteamReady {
+                Menu {
+                    Button("Steam & Wine…") {
+                        openSteamSettings()
+                    }
+                    Button("Performance & Graphics…") {
+                        openPerformanceGraphicsSettings()
+                    }
+                    Divider()
+                    Button("Bottles…") {
+                        focusBottlesSection()
+                    }
+                    Divider()
+                    Button("Reveal steam.conf in Finder") {
+                        revealSteamConf()
+                    }
+                    Button("Graphics Backends Guide…") {
+                        NotificationCenter.default.post(name: .cosmosOpenBackendsGuide, object: nil)
+                    }
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .help("Steam prefix, graphics, and bottle settings (⌘,)")
+                .accessibilityLabel("Settings")
+                .disabled(isRunning)
+            }
+            Button {
+                openSetupHelp()
+            } label: {
+                Label("Setup Help", systemImage: "questionmark.circle")
+            }
+            .help("Open the Steam setup guide")
+            .accessibilityLabel("Setup help")
         }
     }
 
