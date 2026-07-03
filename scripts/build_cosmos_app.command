@@ -8,8 +8,9 @@ set -euo pipefail
 # uninstall.command) copied into Resources so the app is self-contained.
 #
 # Usage:
-#   scripts/build_cosmos_app.command          # build into ./build/Cosmos.app
-#   INSTALL=1 scripts/build_cosmos_app.command # also copy into /Applications
+#   scripts/build_cosmos_app.command                 # build into ./build/Cosmos.app
+#   COSMOS_BUILD_ARCHS=arm64 scripts/build_cosmos_app.command
+#   INSTALL=1 scripts/build_cosmos_app.command       # also copy into /Applications
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
@@ -34,12 +35,33 @@ die() { printf "Error: %s\n" "$1" >&2; exit 1; }
 [[ "$(uname -s)" == "Darwin" ]] || die "Building the Cosmos app requires macOS."
 command -v swift >/dev/null 2>&1 || die "swift not found. Install Xcode or the Command Line Tools."
 
-log "Compiling ${APP_NAME} (swift build -c release)"
-(cd "${REPO_ROOT}" && swift build -c release)
+swift_build_args=(-c release)
+if [[ -n "${COSMOS_BUILD_ARCHS:-}" ]]; then
+  arch_list="${COSMOS_BUILD_ARCHS//,/ }"
+  for build_arch in ${arch_list}; do
+    case "${build_arch}" in
+      arm64|x86_64) ;;
+      *) die "Unsupported COSMOS_BUILD_ARCHS value: ${build_arch} (expected arm64 and/or x86_64)." ;;
+    esac
+    swift_build_args+=(--arch "${build_arch}")
+  done
+fi
 
-local_bin_dir="$(cd "${REPO_ROOT}" && swift build -c release --show-bin-path)"
+log "Compiling ${APP_NAME} (swift build ${swift_build_args[*]})"
+(cd "${REPO_ROOT}" && swift build "${swift_build_args[@]}")
+
+local_bin_dir="$(cd "${REPO_ROOT}" && swift build "${swift_build_args[@]}" --show-bin-path)"
 built_binary="${local_bin_dir}/${APP_NAME}"
 [[ -x "${built_binary}" ]] || die "Build did not produce ${built_binary}"
+
+if [[ -n "${COSMOS_BUILD_ARCHS:-}" && -x "$(command -v lipo || true)" ]]; then
+  binary_arches="$(lipo -archs "${built_binary}" 2>/dev/null || true)"
+  for build_arch in ${arch_list}; do
+    [[ " ${binary_arches} " == *" ${build_arch} "* ]] \
+      || die "Built binary missing ${build_arch}; found: ${binary_arches:-unknown}"
+  done
+  log "Verified ${APP_NAME} binary architectures: ${binary_arches}"
+fi
 
 log "Assembling ${APP_BUNDLE}"
 rm -rf "${APP_BUNDLE}"

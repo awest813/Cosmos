@@ -2909,7 +2909,7 @@ struct ContentView: View {
                 if updateAvailable {
                     secondaryButton(
                         title: "Install Update",
-                        subtitle: "Download Cosmos.dmg",
+                        subtitle: "Download macOS DMG",
                         systemImage: "arrow.down.to.line",
                         help: "Download the latest release and install Cosmos.app to /Applications"
                     ) {

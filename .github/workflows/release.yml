@@ -14,13 +14,19 @@ concurrency:
 
 jobs:
   build-release:
-    name: Build and publish Cosmos.dmg
-    runs-on: macos-14
+    name: Build and publish Apple Silicon DMG
+    runs-on: macos-15-xlarge
+    env:
+      COSMOS_BUILD_ARCHS: arm64
+      DMG_NAME: Cosmos-macos-arm64.dmg
     steps:
       - uses: actions/checkout@v4
 
       - name: Show toolchain
-        run: swift --version
+        run: |
+          swift --version
+          uname -m
+          [[ "$(uname -m)" == "arm64" ]]
 
       - name: Resolve version
         id: version
@@ -74,12 +80,13 @@ jobs:
         env:
           APP_BUNDLE: build/Cosmos.app
           RELEASE_TAG: ${{ github.ref_name }}
+          COSMOS_EXPECTED_APP_ARCHS: arm64
         run: scripts/audit_release.sh
 
       - name: SHA256 checksum
         run: |
-          shasum -a 256 build/Cosmos.dmg | tee build/Cosmos.dmg.sha256
-          printf '%s\n' "$(cut -d' ' -f1 build/Cosmos.dmg.sha256)  Cosmos.dmg" > build/Cosmos.dmg.sha256.txt
+          shasum -a 256 "build/${DMG_NAME}" | tee "build/${DMG_NAME}.sha256"
+          printf '%s\n' "$(cut -d' ' -f1 "build/${DMG_NAME}.sha256")  ${DMG_NAME}" > "build/${DMG_NAME}.sha256.txt"
 
       - name: Generate release notes
         run: |
@@ -91,13 +98,14 @@ jobs:
             echo "| Component | Version |"
             echo "| --- | --- |"
             echo "| App | ${ver} |"
+            echo "| macOS artifact | ${DMG_NAME} (Apple Silicon / arm64) |"
             echo "| Bundled runtime manifest | ${runtime} |"
             echo ""
             echo "Drag **Cosmos** from the disk image into **Applications**, then open the app for guided setup."
             echo ""
             echo "Verify download integrity:"
             echo '```'
-            cat build/Cosmos.dmg.sha256
+            cat "build/${DMG_NAME}.sha256"
             echo '```'
             echo ""
             if [[ -n "${{ secrets.DEVELOPER_ID_APPLICATION }}" ]]; then
@@ -111,8 +119,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/Cosmos.dmg
-            build/Cosmos.dmg.sha256
+            build/Cosmos-macos-arm64.dmg
+            build/Cosmos-macos-arm64.dmg.sha256
           body_path: release-notes.md
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}

@@ -39,6 +39,8 @@ done
 pass "in-app update + terminal trackers present"
 
 if [[ -d "${APP_BUNDLE}" ]]; then
+  app_binary="${APP_BUNDLE}/Contents/MacOS/Cosmos"
+  [[ -x "${app_binary}" ]] || fail "bundle missing executable Contents/MacOS/Cosmos"
   for script in check_updates.sh install_update.sh terminal_wrap.sh; do
     [[ -x "${RESOURCES}/scripts/${script}" ]] || fail "bundle missing Resources/scripts/${script}"
   done
@@ -46,6 +48,16 @@ if [[ -d "${APP_BUNDLE}" ]]; then
   bundled_version="$(tr -d '[:space:]' < "${RESOURCES}/VERSION")"
   [[ "${bundled_version}" == "${version}" ]] || fail "bundled VERSION ${bundled_version} != ${version}"
   pass "Cosmos.app bundles update scripts and VERSION"
+  if [[ -n "${COSMOS_EXPECTED_APP_ARCHS:-}" ]]; then
+    command -v lipo >/dev/null 2>&1 || fail "lipo required to verify COSMOS_EXPECTED_APP_ARCHS"
+    binary_arches="$(lipo -archs "${app_binary}" 2>/dev/null || true)"
+    [[ -n "${binary_arches}" ]] || fail "could not read app binary architectures"
+    for expected_arch in ${COSMOS_EXPECTED_APP_ARCHS//,/ }; do
+      [[ " ${binary_arches} " == *" ${expected_arch} "* ]] \
+        || fail "Cosmos binary missing ${expected_arch}; found: ${binary_arches}"
+    done
+    pass "Cosmos.app executable architectures: ${binary_arches}"
+  fi
 else
   printf '  ..  Cosmos.app not built (set APP_BUNDLE to audit a bundle)\n'
 fi

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Packages the Cosmos desktop app into a double-clickable disk image
-# (Cosmos.dmg) with a drag-to-/Applications layout.
+# (Cosmos.dmg by default) with a drag-to-/Applications layout.
 #
 # This closes the biggest distribution-friction gap vs. Proton (see
 # docs/PROTON_GAP_ANALYSIS.md): instead of "download ZIP, compile from source",
@@ -14,9 +14,10 @@ set -euo pipefail
 # Open once (documented in the README).
 #
 # Usage:
-#   scripts/build_dmg.command            # build the app, then package build/Cosmos.dmg
-#   SKIP_BUILD=1 scripts/build_dmg.command  # package an already-built build/Cosmos.app
-#   OUTPUT_DIR=/tmp/out scripts/build_dmg.command  # choose where artifacts land
+#   scripts/build_dmg.command                         # build app, then package build/Cosmos.dmg
+#   COSMOS_BUILD_ARCHS=arm64 DMG_NAME=Cosmos-macos-arm64.dmg scripts/build_dmg.command
+#   SKIP_BUILD=1 scripts/build_dmg.command            # package an already-built build/Cosmos.app
+#   OUTPUT_DIR=/tmp/out scripts/build_dmg.command     # choose where artifacts land
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
@@ -25,7 +26,8 @@ APP_NAME="Cosmos"
 VOL_NAME="${VOL_NAME:-Cosmos}"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
-DMG_PATH="${OUTPUT_DIR}/${APP_NAME}.dmg"
+DMG_NAME="${DMG_NAME:-${APP_NAME}.dmg}"
+DMG_PATH="${OUTPUT_DIR}/${DMG_NAME}"
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
@@ -45,7 +47,8 @@ else
       "${SCRIPT_DIR}/stage_offline_runtime.command"
   fi
   log "Building ${APP_NAME}.app via scripts/build_cosmos_app.command"
-  OUTPUT_DIR="${OUTPUT_DIR}" "${SCRIPT_DIR}/build_cosmos_app.command"
+  OUTPUT_DIR="${OUTPUT_DIR}" COSMOS_BUILD_ARCHS="${COSMOS_BUILD_ARCHS:-}" \
+    "${SCRIPT_DIR}/build_cosmos_app.command"
   [[ -d "${APP_BUNDLE}" ]] || die "Build did not produce ${APP_BUNDLE}"
 fi
 

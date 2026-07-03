@@ -58,7 +58,7 @@ largely unclosable; it caps the performance ceiling relative to Proton-on-Linux.
 3. **Distribution & install friction.** No signed/notarized, double-click
    installer. Today: unzip → run `build_cosmos_app.command` → compile SwiftUI →
    clear Gatekeeper → Terminal for `sudo`. This is the biggest *ease-of-use* gap
-   and the **most tractable** — a drag-to-`/Applications` `Cosmos.dmg` removes the
+   and the **most tractable** — a drag-to-`/Applications` Apple Silicon DMG removes the
    compile-from-source step. (See `scripts/build_dmg.command`.)
 4. **No bundled, versioned runtime.** Proton ships one tested stack; Cosmos
    downloads Wine + DXMT + … separately, so compatibility is less reproducible.
