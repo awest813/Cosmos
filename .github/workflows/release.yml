@@ -46,15 +46,46 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: scripts/audit_release.sh
 
+      - name: Resolve signing mode
+        id: signing
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          missing=()
+          for key in \
+            APPLE_CERTIFICATE_BASE64 \
+            APPLE_CERTIFICATE_PASSWORD \
+            DEVELOPER_ID_APPLICATION \
+            APPLE_ID \
+            APPLE_TEAM_ID \
+            APPLE_APP_SPECIFIC_PASSWORD
+          do
+            if [[ -z "${!key:-}" ]]; then
+              missing+=("${key}")
+            fi
+          done
+
+          if (( ${#missing[@]} == 0 )); then
+            echo "mode=developer-id" >> "${GITHUB_OUTPUT}"
+            echo "COSMOS_RELEASE_SIGNING=developer-id" >> "${GITHUB_ENV}"
+            echo "Developer ID signing and notarization enabled."
+          else
+            echo "mode=ad-hoc" >> "${GITHUB_OUTPUT}"
+            echo "COSMOS_RELEASE_SIGNING=ad-hoc" >> "${GITHUB_ENV}"
+            echo "::notice::Ad-hoc release build; missing signing secret(s): ${missing[*]}"
+          fi
+
       - name: Import Developer ID certificate
+        if: steps.signing.outputs.mode == 'developer-id'
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          if [[ -z "${APPLE_CERTIFICATE_BASE64:-}" ]]; then
-            echo "No APPLE_CERTIFICATE_BASE64 secret — ad-hoc DMG only."
-            exit 0
-          fi
           cert_path="$RUNNER_TEMP/cosmos-dev-id.p12"
           echo "${APPLE_CERTIFICATE_BASE64}" | base64 --decode > "${cert_path}"
           security create-keychain -p "" build.keychain
@@ -74,7 +105,11 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           COSMOS_OFFLINE_FIXTURE: "1"
-        run: scripts/build_dmg.command
+        run: |
+          if [[ "${COSMOS_RELEASE_SIGNING:-ad-hoc}" != "developer-id" ]]; then
+            unset DEVELOPER_ID_APPLICATION APPLE_ID APPLE_TEAM_ID APPLE_APP_SPECIFIC_PASSWORD
+          fi
+          scripts/build_dmg.command
 
       - name: Bundle audit after build
         env:
@@ -108,10 +143,10 @@ jobs:
             cat "build/${DMG_NAME}.sha256"
             echo '```'
             echo ""
-            if [[ -n "${{ secrets.DEVELOPER_ID_APPLICATION }}" ]]; then
-              echo "Signed with Developer ID and notarized when Apple credentials are configured on this repository."
+            if [[ "${COSMOS_RELEASE_SIGNING:-ad-hoc}" == "developer-id" ]]; then
+              echo "Signed with Developer ID and notarized for Gatekeeper."
             else
-              echo "Ad-hoc signed CI build. Configure \`DEVELOPER_ID_APPLICATION\` and Apple notarization secrets for a Gatekeeper-clean release."
+              echo "Ad-hoc signed CI build. Configure the Developer ID certificate, identity, and Apple notarization secrets for a Gatekeeper-clean release."
             fi
           } > release-notes.md
 

@@ -34,6 +34,25 @@ COSMOS_BUILD_ARCHS=arm64 DMG_NAME=Cosmos-macos-arm64.dmg scripts/build_dmg.comma
 it to Apple notary service, and staples the notarization ticket when credentials
 are present.
 
+## GitHub release signing
+
+Tagged releases run `.github/workflows/release.yml` on the standard Apple Silicon
+`macos-15` runner. The workflow publishes `Cosmos-macos-arm64.dmg` for every tag
+whose `v*` tag matches `VERSION`.
+
+For a Gatekeeper-clean release, configure all of these repository secrets:
+
+- `APPLE_CERTIFICATE_BASE64` — base64-encoded Developer ID Application `.p12`
+- `APPLE_CERTIFICATE_PASSWORD` — password for that `.p12`
+- `DEVELOPER_ID_APPLICATION` — signing identity name, for example
+  `Developer ID Application: Your Name (TEAMID)`
+- `APPLE_ID`
+- `APPLE_TEAM_ID`
+- `APPLE_APP_SPECIFIC_PASSWORD`
+
+If any of those secrets are missing, the release workflow deliberately falls back
+to an ad-hoc signed preview DMG instead of attempting a partial signing run.
+
 ## Verify before publishing
 
 ```bash
