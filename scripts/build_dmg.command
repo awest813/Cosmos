@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Packages the Cosmos desktop app into a double-clickable disk image
-# (Cosmos.dmg) with a drag-to-/Applications layout.
+# (Cosmos.dmg by default) with a drag-to-/Applications layout.
 #
 # This closes the biggest distribution-friction gap vs. Proton (see
 # docs/PROTON_GAP_ANALYSIS.md): instead of "download ZIP, compile from source",
@@ -14,9 +14,10 @@ set -euo pipefail
 # Open once (documented in the README).
 #
 # Usage:
-#   scripts/build_dmg.command            # build the app, then package build/Cosmos.dmg
-#   SKIP_BUILD=1 scripts/build_dmg.command  # package an already-built build/Cosmos.app
-#   OUTPUT_DIR=/tmp/out scripts/build_dmg.command  # choose where artifacts land
+#   scripts/build_dmg.command                         # build app, then package build/Cosmos.dmg
+#   COSMOS_BUILD_ARCHS=arm64 DMG_NAME=Cosmos-macos-arm64.dmg scripts/build_dmg.command
+#   SKIP_BUILD=1 scripts/build_dmg.command            # package an already-built build/Cosmos.app
+#   OUTPUT_DIR=/tmp/out scripts/build_dmg.command     # choose where artifacts land
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
@@ -25,7 +26,8 @@ APP_NAME="Cosmos"
 VOL_NAME="${VOL_NAME:-Cosmos}"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
-DMG_PATH="${OUTPUT_DIR}/${APP_NAME}.dmg"
+DMG_NAME="${DMG_NAME:-${APP_NAME}.dmg}"
+DMG_PATH="${OUTPUT_DIR}/${DMG_NAME}"
 
 log() { printf "\n==> %s\n" "$1"; }
 die() { printf "Error: %s\n" "$1" >&2; exit 1; }
@@ -33,19 +35,34 @@ die() { printf "Error: %s\n" "$1" >&2; exit 1; }
 [[ "$(uname -s)" == "Darwin" ]] || die "Building the DMG requires macOS (uses hdiutil)."
 command -v hdiutil >/dev/null 2>&1 || die "hdiutil not found; cannot create a disk image."
 
+OFFLINE_TAR="${OUTPUT_DIR}/offline-runtime/cosmos-runtime-offline.tar.xz"
+
+if [[ "${COSMOS_RELEASE_BUILD:-0}" == "1" && "${COSMOS_OFFLINE_FIXTURE:-0}" == "1" ]]; then
+  die "Release builds cannot use COSMOS_OFFLINE_FIXTURE=1."
+fi
+
+reject_fixture_offline_tar() {
+  [[ "${COSMOS_RELEASE_BUILD:-0}" == "1" && -f "${OFFLINE_TAR}" ]] || return 0
+  local marker
+  marker="$(tar -xOf "${OFFLINE_TAR}" ./.cosmos-offline-bundle 2>/dev/null || true)"
+  [[ "${marker}" != *fixture* ]] \
+    || die "Release build found fixture offline runtime tarball: ${OFFLINE_TAR}"
+}
+
 # Build the app unless asked to reuse an existing bundle.
 if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
   [[ -d "${APP_BUNDLE}" ]] || die "SKIP_BUILD=1 but ${APP_BUNDLE} does not exist. Run scripts/build_cosmos_app.command first."
   log "Reusing existing ${APP_BUNDLE} (SKIP_BUILD=1)"
 else
-  OFFLINE_TAR="${OUTPUT_DIR}/offline-runtime/cosmos-runtime-offline.tar.xz"
   if [[ "${COSMOS_OFFLINE_RUNTIME:-1}" == "1" && ! -f "${OFFLINE_TAR}" ]]; then
     log "Staging offline Wine+DXMT runtime bundle"
     FIXTURE="${COSMOS_OFFLINE_FIXTURE:-0}" OUTPUT_DIR="${OUTPUT_DIR}/offline-runtime" \
       "${SCRIPT_DIR}/stage_offline_runtime.command"
   fi
+  reject_fixture_offline_tar
   log "Building ${APP_NAME}.app via scripts/build_cosmos_app.command"
-  OUTPUT_DIR="${OUTPUT_DIR}" "${SCRIPT_DIR}/build_cosmos_app.command"
+  OUTPUT_DIR="${OUTPUT_DIR}" COSMOS_BUILD_ARCHS="${COSMOS_BUILD_ARCHS:-}" \
+    "${SCRIPT_DIR}/build_cosmos_app.command"
   [[ -d "${APP_BUNDLE}" ]] || die "Build did not produce ${APP_BUNDLE}"
 fi
 
@@ -64,7 +81,7 @@ trap cleanup EXIT
 log "Staging disk image contents"
 cp -R "${APP_BUNDLE}" "${staging}/${APP_NAME}.app"
 ln -s /Applications "${staging}/Applications"
-OFFLINE_TAR="${OUTPUT_DIR}/offline-runtime/cosmos-runtime-offline.tar.xz"
+reject_fixture_offline_tar
 if [[ -f "${OFFLINE_TAR}" ]]; then
   cp "${OFFLINE_TAR}" "${staging}/CosmosRuntime.tar.xz"
   printf '%s\n' \

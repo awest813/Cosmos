@@ -231,7 +231,7 @@ flowchart TD
 
 **Outcome:** Ordinary Mac gamers, not repo cloners.
 
-- [x] Notarized `Cosmos.dmg` + GitHub Releases (`build_dmg.command` + `release.yml`; sign when secrets configured)
+- [x] Notarized `Cosmos-macos-arm64.dmg` + GitHub Releases (`build_dmg.command` + `release.yml`; sign when secrets configured)
 - [x] Bundled Cosmos Runtime (Wine + DXMT + notices) — `runtime/cosmos-runtime.json` **1.1.0-preview**
 - [x] 100+ shipped profiles (**149** Steam YAMLs; drafts excluded)
 - [x] Auto-update **check** (`run.command --check-update` + dashboard)

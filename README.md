@@ -53,7 +53,7 @@ Licensed under [LGPL-3.0-or-later](LICENSE).
 
 ### Option A — Prebuilt app (when available)
 
-Check [GitHub Releases](https://github.com/awest813/Cosmos/releases) for a signed **`Cosmos.dmg`**. When a release is published, download it, open the disk image, and drag **Cosmos** to **Applications** — then skip to [first-time setup](#3-run-first-time-setup-1015-minutes) below.
+Check [GitHub Releases](https://github.com/awest813/Cosmos/releases) for a signed **`Cosmos-macos-arm64.dmg`** Apple Silicon build. When a release is published, download it, open the disk image, and drag **Cosmos** to **Applications** — then skip to [first-time setup](#3-run-first-time-setup-1015-minutes) below.
 
 Unsigned preview builds can be produced locally with `scripts/build_dmg.command` (see Option B).
 
@@ -81,6 +81,13 @@ This compiles the SwiftUI dashboard and installs **`Cosmos.app`** to `/Applicati
 ```bash
 scripts/build_dmg.command
 # → build/Cosmos.dmg
+```
+
+To produce the same Apple Silicon artifact as CI:
+
+```bash
+COSMOS_BUILD_ARCHS=arm64 DMG_NAME=Cosmos-macos-arm64.dmg scripts/build_dmg.command
+# → build/Cosmos-macos-arm64.dmg
 ```
 
 On first launch of an unsigned build: right-click **Cosmos** → **Open** → confirm.
@@ -329,6 +336,7 @@ Removes `/Applications/Cosmos Apps`, Wine prefixes, and downloaded runtimes. Doe
 | Doc | Contents |
 |-----|----------|
 | [README_DEV.md](README_DEV.md) | Script internals, env vars, CI, app architecture |
+| [docs/RELEASE.md](docs/RELEASE.md) | Apple Silicon DMG build, signing, and release checklist |
 | [docs/PLAN.md](docs/PLAN.md) | User gaps and prioritized product plan |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Milestones and what's next |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layered design (UI, profile, runtime, graphics, launcher) |

@@ -296,7 +296,7 @@ Actions:
   --profiles               Open the saved profiles folder in Finder and exit.
   --logs                   Open the latest launch log and exit.
   --check-update           Compare local app/runtime version to GitHub Releases.
-  --install-update         Download Cosmos.dmg from GitHub and install to /Applications.
+  --install-update         Download the matching Cosmos DMG from GitHub and install to /Applications.
   --sync-steam             Build launchers for newly installed Steam games only.
   --sync-gog [--build]     Register detected GOG games missing launcher configs.
   --sync-macos-wine-steam  Refresh vendored macos-wine-steam merlot_configs from upstream.

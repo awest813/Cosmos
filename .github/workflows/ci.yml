@@ -14,12 +14,15 @@ jobs:
   build-app:
     name: Build Cosmos app (SwiftPM)
     # Apple Silicon runner; the app target requires macOS 13+ (see Package.swift).
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
       - name: Show toolchain
-        run: swift --version
+        run: |
+          swift --version
+          uname -m
+          [[ "$(uname -m)" == "arm64" ]]
 
       - name: Build (debug)
         run: swift build
@@ -32,7 +35,7 @@ jobs:
 
   bundle-smoke:
     name: Bundle + release audit (macOS)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -42,12 +45,14 @@ jobs:
       - name: Build Cosmos.app
         env:
           COSMOS_OFFLINE_FIXTURE: "1"
+          COSMOS_BUILD_ARCHS: arm64
           OUTPUT_DIR: build
         run: scripts/build_cosmos_app.command
 
       - name: Release audit (bundled app)
         env:
           APP_BUNDLE: build/Cosmos.app
+          COSMOS_EXPECTED_APP_ARCHS: arm64
         run: scripts/audit_release.sh
 
       - name: Wine gap validation (manifest sync)

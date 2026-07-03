@@ -95,7 +95,7 @@ if [[ "$(uname -s)" == "Darwin" ]] && command -v swift >/dev/null 2>&1; then
   log "swift test"
   swift test
 else
-  printf 'SKIP: swift build/test requires macOS (AppKit) — covered by the macos-14 CI job\n'
+  printf 'SKIP: swift build/test requires macOS (AppKit) — covered by the macOS Apple Silicon CI job\n'
 fi
 
 log "All tests passed"

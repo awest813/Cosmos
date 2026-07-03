@@ -85,7 +85,7 @@ struct ProfileContextMenuItems: View {
             }
             .disabled(profile.steamAppID?.isEmpty != false)
 
-            if let onVerifyInstall {
+            if let onVerifyInstall = extras.onVerifyInstall {
                 Button(action: onVerifyInstall) {
                     Label("Verify Steam Install", systemImage: "checkmark.shield")
                 }

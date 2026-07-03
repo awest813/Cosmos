@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compare local app + runtime versions to GitHub Releases.
-# Use scripts/install_update.sh to download and install Cosmos.dmg when an update exists.
+# Use scripts/install_update.sh to download and install the matching Cosmos DMG.
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -63,7 +63,7 @@ Check whether a newer Cosmos release is published on GitHub.
 Usage: scripts/check_updates.sh [--json] [--install]
 
   --json     Print machine-readable JSON (stdout only)
-  --install  Download and install Cosmos.dmg when a newer release exists
+  --install  Download and install the matching Cosmos DMG when a newer release exists
 
 Set COSMOS_RELEASE_FIXTURE to a GitHub /releases/latest JSON file for offline tests.
 

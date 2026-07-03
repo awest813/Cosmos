@@ -46,3 +46,30 @@ for a in data.get("assets",[]):
         break
 ' 2>/dev/null
 }
+
+release_lib_default_dmg_asset() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    case "$(uname -m)" in
+      arm64) printf 'Cosmos-macos-arm64.dmg'; return ;;
+      x86_64) printf 'Cosmos-macos-x86_64.dmg'; return ;;
+    esac
+  fi
+  printf 'Cosmos.dmg'
+}
+
+release_lib_asset_url_from_json() {
+  local release_json="${1:?release json required}"
+  local asset_name="${2:?asset name required}"
+  printf '%s' "${release_json}" \
+    | COSMOS_UPDATE_ASSET="${asset_name}" python3 -c 'import json,sys,os
+name=os.environ["COSMOS_UPDATE_ASSET"]
+try:
+    data=json.load(sys.stdin)
+except json.JSONDecodeError:
+    sys.exit(1)
+for a in data.get("assets",[]):
+    if a.get("name")==name and a.get("browser_download_url"):
+        print(a["browser_download_url"])
+        break
+' 2>/dev/null
+}

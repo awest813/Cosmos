@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Download the latest Cosmos.dmg from GitHub Releases and install Cosmos.app.
+# Download the latest Cosmos DMG from GitHub Releases and install Cosmos.app.
 # Shell-based updater (no Sparkle dependency); complements check_updates.sh.
 set -euo pipefail
 
@@ -8,7 +8,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT}/scripts/lib/release_lib.sh"
 
 REPO="$(release_lib_repo)"
-ASSET_NAME="${COSMOS_UPDATE_ASSET:-Cosmos.dmg}"
+ASSET_NAME="${COSMOS_UPDATE_ASSET:-$(release_lib_default_dmg_asset)}"
 TARGET_APP="/Applications/Cosmos.app"
 
 log() { printf '==> %s\n' "$1"; }
@@ -24,8 +24,10 @@ Download and install the latest Cosmos release from GitHub.
 
 Usage: scripts/install_update.sh [--dry-run]
 
-Quits a running Cosmos.app when possible, downloads Cosmos.dmg from the latest
-GitHub Release, and copies Cosmos.app into /Applications (sudo only if needed).
+Quits a running Cosmos.app when possible, downloads the matching macOS DMG from
+the latest GitHub Release, and copies Cosmos.app into /Applications (sudo only
+if needed). Apple Silicon Macs prefer Cosmos-macos-arm64.dmg and fall back to
+Cosmos.dmg for older releases.
 
 Set COSMOS_RELEASE_FIXTURE for offline --dry-run tests.
 EOF
@@ -43,14 +45,11 @@ done
 release_json="$(release_lib_fetch_json 2>/dev/null || true)"
 [[ -n "${release_json}" ]] || die "Could not fetch latest release metadata for ${REPO}."
 
-asset_url="$(printf '%s' "${release_json}" | COSMOS_UPDATE_ASSET="${ASSET_NAME}" python3 -c 'import json,sys,os
-name=os.environ["COSMOS_UPDATE_ASSET"]
-data=json.load(sys.stdin)
-for a in data.get("assets",[]):
-    if a.get("name")==name and a.get("browser_download_url"):
-        print(a["browser_download_url"])
-        break
-' 2>/dev/null || true)"
+asset_url="$(release_lib_asset_url_from_json "${release_json}" "${ASSET_NAME}" || true)"
+if [[ -z "${asset_url}" && -z "${COSMOS_UPDATE_ASSET:-}" && "${ASSET_NAME}" != "Cosmos.dmg" ]]; then
+  ASSET_NAME="Cosmos.dmg"
+  asset_url="$(release_lib_asset_url_from_json "${release_json}" "${ASSET_NAME}" || true)"
+fi
 
 [[ -n "${asset_url}" ]] || die "No ${ASSET_NAME} asset found on the latest GitHub Release for ${REPO}."
 
