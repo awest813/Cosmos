@@ -75,6 +75,13 @@ enum CosmosPaths {
         return userConfigsDirectory
     }
 
+    /// Default SpockD3D9 PE DLL install root (`…/Runtime/spockd3d9`).
+    static var defaultSpockD3D9Directory: URL {
+        supportDirectory
+            .appendingPathComponent("Runtime", isDirectory: true)
+            .appendingPathComponent("spockd3d9", isDirectory: true)
+    }
+
     /// Writable user-data root (`~/Library/Application Support/Cosmos`, or `COSMOS_SUPPORT_DIR`).
     static var supportDirectory: URL {
         if let override = ProcessInfo.processInfo.environment["COSMOS_SUPPORT_DIR"], !override.isEmpty {

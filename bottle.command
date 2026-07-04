@@ -19,7 +19,7 @@ SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
 BOTTLES_DIR="${COSMOS_BOTTLES_DIR:-${COSMOS_SUPPORT_DIR}/Bottles}"
 
-VALID_BACKENDS=" recommended dxmt d3dmetal dxvk wined3d "
+VALID_BACKENDS=" recommended dxmt d3dmetal dxvk wined3d spockd3d9 "
 VALID_WINDOWS=" winxp win7 win8 win10 win11 "
 
 log() { printf "\n==> %s\n" "$1"; }
@@ -36,7 +36,7 @@ Commands:
   create <name> [options]       Create a bottle (prefix is built on first launch).
       --wine <version>          Pin a Wine version (e.g. 11.8).
       --windows <ver>           winxp | win7 | win8 | win10 | win11.
-      --backend <backend>       recommended | dxmt | d3dmetal | dxvk | wined3d.
+      --backend <backend>       recommended | dxmt | d3dmetal | dxvk | wined3d | spockd3d9.
       --retina <0|1>            Enable/disable Wine RetinaMode.
   info <name>                   Show a bottle's settings and status.
   set <name> <KEY> <VALUE>      Set/replace a setting (e.g. COSMOS_BACKEND dxmt).

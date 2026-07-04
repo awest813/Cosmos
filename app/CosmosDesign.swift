@@ -239,6 +239,136 @@ struct CosmosNoticeBanner: View {
     }
 }
 
+/// Numbered escalation steps for D3D9 troubleshooting on the default DXMT backend.
+struct D3D9EscalationLadder: View {
+    private struct Step: Identifiable {
+        let id: Int
+        let title: String
+        let detail: String
+    }
+
+    private let steps: [Step] = [
+        Step(
+            id: 1,
+            title: "Keep the default backend",
+            detail: "Many D3D9 titles run fine — WineD3D handles D3D9 under DXMT for D3D10/11."
+        ),
+        Step(
+            id: 2,
+            title: "Try a dedicated wined3d bottle",
+            detail: "Slower but more forgiving for legacy D3D paths. Create one on the Bottles tab."
+        ),
+        Step(
+            id: 3,
+            title: "Uplift with dgVoodoo",
+            detail: "Place dgVoodoo in the game folder to translate D3D9 → D3D11, then keep DXMT."
+        ),
+        Step(
+            id: 4,
+            title: "SpockD3D9 (experimental)",
+            detail: "D3D9 → Vulkan via MoltenVK. Configure the SpockD3D9 card below, then select that backend."
+        ),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("DXMT translates D3D10/11 only. When a D3D9 game misbehaves, work through these steps:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(steps) { step in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(step.id)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(Color.cosmosBright)
+                            .frame(width: 20, height: 20)
+                            .background(Color.cosmosBright.opacity(0.15), in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(step.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.cosmosPrimary)
+                            Text(step.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Direct3D 9 troubleshooting steps")
+    }
+}
+
+/// Shared path-picker card for GPTK, SpockD3D9, and similar optional graphics stacks.
+struct GraphicsPathSetupCard<Actions: View>: View {
+    let title: String
+    let caption: String
+    let fieldLabel: String
+    @Binding var path: String
+    let isReady: Bool
+    let isInvalid: Bool
+    let summaryText: String?
+    let errorText: String?
+    let isRunning: Bool
+    let onBrowse: () -> Void
+    @ViewBuilder let actions: () -> Actions
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if isReady {
+                    Label("Ready", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosSuccess)
+                } else if isInvalid {
+                    Label("Invalid", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosWarning)
+                }
+            }
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                TextField(fieldLabel, text: $path)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.caption)
+                    .disabled(isRunning)
+                    .accessibilityLabel(fieldLabel)
+                Button("Browse…", action: onBrowse)
+                    .disabled(isRunning)
+            }
+
+            if let errorText, !errorText.isEmpty, !isReady {
+                Text(errorText)
+                    .font(.caption)
+                    .foregroundStyle(Color.cosmosWarning)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let summaryText, isReady {
+                Text(summaryText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { actions() }
+                VStack(alignment: .leading, spacing: 8) { actions() }
+            }
+            .font(.subheadline)
+        }
+    }
+}
+
 struct CommandBannerView: View {
     let banner: CommandBanner
     var onDismiss: () -> Void

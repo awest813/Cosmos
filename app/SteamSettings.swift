@@ -184,7 +184,7 @@ enum SteamSettingsStore {
             guard GraphicsSettings.moltenvkPresetOptions.contains(value) else {
                 throw SteamSettingsError.invalidValue("COSMOS_MVK_PRESET must be default, performance, or compatibility")
             }
-        case "GPTK_PATH":
+        case "GPTK_PATH", "SPOCK_D3D9_PATH":
             break
         case "WINEPREFIX", "COSMOS_BOTTLE":
             throw SteamSettingsError.invalidKey("\(key) is managed by Cosmos")

@@ -20,5 +20,9 @@ final class CosmosPathsTests: XCTestCase {
         XCTAssertEqual(CosmosPaths.supportDirectory.path, supportDir.path)
         XCTAssertEqual(CosmosPaths.userProfilesDirectory.path, supportDir.appendingPathComponent("Profiles").path)
         XCTAssertEqual(CosmosPaths.userConfigsDirectory.path, supportDir.appendingPathComponent("cosmos_configs").path)
+        XCTAssertEqual(
+            CosmosPaths.defaultSpockD3D9Directory.path,
+            supportDir.appendingPathComponent("Runtime/spockd3d9").path
+        )
     }
 }

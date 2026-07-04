@@ -34,7 +34,7 @@ launch_method: applaunch       # optional for steam: applaunch (default) or dire
 exe_path: ""                   # required when store == gog | itch | battlenet | standalone; optional for steam direct launch
 gog_slug: celeste              # required when store == gog (GOG folder slug)
 status: playable               # see status values below
-recommended_backend: dxmt      # recommended | d3dmetal | dxmt | dxvk | wined3d
+recommended_backend: dxmt      # recommended | d3dmetal | dxmt | dxvk | wined3d | spockd3d9
 wine_version: cosmos-stable    # runtime identifier or pinned Wine version
 settings:
   retina: false                # Wine Mac Driver RetinaMode

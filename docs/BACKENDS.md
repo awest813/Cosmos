@@ -13,6 +13,7 @@ Graphics Backend:
 [ DXMT ]
 [ DXVK ]
 [ WineD3D ]
+[ SpockD3D9 ]   ← experimental D3D9 → Vulkan (uses DXMT for D3D10/11)
 ```
 
 Normal users pick **Recommended**. The profile decides what that resolves to.
@@ -26,6 +27,7 @@ Power users override it.
 | **DXMT** | D3D10 / D3D11 → Metal | D3D10/11 games on Apple Silicon | Open Metal-based translation layer for Wine on macOS. Cosmos's current default backend. **Does not translate D3D9** — see below. |
 | **DXVK + MoltenVK** | D3D9/10/11 → Vulkan → Metal | Some D3D9/10/11 cases | Goes through MoltenVK on macOS; extra translation hop. See also **[SpockD3D9](https://github.com/awest813/SpockD3D9)** for a D3D9-only macOS fork. |
 | **WineD3D** | D3D → OpenGL/Vulkan | Compatibility fallback | Slowest, broadest. Use when nothing else works. |
+| **SpockD3D9** | D3D9 → Vulkan → Metal | Stubborn D3D9 titles | Experimental DXVK fork for macOS. Uses **DXMT** for D3D10/11 and a PE `d3d9.dll` for D3D9. Build with `./scripts/build-pe-d3d9.sh`. |
 | **Software / OpenGL** | — | Old, weird games | Last-resort fallback. |
 
 ### A note on VKD3D-Proton
@@ -51,7 +53,7 @@ steps below before chasing experimental stacks.
 | **D3D9 game works on default `dxmt`** | Keep it. WineD3D handles D3D9 under the hood; no backend change needed. |
 | **Glitches or poor performance** | Create a **dedicated bottle** with `COSMOS_BACKEND=wined3d` (dashboard **Bottles** tab or `bottle.conf`). WineD3D is slower but more forgiving for older D3D paths. |
 | **Still broken on WineD3D** | Place **[dgVoodoo](http://dege.freeweb.hu/dgVoodoo2/)** in the game's folder to uplift D3D9 → D3D11, then keep **DXMT** as the bottle backend so DXMT can translate the D3D11 path. |
-| **Experimental D3D9 → Vulkan** | **[SpockD3D9](https://github.com/awest813/SpockD3D9)** — a macOS-focused D3D9 translation layer (DXVK fork). Build the optional PE `d3d9.dll` (`./scripts/build-pe-d3d9.sh`), drop it in the game folder, and use `WINEDLLOVERRIDES=d3d9=n,b` with the default **DXMT** bottle backend. Not integrated into Cosmos yet; Windows game hosting is still maturing. |
+| **Experimental D3D9 → Vulkan** | **[SpockD3D9](https://github.com/awest813/SpockD3D9)** — select the **SpockD3D9** backend in the dashboard or set `COSMOS_BACKEND=spockd3d9`. Build PE `d3d9.dll` with `./scripts/build-pe-d3d9.sh` (or set `SPOCK_D3D9_PATH` / `COSMOS_AUTO_SPOCK_D3D9=1`). Classic D3D9 titles are often 32-bit — use `--arch x86`. Per-game folder overrides still work via `WINEDLLOVERRIDES=d3d9=n,b`. |
 | **Broader experimental Vulkan** | **KosmicKrisp** + DXVK may improve D3D9–11 coverage eventually, but it is not mature enough to be a Cosmos default. Track upstream; do not expect turnkey support yet. |
 
 Per-game overrides: set `COSMOS_BACKEND=wined3d` in `overrides/<appid>.env` or the
@@ -67,7 +69,7 @@ game's `.conf` launcher config (see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)).
 `overrides/<appid>.env`, see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)):
 
 ```
-COSMOS_BACKEND = recommended | dxmt | d3dmetal | dxvk | wined3d
+COSMOS_BACKEND = recommended | dxmt | d3dmetal | dxvk | wined3d | spockd3d9
 ```
 
 - **`recommended` (default):** resolves to `d3dmetal` when `GPTK_PATH` is set,
@@ -85,6 +87,11 @@ COSMOS_BACKEND = recommended | dxmt | d3dmetal | dxvk | wined3d
 - **`wined3d`:** forces Wine's built-in Direct3D→OpenGL with
   `WINEDLLOVERRIDES=…=b`; no downloads. Broadest compatibility, slowest — a
   fallback when nothing else works.
+- **`spockd3d9` (experimental):** combines **DXMT** (D3D10/11) with SpockD3D9 PE
+  `d3d9.dll` for D3D9 → Vulkan. Needs `SPOCK_D3D9_PATH` pointing at a folder
+  with `x86/d3d9.dll` and/or `x64/d3d9.dll`, or `COSMOS_AUTO_SPOCK_D3D9=1` to
+  build from source (`./scripts/build-pe-d3d9.sh`). Cosmos copies the DLLs into
+  the prefix and sets `WINEDLLOVERRIDES=d3d9=n,b`. MoltenVK is required.
 
 ### Thread sync (Phase E)
 

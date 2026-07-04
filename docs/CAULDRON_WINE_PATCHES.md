@@ -54,8 +54,7 @@ when rebasing on a newer Gcenx pin.
 | `d3dx9_36-D3DXStubs` | Older D3D9 titles missing D3DX |
 | `dxgi_getFrameStatistics` | Frame pacing / overlay tools |
 
-**Cosmos mitigation:** `wined3d` bottle, dgVoodoo uplift, SpockD3D9 experimental PE
-`d3d9.dll` — see [BACKENDS.md](BACKENDS.md).
+**Cosmos mitigation:** `wined3d` bottle, dgVoodoo uplift, or **SpockD3D9** backend — see [BACKENDS.md](BACKENDS.md).
 
 ### Tier 2 — stability
 

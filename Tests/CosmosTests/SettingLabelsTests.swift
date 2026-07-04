@@ -15,5 +15,13 @@ final class SettingLabelsTests: XCTestCase {
         XCTAssertEqual(SettingLabels.backendDisplayName("recommended"), "Recommended")
         XCTAssertEqual(SettingLabels.backendDisplayName("dxmt"), "DXMT")
         XCTAssertEqual(SettingLabels.backendDisplayName("wined3d"), "WineD3D")
+        XCTAssertEqual(SettingLabels.backendDisplayName("spockd3d9"), "SpockD3D9 (experimental)")
+    }
+
+    func testBackendCaptions() {
+        XCTAssertNotNil(SettingLabels.backendCaption("spockd3d9"))
+        XCTAssertTrue(SettingLabels.backendCaption("spockd3d9")?.contains("SPOCK_D3D9_PATH") == true)
+        XCTAssertNotNil(SettingLabels.backendCaption("dxmt"))
+        XCTAssertNil(SettingLabels.backendCaption("unknown-backend"))
     }
 }
