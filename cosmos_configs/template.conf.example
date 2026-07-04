@@ -12,7 +12,7 @@ BUNDLE_ID="com.cosmos.example-game"
 RUN_ENV_NAMES=(
   STEAM_GAME_ID
   DXMT_CONFIG
-  # COSMOS_BACKEND    # recommended | dxmt | d3dmetal | dxvk | wined3d (see docs/BACKENDS.md)
+  # COSMOS_BACKEND    # recommended | dxmt | d3dmetal | dxvk | wined3d | spockd3d9 (see docs/BACKENDS.md)
   # STEAM_GAME_ARGS   # extra arguments forwarded to the game after -applaunch
 )
 

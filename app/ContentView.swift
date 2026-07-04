@@ -25,6 +25,7 @@ struct ContentView: View {
     @State private var gptkValidation = GptkValidationResult.empty
     @State private var spockD3D9Validation = SpockD3D9ValidationResult.empty
     @State private var showAdvancedGraphics = false
+    @State private var showD3D9Guidance = false
     @State private var wineRuntime = WineRuntimeStore.load()
     @State private var isRunning = false
     @State private var showResetConfirmation = false
@@ -2387,6 +2388,12 @@ struct ContentView: View {
                         .disabled(isRunning)
                         .accessibilityLabel("Graphics backend")
                         .accessibilityValue(SettingLabels.backendDisplayName(steamSettings.backend))
+                        if let caption = SettingLabels.backendCaption(steamSettings.backend) {
+                            Text(caption)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -2407,6 +2414,26 @@ struct ContentView: View {
                         .accessibilityLabel("Windows version")
                         .accessibilityValue(steamSettings.windowsDisplay)
                     }
+                }
+
+                if steamSettings.backend == "spockd3d9", !spockD3D9Validation.valid {
+                    CosmosNoticeBanner(
+                        tint: Color.cosmosWarning,
+                        systemImage: "exclamationmark.triangle.fill",
+                        title: "SpockD3D9 not ready",
+                        message: graphicsSettings.spockD3D9Configured
+                            ? (spockD3D9Validation.errorMessage.isEmpty
+                                ? "Validate SPOCK_D3D9_PATH in Performance & Graphics before launching."
+                                : spockD3D9Validation.errorMessage)
+                            : "Build or set SPOCK_D3D9_PATH in Performance & Graphics — classic D3D9 games often need the 32-bit DLL (--arch x86)."
+                    )
+                } else if steamSettings.backend == "d3dmetal", !gptkValidation.valid {
+                    CosmosNoticeBanner(
+                        tint: Color.cosmosWarning,
+                        systemImage: "exclamationmark.triangle.fill",
+                        title: "GPTK not configured",
+                        message: "Set and validate GPTK_PATH in Performance & Graphics for D3D12 titles."
+                    )
                 }
 
                 Toggle(isOn: steamRetinaBinding) {
@@ -2502,7 +2529,14 @@ struct ContentView: View {
             caption: "Thread sync, D3D9 (SpockD3D9), D3D12 (GPTK), and advanced DXMT / MoltenVK tuning."
         ) {
             VStack(alignment: .leading, spacing: 16) {
-                D3D9EscalationLadder()
+                DisclosureGroup(isExpanded: $showD3D9Guidance) {
+                    D3D9EscalationLadder()
+                        .padding(.top, 8)
+                } label: {
+                    Label("Direct3D 9 troubleshooting", systemImage: "9.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary)
+                }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Thread sync")
@@ -2598,162 +2632,88 @@ struct ContentView: View {
     }
 
     private var spockD3d9SetupCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("D3D9 — SpockD3D9")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                if spockD3D9Validation.valid {
-                    Label("Ready", systemImage: "checkmark.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.cosmosSuccess)
-                } else if graphicsSettings.spockD3D9Configured {
-                    Label("Invalid", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.cosmosWarning)
-                }
+        GraphicsPathSetupCard(
+            title: "D3D9 — SpockD3D9",
+            caption: "Experimental D3D9 → Vulkan for stubborn titles. Uses DXMT for D3D10/11. Classic games are often 32-bit — build with --arch x86.",
+            fieldLabel: "SPOCK_D3D9_PATH",
+            path: spockD3D9PathBinding,
+            isReady: spockD3D9Validation.valid,
+            isInvalid: graphicsSettings.spockD3D9Configured && !spockD3D9Validation.valid,
+            summaryText: spockD3D9Validation.valid ? spockD3D9Validation.summaryText : nil,
+            errorText: spockD3D9Validation.valid ? nil : spockD3D9Validation.errorMessage,
+            isRunning: isRunning,
+            onBrowse: browseForSpockD3D9Path
+        ) {
+            Button { validateSpockD3D9Path() } label: {
+                Label("Validate", systemImage: "checkmark.shield")
             }
-            Text("Experimental D3D9 → Vulkan translation for stubborn titles. Uses DXMT for D3D10/11 and SpockD3D9 PE d3d9.dll for D3D9. Classic games are often 32-bit — build with --arch x86.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            .buttonStyle(.bordered)
+            .disabled(isRunning || !graphicsSettings.spockD3D9Configured)
 
-            HStack(spacing: 8) {
-                TextField("SPOCK_D3D9_PATH", text: spockD3D9PathBinding)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.caption)
-                    .disabled(isRunning)
-                    .accessibilityLabel("SpockD3D9 PE d3d9.dll folder")
-                Button("Browse…") { browseForSpockD3D9Path() }
-                    .disabled(isRunning)
+            Button { buildSpockD3D9Dlls() } label: {
+                Label("Build PE DLLs", systemImage: "hammer.fill")
             }
+            .buttonStyle(.bordered)
+            .disabled(isRunning)
 
-            if !spockD3D9Validation.errorMessage.isEmpty, !spockD3D9Validation.valid {
-                Text(spockD3D9Validation.errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(Color.cosmosWarning)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if spockD3D9Validation.valid {
-                Text(spockD3D9Validation.summaryText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+            Button { saveSpockD3D9PathAndApply() } label: {
+                Label("Save & Apply", systemImage: "square.and.arrow.down")
             }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.cosmosPrimary)
+            .disabled(isRunning || !spockD3D9Validation.valid)
 
-            HStack(spacing: 12) {
-                Button {
-                    validateSpockD3D9Path()
-                } label: {
-                    Label("Validate", systemImage: "checkmark.shield")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning || !graphicsSettings.spockD3D9Configured)
-
-                Button {
-                    buildSpockD3D9Dlls()
-                } label: {
-                    Label("Build PE DLLs", systemImage: "hammer.fill")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
-
-                Button {
-                    saveSpockD3D9PathAndApply()
-                } label: {
-                    Label("Save & Apply", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.cosmosPrimary)
-                .disabled(isRunning || !spockD3D9Validation.valid)
-
-                Button {
-                    openRepositoryDoc(
-                        relativePath: "docs/BACKENDS.md",
-                        bundleName: "BACKENDS.md",
-                        fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
-                    )
-                } label: {
-                    Label("Guide", systemImage: "book")
-                }
-                .buttonStyle(.bordered)
+            Button {
+                openRepositoryDoc(
+                    relativePath: "docs/BACKENDS.md",
+                    bundleName: "BACKENDS.md",
+                    fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
+                )
+            } label: {
+                Label("Guide", systemImage: "book")
             }
-            .font(.subheadline)
+            .buttonStyle(.bordered)
         }
     }
 
     private var gptkSetupCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("D3D12 — Game Porting Toolkit")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                if gptkValidation.valid {
-                    Label("Valid", systemImage: "checkmark.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.cosmosSuccess)
-                } else if graphicsSettings.gptkConfigured {
-                    Label("Invalid", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.cosmosWarning)
-                }
+        GraphicsPathSetupCard(
+            title: "D3D12 — Game Porting Toolkit",
+            caption: "Apple's GPTK is not bundled. Download from developer.apple.com, then point Cosmos at the install folder for D3D12 titles.",
+            fieldLabel: "GPTK_PATH",
+            path: gptkPathBinding,
+            isReady: gptkValidation.valid,
+            isInvalid: graphicsSettings.gptkConfigured && !gptkValidation.valid,
+            summaryText: gptkValidation.valid
+                ? "Found \(gptkValidation.dllCount) DLL(s) in \(gptkValidation.dllDirectory)"
+                : nil,
+            errorText: gptkValidation.valid ? nil : gptkValidation.errorMessage,
+            isRunning: isRunning,
+            onBrowse: browseForGptkPath
+        ) {
+            Button { validateGptkPath() } label: {
+                Label("Validate", systemImage: "checkmark.shield")
             }
-            Text("Apple's GPTK is not bundled. Download from developer.apple.com, then point Cosmos at the install folder for D3D12 titles (Cyberpunk, Elden Ring, etc.).")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            .buttonStyle(.bordered)
+            .disabled(isRunning || !graphicsSettings.gptkConfigured)
 
-            HStack(spacing: 8) {
-                TextField("GPTK_PATH", text: gptkPathBinding)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.caption)
-                    .disabled(isRunning)
-                    .accessibilityLabel("Game Porting Toolkit install path")
-                Button("Browse…") { browseForGptkPath() }
-                    .disabled(isRunning)
+            Button { saveGptkPathAndTest() } label: {
+                Label("Save & Test Steam", systemImage: "play.fill")
             }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.cosmosPrimary)
+            .disabled(isRunning || !gptkValidation.valid)
 
-            if !gptkValidation.errorMessage.isEmpty, !gptkValidation.valid {
-                Text(gptkValidation.errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(Color.cosmosWarning)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if gptkValidation.valid {
-                Text("Found \(gptkValidation.dllCount) DLL(s) in \(gptkValidation.dllDirectory)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+            Button {
+                openRepositoryDoc(
+                    relativePath: "docs/BACKENDS.md",
+                    bundleName: "BACKENDS.md",
+                    fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
+                )
+            } label: {
+                Label("Guide", systemImage: "book")
             }
-
-            HStack(spacing: 12) {
-                Button {
-                    validateGptkPath()
-                } label: {
-                    Label("Validate", systemImage: "checkmark.shield")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning || !graphicsSettings.gptkConfigured)
-
-                Button {
-                    saveGptkPathAndTest()
-                } label: {
-                    Label("Save & Test Steam", systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.cosmosPrimary)
-                .disabled(isRunning || !gptkValidation.valid)
-
-                Button {
-                    openRepositoryDoc(
-                        relativePath: "docs/BACKENDS.md",
-                        bundleName: "BACKENDS.md",
-                        fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
-                    )
-                } label: {
-                    Label("Guide", systemImage: "book")
-                }
-                .buttonStyle(.bordered)
-            }
-            .font(.subheadline)
+            .buttonStyle(.bordered)
         }
     }
 
@@ -2816,6 +2776,12 @@ struct ContentView: View {
 
     private func reloadGraphicsSettings() {
         graphicsSettings = GraphicsSettingsStore.loadSteam()
+        if graphicsSettings.spockD3D9Path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let defaultPath = CosmosPaths.defaultSpockD3D9Directory.path
+            if fileManager.fileExists(atPath: defaultPath) {
+                graphicsSettings.spockD3D9Path = defaultPath
+            }
+        }
         if graphicsSettings.gptkConfigured {
             gptkValidation = GraphicsSettingsStore.validateGptkPath(
                 graphicsSettings.gptkPath,
@@ -2859,8 +2825,18 @@ struct ContentView: View {
         runCommand(
             script: "run.command",
             arguments: ["--build-spockd3d9", "--arch", "both"],
-            environment: dashboardLaunchEnvironment()
+            environment: dashboardLaunchEnvironment(),
+            onSuccess: { applyBuiltSpockD3D9Path() }
         )
+    }
+
+    private func applyBuiltSpockD3D9Path() {
+        let defaultPath = CosmosPaths.defaultSpockD3D9Directory.path
+        graphicsSettings.spockD3D9Path = defaultPath
+        validateSpockD3D9Path()
+        if spockD3D9Validation.valid {
+            showD3D9Guidance = false
+        }
     }
 
     private func saveSpockD3D9PathAndApply() {
@@ -4112,6 +4088,12 @@ struct ContentView: View {
                     .disabled(isRunning)
                     .accessibilityLabel("Graphics backend")
                     .accessibilityValue(SettingLabels.backendDisplayName(bottle.backend))
+                    if let caption = SettingLabels.backendCaption(bottle.backend) {
+                        Text(caption)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -5307,7 +5289,8 @@ struct ContentView: View {
         arguments: [String] = [],
         environment: [String: String] = [:],
         intent: CommandIntent = .general,
-        chain: Bool = false
+        chain: Bool = false,
+        onSuccess: (() -> Void)? = nil
     ) {
         guard let scriptURL = resolveScript(script) else {
             let message = "Script not found or not executable: \(script)"
@@ -5398,6 +5381,7 @@ struct ContentView: View {
                         } else if !chain {
                             showBanner(kind: .success, message: successMessage(for: intent))
                         }
+                        onSuccess?()
                     }
                 } else {
                     librarySyncFollowUp = nil

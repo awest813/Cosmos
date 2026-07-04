@@ -114,7 +114,6 @@ spockd3d9_resolve_root() {
 spockd3d9_auto_build() {
   [[ "${COSMOS_AUTO_SPOCK_D3D9:-0}" == "1" ]] || return 0
   local script="${SCRIPT_DIR:-}/scripts/build-pe-d3d9.sh"
-  [[ -x "${script}" ]] || script="${SCRIPT_DIR:-}/scripts/build-pe-d3d9.sh"
   [[ -f "${script}" ]] || {
     echo "COSMOS_AUTO_SPOCK_D3D9=1 but ${script} is missing." >&2
     return 1

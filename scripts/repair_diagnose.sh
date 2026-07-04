@@ -341,6 +341,14 @@ repair_diagnose_scan_log() {
        or: COSMOS_BACKEND=d3dmetal ./repair.command apply-fix set_backend (if GPTK_PATH is set)"
   fi
 
+  if printf '%s' "${blob}" | grep -Eiq 'wined3d|d3d9.*fail|D3D9|shader.*compile.*d3d9|SpockD3D9|SPOCK_D3D9'; then
+    repair_diagnose_note backend-d3d9 \
+      "[graphics] Direct3D 9 / shader issues detected
+  Try: COSMOS_BACKEND=wined3d ./repair.command apply-fix set_backend
+       or: COSMOS_BACKEND=spockd3d9 ./repair.command apply-fix set_backend (build PE d3d9.dll first)
+       or: place dgVoodoo in the game folder and keep DXMT"
+  fi
+
   if printf '%s' "${blob}" | grep -Eiq 'black screen|fullscreen|borderless|CaptureDisplays'; then
     repair_diagnose_note fix-borderless \
       "[display] Fullscreen / borderless window issues detected
