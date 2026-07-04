@@ -561,6 +561,217 @@ struct CosmosSearchField: View {
     }
 }
 
+// MARK: - Action buttons
+
+/// Large gradient CTA used in setup and quick-launch areas.
+struct CosmosProminentActionButton: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    var disabled: Bool = false
+    var isRunning: Bool = false
+    var help: String? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.title2.weight(.semibold))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .opacity(0.85)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(20)
+            .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [Color.cosmosBright, Color.cosmosPrimary],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18)
+            )
+            .shadow(color: Color.cosmosPrimary.opacity(0.4), radius: 8, y: 4)
+            .hoverBrighten()
+        }
+        .buttonStyle(CosmosButtonStyle())
+        .disabled(disabled || isRunning)
+        .opacity((disabled || isRunning) ? 0.55 : 1)
+        .accessibilityLabel("\(title). \(subtitle)")
+        .accessibilityHint(disabled ? subtitle : (help ?? subtitle))
+        .help(help ?? subtitle)
+    }
+}
+
+/// Secondary tile button for maintenance grids and tool actions.
+struct CosmosSecondaryActionButton: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    var destructive: Bool = false
+    var isRunning: Bool = false
+    var help: String? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(destructive ? Color.cosmosDanger.opacity(0.8) : Color.cosmosPrimary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+            .background(Color.cosmosTileFill, in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
+                    .strokeBorder(
+                        destructive ? Color.cosmosDanger.opacity(0.25) : Color.cosmosCardBorder,
+                        lineWidth: 1
+                    )
+            )
+            .hoverBrighten()
+        }
+        .buttonStyle(CosmosButtonStyle())
+        .disabled(isRunning)
+        .opacity(isRunning ? 0.55 : 1)
+        .accessibilityLabel("\(title). \(subtitle)")
+        .help(help ?? subtitle)
+    }
+}
+
+// MARK: - Console output
+
+/// Renders command output as collapsible per-run sections when multiple commands ran.
+struct CosmosGroupedConsoleOutput: View {
+    let output: String
+    var isRunning: Bool = false
+    var font: Font = CosmosTypography.monoBody
+    var textColor: Color = Color.cosmosConsoleText
+
+    @State private var expandedSectionIDs: Set<String> = []
+
+    private var parsed: (preamble: String, sections: [CommandOutputSection]) {
+        CommandOutputParser.sections(from: output, isRunning: isRunning)
+    }
+
+    var body: some View {
+        let sections = parsed.sections
+        if sections.isEmpty {
+            Text(output)
+                .font(font)
+                .foregroundStyle(textColor)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                if !parsed.preamble.isEmpty {
+                    Text(parsed.preamble)
+                        .font(font)
+                        .foregroundStyle(textColor.opacity(0.92))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                ForEach(sections) { section in
+                    sectionDisclosure(section)
+                }
+            }
+            .onAppear { syncExpandedSections(sections) }
+            .onChange(of: output) { _ in syncExpandedSections(sections) }
+            .onChange(of: isRunning) { _ in syncExpandedSections(sections) }
+        }
+    }
+
+    private func sectionDisclosure(_ section: CommandOutputSection) -> some View {
+        DisclosureGroup(isExpanded: binding(for: section)) {
+            if section.body.isEmpty {
+                Text("No output yet…")
+                    .font(font)
+                    .foregroundStyle(textColor.opacity(0.55))
+                    .italic()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(section.body)
+                    .font(font)
+                    .foregroundStyle(textColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: section.outcome.iconName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(outcomeColor(section.outcome, hasError: section.hasError))
+                Text(section.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(textColor)
+                    .lineLimit(1)
+                if section.hasError {
+                    Text("Error")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.cosmosDanger.opacity(0.15), in: Capsule())
+                        .foregroundStyle(Color.cosmosDanger)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func binding(for section: CommandOutputSection) -> Binding<Bool> {
+        Binding(
+            get: { expandedSectionIDs.contains(section.id) },
+            set: { expanded in
+                if expanded {
+                    expandedSectionIDs.insert(section.id)
+                } else {
+                    expandedSectionIDs.remove(section.id)
+                }
+            }
+        )
+    }
+
+    private func syncExpandedSections(_ sections: [CommandOutputSection]) {
+        guard let last = sections.last else { return }
+        if expandedSectionIDs.isEmpty {
+            expandedSectionIDs = [last.id]
+            return
+        }
+        if last.outcome == .inProgress || isRunning {
+            expandedSectionIDs.insert(last.id)
+        }
+    }
+
+    private func outcomeColor(_ outcome: CommandOutputSectionOutcome, hasError: Bool) -> Color {
+        if hasError { return Color.cosmosDanger }
+        switch outcome {
+        case .inProgress: return Color.cosmosPrimary
+        case .succeeded: return Color.cosmosSuccess
+        case .failed: return Color.cosmosDanger
+        case .informational: return Color.secondary
+        }
+    }
+}
+
 /// Terminal-style log output panel.
 struct CosmosConsolePanel<Content: View>: View {
     var minHeight: CGFloat = 140

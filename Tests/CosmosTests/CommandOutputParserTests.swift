@@ -47,4 +47,41 @@ final class CommandOutputParserTests: XCTestCase {
         XCTAssertTrue(result.trimmed)
         XCTAssertTrue(result.text.contains("Error: first failure"))
     }
+
+    func testSectionsSplitOnRunningLines() {
+        let output = """
+        Welcome to Cosmos
+
+        Running: run.command --setup-steam
+
+        ==> Downloading Wine
+        fetch complete
+
+        Done.
+
+        Running: detect_steam_games.command --list
+
+        Terraria
+        Exited with status 1.
+        """
+        let parsed = CommandOutputParser.sections(from: output, isRunning: false)
+        XCTAssertEqual(parsed.preamble, "Welcome to Cosmos")
+        XCTAssertEqual(parsed.sections.count, 2)
+        XCTAssertEqual(parsed.sections[0].title, "run.command --setup-steam")
+        XCTAssertEqual(parsed.sections[0].outcome, .succeeded)
+        XCTAssertTrue(parsed.sections[0].body.contains("Downloading Wine"))
+        XCTAssertEqual(parsed.sections[1].title, "detect_steam_games.command --list")
+        XCTAssertEqual(parsed.sections[1].outcome, .failed(exitCode: 1))
+    }
+
+    func testSectionsMarksLastSectionInProgressWhileRunning() {
+        let output = """
+        Running: run.command --steam
+
+        Launching Steam…
+        """
+        let parsed = CommandOutputParser.sections(from: output, isRunning: true)
+        XCTAssertEqual(parsed.sections.count, 1)
+        XCTAssertEqual(parsed.sections[0].outcome, .inProgress)
+    }
 }
