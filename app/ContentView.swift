@@ -989,24 +989,38 @@ struct ContentView: View {
     }
 
     private var setupPrimarySubtitle: String {
+        let estimateSuffix: (String) -> String = { base in
+            guard let estimate = setupPrimaryTimeEstimate else { return base }
+            return "\(base) · \(estimate)"
+        }
         if setupIncludesRosetta && !wineRuntime.rosettaReady {
-            return "Required before x86_64 Wine can run on Apple Silicon · opens Terminal"
+            return estimateSuffix("Required before x86_64 Wine can run on Apple Silicon · opens Terminal")
         }
         if !cosmosInstalled {
-            return "Installs launchers into /Applications/Cosmos Apps · opens Terminal"
+            return estimateSuffix("Installs launchers into /Applications/Cosmos Apps · opens Terminal")
         }
         if !steamSettings.isPrefixInitialized {
-            return "Downloads Wine, creates the prefix, and installs Steam"
+            return estimateSuffix("Downloads Wine, creates the prefix, and installs Steam")
         }
         if !steamSettings.isSteamInstalled {
-            return steamSettings.silentInstallEnabled
+            let base = steamSettings.silentInstallEnabled
                 ? "Installs Steam automatically (wizard fallback if needed)"
                 : "Opens the graphical Steam installer wizard in Terminal"
+            return estimateSuffix(base)
         }
         if !hasGameLaunchers {
-            return "Detect installed games and create Dock-friendly .app launchers"
+            return estimateSuffix("Detect installed games and create Dock-friendly .app launchers")
         }
         return "Update the checklist and sidebar"
+    }
+
+    private var setupPrimaryTimeEstimate: String? {
+        if setupIncludesRosetta && !wineRuntime.rosettaReady { return "about 1 min" }
+        if !cosmosInstalled { return "about 1 min" }
+        if !steamSettings.isPrefixInitialized { return "about 5 min · Wine download" }
+        if !steamSettings.isSteamInstalled { return "about 3 min" }
+        if !hasGameLaunchers { return "about 1 min" }
+        return nil
     }
 
     private var setupPrimarySystemImage: String {
@@ -1070,7 +1084,7 @@ struct ContentView: View {
                         Text("First-time setup")
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(Color.cosmosPrimary)
-                        Text("About 10–15 minutes the first time. Each step opens Terminal when needed — complete any prompts there, then press Refresh here.")
+                        Text("About 10–15 minutes the first time (Wine ~5 min, Steam ~3 min). Each step opens Terminal when needed — complete any prompts there, then press Refresh here.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1091,10 +1105,11 @@ struct ContentView: View {
                             .scaleEffect(y: 1.35, anchor: .center)
                     }
 
-                    prominentButton(
+                    CosmosProminentActionButton(
                         title: setupPrimaryTitle,
                         subtitle: setupPrimarySubtitle,
                         systemImage: setupPrimarySystemImage,
+                        isRunning: isRunning,
                         help: "Run the next recommended setup step (⌘⇧L)"
                     ) {
                         performNextSetupStep()
@@ -1130,7 +1145,8 @@ struct ContentView: View {
                     title: "Install Rosetta 2",
                     detail: wineRuntime.rosettaReady
                         ? "x86_64 Wine can run on Apple Silicon"
-                        : "Required before Wine can launch on Apple Silicon"
+                        : "Required before Wine can launch on Apple Silicon",
+                    estimate: "about 1 min"
                 )
             }
             setupStep(
@@ -1138,14 +1154,16 @@ struct ContentView: View {
                 title: "Install Cosmos",
                 detail: cosmosInstalled
                     ? "Launchers are in /Applications/Cosmos Apps"
-                    : "Wine runtime and Spotlight-friendly launchers"
+                    : "Wine runtime and Spotlight-friendly launchers",
+                estimate: "about 1 min"
             )
             setupStep(
                 done: steamSettings.isPrefixInitialized,
                 title: "Prepare Steam bottle",
                 detail: steamSettings.isPrefixInitialized
                     ? "Prefix at \(steamSettings.prefixURL.lastPathComponent)"
-                    : "Wine + graphics backend (DXMT by default)"
+                    : "Wine + graphics backend (DXMT by default)",
+                estimate: "about 5 min"
             )
             setupStep(
                 done: steamSettings.isSteamInstalled,
@@ -1154,14 +1172,16 @@ struct ContentView: View {
                     ? "Steam is in the Wine prefix"
                     : (steamSettings.silentInstallEnabled
                         ? "Unattended install (wizard fallback if needed)"
-                        : "Complete the graphical Steam installer wizard")
+                        : "Complete the graphical Steam installer wizard"),
+                estimate: "about 3 min"
             )
             setupStep(
                 done: hasGameLaunchers,
                 title: "Build game launchers",
                 detail: hasGameLaunchers
                     ? launcherSummaryText
-                    : "After you install a Windows game in Steam"
+                    : "After you install a Windows game in Steam",
+                estimate: "about 1 min"
             )
         }
     }
@@ -1203,15 +1223,25 @@ struct ContentView: View {
         .font(.subheadline)
     }
 
-    private func setupStep(done: Bool, title: String, detail: String) -> some View {
+    private func setupStep(done: Bool, title: String, detail: String, estimate: String? = nil) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: done ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(done ? Color.cosmosSuccess : Color.secondary)
                 .font(.body.weight(.semibold))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.subheadline.weight(.medium))
+                    if !done, let estimate {
+                        Text(estimate)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(Color.cosmosPrimary.opacity(0.75))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.cosmosPrimary.opacity(0.08), in: Capsule())
+                    }
+                }
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -1932,21 +1962,23 @@ struct ContentView: View {
 
     @ViewBuilder
     private var quickLaunchButtons: some View {
-        prominentButton(
+        CosmosProminentActionButton(
             title: launchSteamButtonTitle,
             subtitle: launchSteamButtonSubtitle,
             systemImage: wineRuntime.needsRosetta && !wineRuntime.rosettaReady ? "cpu" : "play.fill",
             disabled: !wineRuntime.canStartWineLaunch,
+            isRunning: isRunning,
             help: launchSteamButtonHelp
         ) {
             launchSteamFromDashboard()
         }
 
-        prominentButton(
+        CosmosProminentActionButton(
             title: "Launch Profile",
             subtitle: selectedProfileLaunchSubtitle,
             systemImage: "gamecontroller.fill",
             disabled: !selectedProfileCanLaunch || !wineRuntime.canStartWineLaunch,
+            isRunning: isRunning,
             help: selectedProfileLaunchHelp
         ) {
             guard let selectedProfile else { return }
@@ -2835,41 +2867,44 @@ struct ContentView: View {
 
     @ViewBuilder
     private var gameDiscoveryButtons: some View {
-        secondaryButton(title: "Detect Games", subtitle: "List Steam library", systemImage: "magnifyingglass", help: "Scan the Steam library and list installable titles in the output pane") {
+        CosmosSecondaryActionButton(title: "Detect Games", subtitle: "List Steam library", systemImage: "magnifyingglass", isRunning: isRunning, help: "Scan the Steam library and list installable titles in the output pane") {
             runCommand(script: "detect_steam_games.command", arguments: ["--list"], environment: steamDetectionEnvironment())
         }
 
-        secondaryButton(title: "Verify Detection", subtitle: "Check install folders", systemImage: "checkmark.shield.fill", help: "List games and verify each installdir exists on disk") {
+        CosmosSecondaryActionButton(title: "Verify Detection", subtitle: "Check install folders", systemImage: "checkmark.shield.fill", isRunning: isRunning, help: "List games and verify each installdir exists on disk") {
             runCommand(script: "detect_steam_games.command", arguments: ["--verify"], environment: steamDetectionEnvironment())
         }
 
-        secondaryButton(title: "Build Launchers", subtitle: "Detect → Dock apps", systemImage: "square.grid.2x2.fill", help: "Detect games and install Spotlight launchers into Cosmos Apps") {
+        CosmosSecondaryActionButton(title: "Build Launchers", subtitle: "Detect → Dock apps", systemImage: "square.grid.2x2.fill", isRunning: isRunning, help: "Detect games and install Spotlight launchers into Cosmos Apps") {
             buildLaunchers()
         }
 
         if pendingBrokenSteamInstalls > 0 {
-            secondaryButton(
+            CosmosSecondaryActionButton(
                 title: "Verify Broken Installs",
                 subtitle: "\(pendingBrokenSteamInstalls) need attention",
                 systemImage: "exclamationmark.triangle.fill",
+                isRunning: isRunning,
                 help: "List Wine Steam games with missing install folders or game executables"
             ) {
                 runCommand(script: "run.command", arguments: ["--verify-steam"], environment: bottleEnvironment())
             }
         } else if pendingNewSteamGames > 0 {
-            secondaryButton(
+            CosmosSecondaryActionButton(
                 title: "Sync New Games",
                 subtitle: "\(pendingNewSteamGames) detected",
                 systemImage: "arrow.triangle.2.circlepath",
+                isRunning: isRunning,
                 help: "Build launchers for newly installed Steam games only"
             ) {
                 syncSteamLibrary(announce: true)
             }
         } else {
-            secondaryButton(
+            CosmosSecondaryActionButton(
                 title: "Sync Steam Library",
                 subtitle: "New installs only",
                 systemImage: "arrow.triangle.2.circlepath",
+                isRunning: isRunning,
                 help: "Build launchers for newly installed Steam games since the last sync"
             ) {
                 syncSteamLibrary(announce: true)
@@ -2877,10 +2912,11 @@ struct ContentView: View {
         }
 
         if pendingUnregisteredGogGames > 0 {
-            secondaryButton(
+            CosmosSecondaryActionButton(
                 title: "Register GOG Games",
                 subtitle: "\(pendingUnregisteredGogGames) unregistered",
                 systemImage: "opticaldisc.fill",
+                isRunning: isRunning,
                 help: "Create launcher configs for detected GOG installs"
             ) {
                 syncGogLibrary(build: false, announce: true)
@@ -2897,10 +2933,10 @@ struct ContentView: View {
                 spacing: CosmosSpacing.gridGap
             ) {
                 gameDiscoveryButtons
-                secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill", help: "Reveal saved game profiles in Finder") {
+                CosmosSecondaryActionButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill", isRunning: isRunning, help: "Reveal saved game profiles in Finder") {
                     runCommand(script: "run.command", arguments: ["--profiles"])
                 }
-                secondaryButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass", help: "Open the most recent launch log for troubleshooting") {
+                CosmosSecondaryActionButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass", isRunning: isRunning, help: "Open the most recent launch log for troubleshooting") {
                     runCommand(script: "run.command", arguments: ["--logs"])
                 }
             }
@@ -2918,44 +2954,46 @@ struct ContentView: View {
                 gameDiscoveryButtons
 
                 if !installedCuratedProfiles.isEmpty {
-                    secondaryButton(
+                    CosmosSecondaryActionButton(
                         title: "Apply Curated Profiles",
                         subtitle: "\(installedCuratedProfiles.count) installed title\(installedCuratedProfiles.count == 1 ? "" : "s")",
                         systemImage: "arrow.down.circle.fill",
+                        isRunning: isRunning,
                         help: "Batch-apply shipped YAML presets (overrides, deps, fixes) for detected games"
                     ) {
                         applyInstalledCuratedProfiles()
                     }
                 }
 
-                secondaryButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill", help: "Reveal saved game profiles in Finder") {
+                CosmosSecondaryActionButton(title: "Profiles Folder", subtitle: "Open in Finder", systemImage: "folder.fill", isRunning: isRunning, help: "Reveal saved game profiles in Finder") {
                     runCommand(script: "run.command", arguments: ["--profiles"])
                 }
 
-                secondaryButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass", help: "Open the most recent launch log for troubleshooting") {
+                CosmosSecondaryActionButton(title: "Open Logs", subtitle: "Latest launch log", systemImage: "doc.text.magnifyingglass", isRunning: isRunning, help: "Open the most recent launch log for troubleshooting") {
                     runCommand(script: "run.command", arguments: ["--logs"])
                 }
 
-                secondaryButton(title: "Check for Updates", subtitle: "GitHub Releases", systemImage: "arrow.down.circle", help: "Compare your Cosmos version to the latest published release") {
+                CosmosSecondaryActionButton(title: "Check for Updates", subtitle: "GitHub Releases", systemImage: "arrow.down.circle", isRunning: isRunning, help: "Compare your Cosmos version to the latest published release") {
                     checkForUpdates()
                 }
 
                 if updateAvailable {
-                    secondaryButton(
+                    CosmosSecondaryActionButton(
                         title: "Install Update",
                         subtitle: "Download macOS DMG",
                         systemImage: "arrow.down.to.line",
+                        isRunning: isRunning,
                         help: "Download the latest release and install Cosmos.app to /Applications"
                     ) {
                         installUpdate()
                     }
                 }
 
-                secondaryButton(title: "Reset Bottle", subtitle: "Delete prefix", systemImage: "arrow.counterclockwise", destructive: true, help: "Delete the default Wine prefix (Steam and games inside it)") {
+                CosmosSecondaryActionButton(title: "Reset Bottle", subtitle: "Delete prefix", systemImage: "arrow.counterclockwise", destructive: true, isRunning: isRunning, help: "Delete the default Wine prefix (Steam and games inside it)") {
                     showResetConfirmation = true
                 }
 
-                secondaryButton(title: "Uninstall", subtitle: "Remove everything · Terminal", systemImage: "trash.fill", destructive: true, help: "Opens Terminal to remove Cosmos Apps, the prefix, and downloaded runtimes") {
+                CosmosSecondaryActionButton(title: "Uninstall", subtitle: "Remove everything · Terminal", systemImage: "trash.fill", destructive: true, isRunning: isRunning, help: "Opens Terminal to remove Cosmos Apps, the prefix, and downloaded runtimes") {
                     showUninstallConfirmation = true
                 }
             }
@@ -4366,6 +4404,17 @@ struct ContentView: View {
                 }
                 Spacer()
                 Button {
+                    openLatestLogs()
+                } label: {
+                    Label("Open Logs", systemImage: "doc.text.magnifyingglass")
+                        .font(.caption.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .disabled(isRunning)
+                .help("Open the most recent launch log in Finder")
+                .accessibilityLabel("Open logs")
+                Button {
                     copyOutputToClipboard()
                 } label: {
                     Label(didCopyOutput ? "Copied" : "Copy", systemImage: didCopyOutput ? "checkmark.circle" : "doc.on.doc")
@@ -4395,7 +4444,7 @@ struct ContentView: View {
                     tint: .secondary,
                     systemImage: "scissors",
                     title: nil,
-                    message: "Earlier log lines were trimmed to keep the view responsive. Copy output to save the full log."
+                    message: "Earlier log lines were trimmed to keep the view responsive. Copy output or open Logs to view the full history in Finder."
                 )
             }
 
@@ -4403,13 +4452,14 @@ struct ContentView: View {
                 CosmosConsolePanel(minHeight: isSetupComplete ? 220 : 140) {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text(output)
-                                .font(CosmosTypography.monoBody)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                                .foregroundStyle(Color.cosmosConsoleText)
-                                .accessibilityLabel("Command output log")
-                                .accessibilityValue(output.isEmpty ? "Empty" : output)
+                            CosmosGroupedConsoleOutput(
+                                output: output,
+                                isRunning: isRunning,
+                                font: CosmosTypography.monoBody,
+                                textColor: Color.cosmosConsoleText
+                            )
+                            .accessibilityLabel("Command output log")
+                            .accessibilityValue(output.isEmpty ? "Empty" : output)
                             Color.clear
                                 .frame(height: 1)
                                 .id(consoleBottomID)
@@ -4629,93 +4679,6 @@ struct ContentView: View {
         Label(title, systemImage: systemImage)
             .font(.title3.weight(.semibold))
             .foregroundStyle(Color.cosmosPrimary)
-    }
-
-    private func prominentButton(
-        title: String,
-        subtitle: String,
-        systemImage: String,
-        disabled: Bool = false,
-        help: String? = nil,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.title2.weight(.semibold))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.headline)
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .opacity(0.85)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .foregroundStyle(.white)
-            .padding(20)
-            .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
-            .background(
-                LinearGradient(
-                    colors: [Color.cosmosBright, Color.cosmosPrimary],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                in: RoundedRectangle(cornerRadius: 18)
-            )
-            .shadow(color: Color.cosmosPrimary.opacity(0.4), radius: 8, y: 4)
-            .hoverBrighten()
-        }
-        .buttonStyle(CosmosButtonStyle())
-        .disabled(disabled || isRunning)
-        .opacity((disabled || isRunning) ? 0.55 : 1)
-        .accessibilityLabel("\(title). \(subtitle)")
-        .accessibilityHint(disabled ? subtitle : (help ?? subtitle))
-        .help(help ?? subtitle)
-    }
-
-    private func secondaryButton(
-        title: String,
-        subtitle: String,
-        systemImage: String,
-        destructive: Bool = false,
-        help: String? = nil,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(destructive ? Color.cosmosDanger.opacity(0.8) : Color.cosmosPrimary)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-            .background(Color.cosmosTileFill, in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
-                    .strokeBorder(
-                        destructive ? Color.cosmosDanger.opacity(0.25) : Color.cosmosCardBorder,
-                        lineWidth: 1
-                    )
-            )
-            .hoverBrighten()
-        }
-        .buttonStyle(CosmosButtonStyle())
-        .disabled(isRunning)
-        .opacity(isRunning ? 0.55 : 1)
-        .accessibilityLabel("\(title). \(subtitle)")
-        .help(help ?? subtitle)
     }
 
     private func detailRow(title: String, value: String) -> some View {
