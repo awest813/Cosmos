@@ -14,6 +14,7 @@ enum SettingLabels {
         case "COSMOS_MVK_PRESET": return "MoltenVK preset"
         case "COSMOS_METALFX": return "MetalFX"
         case "GPTK_PATH": return "Game Porting Toolkit path"
+        case "SPOCK_D3D9_PATH": return "SpockD3D9 path"
         case "COSMOS_SYNC_MODE": return "Thread sync mode"
         default:
             return key
@@ -30,6 +31,7 @@ enum SettingLabels {
         case "d3dmetal": return "D3DMetal (GPTK)"
         case "dxvk": return "DXVK (experimental)"
         case "wined3d": return "WineD3D"
+        case "spockd3d9": return "SpockD3D9 (experimental)"
         default: return backend
         }
     }

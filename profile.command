@@ -218,7 +218,7 @@ validate_one() {
     err "invalid status: ${status}"
   fi
   if [[ -n "${backend}" ]] && ! in_set "${backend}" \
-      recommended d3dmetal dxmt dxvk wined3d; then
+      recommended d3dmetal dxmt dxvk wined3d spockd3d9; then
     err "invalid recommended_backend: ${backend}"
   fi
 

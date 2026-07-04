@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var steamSettings = SteamSettings.defaults
     @State private var graphicsSettings = GraphicsSettings.defaults
     @State private var gptkValidation = GptkValidationResult.empty
+    @State private var spockD3D9Validation = SpockD3D9ValidationResult.empty
     @State private var showAdvancedGraphics = false
     @State private var wineRuntime = WineRuntimeStore.load()
     @State private var isRunning = false
@@ -2498,15 +2499,10 @@ struct ContentView: View {
         CosmosSection(
             title: "Performance & Graphics",
             systemImage: "speedometer",
-            caption: "Thread sync, D3D12 (GPTK), and advanced DXMT / MoltenVK tuning for the default Steam bottle."
+            caption: "Thread sync, D3D9 (SpockD3D9), D3D12 (GPTK), and advanced DXMT / MoltenVK tuning."
         ) {
             VStack(alignment: .leading, spacing: 16) {
-                CosmosNoticeBanner(
-                    tint: Color.cosmosBright,
-                    systemImage: "info.circle.fill",
-                    title: "Direct3D 9 games",
-                    message: "DXMT translates D3D10/11 only. D3D9 on the default backend still runs through WineD3D. For glitches, try a dedicated wined3d bottle; for stubborn titles, dgVoodoo in the game folder can uplift D3D9 → D3D11 while keeping DXMT. Experimental: SpockD3D9 (macOS D3D9 → Vulkan) PE d3d9.dll in the game folder with WINEDLLOVERRIDES=d3d9=n,b — see docs/BACKENDS.md."
-                )
+                D3D9EscalationLadder()
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Thread sync")
@@ -2527,6 +2523,10 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                Divider()
+
+                spockD3d9SetupCard
 
                 Divider()
 
@@ -2595,6 +2595,90 @@ struct ContentView: View {
             .cosmosCard()
         }
         .id(CosmosScrollAnchor.performanceGraphics)
+    }
+
+    private var spockD3d9SetupCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("D3D9 — SpockD3D9")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if spockD3D9Validation.valid {
+                    Label("Ready", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosSuccess)
+                } else if graphicsSettings.spockD3D9Configured {
+                    Label("Invalid", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosWarning)
+                }
+            }
+            Text("Experimental D3D9 → Vulkan translation for stubborn titles. Uses DXMT for D3D10/11 and SpockD3D9 PE d3d9.dll for D3D9. Classic games are often 32-bit — build with --arch x86.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                TextField("SPOCK_D3D9_PATH", text: spockD3D9PathBinding)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.caption)
+                    .disabled(isRunning)
+                    .accessibilityLabel("SpockD3D9 PE d3d9.dll folder")
+                Button("Browse…") { browseForSpockD3D9Path() }
+                    .disabled(isRunning)
+            }
+
+            if !spockD3D9Validation.errorMessage.isEmpty, !spockD3D9Validation.valid {
+                Text(spockD3D9Validation.errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(Color.cosmosWarning)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if spockD3D9Validation.valid {
+                Text(spockD3D9Validation.summaryText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    validateSpockD3D9Path()
+                } label: {
+                    Label("Validate", systemImage: "checkmark.shield")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning || !graphicsSettings.spockD3D9Configured)
+
+                Button {
+                    buildSpockD3D9Dlls()
+                } label: {
+                    Label("Build PE DLLs", systemImage: "hammer.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning)
+
+                Button {
+                    saveSpockD3D9PathAndApply()
+                } label: {
+                    Label("Save & Apply", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.cosmosPrimary)
+                .disabled(isRunning || !spockD3D9Validation.valid)
+
+                Button {
+                    openRepositoryDoc(
+                        relativePath: "docs/BACKENDS.md",
+                        bundleName: "BACKENDS.md",
+                        fallbackMessage: "See docs/BACKENDS.md in the Cosmos repository."
+                    )
+                } label: {
+                    Label("Guide", systemImage: "book")
+                }
+                .buttonStyle(.bordered)
+            }
+            .font(.subheadline)
+        }
     }
 
     private var gptkSetupCard: some View {
@@ -2701,6 +2785,13 @@ struct ContentView: View {
         )
     }
 
+    private var spockD3D9PathBinding: Binding<String> {
+        Binding(
+            get: { graphicsSettings.spockD3D9Path },
+            set: { graphicsSettings.spockD3D9Path = $0 }
+        )
+    }
+
     private var gptkPathBinding: Binding<String> {
         Binding(
             get: { graphicsSettings.gptkPath },
@@ -2732,6 +2823,52 @@ struct ContentView: View {
             )
         } else {
             gptkValidation = .empty
+        }
+        if graphicsSettings.spockD3D9Configured {
+            spockD3D9Validation = GraphicsSettingsStore.validateSpockD3D9Path(
+                graphicsSettings.spockD3D9Path,
+                repositoryRoot: repositoryRootURL
+            )
+        } else {
+            spockD3D9Validation = .empty
+        }
+    }
+
+    private func browseForSpockD3D9Path() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Select the folder containing SpockD3D9 PE d3d9.dll files"
+        panel.prompt = "Choose"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        graphicsSettings.spockD3D9Path = url.path
+        validateSpockD3D9Path()
+    }
+
+    private func validateSpockD3D9Path() {
+        let path = graphicsSettings.spockD3D9Path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else {
+            spockD3D9Validation = .empty
+            return
+        }
+        spockD3D9Validation = GraphicsSettingsStore.validateSpockD3D9Path(path, repositoryRoot: repositoryRootURL)
+    }
+
+    private func buildSpockD3D9Dlls() {
+        runCommand(
+            script: "run.command",
+            arguments: ["--build-spockd3d9", "--arch", "both"],
+            environment: dashboardLaunchEnvironment()
+        )
+    }
+
+    private func saveSpockD3D9PathAndApply() {
+        let path = graphicsSettings.spockD3D9Path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { return }
+        applyGraphicsSetting(key: "SPOCK_D3D9_PATH", value: path)
+        if steamSettings.backend != "spockd3d9" {
+            applySteamSetting(key: "COSMOS_BACKEND", value: "spockd3d9")
         }
     }
 

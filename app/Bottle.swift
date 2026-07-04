@@ -106,7 +106,7 @@ enum BottleStore {
         return result
     }
 
-    static let backendOptions = ["recommended", "dxmt", "d3dmetal", "dxvk", "wined3d"]
+    static let backendOptions = ["recommended", "dxmt", "d3dmetal", "dxvk", "wined3d", "spockd3d9"]
     static let windowsOptions = ["winxp", "win7", "win8", "win10", "win11"]
 
     // Mirror bottle.command's name validation so the UI can disable invalid input.

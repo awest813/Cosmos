@@ -26,6 +26,7 @@ UNIT_TESTS=(
   scripts/test_profile_lib.sh
   scripts/test_sync_lib.sh
   scripts/test_gptk_lib.sh
+  scripts/test_spockd3d9_lib.sh
   scripts/test_graphics_lib.sh
   scripts/test_profiles.sh
   scripts/test_anticheat_profiles.sh

@@ -37,6 +37,10 @@ if [[ -f "${SCRIPT_DIR}/scripts/lib/graphics_lib.sh" ]]; then
   # shellcheck source=scripts/lib/graphics_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/graphics_lib.sh"
 fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/spockd3d9_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/spockd3d9_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/spockd3d9_lib.sh"
+fi
 
 # --- Bottle pre-load (roadmap 0.3) -------------------------------------------
 # A named bottle (COSMOS_BOTTLE) supplies an isolated Wine prefix plus default
@@ -131,7 +135,7 @@ load_steam_conf() {
 sanitize_steam_settings() {
   [[ -z "${COSMOS_BOTTLE}" ]] || return 0
   case "${COSMOS_BACKEND}" in
-    recommended|dxmt|d3dmetal|dxvk|wined3d) ;;
+    recommended|dxmt|d3dmetal|dxvk|wined3d|spockd3d9) ;;
     *) COSMOS_BACKEND="recommended" ;;
   esac
   case "${COSMOS_DETACH}" in 0|1) ;; *) COSMOS_DETACH=1 ;; esac
@@ -208,7 +212,7 @@ fi
 # developer.apple.com themselves. DXMT is the default precisely because it
 # has no such constraint.
 GPTK_PATH="${GPTK_PATH:-}"
-# Graphics backend selector (roadmap 0.3): recommended | dxmt | d3dmetal | dxvk | wined3d.
+# Graphics backend selector (roadmap 0.3): recommended | dxmt | d3dmetal | dxvk | wined3d | spockd3d9.
 # 'recommended' resolves to d3dmetal when GPTK_PATH is set, otherwise dxmt, which
 # preserves the historical GPTK_PATH-driven behavior. d3dmetal needs a
 # user-supplied GPTK_PATH; dxvk needs a user-supplied DXVK_PATH (experimental on
@@ -291,6 +295,8 @@ Actions:
   --compat-check <appid>   Print the curated compatibility status for a Steam
                            App ID (warns if broken/blocked), then exit.
   --validate-gptk <path>   Validate a user-supplied GPTK install (key=value), then exit.
+  --validate-spockd3d9 <path>  Validate a SpockD3D9 PE d3d9.dll folder (key=value), then exit.
+  --build-spockd3d9 [--arch x86|x64|both]  Build SpockD3D9 PE d3d9.dll into Runtime, then exit.
   --game <path> [args...]  Launch a saved profile executable directly.
   --run-installer <file>   Run a Windows .exe/.msi installer in the prefix.
   --profiles               Open the saved profiles folder in Finder and exit.
@@ -460,6 +466,23 @@ parse_arguments() {
       fi
       GPTK_VALIDATE_PATH="$2"
       COSMOS_LAUNCH_MODE="validate-gptk"
+      return 0
+      ;;
+    --validate-spockd3d9)
+      if (($# < 2)); then
+        die "Missing required path for --validate-spockd3d9."
+      fi
+      if (($# > 2)); then
+        die "The --validate-spockd3d9 flag accepts only one path."
+      fi
+      SPOCK_D3D9_VALIDATE_PATH="$2"
+      COSMOS_LAUNCH_MODE="validate-spockd3d9"
+      return 0
+      ;;
+    --build-spockd3d9)
+      COSMOS_LAUNCH_MODE="build-spockd3d9"
+      shift
+      SPOCK_D3D9_BUILD_ARGS=("$@")
       return 0
       ;;
     --reset-bottle)
@@ -1014,11 +1037,11 @@ resolve_backend() {
     gptk)
       RESOLVED_BACKEND="d3dmetal"
       ;;
-    dxmt|d3dmetal|dxvk|wined3d)
+    dxmt|d3dmetal|dxvk|wined3d|spockd3d9)
       RESOLVED_BACKEND="${requested}"
       ;;
     *)
-      die "COSMOS_BACKEND must be one of: recommended | dxmt | d3dmetal | dxvk | wined3d (got '${COSMOS_BACKEND}')."
+      die "COSMOS_BACKEND must be one of: recommended | dxmt | d3dmetal | dxvk | wined3d | spockd3d9 (got '${COSMOS_BACKEND}')."
       ;;
   esac
 }
@@ -1495,6 +1518,13 @@ prepare_steam_bottle() {
     wined3d)
       enable_wined3d_env
       ;;
+    spockd3d9)
+      ensure_dxmt_installed
+      enable_dxmt_env
+      steam_stage_dxmt_prefix_dlls || true
+      ensure_spockd3d9_installed
+      enable_spockd3d9_env
+      ;;
     *)
       die "Unhandled backend: ${RESOLVED_BACKEND}"
       ;;
@@ -1637,6 +1667,19 @@ main() {
       return $?
     fi
     die "GPTK validation is unavailable (gptk_lib.sh not loaded)."
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "validate-spockd3d9" ]]; then
+    if declare -F spockd3d9_validate_path >/dev/null 2>&1; then
+      spockd3d9_validate_path "${SPOCK_D3D9_VALIDATE_PATH}"
+      return $?
+    fi
+    die "SpockD3D9 validation is unavailable (spockd3d9_lib.sh not loaded)."
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "build-spockd3d9" ]]; then
+    local build_script="${SCRIPT_DIR}/scripts/build-pe-d3d9.sh"
+    [[ -f "${build_script}" ]] || die "Missing ${build_script}"
+    bash "${build_script}" ${SPOCK_D3D9_BUILD_ARGS[@]+"${SPOCK_D3D9_BUILD_ARGS[@]}"}
+    return $?
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "runtime-status" ]]; then
     wine_runtime_status_lines

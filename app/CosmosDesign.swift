@@ -239,6 +239,83 @@ struct CosmosNoticeBanner: View {
     }
 }
 
+/// Numbered escalation steps for D3D9 troubleshooting on the default DXMT backend.
+struct D3D9EscalationLadder: View {
+    private struct Step: Identifiable {
+        let id: Int
+        let title: String
+        let detail: String
+    }
+
+    private let steps: [Step] = [
+        Step(
+            id: 1,
+            title: "Keep the default backend",
+            detail: "Many D3D9 titles run fine — WineD3D handles D3D9 under DXMT for D3D10/11."
+        ),
+        Step(
+            id: 2,
+            title: "Try a dedicated wined3d bottle",
+            detail: "Slower but more forgiving for legacy D3D paths. Create one on the Bottles tab."
+        ),
+        Step(
+            id: 3,
+            title: "Uplift with dgVoodoo",
+            detail: "Place dgVoodoo in the game folder to translate D3D9 → D3D11, then keep DXMT."
+        ),
+        Step(
+            id: 4,
+            title: "SpockD3D9 (experimental)",
+            detail: "D3D9 → Vulkan via MoltenVK. Build or point SPOCK_D3D9_PATH below, then select the SpockD3D9 backend."
+        ),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "9.circle.fill")
+                    .foregroundStyle(Color.cosmosBright)
+                Text("Direct3D 9 on macOS")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.cosmosPrimary)
+            }
+            Text("DXMT translates D3D10/11 only. When a D3D9 game misbehaves, work through these steps:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(steps) { step in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(step.id)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(Color.cosmosBright)
+                            .frame(width: 20, height: 20)
+                            .background(Color.cosmosBright.opacity(0.15), in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(step.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.cosmosPrimary)
+                            Text(step.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.cosmosBright.opacity(0.06), in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
+                .strokeBorder(Color.cosmosBright.opacity(0.18), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Direct3D 9 troubleshooting steps")
+    }
+}
+
 struct CommandBannerView: View {
     let banner: CommandBanner
     var onDismiss: () -> Void

@@ -435,14 +435,14 @@ repair_disable_intro_video() {
 repair_set_backend() {
   local backend="${COSMOS_BACKEND:-}"
   [[ -n "${backend}" ]] || {
-    echo "Set COSMOS_BACKEND (recommended|dxmt|d3dmetal|dxvk|wined3d) before applying this fix."
+    echo "Set COSMOS_BACKEND (recommended|dxmt|d3dmetal|dxvk|wined3d|spockd3d9) before applying this fix."
     return 1
   }
   backend="$(printf '%s' "${backend}" | tr '[:upper:]' '[:lower:]')"
   [[ "${backend}" == "gptk" ]] && backend="d3dmetal"
   case "${backend}" in
-    recommended|dxmt|d3dmetal|dxvk|wined3d) ;;
-    *) echo "COSMOS_BACKEND must be one of: recommended | dxmt | d3dmetal | dxvk | wined3d."; return 1 ;;
+    recommended|dxmt|d3dmetal|dxvk|wined3d|spockd3d9) ;;
+    *) echo "COSMOS_BACKEND must be one of: recommended | dxmt | d3dmetal | dxvk | wined3d | spockd3d9."; return 1 ;;
   esac
   repair_persist_setting COSMOS_BACKEND "${backend}"
   echo "Persisted COSMOS_BACKEND=${backend} for future launches."
@@ -456,5 +456,8 @@ repair_set_backend() {
   fi
   if [[ "${backend}" == "dxvk" && -z "${DXVK_PATH:-}" ]]; then
     echo "Note: dxvk needs DXVK_PATH pointing at a folder of DXVK DLLs."
+  fi
+  if [[ "${backend}" == "spockd3d9" && -z "${SPOCK_D3D9_PATH:-}" ]]; then
+    echo "Note: spockd3d9 needs SPOCK_D3D9_PATH or COSMOS_AUTO_SPOCK_D3D9=1. Build with ./scripts/build-pe-d3d9.sh."
   fi
 }
