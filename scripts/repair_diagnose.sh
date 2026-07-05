@@ -25,7 +25,9 @@ repair_diagnose_suggest() {
   local kind="$1" id="$2" text="$3"
   local token="${kind}:${id}"
   repair_diagnose_note "${kind}-${id}" "${text}"
-  case " ${DIAG_SUGGESTIONS[*]} " in
+  # ${arr[*]:-} guard: bash 3.2 (stock macOS) treats ${arr[*]} on an empty
+  # array as unbound under `set -u`, which aborts the sourcing repair.command.
+  case " ${DIAG_SUGGESTIONS[*]:-} " in
     *" ${token} "*) return 0 ;;
   esac
   DIAG_SUGGESTIONS+=("${token}")
@@ -447,6 +449,9 @@ repair_diagnose_run() {
 
 # Print machine-readable suggestions (dep:id / fix:id), one per line.
 repair_diagnose_print_suggestions() {
+  # Nothing to print when empty; also avoids the bash 3.2 "unbound variable"
+  # error on "${arr[@]}" iteration of an empty array under `set -u`.
+  ((${#DIAG_SUGGESTIONS[@]} == 0)) && return 0
   local item
   for item in "${DIAG_SUGGESTIONS[@]}"; do
     printf '%s\n' "${item}"

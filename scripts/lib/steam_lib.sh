@@ -63,7 +63,11 @@ steam_win_to_unix() {
   local drive rest
   drive="$(printf '%s' "${p:0:1}" | tr '[:upper:]' '[:lower:]')"
   rest="${p:2}"
-  rest="${rest//\/\//\/}"
+  # Steam escapes backslashes in the vdf ("D:\\SteamLibrary"), so after the
+  # backslash->slash pass above we get doubled slashes; collapse them to one.
+  # NB: the replacement must be a bare "/" — writing "\/" inserts a literal
+  # backslash (bash does not treat \ as an escape in the replacement string).
+  rest="${rest//\/\///}"
   [[ "${rest}" == /* ]] || rest="/${rest}"
   printf '%s/dosdevices/%s:%s' "${pfx}" "${drive}" "${rest}"
 }

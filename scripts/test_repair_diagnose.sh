@@ -14,17 +14,17 @@ printf 'fake\n' > "${WINEPREFIX}/system.reg"
 
 repair_diagnose_reset
 repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-vcrun2015.log"
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" dep:vcrun2015 "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" dep:vcrun2015 "* ]] \
   || fail "expected dep:vcrun2015 from fixture log"
 
 repair_diagnose_reset
 repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-steam-ssl.log"
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:fix_steam_ssl "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" fix:fix_steam_ssl "* ]] \
   || fail "expected fix:fix_steam_ssl from fixture log"
 
 repair_diagnose_reset
 repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-mscoree.log"
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:grounded-mscoree-fix "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" fix:grounded-mscoree-fix "* ]] \
   || fail "expected fix:grounded-mscoree-fix from mscoree fixture log"
 
 repair_suggestion_is_auto_applicable dep:vcrun2015 || fail "dep should be auto-applicable"
@@ -35,14 +35,14 @@ repair_diagnose_reset
 export COSMOS_PROFILE_APPID=1091500
 export COSMOS_UMU_HINT_FIXTURE="${ROOT}/scripts/fixtures/umu/protonfix-1091500.py"
 repair_diagnose_umu_hints
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" dep:vcrun2019 "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" dep:vcrun2019 "* ]] \
   || fail "expected dep:vcrun2019 from UMU/protonfix fixture"
 
 repair_diagnose_reset
 export COSMOS_PROFILE_APPID=962130
 unset COSMOS_UMU_HINT_FIXTURE
 repair_diagnose_umu_hints
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:grounded-mscoree-fix "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" fix:grounded-mscoree-fix "* ]] \
   && fail "umu hints should not re-suggest fixes already in the curated profile"
 repair_diagnose_reset
 export COSMOS_PROFILE_APPID=962130
@@ -55,19 +55,19 @@ repair_diagnose_reset
 export COSMOS_PROFILE_APPID=1091500
 export COSMOS_UMU_HINT_FIXTURE="${ROOT}/scripts/fixtures/umu/protonfix-1091500.py"
 repair_diagnose_umu_hints
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" dep:vcrun2019 "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" dep:vcrun2019 "* ]] \
   || fail "expected vcrun2019 when not in profile"
 
 repair_diagnose_reset
 repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-networking.log"
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:fix_steam_networking "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" fix:fix_steam_networking "* ]] \
   || fail "expected fix:fix_steam_networking from networking fixture"
 diag_joined="$(printf '%s\n' "${DIAG_LINES[@]}")"
 [[ "${diag_joined}" == *"multiplayer"* ]] || fail "expected multiplayer note in networking fixture"
 
 repair_diagnose_reset
 repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-retina.log"
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:disable_retina "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" fix:disable_retina "* ]] \
   || fail "expected fix:disable_retina from retina fixture log"
 
 repair_diagnose_reset
@@ -83,7 +83,7 @@ diag_joined="$(printf '%s\n' "${DIAG_LINES[@]}")"
 
 repair_diagnose_reset
 repair_diagnose_scan_log "${ROOT}/scripts/fixtures/repair-cloud.log"
-[[ " ${DIAG_SUGGESTIONS[*]} " == *" fix:fix_steam_cloud_paths "* ]] \
+[[ " ${DIAG_SUGGESTIONS[*]:-} " == *" fix:fix_steam_cloud_paths "* ]] \
   || fail "expected fix:fix_steam_cloud_paths from cloud fixture log"
 diag_joined="$(printf '%s\n' "${DIAG_LINES[@]}")"
 [[ "${diag_joined}" == *"steam-cloud"* ]] || fail "expected steam-cloud note in cloud fixture"
