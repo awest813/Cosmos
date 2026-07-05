@@ -34,11 +34,25 @@ COSMOS_BUILD_ARCHS=arm64 DMG_NAME=Cosmos-macos-arm64.dmg scripts/build_dmg.comma
 it to Apple notary service, and staples the notarization ticket when credentials
 are present.
 
-## GitHub release signing
+## Producing a GitHub release
 
-Tagged releases run `.github/workflows/release.yml` on the standard Apple Silicon
-`macos-15` runner. The workflow publishes `Cosmos-macos-arm64.dmg` for every tag
-whose `v*` tag matches `VERSION`.
+`.github/workflows/release.yml` builds and publishes `Cosmos-macos-arm64.dmg` on
+the standard Apple Silicon `macos-15` runner. It can be triggered two ways:
+
+- **Tag push** — push a `v*` tag whose version matches `VERSION`:
+
+  ```bash
+  git tag -a "v$(tr -d '[:space:]' < VERSION)" -m "Cosmos $(cat VERSION)"
+  git push origin "v$(tr -d '[:space:]' < VERSION)"
+  ```
+
+- **Manual dispatch** — from the repository **Actions → Release → Run workflow**
+  (or `gh workflow run release.yml`). The version is read from `VERSION`, and the
+  matching `v<VERSION>` tag is created automatically on the built commit. This
+  lets GitHub produce the release without a local tag push.
+
+Both paths run the same job and require `VERSION` to be authoritative for the
+release number.
 
 Release builds set `COSMOS_RELEASE_BUILD=1`; that forces the DMG builder to reject
 fixture offline runtime bundles. The tagged workflow therefore downloads and
