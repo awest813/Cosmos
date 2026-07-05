@@ -1,9 +1,14 @@
 name: Release
 
 on:
+  # Automatic path: pushing a version tag (v0.7.1, matching VERSION).
   push:
     tags:
       - "v*"
+  # Manual path: let GitHub produce the Apple Silicon release on demand from the
+  # Actions "Run workflow" button (or the API) without a local tag push. The
+  # version is taken from VERSION and the tag is created by the release step.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -31,19 +36,27 @@ jobs:
       - name: Resolve version
         id: version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
           version="$(tr -d '[:space:]' < VERSION)"
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            # Tag push: enforce that the pushed tag matches VERSION.
+            tag="${GITHUB_REF_NAME#v}"
+            if [[ "${tag}" != "${version}" ]]; then
+              echo "Tag v${tag} must match VERSION (${version})." >&2
+              exit 1
+            fi
+          else
+            # Manual dispatch: derive the release straight from VERSION.
+            tag="${version}"
+            echo "::notice::Manual dispatch; releasing v${version} from VERSION."
+          fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          if [[ "${tag}" != "${version}" ]]; then
-            echo "Tag v${tag} must match VERSION (${version})." >&2
-            exit 1
-          fi
-          echo "Building release ${tag}"
+          echo "release_tag=v${version}" >> "$GITHUB_OUTPUT"
+          echo "Building release v${version}"
 
       - name: Release audit
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
         run: scripts/audit_release.sh
 
       - name: Resolve signing mode
@@ -111,7 +124,7 @@ jobs:
       - name: Bundle audit after build
         env:
           APP_BUNDLE: build/Cosmos.app
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
           COSMOS_EXPECTED_APP_ARCHS: arm64
         run: scripts/audit_release.sh
 
@@ -154,6 +167,10 @@ jobs:
             build/Cosmos-macos-arm64.dmg
             build/Cosmos-macos-arm64.dmg.sha256
           body_path: release-notes.md
+          # Pin the tag/commit explicitly so the same job works for both a tag
+          # push and a manual dispatch (the tag is created here if it is absent).
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
           generate_release_notes: true

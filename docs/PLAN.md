@@ -268,7 +268,7 @@ flowchart TD
 | Fix recipes | **27** | 25+ ✅ |
 | Setup steps requiring Terminal | 4/5 (Rosetta + install still Terminal) | 2/4 (stretch: 0/4) |
 | Sidebar compat badge | **Yes** | Yes ✅ |
-| Signed DMG release | `release.yml` on `v*` tags | Yes (when secrets set) |
+| Signed DMG release | `release.yml` on `v*` tags or manual dispatch | Yes (when secrets set) |
 | CI bundle + release audit | `bundle-smoke` job | Yes ✅ |
 | Auto-update check | **`--check-update`** | Yes ✅ |
 | Auto-update install | **`--install-update`** | Yes ✅ |
