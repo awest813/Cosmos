@@ -1452,10 +1452,18 @@ run_installer() {
   log "Running installer: ${INSTALLER_PATH}"
   local abs
   abs="$(cd "$(dirname "${INSTALLER_PATH}")" && pwd)/$(basename "${INSTALLER_PATH}")"
+  # Optional extra arguments for the installer, e.g. Inno Setup silent flags for
+  # GOG offline installers (COSMOS_INSTALLER_ARGS="/VERYSILENT /NORESTART ...").
+  # Word-split on purpose; each flag must be space-free. Unset = interactive.
+  local -a extra_args=()
+  if [[ -n "${COSMOS_INSTALLER_ARGS:-}" ]]; then
+    # shellcheck disable=SC2206
+    extra_args=(${COSMOS_INSTALLER_ARGS})
+  fi
   if printf '%s' "${abs}" | grep -qi '\.msi$'; then
-    "${WINE_BIN}" msiexec /i "${abs}"
+    "${WINE_BIN}" msiexec /i "${abs}" ${extra_args[@]+"${extra_args[@]}"}
   else
-    "${WINE_BIN}" "${abs}"
+    "${WINE_BIN}" "${abs}" ${extra_args[@]+"${extra_args[@]}"}
   fi
 }
 
