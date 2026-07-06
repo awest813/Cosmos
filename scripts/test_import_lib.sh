@@ -91,4 +91,26 @@ import_exe_has_pe_header "${gog_fixture}/drive_c/GOG Games/Celeste/celeste.exe" 
 import_exe_has_pe_header "${gog_fixture}/drive_c/GOG Games/Celeste/redist/vcredist.exe" \
   || fail "vcredist fixture should look like PE"
 
+# DX9 GOG game (Dragonshard): main .exe sits in the game root alongside GOG's
+# uninstaller and a __redist/ tree holding the DirectX 9 / VC++ installers.
+# Detection must pick the game and reject all the redist/helper noise.
+dragonshard_dir="${gog_fixture}/drive_c/GOG Games/Dragonshard"
+dragonshard_exe="$(import_find_best_game_exe "${dragonshard_dir}" "Dragonshard")"
+[[ "${dragonshard_exe}" == *"/Dragonshard/Dragonshard.exe" ]] \
+  || fail "dx9 gog game should resolve to root game exe: ${dragonshard_exe}"
+
+dragonshard_scan="$(import_scan_gog_games "${gog_fixture}")"
+printf '%s' "${dragonshard_scan}" | grep -q $'dragonshard\tDragonshard\tdrive_c/GOG Games/Dragonshard/Dragonshard.exe' \
+  || fail "dx9 gog scan should list Dragonshard root exe: ${dragonshard_scan}"
+
+import_exe_is_helper "unins000.exe" || fail "GOG unins000 should be helper"
+import_exe_is_helper "DXSETUP.exe" || fail "DX9 DXSETUP should be helper"
+
+# GOG stows redistributables under __redist/ (sibling of the existing __support);
+# it must be treated as an ignored dir so non-helper-named installers under it
+# (e.g. __redist/ISI/isi.exe) never become detection candidates.
+import_path_is_ignored_dir "__redist" || fail "__redist should be an ignored dir"
+import_path_has_ignored_segment "__redist/ISI/isi.exe" \
+  || fail "exe under __redist should be ignored"
+
 printf 'OK: import_lib tests passed\n'

@@ -72,7 +72,7 @@ import_path_is_ignored_dir() {
   local segment
   segment="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
   case "${segment}" in
-    redist|_commonredist|commonredist|directx|directx11|directx9|prerequisites|prereq|support|__support|win_install|win_gdk_runtime|_redist|dotnet|physx|nvidia|amd|vcredist|openal|bink|videos|movies|manual|docs|bonus|dlc_cache|webcache|cache|temp|tmp|logs|crashes|backup|update|patches|installers|_installer)
+    redist|_commonredist|commonredist|directx|directx11|directx9|prerequisites|prereq|support|__support|__redist|win_install|win_gdk_runtime|_redist|dotnet|physx|nvidia|amd|vcredist|openal|bink|videos|movies|manual|docs|bonus|dlc_cache|webcache|cache|temp|tmp|logs|crashes|backup|update|patches|installers|_installer)
       return 0
       ;;
   esac
@@ -82,8 +82,11 @@ import_path_is_ignored_dir() {
 import_path_has_ignored_segment() {
   local rel="$1"
   local part
+  local -a parts=()
   IFS='/' read -r -a parts <<< "${rel}"
-  for part in "${parts[@]}"; do
+  # bash 3.2 errors on "${parts[@]}" when the array is empty under `set -u`
+  # (e.g. an empty rel); the ${arr[@]+...} guard expands to nothing instead.
+  for part in ${parts[@]+"${parts[@]}"}; do
     [[ -n "${part}" ]] || continue
     import_path_is_ignored_dir "${part}" && return 0
   done
