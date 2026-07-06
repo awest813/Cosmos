@@ -24,7 +24,7 @@ Cosmos can register non-Steam Windows games as first-class `.app` launchers usin
 | `list` | Show standalone, GOG, itch, Battle.net, and Epic configs in `cosmos_configs/` |
 | `run-installer <file>` | Run `.exe` / `.msi` via `run.command --run-installer` |
 | `add-exe <path> --name <title>` | Create `standalone-<slug>.conf` |
-| `add-gog <setup\|slug\|path> --name <title>` | Run GOG offline installer or register an installed game |
+| `add-gog <setup\|slug\|path> --name <title> [--build] [--play]` | Run GOG offline installer (silent) or register an installed game; `--build` makes the `.app`, `--play` builds then launches |
 | `list-gog [--json]` | List GOG games detected under `drive_c/GOG Games` (JSON includes `exe_source`) |
 | `find-exe <folder> [--name <hint>]` | Detect the main game `.exe` via `goggame-*.info` or scored scan |
 | `sync-gog [--build]` | Register all detected GOG installs missing launcher configs |
@@ -106,9 +106,24 @@ Optional: add store-specific YAML profiles for known-good settings (see
 
 Cosmos runs GOG `setup.exe` installers inside your Wine prefix, finds the main
 game executable (skipping redistributables and uninstall helpers), and registers
-a `gog-<slug>.conf` launcher.
+a `gog-<slug>.conf` launcher. The Wine prefix is created automatically (no Steam
+required), and the installer runs **silently** by default.
 
-### Import flow
+### One command: install and play
+
+```bash
+# Installs silently, builds the .app launcher, and launches the game.
+# Keep the setup .exe and its -N.bin payload together in one folder.
+./import_game.command add-gog \
+  "~/Downloads/setup_dungeons_and_dragons_-_dragonshard_1.02.0001_(15439).exe" \
+  --name "Dragonshard" --play
+```
+
+`--play` implies `--build`; use `--build` alone to make the launcher without
+launching. Without either flag, `add-gog` just writes the config and prints the
+`install_cosmos.command` step to run next.
+
+### Import flow (step by step)
 
 ```bash
 # 1. Run the GOG offline installer and register the game
@@ -125,6 +140,12 @@ a `gog-<slug>.conf` launcher.
 ### Notes
 
 - **GOG Galaxy** is not supported — use offline `setup.exe` installers only.
+- **Multi-part downloads:** GOG ships `setup_<name>_<ver>.exe` alongside one or
+  more `setup_<name>_<ver>-N.bin` payload files. Keep them in the same folder —
+  `add-gog` warns if the `.bin` looks missing.
+- **Silent by default:** offline installers run unattended (Inno Setup
+  `/VERYSILENT`). Set `COSMOS_GOG_WIZARD=1` to show the GUI installer, or
+  `COSMOS_GOG_INSTALL_ARGS="…"` to override the flags.
 - Games install to `drive_c/GOG Games/<title>/` by default; Cosmos scans that path
   and GOG Galaxy `Games` folders when present.
 - DRM-free titles launch directly via `GAME_EXE_PATH`; no Galaxy bootstrap is required.

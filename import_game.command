@@ -64,8 +64,11 @@ Commands:
   add-exe <path> --name <title> [--slug <id>] [--bottle <name>]
                                 Register an installed .exe as a Cosmos launcher.
   run-installer <file>        Run a Windows .exe/.msi installer in the prefix.
-  add-gog <setup|slug|path> --name <title> [--slug <id>] [--bottle <name>]
-                                Run a GOG offline installer or register an installed game.
+  add-gog <setup|slug|path> --name <title> [--slug <id>] [--bottle <name>] [--build] [--play]
+                                Run a GOG offline installer (silent by default) or register an
+                                installed game. --build also makes the .app launcher; --play
+                                builds then launches the game. Keep the setup .exe and its
+                                -N.bin file(s) together. COSMOS_GOG_WIZARD=1 shows the GUI installer.
   add-itch <folder> --name <title> [--slug <id>]
                                 Find a .exe in an itch.io download folder and register it.
   install-battlenet <setup.exe> [--bottle <name>]
@@ -82,6 +85,7 @@ Examples:
   import_game.command run-installer ~/Downloads/GameSetup.exe
   import_game.command add-exe "drive_c/Games/MyGame/game.exe" --name "My Game"
   import_game.command add-gog ~/Downloads/setup_foo_1.2.3.exe --name "Foo"
+  import_game.command add-gog ~/Downloads/setup_foo_1.2.3.exe --name "Foo" --play   # install + build + play
   import_game.command add-itch ~/Downloads/GameName --name "Game Name"
   import_game.command install-battlenet ~/Downloads/Battle.net-Setup.exe
   import_game.command list-battlenet
@@ -118,11 +122,13 @@ cmd_list() {
 
 cmd_run_installer() {
   local installer="${1:-}"
+  local installer_args="${2:-}"
   [[ -n "${installer}" && -f "${installer}" ]] \
     || die "Usage: import_game.command run-installer <file.exe|.msi>"
   [[ -x "${SCRIPT_DIR}/run.command" ]] || die "run.command not found"
   log "Running installer in ${WINEPREFIX}"
   env COSMOS_BOTTLE="${COSMOS_BOTTLE}" WINEPREFIX="${WINEPREFIX}" COSMOS_SKIP_STEAM=1 \
+    COSMOS_INSTALLER_ARGS="${installer_args}" \
     "${SCRIPT_DIR}/run.command" --run-installer "${installer}"
   echo "Installer finished. Detect the game .exe, then register it:"
   echo "  ./import_game.command find-exe drive_c/GOG\\ Games --name \"Game Title\""
@@ -331,27 +337,88 @@ cmd_sync_gog() {
   printf 'sync_skipped=%s\n' "${skipped}"
 }
 
+# Warn (don't fail) when a multi-part GOG installer's .bin payload is missing —
+# GOG downloads ship setup_<name>_<ver>.exe next to setup_<name>_<ver>-N.bin,
+# and Wine needs them in the same folder.
+gog_warn_missing_bin() {
+  local installer="$1"
+  case "${installer##*/}" in
+    setup_*.exe|setup_*.EXE) ;;
+    *) return 0 ;;
+  esac
+  local stem="${installer%.exe}"; stem="${stem%.EXE}"
+  local b
+  for b in "${stem}"-*.bin; do
+    [[ -f "${b}" ]] && return 0
+  done
+  log "Heads up: no '${stem##*/}-*.bin' next to the installer. If this was a multi-part GOG download, keep the .exe and .bin file(s) together in one folder."
+}
+
+# Build the .app launcher for a config and, when asked, launch the game so the
+# user goes from installer to playing in one command.
+gog_build_and_play() {
+  local conf="$1" name="$2" play="$3"
+  local base="${conf##*/}"
+  if [[ "$(uname -s)" != "Darwin" || ! -x "${SCRIPT_DIR}/install_cosmos.command" ]]; then
+    echo "Skipped launcher build (needs macOS + install_cosmos.command)."
+    echo "Next: ./install_cosmos.command ${base}"
+    return 0
+  fi
+  log "Building launcher via install_cosmos.command"
+  COSMOS_ALLOW_USER_APPS="${COSMOS_ALLOW_USER_APPS:-1}" \
+    "${SCRIPT_DIR}/install_cosmos.command" "${base}"
+
+  local app_name app
+  app_name="$(import_safe_name "${name}") (Cosmos)"
+  for app in \
+    "${COSMOS_APPS_DIR:-}/${app_name}.app" \
+    "/Applications/Cosmos Apps/${app_name}.app" \
+    "${HOME}/Applications/Cosmos Apps/${app_name}.app"; do
+    [[ -n "${app%/*.app}" && -d "${app}" ]] || continue
+    echo "Installed launcher: ${app}"
+    if [[ "${play}" == "1" ]]; then
+      log "Launching ${name}"
+      open "${app}" || die "Could not launch ${app}"
+    else
+      echo "Play it: open \"${app}\""
+    fi
+    return 0
+  done
+  echo "Built launcher for ${name} — open it from your Cosmos Apps folder."
+}
+
 cmd_add_gog() {
   local target="${1:-}"
   shift || true
-  local name="" slug="" bottle=""
+  local name="" slug="" bottle="" build=0 play=0
   while (($#)); do
     case "$1" in
       --name) name="${2:-}"; shift 2 ;;
       --slug) slug="${2:-}"; shift 2 ;;
       --bottle) bottle="${2:-}"; shift 2 ;;
+      --build) build=1; shift ;;
+      --play) build=1; play=1; shift ;;
       *) die "Unknown option: $1" ;;
     esac
   done
   [[ -n "${target}" ]] \
-    || die "Usage: import_game.command add-gog <setup.exe|slug|path> --name <title>"
+    || die "Usage: import_game.command add-gog <setup.exe|slug|path> --name <title> [--build] [--play]"
   [[ -n "${name}" ]] || die "--name is required"
   [[ -n "${bottle}" ]] && COSMOS_BOTTLE="${bottle}" \
     && WINEPREFIX="$("${SCRIPT_DIR}/bottle.command" path "${COSMOS_BOTTLE}" 2>/dev/null || echo "${WINEPREFIX}")"
 
   local exe_path="" exe rel line scan_slug scan_title scan_exe
   if [[ -f "${target}" ]]; then
-    cmd_run_installer "${target}"
+    gog_warn_missing_bin "${target}"
+    # GOG offline installers are Inno Setup: install unattended by default so the
+    # user is not stuck clicking the wizard. Set COSMOS_GOG_WIZARD=1 for the GUI,
+    # or override the flags with COSMOS_GOG_INSTALL_ARGS.
+    local gog_args=""
+    if [[ "${COSMOS_GOG_WIZARD:-0}" != "1" ]]; then
+      gog_args="${COSMOS_GOG_INSTALL_ARGS:-/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /LANG=english}"
+      log "Installing ${name} silently (this can take a few minutes for large games)…"
+    fi
+    cmd_run_installer "${target}" "${gog_args}"
     exe="$(import_find_gog_game_exe "${WINEPREFIX}" "${name}")" \
       || die "Could not find game .exe after GOG install. Run list-gog or register with add-exe."
     exe_path="${exe#${WINEPREFIX}/}"
@@ -376,7 +443,12 @@ cmd_add_gog() {
   log "Wrote ${file}"
   import_refresh_library
   echo "Executable: ${exe_path}"
-  echo "Next: ./install_cosmos.command ${file##*/}"
+
+  if (( build )); then
+    gog_build_and_play "${file}" "${name}" "${play}"
+  else
+    echo "Next: ./install_cosmos.command ${file##*/}   (or re-run add-gog with --play)"
+  fi
 }
 
 cmd_add_itch() {

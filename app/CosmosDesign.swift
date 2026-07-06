@@ -50,10 +50,10 @@ enum DashboardSection: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .launch: return "Quick launch, Steam & Wine, and graphics settings"
-        case .library: return "Launcher library, profiles, and repairs"
-        case .tools: return "Maintenance, imports, and diagnostics"
-        case .bottles: return "Isolated Wine prefixes"
+        case .launch: return "Play your games and adjust settings"
+        case .library: return "Your games, profiles, and fixes"
+        case .tools: return "Add games, run checkups, and cleanup"
+        case .bottles: return "Separate Windows setups for tricky games"
         }
     }
 }
@@ -607,10 +607,13 @@ struct CosmosFilterChip: View {
 /// Horizontal tab bar for post-setup dashboard sections (replaces plain segmented control).
 struct CosmosDashboardTabBar: View {
     @Binding var selection: DashboardSection
+    /// Which tabs to show. Defaults to all; callers can pass a subset to hide
+    /// advanced tabs behind progressive disclosure.
+    var sections: [DashboardSection] = DashboardSection.allCases
 
     var body: some View {
         HStack(spacing: 8) {
-            ForEach(DashboardSection.allCases) { section in
+            ForEach(sections) { section in
                 let isSelected = selection == section
                 Button {
                     withAnimation(.easeOut(duration: 0.15)) {

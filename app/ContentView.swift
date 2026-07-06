@@ -35,6 +35,9 @@ struct ContentView: View {
     @State private var showSetupCompleteBanner = false
     @State private var didCopyOutput = false
     @State private var dashboardSection: DashboardSection = .launch
+    /// Hide the advanced Tools/Bottles tabs until the user opts in, so a
+    /// freshly set-up dashboard shows just Launch + Games.
+    @State private var showAdvancedTabs = false
     @State private var commandBannerQueue = CommandBannerQueue()
     @EnvironmentObject private var appState: CosmosAppState
     @State private var outputWasTrimmed = false
@@ -823,7 +826,11 @@ struct ContentView: View {
                         }
                         dashboardSectionPicker
                         dashboardSectionContent
+                        // Post-setup: collapsed checklist reference (EmptyView once complete).
+                        setupAssistantSection
                     } else {
+                        // New user: lead with the guided setup card and its primary action.
+                        setupAssistantSection
                         setupLaunchHintSection
                         if showAdvancedSetupOptions {
                             steamWineSettingsSection
@@ -832,7 +839,6 @@ struct ContentView: View {
                             newUserMaintenanceSection
                         }
                     }
-                    setupAssistantSection
                     if isSteamReady, let selectedProfile {
                         if isSetupComplete, dashboardSection != .launch {
                             selectedProfileCompactBar(selectedProfile)
@@ -862,19 +868,58 @@ struct ContentView: View {
         }
     }
 
+    /// Advanced tabs show when the user opts in, or whenever an advanced tab is
+    /// the active section (e.g. opened from a menu command or a deep link).
+    private var advancedTabsVisible: Bool {
+        showAdvancedTabs || dashboardSection == .tools || dashboardSection == .bottles
+    }
+
+    private var visibleDashboardSections: [DashboardSection] {
+        advancedTabsVisible ? DashboardSection.allCases : [.launch, .library]
+    }
+
     /// Tab navigation for the post-setup dashboard — one focus area at a time.
     private var dashboardSectionPicker: some View {
         VStack(alignment: .leading, spacing: 10) {
-            CosmosDashboardTabBar(selection: $dashboardSection)
+            HStack(spacing: 8) {
+                CosmosDashboardTabBar(selection: $dashboardSection, sections: visibleDashboardSections)
+                advancedTabsToggle
+            }
 
             HStack(spacing: 8) {
                 Text(dashboardSection.subtitle)
                 Text("·")
-                Text("⌘1–4 to switch")
+                Text(advancedTabsVisible ? "⌘1–4 to switch" : "More shows Tools & advanced options")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+    }
+
+    /// Small chip that reveals or hides the advanced Tools/Bottles tabs.
+    private var advancedTabsToggle: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.15)) {
+                if advancedTabsVisible {
+                    showAdvancedTabs = false
+                    // Don't strand the user on a tab that is about to hide.
+                    if dashboardSection == .tools || dashboardSection == .bottles {
+                        dashboardSection = .launch
+                    }
+                } else {
+                    showAdvancedTabs = true
+                }
+            }
+        } label: {
+            Label(advancedTabsVisible ? "Fewer" : "More",
+                  systemImage: advancedTabsVisible ? "chevron.up" : "chevron.down")
+                .font(.subheadline.weight(.medium))
+                .labelStyle(.titleAndIcon)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .help(advancedTabsVisible ? "Hide advanced tabs" : "Show Tools and Bottles tabs")
+        .accessibilityLabel(advancedTabsVisible ? "Hide advanced tabs" : "Show advanced tabs")
     }
 
     @ViewBuilder
@@ -984,7 +1029,7 @@ struct ContentView: View {
     private var setupPrimaryTitle: String {
         if setupIncludesRosetta && !wineRuntime.rosettaReady { return "Install Rosetta 2" }
         if !cosmosInstalled { return "Install Cosmos" }
-        if !steamSettings.isPrefixInitialized { return "Prepare Steam Bottle" }
+        if !steamSettings.isPrefixInitialized { return "Prepare Steam Environment" }
         if !steamSettings.isSteamInstalled { return "Install Steam" }
         if !hasGameLaunchers { return "Build Game Launchers" }
         return "Refresh Status"
@@ -1045,13 +1090,13 @@ struct ContentView: View {
             return "This profile has no launch path — edit its config file or pick another profile."
         }
         if selectedBottle != nil {
-            return "Bottle selected — adjust backend and launch Steam from the controls below."
+            return "Selected — adjust the graphics mode and launch Steam from the controls below."
         }
         if !cosmosInstalled {
-            return "Install Cosmos first, then prepare the Steam bottle and detect games."
+            return "Install Cosmos first, then set up Steam and find your games."
         }
         if !steamSettings.isPrefixInitialized {
-            return "Prepare the Steam bottle to download Wine and create the prefix, then install Steam."
+            return "Set up Steam — this downloads what's needed and prepares your game environment. Then install Steam."
         }
         if !steamSettings.isSteamInstalled {
             return steamSettings.silentInstallEnabled
@@ -1059,7 +1104,7 @@ struct ContentView: View {
                 : "Run Install Steam to complete the installer wizard, then detect games."
         }
         if !hasGameLaunchers {
-            return "Steam is ready — run Detect Games or Build Launchers to populate saved profiles."
+            return "Steam is ready — find your games or build launchers to fill your library."
         }
         return "Manage Cosmos, launch Steam, and jump into saved game profiles from one place."
     }
@@ -1086,7 +1131,7 @@ struct ContentView: View {
                         Text("First-time setup")
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(Color.cosmosPrimary)
-                        Text("About 10–15 minutes the first time (Wine ~5 min, Steam ~3 min). Each step opens Terminal when needed — complete any prompts there, then press Refresh here.")
+                        Text("About 10–15 minutes the first time — downloads take most of it. Some steps open Terminal to ask for your password; finish any prompts there, then press Refresh here.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1125,7 +1170,7 @@ struct ContentView: View {
                         tint: Color.cosmosWarning,
                         systemImage: "terminal.fill",
                         title: "Terminal steps",
-                        message: "Most setup steps open Terminal for passwords or sudo. If a step fails, use Open Logs below before retrying — then press Refresh (⌘R)."
+                        message: "Most setup steps open Terminal to ask for your Mac password. If a step fails, use Open Logs below before retrying — then press Refresh (⌘R)."
                     )
 
                     setupCompatibilityLookupSection
@@ -1156,22 +1201,22 @@ struct ContentView: View {
                 title: "Install Cosmos",
                 detail: cosmosInstalled
                     ? "Launchers are in /Applications/Cosmos Apps"
-                    : "Wine runtime and Spotlight-friendly launchers",
+                    : "Installs the game runtime and app launchers",
                 estimate: "about 1 min"
             )
             setupStep(
                 done: steamSettings.isPrefixInitialized,
-                title: "Prepare Steam bottle",
+                title: "Prepare Steam environment",
                 detail: steamSettings.isPrefixInitialized
-                    ? "Prefix at \(steamSettings.prefixURL.lastPathComponent)"
-                    : "Wine + graphics backend (DXMT by default)",
+                    ? "Environment ready"
+                    : "Downloads Wine and sets a graphics mode (default is fine)",
                 estimate: "about 5 min"
             )
             setupStep(
                 done: steamSettings.isSteamInstalled,
                 title: "Install Steam",
                 detail: steamSettings.isSteamInstalled
-                    ? "Steam is in the Wine prefix"
+                    ? "Steam is installed"
                     : (steamSettings.silentInstallEnabled
                         ? "Unattended install (wizard fallback if needed)"
                         : "Complete the graphical Steam installer wizard"),
@@ -1313,7 +1358,7 @@ struct ContentView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.cosmosPrimary)
             }
-            Text("Optional: reset bottle, open logs, or run individual tools. Recommended defaults work for most games.")
+            Text("Optional: find games, open the profiles folder, or check logs. The defaults work for most games.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -2366,7 +2411,7 @@ struct ContentView: View {
                     tint: Color.cosmosPrimary,
                     systemImage: "wineglass",
                     title: "Wine not downloaded yet",
-                    message: "Run Prepare Steam bottle to download Wine \(wineRuntime.wineVersion). \(wineRuntime.translationNote)"
+                    message: "Run Prepare Steam Environment to download Wine \(wineRuntime.wineVersion). \(wineRuntime.translationNote)"
                 )
             }
         }
@@ -2391,14 +2436,14 @@ struct ContentView: View {
         CosmosSection(
             title: "Steam & Wine",
             systemImage: "gearshape.2.fill",
-            caption: "Default Steam prefix — backend, Windows version, install behavior, and prefix details."
+            caption: "Graphics mode, Windows version, and how Steam installs."
         ) {
             if let bottle = selectedBottle {
                 CosmosNoticeBanner(
                     tint: Color.cosmosInfo,
                     systemImage: "cylinder.split.1x2.fill",
                     title: "Launches use bottle: \(bottle.name)",
-                    message: "These settings apply to the default Steam prefix. Adjust \(bottle.name) on the Bottles tab, or choose Use Default Bottle from the toolbar bottle chip."
+                    message: "These settings apply to the default Steam setup. Adjust \(bottle.name) on the Bottles tab, or choose Use Default Bottle from the toolbar bottle chip."
                 )
             }
 
@@ -2558,7 +2603,7 @@ struct ContentView: View {
         CosmosSection(
             title: "Performance & Graphics",
             systemImage: "speedometer",
-            caption: "Thread sync, D3D9 (SpockD3D9), D3D12 (GPTK), and advanced DXMT / MoltenVK tuning."
+            caption: "Fine-tune graphics and speed. The defaults work for most games."
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 DisclosureGroup(isExpanded: $showD3D9Guidance) {
@@ -3972,7 +4017,7 @@ struct ContentView: View {
         CosmosSection(
             title: "Bottles",
             systemImage: "cylinder.split.1x2.fill",
-            caption: "Isolated Wine prefixes with their own graphics backend, Windows version, and sync settings."
+            caption: "Separate Windows setups, each with its own graphics mode, Windows version, and sync settings."
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
