@@ -1,0 +1,28 @@
+# DRAFT — UNTESTED. Modeled on gog-fallout-new-vegas.yaml (the D3D9 reference).
+# The exe_path/backend below are the standard GOG layout for this title but have
+# NOT been verified on a real install. After installing:
+#   ./import_game.command add-gog <installer.exe> --name "Dragonshard"
+# confirm the detected exe, then validate & promote:
+#   ./profile.command validate profiles/gog/gog-dragonshard.yaml
+id: dragonshard
+name: "Dragonshard"
+store: gog
+gog_slug: dragonshard
+status: bronze
+recommended_backend: dxmt
+wine_version: cosmos-stable
+exe_path: drive_c/GOG Games/Dragonshard/Dragonshard.exe
+settings:
+  retina: false
+  windows_version: win7
+dependencies:
+  - d3dx9
+anti_cheat: none
+notes: >
+  Dungeons & Dragons: Dragonshard (2005, Atari) — DirectX 9 RTS from the GOG
+  offline installer; installs to drive_c/GOG Games/Dragonshard/. UNTESTED draft
+  modeled on the Fallout: New Vegas D3D9 profile. Backend: try dxmt first; for a
+  pure-D3D9 title spockd3d9 (experimental) is the fallback. It is an older
+  engine, so win7 is the starting Windows version — drop to winxp if the intro
+  videos or menus misbehave. GameSpy-era multiplayer is defunct; treat as
+  single-player. GOG Galaxy is not required.
