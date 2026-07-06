@@ -282,7 +282,15 @@ main() {
     config_paths+=("${config_path}")
   done < <(collect_config_paths "$@")
 
-  (( ${#config_paths[@]} > 0 )) || die "No configs selected"
+  if (( ${#config_paths[@]} == 0 )); then
+    if (( $# > 0 )); then
+      die "No configs selected"
+    fi
+    die "No games are set up yet, so there is nothing to install.
+  Launch Steam via Cosmos and install a game first, then run detection to
+  generate its config (detect_steam_games.command), and install again.
+  (Only templates/defaults were found in ${CONFIGS_DIR}.)"
+  fi
 
   temp_root="$(mktemp -d /tmp/cosmos-apps.XXXXXX)"
   output_dir="${temp_root}/Cosmos Apps"
