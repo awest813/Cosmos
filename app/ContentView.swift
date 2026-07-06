@@ -35,6 +35,9 @@ struct ContentView: View {
     @State private var showSetupCompleteBanner = false
     @State private var didCopyOutput = false
     @State private var dashboardSection: DashboardSection = .launch
+    /// Hide the advanced Tools/Bottles tabs until the user opts in, so a
+    /// freshly set-up dashboard shows just Launch + Games.
+    @State private var showAdvancedTabs = false
     @State private var commandBannerQueue = CommandBannerQueue()
     @EnvironmentObject private var appState: CosmosAppState
     @State private var outputWasTrimmed = false
@@ -823,7 +826,11 @@ struct ContentView: View {
                         }
                         dashboardSectionPicker
                         dashboardSectionContent
+                        // Post-setup: collapsed checklist reference (EmptyView once complete).
+                        setupAssistantSection
                     } else {
+                        // New user: lead with the guided setup card and its primary action.
+                        setupAssistantSection
                         setupLaunchHintSection
                         if showAdvancedSetupOptions {
                             steamWineSettingsSection
@@ -832,7 +839,6 @@ struct ContentView: View {
                             newUserMaintenanceSection
                         }
                     }
-                    setupAssistantSection
                     if isSteamReady, let selectedProfile {
                         if isSetupComplete, dashboardSection != .launch {
                             selectedProfileCompactBar(selectedProfile)
@@ -862,19 +868,58 @@ struct ContentView: View {
         }
     }
 
+    /// Advanced tabs show when the user opts in, or whenever an advanced tab is
+    /// the active section (e.g. opened from a menu command or a deep link).
+    private var advancedTabsVisible: Bool {
+        showAdvancedTabs || dashboardSection == .tools || dashboardSection == .bottles
+    }
+
+    private var visibleDashboardSections: [DashboardSection] {
+        advancedTabsVisible ? DashboardSection.allCases : [.launch, .library]
+    }
+
     /// Tab navigation for the post-setup dashboard — one focus area at a time.
     private var dashboardSectionPicker: some View {
         VStack(alignment: .leading, spacing: 10) {
-            CosmosDashboardTabBar(selection: $dashboardSection)
+            HStack(spacing: 8) {
+                CosmosDashboardTabBar(selection: $dashboardSection, sections: visibleDashboardSections)
+                advancedTabsToggle
+            }
 
             HStack(spacing: 8) {
                 Text(dashboardSection.subtitle)
                 Text("·")
-                Text("⌘1–4 to switch")
+                Text(advancedTabsVisible ? "⌘1–4 to switch" : "More shows Tools & advanced options")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+    }
+
+    /// Small chip that reveals or hides the advanced Tools/Bottles tabs.
+    private var advancedTabsToggle: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.15)) {
+                if advancedTabsVisible {
+                    showAdvancedTabs = false
+                    // Don't strand the user on a tab that is about to hide.
+                    if dashboardSection == .tools || dashboardSection == .bottles {
+                        dashboardSection = .launch
+                    }
+                } else {
+                    showAdvancedTabs = true
+                }
+            }
+        } label: {
+            Label(advancedTabsVisible ? "Fewer" : "More",
+                  systemImage: advancedTabsVisible ? "chevron.up" : "chevron.down")
+                .font(.subheadline.weight(.medium))
+                .labelStyle(.titleAndIcon)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .help(advancedTabsVisible ? "Hide advanced tabs" : "Show Tools and Bottles tabs")
+        .accessibilityLabel(advancedTabsVisible ? "Hide advanced tabs" : "Show advanced tabs")
     }
 
     @ViewBuilder
