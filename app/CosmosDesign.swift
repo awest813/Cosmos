@@ -50,10 +50,10 @@ enum DashboardSection: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .launch: return "Quick launch, Steam & Wine, and graphics settings"
-        case .library: return "Launcher library, profiles, and repairs"
-        case .tools: return "Maintenance, imports, and diagnostics"
-        case .bottles: return "Isolated Wine prefixes"
+        case .launch: return "Play your games and adjust settings"
+        case .library: return "Your games, profiles, and fixes"
+        case .tools: return "Add games, run checkups, and cleanup"
+        case .bottles: return "Separate Windows setups for tricky games"
         }
     }
 }

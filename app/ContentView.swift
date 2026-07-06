@@ -1045,13 +1045,13 @@ struct ContentView: View {
             return "This profile has no launch path — edit its config file or pick another profile."
         }
         if selectedBottle != nil {
-            return "Bottle selected — adjust backend and launch Steam from the controls below."
+            return "Selected — adjust the graphics mode and launch Steam from the controls below."
         }
         if !cosmosInstalled {
-            return "Install Cosmos first, then prepare the Steam bottle and detect games."
+            return "Install Cosmos first, then set up Steam and find your games."
         }
         if !steamSettings.isPrefixInitialized {
-            return "Prepare the Steam bottle to download Wine and create the prefix, then install Steam."
+            return "Set up Steam — this downloads what's needed and prepares your game environment. Then install Steam."
         }
         if !steamSettings.isSteamInstalled {
             return steamSettings.silentInstallEnabled
@@ -1059,7 +1059,7 @@ struct ContentView: View {
                 : "Run Install Steam to complete the installer wizard, then detect games."
         }
         if !hasGameLaunchers {
-            return "Steam is ready — run Detect Games or Build Launchers to populate saved profiles."
+            return "Steam is ready — find your games or build launchers to fill your library."
         }
         return "Manage Cosmos, launch Steam, and jump into saved game profiles from one place."
     }
@@ -1086,7 +1086,7 @@ struct ContentView: View {
                         Text("First-time setup")
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(Color.cosmosPrimary)
-                        Text("About 10–15 minutes the first time (Wine ~5 min, Steam ~3 min). Each step opens Terminal when needed — complete any prompts there, then press Refresh here.")
+                        Text("About 10–15 minutes the first time — downloads take most of it. Some steps open Terminal to ask for your password; finish any prompts there, then press Refresh here.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1156,22 +1156,22 @@ struct ContentView: View {
                 title: "Install Cosmos",
                 detail: cosmosInstalled
                     ? "Launchers are in /Applications/Cosmos Apps"
-                    : "Wine runtime and Spotlight-friendly launchers",
+                    : "Installs the game runtime and app launchers",
                 estimate: "about 1 min"
             )
             setupStep(
                 done: steamSettings.isPrefixInitialized,
-                title: "Prepare Steam bottle",
+                title: "Prepare Steam environment",
                 detail: steamSettings.isPrefixInitialized
-                    ? "Prefix at \(steamSettings.prefixURL.lastPathComponent)"
-                    : "Wine + graphics backend (DXMT by default)",
+                    ? "Environment ready"
+                    : "Downloads Wine and sets a graphics mode (default is fine)",
                 estimate: "about 5 min"
             )
             setupStep(
                 done: steamSettings.isSteamInstalled,
                 title: "Install Steam",
                 detail: steamSettings.isSteamInstalled
-                    ? "Steam is in the Wine prefix"
+                    ? "Steam is installed"
                     : (steamSettings.silentInstallEnabled
                         ? "Unattended install (wizard fallback if needed)"
                         : "Complete the graphical Steam installer wizard"),
@@ -1313,7 +1313,7 @@ struct ContentView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.cosmosPrimary)
             }
-            Text("Optional: reset bottle, open logs, or run individual tools. Recommended defaults work for most games.")
+            Text("Optional: find games, open the profiles folder, or check logs. The defaults work for most games.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
