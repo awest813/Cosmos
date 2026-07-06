@@ -1029,7 +1029,7 @@ struct ContentView: View {
     private var setupPrimaryTitle: String {
         if setupIncludesRosetta && !wineRuntime.rosettaReady { return "Install Rosetta 2" }
         if !cosmosInstalled { return "Install Cosmos" }
-        if !steamSettings.isPrefixInitialized { return "Prepare Steam Bottle" }
+        if !steamSettings.isPrefixInitialized { return "Prepare Steam Environment" }
         if !steamSettings.isSteamInstalled { return "Install Steam" }
         if !hasGameLaunchers { return "Build Game Launchers" }
         return "Refresh Status"
@@ -1170,7 +1170,7 @@ struct ContentView: View {
                         tint: Color.cosmosWarning,
                         systemImage: "terminal.fill",
                         title: "Terminal steps",
-                        message: "Most setup steps open Terminal for passwords or sudo. If a step fails, use Open Logs below before retrying — then press Refresh (⌘R)."
+                        message: "Most setup steps open Terminal to ask for your Mac password. If a step fails, use Open Logs below before retrying — then press Refresh (⌘R)."
                     )
 
                     setupCompatibilityLookupSection
@@ -2411,7 +2411,7 @@ struct ContentView: View {
                     tint: Color.cosmosPrimary,
                     systemImage: "wineglass",
                     title: "Wine not downloaded yet",
-                    message: "Run Prepare Steam bottle to download Wine \(wineRuntime.wineVersion). \(wineRuntime.translationNote)"
+                    message: "Run Prepare Steam Environment to download Wine \(wineRuntime.wineVersion). \(wineRuntime.translationNote)"
                 )
             }
         }
@@ -2436,14 +2436,14 @@ struct ContentView: View {
         CosmosSection(
             title: "Steam & Wine",
             systemImage: "gearshape.2.fill",
-            caption: "Default Steam prefix — backend, Windows version, install behavior, and prefix details."
+            caption: "Graphics mode, Windows version, and how Steam installs."
         ) {
             if let bottle = selectedBottle {
                 CosmosNoticeBanner(
                     tint: Color.cosmosInfo,
                     systemImage: "cylinder.split.1x2.fill",
                     title: "Launches use bottle: \(bottle.name)",
-                    message: "These settings apply to the default Steam prefix. Adjust \(bottle.name) on the Bottles tab, or choose Use Default Bottle from the toolbar bottle chip."
+                    message: "These settings apply to the default Steam setup. Adjust \(bottle.name) on the Bottles tab, or choose Use Default Bottle from the toolbar bottle chip."
                 )
             }
 
@@ -2603,7 +2603,7 @@ struct ContentView: View {
         CosmosSection(
             title: "Performance & Graphics",
             systemImage: "speedometer",
-            caption: "Thread sync, D3D9 (SpockD3D9), D3D12 (GPTK), and advanced DXMT / MoltenVK tuning."
+            caption: "Fine-tune graphics and speed. The defaults work for most games."
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 DisclosureGroup(isExpanded: $showD3D9Guidance) {
@@ -4017,7 +4017,7 @@ struct ContentView: View {
         CosmosSection(
             title: "Bottles",
             systemImage: "cylinder.split.1x2.fill",
-            caption: "Isolated Wine prefixes with their own graphics backend, Windows version, and sync settings."
+            caption: "Separate Windows setups, each with its own graphics mode, Windows version, and sync settings."
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
