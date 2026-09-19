@@ -2,6 +2,7 @@ import Foundation
 
 /// Cross-view notifications for the menu bar and dashboard chrome.
 extension Notification.Name {
+    static let cosmosOpenDownloads = Notification.Name("com.cosmos.openDownloads")
     static let cosmosRefreshStatus = Notification.Name("com.cosmos.refreshStatus")
     static let cosmosContinueSetup = Notification.Name("com.cosmos.continueSetup")
     static let cosmosOpenSetupHelp = Notification.Name("com.cosmos.openSetupHelp")

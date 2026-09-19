@@ -58,7 +58,8 @@ struct SpockD3D9ValidationResult: Equatable {
         if !x86Dll.isEmpty { parts.append("32-bit") }
         if !x64Dll.isEmpty { parts.append("64-bit") }
         let archLabel = parts.isEmpty ? "\(dllCount) DLL(s)" : parts.joined(separator: " + ")
-        return "Found \(archLabel) in \(path)"
+        let missing = x86Dll.isEmpty ? " Missing 32-bit DLL; 32-bit games cannot use this build." : (x64Dll.isEmpty ? " Missing 64-bit DLL; 64-bit games cannot use this build." : "")
+        return "Validated \(archLabel) DLL files.\(missing) Game compatibility is untested."
     }
 }
 

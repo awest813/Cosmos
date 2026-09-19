@@ -42,6 +42,9 @@ UNIT_TESTS=(
   scripts/test_protonfix_port_hint.sh
   scripts/test_import_lib.sh
   scripts/test_library_lib.sh
+  scripts/test_command_runner.sh
+  scripts/test_component_downloads.sh
+  scripts/test_profile_launch_paths.sh
   scripts/test_launch_recovery.sh
   scripts/test_compat_preflight.sh
   scripts/test_rosetta_lib.sh
@@ -62,6 +65,8 @@ for t in "${UNIT_TESTS[@]}"; do
 done
 
 if command -v python3 >/dev/null 2>&1; then
+  log "Game test preflight"
+  python3 scripts/test_game_test_preflight.py
   log "VDF python cross-check"
   pip install -q vdf 2>/dev/null || pip install vdf
   ./scripts/verify_vdf_python.sh

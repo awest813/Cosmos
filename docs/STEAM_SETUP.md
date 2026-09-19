@@ -280,3 +280,26 @@ For the default Steam bottle, leave `COSMOS_BOTTLE` unset.
 - [README_DEV.md](../README_DEV.md) — environment variables and script reference
 - [ROADMAP.md](ROADMAP.md) — milestone status
 - [BACKENDS.md](BACKENDS.md) — graphics backend selection
+
+## Download components from Cosmos
+
+Open **Downloads** in the toolbar or **Settings → Downloads**. This is available
+before Steam setup is complete.
+
+- **Wine + DXMT** downloads the recommended starting components together.
+- Wine, DXMT, MoltenVK, and DXVK + MoltenVK can also be downloaded separately.
+- **SpockD3D9 → Install Tools & Build** uses an existing Homebrew installation
+  to install Meson, Ninja, MinGW-w64, and glslang, then downloads Spock source and
+  builds Windows DLLs for both architectures. Use **Get Homebrew** first if needed.
+  This is an experimental build, not a promise that a game will work. Download
+  MoltenVK too, then select the validated Spock path in Graphics settings.
+- **Choose Existing DLLs** supports a Spock build you already have.
+- Apple Game Porting Toolkit opens Apple's download page; choose the extracted
+  toolkit afterward.
+
+Downloads show progress and keep activity details for troubleshooting. Closing
+the Downloads window leaves the operation running; keep Cosmos open until it
+finishes. Downloading components does not create a Windows environment, open
+Steam, or switch a game's graphics backend. Continue the setup steps afterward.
+Existing components are reused. Downloads use the runtime versions configured
+by Cosmos rather than automatically upgrading to the newest upstream release.

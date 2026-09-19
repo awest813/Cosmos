@@ -37,11 +37,11 @@ struct AddGameProfileSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
-                Text("Add Game Profile")
+                Text("Add Game Preset")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(CosmosGradients.heroTitle)
 
-                Text("Create a YAML compatibility recipe in your personal library. Steam drafts use community hints; GOG profiles use a starter template you can edit after saving.")
+                Text("Save settings and fixes for a game. Steam drafts use community compatibility hints; GOG presets start with a template you can customize.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -94,7 +94,7 @@ struct AddGameProfileSheet: View {
 
                 if !previewYAML.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Preview")
+                        Text("Preset Details (YAML)")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         ScrollView {
@@ -113,7 +113,7 @@ struct AddGameProfileSheet: View {
                     if isGenerating || isSaving {
                         ProgressView()
                             .controlSize(.small)
-                        Text(isGenerating ? "Generating draft…" : "Saving profile…")
+                        Text(isGenerating ? "Generating draft…" : "Saving preset…")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -125,7 +125,7 @@ struct AddGameProfileSheet: View {
                         generateDraft()
                     }
                     .disabled(isGenerating || isSaving)
-                    Button("Save Profile") {
+                    Button("Save Preset") {
                         saveProfile()
                     }
                     .buttonStyle(.borderedProminent)

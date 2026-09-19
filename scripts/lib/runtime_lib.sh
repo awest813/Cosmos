@@ -138,18 +138,29 @@ runtime_prepare_moltenvk_env() {
 
   local root="${COSMOS_RUNTIME_DIR:-$(runtime_default_dir)}"
   local subdir
-  subdir="$(runtime_subdir_expand "${RUNTIME_MVK_SUBDIR:-MoltenVK-{version}}" "${ver}")"
+  local template="${RUNTIME_MVK_SUBDIR:-}"
+  [[ -n "${template}" ]] || template='MoltenVK-{version}'
+  subdir="$(runtime_subdir_expand "${template}" "${ver}")"
   local dest="${root}/${subdir}"
 
-  if [[ ! -f "${dest}/lib/libMoltenVK.dylib" && ! -f "${dest}/MoltenVK/dylib/libMoltenVK.dylib" ]]; then
+  if ! find "${dest}" -name 'libMoltenVK.dylib' -type f 2>/dev/null | grep -q . ||
+     ! runtime_find_icd_json "${dest}" >/dev/null; then
     mkdir -p "${root}"
     local tmp
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/cosmos-mvk.XXXXXX")"
     echo "Downloading MoltenVK ${ver}..."
-    curl -fsSL --retry 3 "${url}" -o "${tmp}/moltenvk.tar"
+    mkdir -p "${tmp}/payload" || return 1
+    if ! curl -fsSL --retry 3 "${url}" -o "${tmp}/moltenvk.tar" ||
+       ! tar xf "${tmp}/moltenvk.tar" -C "${tmp}/payload" ||
+       ! find "${tmp}/payload" -name 'libMoltenVK.dylib' -type f | grep -q . ||
+       ! runtime_find_icd_json "${tmp}/payload" >/dev/null; then
+      rm -rf "${tmp}"
+      echo "Error: MoltenVK download is incomplete. Check your connection and retry." >&2
+      return 1
+    fi
     rm -rf "${dest}"
-    mkdir -p "${dest}"
-    tar xf "${tmp}/moltenvk.tar" -C "${dest}"
+    mkdir -p "${dest}" || return 1
+    cp -R "${tmp}/payload/." "${dest}/" || return 1
     rm -rf "${tmp}"
   fi
 
@@ -172,7 +183,9 @@ runtime_prepare_dxvk_path() {
 
   local root="${COSMOS_RUNTIME_DIR:-$(runtime_default_dir)}"
   local subdir
-  subdir="$(runtime_subdir_expand "${RUNTIME_DXVK_SUBDIR:-dxvk-macOS-{version}}" "${ver}")"
+  local template="${RUNTIME_DXVK_SUBDIR:-}"
+  [[ -n "${template}" ]] || template='dxvk-macOS-{version}'
+  subdir="$(runtime_subdir_expand "${template}" "${ver}")"
   local dest="${root}/${subdir}"
 
   if [[ ! -d "${dest}" ]] || ! find "${dest}" -name 'd3d11.dll' 2>/dev/null | grep -q .; then
@@ -180,10 +193,17 @@ runtime_prepare_dxvk_path() {
     local tmp
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/cosmos-dxvk.XXXXXX")"
     echo "Downloading DXVK-macOS ${ver}..."
-    curl -fsSL --retry 3 "${url}" -o "${tmp}/dxvk.tar.gz"
+    mkdir -p "${tmp}/payload" || return 1
+    if ! curl -fsSL --retry 3 "${url}" -o "${tmp}/dxvk.tar.gz" ||
+       ! tar xzf "${tmp}/dxvk.tar.gz" -C "${tmp}/payload" ||
+       ! find "${tmp}/payload" -name 'd3d11.dll' -type f | grep -q .; then
+      rm -rf "${tmp}"
+      echo "Error: DXVK download is incomplete. Check your connection and retry." >&2
+      return 1
+    fi
     rm -rf "${dest}"
-    mkdir -p "${dest}"
-    tar xzf "${tmp}/dxvk.tar.gz" -C "${dest}"
+    mkdir -p "${dest}" || return 1
+    cp -R "${tmp}/payload/." "${dest}/" || return 1
     rm -rf "${tmp}"
   fi
 

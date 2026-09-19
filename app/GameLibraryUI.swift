@@ -170,61 +170,79 @@ struct GameLibraryToolbar: View {
     }
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                searchField.frame(minWidth: 180, maxWidth: 320)
+                libraryControls
+                syncControls
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                searchField
+                HStack(spacing: 12) {
+                    libraryControls
+                    syncControls
+                }
+            }
+        }
+    }
+
+    private var searchField: some View {
+        CosmosSearchField(placeholder: "Search library", text: $searchText)
+    }
+
+    @ViewBuilder
+    private var libraryControls: some View {
+        Picker("View", selection: $viewMode) {
+            ForEach(GameLibraryViewMode.allCases) { mode in
+                Label(mode.label, systemImage: mode.systemImage)
+                    .tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: 120)
+        .accessibilityLabel("Library view mode")
+
+        Menu {
+            Picker("Source", selection: $sourceFilter) {
+                ForEach(GameLibrarySourceFilter.allCases) { filter in
+                    Text(filter.label).tag(filter)
+                }
+            }
+        } label: {
+            Label(sourceFilter.label, systemImage: "line.3.horizontal.decrease.circle")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Filter library by store source")
+
+        Menu {
+            Button(action: onAddProfile) {
+                Label("Add Game Preset…", systemImage: "doc.badge.plus")
+            }
+            Button(action: onOpenImport) {
+                Label("Import Non-Steam Game…", systemImage: "plus.rectangle.on.folder")
+            }
+            Divider()
+            Button(action: onListGog) {
+                Label("List GOG Games", systemImage: "opticaldisc.fill")
+            }
+            Button(action: onVerifySteam) {
+                Label("Verify Steam Library", systemImage: "checkmark.shield")
+            }
+        } label: {
+            Label("Add & Import", systemImage: "plus")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(isRunning)
+        .help("Add a game preset, import games, or check installed games")
+
+    }
+
+    private var syncControls: some View {
         HStack(spacing: 12) {
-            CosmosSearchField(placeholder: "Search library", text: $searchText, disabled: isRunning)
-                .frame(maxWidth: 320)
-                .accessibilityLabel("Search game library")
-
-            Picker("View", selection: $viewMode) {
-                ForEach(GameLibraryViewMode.allCases) { mode in
-                    Label(mode.label, systemImage: mode.systemImage)
-                        .tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: 120)
-            .disabled(isRunning)
-            .accessibilityLabel("Library view mode")
-
-            Menu {
-                Picker("Source", selection: $sourceFilter) {
-                    ForEach(GameLibrarySourceFilter.allCases) { filter in
-                        Text(filter.label).tag(filter)
-                    }
-                }
-            } label: {
-                Label(sourceFilter.label, systemImage: "line.3.horizontal.decrease.circle")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .disabled(isRunning)
-            .help("Filter library by store source")
-
-            Menu {
-                Button(action: onAddProfile) {
-                    Label("Add Game Profile…", systemImage: "doc.badge.plus")
-                }
-                Button(action: onOpenImport) {
-                    Label("Import Non-Steam Game…", systemImage: "plus.rectangle.on.folder")
-                }
-                Divider()
-                Button(action: onListGog) {
-                    Label("List GOG Games", systemImage: "opticaldisc.fill")
-                }
-                Button(action: onVerifySteam) {
-                    Label("Verify Steam Library", systemImage: "checkmark.shield")
-                }
-            } label: {
-                Label("Add & Import", systemImage: "plus")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .disabled(isRunning)
-            .help("Add YAML profiles, import games, and run detection")
-
             Spacer(minLength: 0)
-
             if pendingTotal > 0 {
                 StatusChip(
                     label: "\(pendingTotal) pending",
@@ -232,7 +250,6 @@ struct GameLibraryToolbar: View {
                     tint: Color.cosmosWarning
                 )
             }
-
             syncMenu
         }
     }
@@ -243,35 +260,35 @@ struct GameLibraryToolbar: View {
             Menu {
                 Button(action: onSyncSteam) {
                     Label(
-                        "Sync \(pendingNewSteamGames) Steam game\(pendingNewSteamGames == 1 ? "" : "s")",
+                        "Add \(pendingNewSteamGames) Steam game\(pendingNewSteamGames == 1 ? "" : "s")",
                         systemImage: "arrow.triangle.2.circlepath"
                     )
                 }
                 Button(action: onSyncGog) {
                     Label(
-                        "Register \(pendingUnregisteredGogGames) GOG game\(pendingUnregisteredGogGames == 1 ? "" : "s")",
+                        "Add \(pendingUnregisteredGogGames) GOG game\(pendingUnregisteredGogGames == 1 ? "" : "s")",
                         systemImage: "opticaldisc.fill"
                     )
                 }
                 Button(action: onRegisterGogBuild) {
-                    Label("Register GOG + Build", systemImage: "hammer.fill")
+                    Label("Add GOG Games & Dock Shortcuts", systemImage: "hammer.fill")
                 }
                 Divider()
                 Button(action: onSyncAll) {
-                    Label("Sync all (Steam, then GOG)", systemImage: "arrow.triangle.2.circlepath.circle")
+                    Label("Add All New Games (Steam, then GOG)", systemImage: "arrow.triangle.2.circlepath.circle")
                 }
             } label: {
-                Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+                Label("Add New Games", systemImage: "arrow.triangle.2.circlepath")
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
             .disabled(isRunning)
-            .help("Sync Steam and register GOG games")
+            .help("Add new Steam games with Dock shortcuts, and add GOG games to Cosmos")
         } else if pendingNewSteamGames > 0 {
             Button {
                 onSyncSteam()
             } label: {
-                Label("Sync Steam", systemImage: "arrow.triangle.2.circlepath")
+                Label("Add Steam Games", systemImage: "arrow.triangle.2.circlepath")
             }
             .buttonStyle(.borderedProminent)
             .disabled(isRunning)
@@ -279,7 +296,7 @@ struct GameLibraryToolbar: View {
             Button {
                 onSyncGog()
             } label: {
-                Label("Register GOG", systemImage: "opticaldisc.fill")
+                Label("Add GOG Games", systemImage: "opticaldisc.fill")
             }
             .buttonStyle(.borderedProminent)
             .disabled(isRunning)
@@ -287,11 +304,11 @@ struct GameLibraryToolbar: View {
             Button {
                 onSyncSteam()
             } label: {
-                Label("Sync Library", systemImage: "arrow.triangle.2.circlepath")
+                Label("Find Installed Games", systemImage: "arrow.triangle.2.circlepath")
             }
             .buttonStyle(.bordered)
             .disabled(isRunning)
-            .help("Check for newly installed Steam games and build launchers")
+            .help("Find installed Steam games, add them to Cosmos, and create Dock shortcuts")
         }
     }
 }
@@ -389,7 +406,7 @@ struct GameLibraryBlankSlate: View {
         case .setupIncomplete:
             return "Finish setup first"
         case .launchersNeeded:
-            return "Build launchers to populate the library"
+            return "Add your first game"
         case .newSteamGames(let count):
             return "\(count) new Steam game\(count == 1 ? "" : "s")"
         case .unregisteredGog(let count):
@@ -406,15 +423,15 @@ struct GameLibraryBlankSlate: View {
     private var message: String {
         switch kind {
         case .setupIncomplete:
-            return "Complete the setup checklist on the Launch tab, then return here to build launchers."
+            return "Complete the setup checklist on the Launch tab, then return here to add games."
         case .launchersNeeded:
-            return "Steam is ready. Install a Windows game in Steam, then detect or build launchers to create saved entries and Dock apps."
+            return "Open Steam and install a Windows game. Then choose Find Installed Games to add it to Cosmos and create a Dock shortcut."
         case .newSteamGames:
-            return "New Steam installs were detected. Sync Steam library to create launcher configs and Dock apps."
+            return "New Steam games are installed. Add them to Cosmos and create Dock shortcuts."
         case .unregisteredGog:
-            return "GOG games are on disk but not registered as Cosmos launchers yet."
+            return "GOG games are installed. Add them to Cosmos, with optional Dock shortcuts."
         case .emptyReady:
-            return "Install a Windows game in Steam or import a GOG folder, then detect or sync to fill this view."
+            return "Install a Windows game in Steam, then choose Find Installed Games. You can also import a game from another store."
         case .searchEmpty(let query):
             return "No saved launcher matches “\(query)”."
         case .filterEmpty(let filter):
@@ -428,23 +445,23 @@ struct GameLibraryBlankSlate: View {
             return [SlateAction(title: "Continue Setup", prominent: true, handler: onContinueSetup)]
         case .launchersNeeded:
             return [
-                SlateAction(title: "Build Launchers", prominent: true, handler: onBuildLaunchers),
-                SlateAction(title: "Detect Games", prominent: false, handler: onDetectGames),
+                SlateAction(title: "Open Steam to Install a Game", prominent: true, handler: onLaunchSteam),
+                SlateAction(title: "Find Installed Games", prominent: false, handler: onBuildLaunchers),
             ]
         case .newSteamGames:
             return [
-                SlateAction(title: "Sync Steam Library", prominent: true, handler: onSyncSteam),
-                SlateAction(title: "Build All", prominent: false, handler: onBuildLaunchers),
+                SlateAction(title: "Add Steam Games", prominent: true, handler: onSyncSteam),
+                SlateAction(title: "Rebuild Dock Shortcuts", prominent: false, handler: onBuildLaunchers),
             ]
         case .unregisteredGog:
             return [
-                SlateAction(title: "Register All", prominent: true, handler: onSyncGog),
-                SlateAction(title: "Register + Build", prominent: false, handler: onRegisterGogBuild),
+                SlateAction(title: "Add to Cosmos", prominent: true, handler: onSyncGog),
+                SlateAction(title: "Add with Dock Shortcuts", prominent: false, handler: onRegisterGogBuild),
             ]
         case .emptyReady:
             return [
                 SlateAction(title: "Launch Steam", prominent: true, handler: onLaunchSteam),
-                SlateAction(title: "Build Launchers", prominent: false, handler: onBuildLaunchers),
+                SlateAction(title: "Find Installed Games", prominent: false, handler: onBuildLaunchers),
             ]
         case .searchEmpty:
             return [SlateAction(title: "Clear Search", prominent: true, handler: onClearSearch)]
@@ -468,6 +485,7 @@ struct GameLibraryPendingBanner: View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: kind.systemImage)
                 .foregroundStyle(kind.tint)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(kind.title)
                     .font(.subheadline.weight(.semibold))
@@ -475,10 +493,12 @@ struct GameLibraryPendingBanner: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
             Spacer(minLength: 0)
             Button(kind.actionTitle, action: onAction)
                 .buttonStyle(.borderedProminent)
                 .disabled(isRunning)
+                .accessibilityLabel("\(kind.actionTitle): \(kind.title)")
         }
         .padding(14)
         .background(kind.tint.opacity(0.08), in: RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius))
@@ -486,8 +506,7 @@ struct GameLibraryPendingBanner: View {
             RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
                 .strokeBorder(kind.tint.opacity(0.2), lineWidth: 1)
         )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(kind.title). \(kind.message)")
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -518,16 +537,16 @@ private extension GameLibraryPendingBanner.Kind {
     var message: String {
         switch self {
         case .steam:
-            return "Sync to add launchers for newly installed titles."
+            return "Add these games to Cosmos and create Dock shortcuts."
         case .gog:
-            return "Register detected GOG installs as launcher configs."
+            return "Add these games to Cosmos. Use Library → Add GOG Games & Dock Shortcuts to create Dock shortcuts too."
         }
     }
 
     var actionTitle: String {
         switch self {
-        case .steam: return "Sync"
-        case .gog: return "Register"
+        case .steam: return "Add Games"
+        case .gog: return "Add Games"
         }
     }
 }
@@ -542,9 +561,7 @@ struct GameLibraryTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: profile.libraryStore.systemImage)
-                    .font(.title2)
-                    .foregroundStyle(Color.cosmosPrimary)
+                CosmosGameIdentity(name: profile.name, size: 48)
                 Spacer()
                 if let compatStatus {
                     CosmosCompatBadge(status: compatStatus, compact: true)
@@ -573,10 +590,7 @@ struct GameLibraryListRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: profile.libraryStore.systemImage)
-                .font(.title3)
-                .foregroundStyle(Color.cosmosPrimary)
-                .frame(width: 28)
+            CosmosGameIdentity(name: profile.name, size: 36)
             VStack(alignment: .leading, spacing: 2) {
                 Text(profile.name)
                     .font(.subheadline.weight(.semibold))
@@ -625,6 +639,7 @@ private extension SavedProfile {
 // MARK: - Section container
 
 struct GameLibrarySection: View {
+    @State private var favoritesOnly = false
     let profiles: [SavedProfile]
     @Binding var searchText: String
     @Binding var viewMode: GameLibraryViewMode
@@ -657,6 +672,7 @@ struct GameLibrarySection: View {
 
     private var filteredProfiles: [SavedProfile] {
         GameLibraryFilter.filter(profiles, query: searchText, source: sourceFilter)
+            .filter { !favoritesOnly || isFavorite($0) }
     }
 
     private var blankSlate: GameLibraryBlankSlateKind? {
@@ -676,7 +692,7 @@ struct GameLibrarySection: View {
         CosmosSection(
             title: "Game Library",
             systemImage: "square.grid.2x2.fill",
-            caption: "Browse saved launchers — double-click a tile to launch, or use Launch on the sidebar."
+            caption: "Your games — double-click a tile to play, or use Launch in the sidebar."
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 GameLibraryToolbar(
@@ -696,7 +712,29 @@ struct GameLibrarySection: View {
                     onAddProfile: onAddProfile
                 )
 
-                if let blankSlate {
+                HStack(spacing: 12) {
+                    Text("\(filteredProfiles.count) of \(profiles.count) games")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Toggle(isOn: $favoritesOnly) {
+                        Label("Favorites", systemImage: favoritesOnly ? "star.fill" : "star")
+                    }
+                    .toggleStyle(.button)
+                    .controlSize(.small)
+                    if favoritesOnly || !searchText.isEmpty || sourceFilter != .all {
+                        Button("Clear Filters", action: clearFilters)
+                            .controlSize(.small)
+                    }
+                }
+                if !profiles.isEmpty && filteredProfiles.isEmpty {
+                    CosmosEmptyState(
+                        systemImage: favoritesOnly ? "star" : "magnifyingglass",
+                        title: favoritesOnly ? "No favorites match" : "No games match",
+                        message: favoritesOnly ? "Star a game to keep it here, or clear filters to see your library." : "Try another name or clear your filters to see all games.",
+                        actions: [(title: "Show All Games", prominent: true, action: clearFilters)]
+                    )
+                } else if let blankSlate {
                     GameLibraryBlankSlate(
                         kind: blankSlate,
                         isRunning: isRunning,
@@ -749,7 +787,54 @@ struct GameLibrarySection: View {
         }
     }
 
+    private func clearFilters() {
+        favoritesOnly = false
+        sourceFilter = .all
+        searchText = ""
+    }
+
     private func libraryTileButton(_ profile: SavedProfile) -> some View {
+        VStack(spacing: 8) {
+            libraryTileSelection(profile)
+            gameActions(profile)
+        }
+    }
+
+    private func libraryListButton(_ profile: SavedProfile) -> some View {
+        HStack(spacing: 12) {
+            libraryListSelection(profile)
+            gameActions(profile)
+                .fixedSize()
+        }
+    }
+
+    private func gameActions(_ profile: SavedProfile) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                selectedProfileID = profile.id
+                onLaunch(profile)
+            } label: {
+                Label("Play", systemImage: "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRunning || !canLaunch(profile))
+            .accessibilityLabel("Play \(profile.name)")
+            .help(launchHint(for: profile))
+            Button {
+                onToggleFavorite(profile)
+            } label: {
+                Image(systemName: isFavorite(profile) ? "star.fill" : "star")
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(isFavorite(profile) ? Color.cosmosPrimary : Color.secondary)
+            .help(isFavorite(profile) ? "Remove from favorites" : "Add to favorites")
+            .accessibilityLabel("\(isFavorite(profile) ? "Remove" : "Add") \(profile.name) \(isFavorite(profile) ? "from" : "to") favorites")
+        }
+    }
+
+    private func libraryTileSelection(_ profile: SavedProfile) -> some View {
         let isSelected = profile.id == selectedProfileID
         let badge = compatBadge(profile)?.status
         return Button {
@@ -759,6 +844,7 @@ struct GameLibrarySection: View {
         }
         .buttonStyle(CosmosButtonStyle())
         .simultaneousGesture(TapGesture(count: 2).onEnded {
+            guard !isRunning, canLaunch(profile) else { return }
             selectedProfileID = profile.id
             onLaunch(profile)
         })
@@ -780,13 +866,11 @@ struct GameLibrarySection: View {
                 pasteboard.setString(profile.path, forType: .string)
             }
         )
-        .disabled(isRunning)
-        .opacity(isRunning ? 0.55 : 1)
-        .help(isRunning ? "Unavailable while a command is running" : "Double-click to launch")
-        .accessibilityHint(isRunning ? "Unavailable while a command is running" : "Double-click to launch")
+        .help(launchHint(for: profile))
+        .accessibilityHint(launchHint(for: profile))
     }
 
-    private func libraryListButton(_ profile: SavedProfile) -> some View {
+    private func libraryListSelection(_ profile: SavedProfile) -> some View {
         let isSelected = profile.id == selectedProfileID
         let badge = compatBadge(profile)?.status
         return Button {
@@ -796,6 +880,7 @@ struct GameLibrarySection: View {
         }
         .buttonStyle(CosmosButtonStyle())
         .simultaneousGesture(TapGesture(count: 2).onEnded {
+            guard !isRunning, canLaunch(profile) else { return }
             selectedProfileID = profile.id
             onLaunch(profile)
         })
@@ -817,9 +902,16 @@ struct GameLibrarySection: View {
                 pasteboard.setString(profile.path, forType: .string)
             }
         )
-        .disabled(isRunning)
-        .opacity(isRunning ? 0.55 : 1)
-        .help(isRunning ? "Unavailable while a command is running" : "Double-click to launch")
-        .accessibilityHint(isRunning ? "Unavailable while a command is running" : "Double-click to launch")
+        .help(launchHint(for: profile))
+        .accessibilityHint(launchHint(for: profile))
     }
+    private func launchHint(for profile: SavedProfile) -> String {
+        if isRunning { return "Select to browse. Play is available when the current operation finishes." }
+        if canLaunch(profile) { return "Double-click to play" }
+        if !profile.canLaunchFromDashboard {
+            return "Missing executable path or Steam App ID. Select to view launch options."
+        }
+        return "Finish setting up the Windows environment on the Launch tab to play."
+    }
+
 }

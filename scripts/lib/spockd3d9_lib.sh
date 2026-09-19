@@ -6,7 +6,7 @@ spockd3d9_default_root() {
   if [[ -z "${base}" ]] && declare -F runtime_default_dir >/dev/null 2>&1; then
     base="$(runtime_default_dir)"
   fi
-  base="${base:-${HOME}/Library/Application Support/Cosmos/Runtime}"
+  base="${base:-${COSMOS_SUPPORT_DIR:-${HOME}/Library/Application Support/Cosmos}/Runtime}"
   printf '%s/spockd3d9' "${base}"
 }
 
@@ -42,13 +42,19 @@ spockd3d9_find_arch_dll() {
 }
 
 spockd3d9_pe_ok() {
-  local path="$1"
+  local path="$1" arch="${2:-}"
   [[ -f "${path}" ]] || return 1
   if [[ "${COSMOS_SKIP_PE_CHECK:-0}" == "1" ]]; then
     return 0
   fi
-  command -v file >/dev/null 2>&1 || return 0
-  file "${path}" | grep -Eq 'PE32\+ executable \(DLL\)|PE32 executable \(DLL\)'
+  command -v file >/dev/null 2>&1 || return 1
+  local description
+  description="$(file -b "${path}")" || return 1
+  case "${arch}" in
+    x86) printf '%s' "${description}" | grep -Eq 'PE32 executable .*\(DLL\).*Intel 80386' ;;
+    x64) printf '%s' "${description}" | grep -Eq 'PE32\+ executable .*\(DLL\).*x86-64' ;;
+    *) return 1 ;;
+  esac
 }
 
 # Machine-readable validation (key=value lines) for dashboard and CI.
@@ -68,17 +74,19 @@ spockd3d9_validate_path() {
 
   local x86="" x64="" count=0
   if x86="$(spockd3d9_find_arch_dll "${path}" x86)"; then
-    if spockd3d9_pe_ok "${x86}"; then
+    if spockd3d9_pe_ok "${x86}" x86; then
       count=$((count + 1))
     else
-      x86=""
+      printf 'valid=0\nerror=The x86 d3d9.dll is not a valid 32-bit Windows DLL. Rebuild with --arch x86.\n'
+      return 1
     fi
   fi
   if x64="$(spockd3d9_find_arch_dll "${path}" x64)"; then
-    if spockd3d9_pe_ok "${x64}"; then
+    if spockd3d9_pe_ok "${x64}" x64; then
       count=$((count + 1))
     else
-      x64=""
+      printf 'valid=0\nerror=The x64 d3d9.dll is not a valid 64-bit Windows DLL. Rebuild with --arch x64.\n'
+      return 1
     fi
   fi
 
@@ -154,9 +162,36 @@ ensure_spockd3d9_installed() {
   (( copied > 0 )) || die "No SpockD3D9 d3d9.dll files found under ${root}."
 }
 
+# Replace only D3D9's load order, including when it shares a group with other DLLs.
+# Appending a second conflicting entry is ambiguous, so preserve all other entries.
+spockd3d9_merge_overrides() {
+  local entry names order name kept result=""
+  local entries=() dlls=()
+  IFS=';' read -r -a entries <<< "${1:-}"
+  for entry in ${entries[@]+"${entries[@]}"}; do
+    [[ -n "${entry}" ]] || continue
+    if [[ "${entry}" != *=* ]]; then
+      result="${result}${result:+;}${entry}"
+      continue
+    fi
+    names="${entry%%=*}"
+    order="${entry#*=}"
+    kept=""
+    IFS=',' read -r -a dlls <<< "${names}"
+    for name in ${dlls[@]+"${dlls[@]}"}; do
+      case "${name//[[:space:]]/}" in
+        [dD]3[dD]9|[dD]3[dD]9.[dD][lL][lL]|\*[dD]3[dD]9|\*[dD]3[dD]9.[dD][lL][lL]) continue ;;
+      esac
+      kept="${kept}${kept:+,}${name}"
+    done
+    [[ -z "${kept}" ]] || result="${result}${result:+;}${kept}=${order}"
+  done
+  printf '%s' "${result}${result:+;}d3d9=n,b"
+}
+
 enable_spockd3d9_env() {
   log "Enabling SpockD3D9 for D3D9 (DXMT still handles D3D10/11)"
-  export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9=n,b}"
+  export WINEDLLOVERRIDES="$(spockd3d9_merge_overrides "${WINEDLLOVERRIDES:-}")"
   export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS="${MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS:-2}"
   export WINEDEBUG="${WINEDEBUG:--all,err+all}"
   if declare -F runtime_prepare_moltenvk_env >/dev/null 2>&1; then

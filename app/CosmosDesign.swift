@@ -116,7 +116,7 @@ struct HoverBrighten: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .brightness(isHovering && !reduceMotion ? 0.06 : 0)
+            .brightness(isHovering ? 0.06 : 0)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
             .onHover { isHovering = $0 }
     }
@@ -223,6 +223,8 @@ struct CosmosNoticeBanner: View {
                 Button(action: onDismiss) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Dismiss")
@@ -235,7 +237,7 @@ struct CosmosNoticeBanner: View {
             RoundedRectangle(cornerRadius: CosmosSpacing.buttonRadius)
                 .strokeBorder(tint.opacity(0.2), lineWidth: 1)
         )
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -314,6 +316,7 @@ struct GraphicsPathSetupCard<Actions: View>: View {
     let summaryText: String?
     let errorText: String?
     let isRunning: Bool
+    var readyLabel: String = "Ready"
     let onBrowse: () -> Void
     @ViewBuilder let actions: () -> Actions
 
@@ -324,7 +327,7 @@ struct GraphicsPathSetupCard<Actions: View>: View {
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 if isReady {
-                    Label("Ready", systemImage: "checkmark.circle.fill")
+                    Label(readyLabel, systemImage: "checkmark.circle.fill")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.cosmosSuccess)
                 } else if isInvalid {
@@ -606,6 +609,7 @@ struct CosmosFilterChip: View {
 
 /// Horizontal tab bar for post-setup dashboard sections (replaces plain segmented control).
 struct CosmosDashboardTabBar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var selection: DashboardSection
     /// Which tabs to show. Defaults to all; callers can pass a subset to hide
     /// advanced tabs behind progressive disclosure.
@@ -616,7 +620,7 @@ struct CosmosDashboardTabBar: View {
             ForEach(sections) { section in
                 let isSelected = selection == section
                 Button {
-                    withAnimation(.easeOut(duration: 0.15)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                         selection = section
                     }
                 } label: {
@@ -662,6 +666,7 @@ struct CosmosSearchField: View {
     let placeholder: String
     @Binding var text: String
     var disabled: Bool = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -671,24 +676,33 @@ struct CosmosSearchField: View {
             TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
                 .font(.subheadline)
+                .focused($isFocused)
+                .accessibilityLabel(placeholder)
+                .onExitCommand {
+                    if !text.isEmpty { text = "" } else { isFocused = false }
+                }
             if !text.isEmpty {
                 Button {
                     text = ""
+                    isFocused = true
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Clear search")
                 .accessibilityLabel("Clear search")
             }
         }
+        .frame(minHeight: 24)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.cosmosTileFill, in: Capsule())
         .overlay(
             Capsule()
-                .strokeBorder(Color.cosmosCardBorder, lineWidth: 1)
+                .strokeBorder(isFocused ? Color.cosmosPrimary : Color.cosmosCardBorder, lineWidth: isFocused ? 2 : 1)
         )
         .disabled(disabled)
     }
@@ -726,7 +740,7 @@ struct CosmosProminentActionButton: View {
             .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
             .background(
                 LinearGradient(
-                    colors: [Color.cosmosBright, Color.cosmosPrimary],
+                    colors: [Color.cosmosBright, Color.cosmosBrandIndigo],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ),
@@ -800,7 +814,7 @@ struct CosmosGroupedConsoleOutput: View {
     var font: Font = CosmosTypography.monoBody
     var textColor: Color = Color.cosmosConsoleText
 
-    @State private var expandedSectionIDs: Set<String> = []
+    @State private var sectionExpansionOverrides: [String: Bool] = [:]
 
     private var parsed: (preamble: String, sections: [CommandOutputSection]) {
         CommandOutputParser.sections(from: output, isRunning: isRunning)
@@ -824,17 +838,14 @@ struct CosmosGroupedConsoleOutput: View {
                         .textSelection(.enabled)
                 }
                 ForEach(sections) { section in
-                    sectionDisclosure(section)
+                    sectionDisclosure(section, defaultExpanded: section.id == sections.last?.id || section.hasError)
                 }
             }
-            .onAppear { syncExpandedSections(sections) }
-            .onChange(of: output) { _ in syncExpandedSections(sections) }
-            .onChange(of: isRunning) { _ in syncExpandedSections(sections) }
         }
     }
 
-    private func sectionDisclosure(_ section: CommandOutputSection) -> some View {
-        DisclosureGroup(isExpanded: binding(for: section)) {
+    private func sectionDisclosure(_ section: CommandOutputSection, defaultExpanded: Bool) -> some View {
+        DisclosureGroup(isExpanded: binding(for: section, defaultExpanded: defaultExpanded)) {
             if section.body.isEmpty {
                 Text("No output yet…")
                     .font(font)
@@ -870,28 +881,11 @@ struct CosmosGroupedConsoleOutput: View {
         }
     }
 
-    private func binding(for section: CommandOutputSection) -> Binding<Bool> {
+    private func binding(for section: CommandOutputSection, defaultExpanded: Bool) -> Binding<Bool> {
         Binding(
-            get: { expandedSectionIDs.contains(section.id) },
-            set: { expanded in
-                if expanded {
-                    expandedSectionIDs.insert(section.id)
-                } else {
-                    expandedSectionIDs.remove(section.id)
-                }
-            }
+            get: { sectionExpansionOverrides[section.id] ?? defaultExpanded },
+            set: { sectionExpansionOverrides[section.id] = $0 }
         )
-    }
-
-    private func syncExpandedSections(_ sections: [CommandOutputSection]) {
-        guard let last = sections.last else { return }
-        if expandedSectionIDs.isEmpty {
-            expandedSectionIDs = [last.id]
-            return
-        }
-        if last.outcome == .inProgress || isRunning {
-            expandedSectionIDs.insert(last.id)
-        }
     }
 
     private func outcomeColor(_ outcome: CommandOutputSectionOutcome, hasError: Bool) -> Color {
@@ -1008,7 +1002,6 @@ struct CosmosEmptyState: View {
         .padding(.vertical, 28)
         .padding(.horizontal, 20)
         .cosmosCard()
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title). \(message)")
+        .accessibilityElement(children: .contain)
     }
 }

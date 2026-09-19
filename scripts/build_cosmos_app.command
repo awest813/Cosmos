@@ -36,6 +36,9 @@ die() { printf "Error: %s\n" "$1" >&2; exit 1; }
 command -v swift >/dev/null 2>&1 || die "swift not found. Install Xcode or the Command Line Tools."
 
 swift_build_args=(-c release)
+if [[ -n "${COSMOS_BUILD_SCRATCH_PATH:-}" ]]; then
+  swift_build_args+=(--scratch-path "${COSMOS_BUILD_SCRATCH_PATH}")
+fi
 if [[ -n "${COSMOS_BUILD_ARCHS:-}" ]]; then
   arch_list="${COSMOS_BUILD_ARCHS//,/ }"
   for build_arch in ${arch_list}; do
@@ -112,9 +115,11 @@ else
 fi
 
 mkdir -p "${APP_BUNDLE}/Contents/Resources/docs"
-if [[ -f "${REPO_ROOT}/docs/STEAM_SETUP.md" ]]; then
-  cp "${REPO_ROOT}/docs/STEAM_SETUP.md" "${APP_BUNDLE}/Contents/Resources/docs/STEAM_SETUP.md"
-fi
+for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md; do
+  if [[ -f "${REPO_ROOT}/docs/${doc}" ]]; then
+    cp "${REPO_ROOT}/docs/${doc}" "${APP_BUNDLE}/Contents/Resources/docs/${doc}"
+  fi
+done
 
 for script in "${SCRIPTS_TO_BUNDLE[@]}"; do
   src="${REPO_ROOT}/${script}"
@@ -139,7 +144,7 @@ if [[ -f "${verify_src}" ]]; then
   cp "${verify_src}" "${APP_BUNDLE}/Contents/Resources/scripts/verify_steam_detection.command"
   chmod +x "${APP_BUNDLE}/Contents/Resources/scripts/verify_steam_detection.command"
 fi
-for helper in check_updates.sh install_update.sh terminal_wrap.sh; do
+for helper in check_updates.sh install_update.sh terminal_wrap.sh build-pe-d3d9.sh; do
   src="${REPO_ROOT}/scripts/${helper}"
   [[ -f "${src}" ]] || die "Missing helper script: ${src}"
   mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts"

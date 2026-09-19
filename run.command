@@ -290,6 +290,7 @@ Actions:
   --setup-steam           Prepare Wine, DXMT/backend, and Steam (no launch).
   --install-steam         Install or reinstall Steam in an existing prefix only.
   --status                 Show setup progress and the next step, then exit.
+  --download-component NAME Download wine, dxmt, recommended, moltenvk, or dxvk without launching.
   --runtime-status         Print machine-readable Wine/Rosetta status (key=value).
   --install-rosetta        Install Rosetta 2 on Apple Silicon if missing, then exit.
   --compat-check <appid>   Print the curated compatibility status for a Steam
@@ -430,6 +431,15 @@ parse_arguments() {
         die "The $1 flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="status"
+      return 0
+      ;;
+    --download-component)
+      [[ $# -eq 2 ]] || die "Usage: --download-component wine|dxmt|recommended|moltenvk|dxvk"
+      case "$2" in
+        wine|dxmt|recommended|moltenvk|dxvk) DOWNLOAD_COMPONENT="$2" ;;
+        *) die "Unknown download component: $2" ;;
+      esac
+      COSMOS_LAUNCH_MODE="download-component"
       return 0
       ;;
     --runtime-status)
@@ -1470,10 +1480,11 @@ run_installer() {
 launch_profile() {
   log "Launching profile: ${PROFILE_EXECUTABLE}"
   [[ -n "${PROFILE_EXECUTABLE}" ]] || die "The --game/--profile flag requires a profile executable path."
-  [[ -d "${PROFILE_DIRECTORY}" ]] || die "Profile directory is not available: ${PROFILE_DIRECTORY}"
-
   local profile_executable="${PROFILE_EXECUTABLE}"
-  if [[ "${profile_executable}" != /* && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then
+  if [[ "${profile_executable}" == drive_c/* ]]; then
+    # Imported games store paths relative to the selected Windows environment.
+    profile_executable="${WINEPREFIX}/${profile_executable}"
+  elif [[ "${profile_executable}" != /* && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then
     # Relative names are resolved against the saved profiles directory first.
     profile_executable="${PROFILE_DIRECTORY}/${profile_executable}"
   fi
@@ -1688,6 +1699,18 @@ main() {
     [[ -f "${build_script}" ]] || die "Missing ${build_script}"
     bash "${build_script}" ${SPOCK_D3D9_BUILD_ARGS[@]+"${SPOCK_D3D9_BUILD_ARGS[@]}"}
     return $?
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "download-component" ]]; then
+    require_supported_macos
+    case "${DOWNLOAD_COMPONENT}" in
+      wine) ensure_wine_installed ;;
+      dxmt) ensure_dxmt_installed ;;
+      recommended) ensure_wine_installed; ensure_dxmt_installed ;;
+      moltenvk) runtime_prepare_moltenvk_env ;;
+      dxvk) runtime_prepare_dxvk_path; runtime_prepare_moltenvk_env ;;
+    esac
+    echo "Download complete: ${DOWNLOAD_COMPONENT}. Game settings are unchanged."
+    return 0
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "runtime-status" ]]; then
     wine_runtime_status_lines

@@ -23,7 +23,10 @@ struct SteamSettings: Equatable {
     )
 
     var prefixURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        if let prefix = ProcessInfo.processInfo.environment["WINEPREFIX"], !prefix.isEmpty {
+            return URL(fileURLWithPath: prefix, isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".wine-steam-11", isDirectory: true)
     }
 

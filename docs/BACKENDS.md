@@ -139,3 +139,8 @@ profiles (God of War, Alan Wake 2, etc.) in `profiles/steam/`.
   channel tracks newer releases — see [LICENSING.md](LICENSING.md) and
   `runtime/DXMT-SOURCE-OFFER.txt`.
 </content>
+
+
+## Real-game verification
+
+Use [the real-game testing guide](REAL_GAME_TESTING.md) to record baseline and SpockD3D9 runs. “DLLs validated” confirms file architecture, not rendering compatibility. [The d9mt evaluation](D3D9_EVALUATION.md) explains why d9mt remains a research candidate rather than a selectable backend.

@@ -4,8 +4,13 @@ import SwiftUI
 // MARK: - Brand palette
 
 extension Color {
-    /// Deep indigo — primary brand accent.
-    static let cosmosPrimary = Color(red: 0.18, green: 0.07, blue: 0.56)
+    /// Keep filled buttons dark enough for white labels in either appearance.
+    static let cosmosBrandIndigo = Color(red: 0.18, green: 0.07, blue: 0.56)
+    /// Readable accent for text, icons, and outlines on adaptive surfaces.
+    static let cosmosPrimary = Color.adaptive(
+        light: NSColor(red: 0.18, green: 0.07, blue: 0.56, alpha: 1),
+        dark: NSColor(red: 0.76, green: 0.64, blue: 1.0, alpha: 1)
+    )
     /// Bright violet — gradients and highlights.
     static let cosmosBright = Color(red: 0.58, green: 0.18, blue: 0.90)
     /// Galaxy disc fill in the logo mark.
@@ -80,7 +85,7 @@ enum CosmosTypography {
 
 enum CosmosGradients {
     static let primaryButton = LinearGradient(
-        colors: [Color.cosmosBright, Color.cosmosPrimary],
+        colors: [Color.cosmosBright, Color.cosmosBrandIndigo],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
