@@ -129,6 +129,7 @@ upgrading dependencies.
 | --- | --- | --- |
 | [Whisky](https://github.com/Whisky-App/Whisky) | GPL-3 | **Cannot merge** — GPL-3 forces GPL on combined works; UX reference only |
 | [Moonshine](https://github.com/ybmeng/moonshine) | GPL-3.0 | Behavior only. Cosmos reimplements the OpenGL byte check, crash note, log preset, and launch directory. Do not copy Moonshine or Whisky source |
+| [Soju](https://github.com/BCD1210/soju) | GPL-3.0 | Behavior only. Cosmos reimplements AVX advertising, the Battle.net login-page switch, the D3DMetal symlink layout, and the Battle.net signature seed. Do not copy Soju's scripts or CodeWeavers' engine |
 | [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3 | Architecture reference only — do not copy GPL source |
 | [macos-wine-steam / Merlot](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; safe to compare scripts |
 | [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Optional detection cross-check; VDF parsing patterns in `steam_lib.sh` |

@@ -29,6 +29,10 @@ if [[ -f "${SCRIPT_DIR}/scripts/lib/moonshine_lib.sh" ]]; then
   # shellcheck source=scripts/lib/moonshine_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/moonshine_lib.sh"
 fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/soju_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/soju_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/soju_lib.sh"
+fi
 if [[ -f "${SCRIPT_DIR}/scripts/lib/sync_lib.sh" ]]; then
   # shellcheck source=scripts/lib/sync_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/sync_lib.sh"
@@ -172,6 +176,14 @@ sanitize_steam_settings() {
     auto|on|off|0|1) ;;
     *) COSMOS_OPENGL_PATCH="auto" ;;
   esac
+  case "${COSMOS_ROSETTA_AVX:-auto}" in
+    auto|on|off|0|1) ;;
+    *) COSMOS_ROSETTA_AVX="auto" ;;
+  esac
+  case "${COSMOS_WINE_WRITECOPY:-auto}" in
+    auto|on|off|0|1) ;;
+    *) COSMOS_WINE_WRITECOPY="auto" ;;
+  esac
 }
 
 load_bottle
@@ -307,6 +319,10 @@ Actions:
   --install-rosetta        Install Rosetta 2 on Apple Silicon if missing, then exit.
   --compat-check <appid>   Print the curated compatibility status for a Steam
                            App ID (warns if broken/blocked), then exit.
+  --gptk-layout-status     Show the D3DMetal layout in the Wine tree (key=value), then exit.
+  --gptk-layout            Install that layout from GPTK_PATH, then exit.
+  --gptk-layout-revert     Restore Wine's own Direct3D libraries, then exit.
+  --battlenet-seed         Copy Battle.net.exe into each versioned folder, then exit.
   --opengl-status          Show the OpenGL 3.2 check in Wine's Mac driver (key=value), then exit.
   --opengl-patch           Flip that check when the byte still matches, then exit.
   --opengl-revert          Restore the OpenGL check, then exit.
@@ -462,6 +478,13 @@ parse_arguments() {
         die "The --runtime-status flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="runtime-status"
+      return 0
+      ;;
+    --gptk-layout-status|--gptk-layout|--gptk-layout-revert|--battlenet-seed)
+      if (($# > 1)); then
+        die "The $1 flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="${1#--}"
       return 0
       ;;
     --opengl-status|--opengl-patch|--opengl-revert)
@@ -709,6 +732,9 @@ setup_wine_env() {
   export WINEPREFIX
   export PATH
   PATH="$(dirname "${WINE_BIN}"):${PATH}"
+  if declare -F soju_apply_launch_env >/dev/null 2>&1; then
+    soju_apply_launch_env
+  fi
 }
 
 ensure_wine_prefix() {
@@ -911,7 +937,8 @@ install_steam_silently() {
 
   # NSIS installers accept /S for a silent install. Run it detached so a
   # post-install auto-launch of Steam can't block us while we poll for steam.exe.
-  WINEPREFIX="${WINEPREFIX}" nohup "${WINE_BIN}" "${STEAM_SETUP}" /S </dev/null >>"${install_log}" 2>&1 &
+  # Launch Wine directly. A platform helper such as /usr/bin/arch would drop DYLD_* first.
+  WINEPREFIX="${WINEPREFIX}" soju_spawn_detached "${install_log}" "${WINE_BIN}" "${STEAM_SETUP}" /S
   disown
 
   local waited=0 steam_exe="" candidate=""
@@ -1104,6 +1131,9 @@ enable_gptk_env() {
   log "Enabling GPTK via WINEDLLOVERRIDES"
   export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,d3d12,d3d12core,dxgi=n}"
   export WINEDEBUG="${WINEDEBUG:-$(moonshine_winedebug_default)}"
+  if declare -F soju_apply_d3dmetal_env >/dev/null 2>&1; then
+    soju_apply_d3dmetal_env
+  fi
   echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
 }
 
@@ -1226,7 +1256,7 @@ run_launch_cmd() {
   if [[ "${detach_retry}" != "1" || "${COSMOS_LAUNCH_RETRIES}" -le 0 ]]; then
     : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
     log "Detaching ${label} from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
-    nohup "${cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
+    soju_spawn_detached "${COSMOS_LAUNCH_LOG}" "${cmd[@]}"
     local pid="$!"
     disown
     echo "${label} is running in the background (PID ${pid}). Safe to close this Terminal window."
@@ -1237,7 +1267,7 @@ run_launch_cmd() {
   while (( attempt <= attempts )); do
     : >"${COSMOS_LAUNCH_LOG}" || die "Cannot write to ${COSMOS_LAUNCH_LOG}"
     log "Detaching ${label} from this Terminal (log: ${COSMOS_LAUNCH_LOG})"
-    nohup "${cmd[@]}" </dev/null >>"${COSMOS_LAUNCH_LOG}" 2>&1 &
+    soju_spawn_detached "${COSMOS_LAUNCH_LOG}" "${cmd[@]}"
     local pid="$!"
     # Watch briefly so a crash-on-startup is retried instead of silently failing.
     local waited=0
@@ -1441,7 +1471,10 @@ ensure_battlenet_agent() {
   }
 
   log "Starting Battle.net agent: ${launcher_host}"
-  nohup "${WINE_BIN}" "${launcher_host}" >/dev/null 2>&1 &
+  if declare -F soju_seed_battlenet >/dev/null 2>&1; then
+    soju_seed_battlenet || true
+  fi
+  soju_spawn_detached /dev/null "${WINE_BIN}" "${launcher_host}"
   local waited=0
   while (( waited < 30 )); do
     battlenet_agent_running && return 0
@@ -1749,6 +1782,16 @@ main() {
   if [[ "${COSMOS_LAUNCH_MODE}" == "runtime-status" ]]; then
     wine_runtime_status_lines
     return
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "gptk-layout-status" || "${COSMOS_LAUNCH_MODE}" == "gptk-layout" || "${COSMOS_LAUNCH_MODE}" == "gptk-layout-revert" || "${COSMOS_LAUNCH_MODE}" == "battlenet-seed" ]]; then
+    declare -F soju_gptk_layout_status >/dev/null 2>&1 || die "Store launch fixes are unavailable (soju_lib.sh not loaded)."
+    case "${COSMOS_LAUNCH_MODE}" in
+      gptk-layout-status) soju_gptk_layout_status ;;
+      gptk-layout) soju_gptk_layout_apply ;;
+      gptk-layout-revert) soju_gptk_layout_revert ;;
+      battlenet-seed) soju_seed_battlenet ;;
+    esac
+    return $?
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "opengl-status" || "${COSMOS_LAUNCH_MODE}" == "opengl-patch" || "${COSMOS_LAUNCH_MODE}" == "opengl-revert" ]]; then
     declare -F moonshine_opengl_status >/dev/null 2>&1 || die "OpenGL fix is unavailable (moonshine_lib.sh not loaded)."

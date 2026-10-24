@@ -47,6 +47,7 @@ Licensed under [LGPL-3.0-or-later](LICENSE).
 - **Isolated bottles** — separate Wine prefixes with independent settings
 - **Apple Silicon ports** — wrap one Windows program as a Mac app (macOS 14.6+). DXMT, D9VK, WineD3D, and CNC-DDRAW by default; DXVK and personal-only D3DMetal as switches. See [docs/PORTS.md](docs/PORTS.md)
 - **OpenGL 3.2 fix** — flip one check in Wine's Mac driver when that byte still matches, keep a detailed Wine log preset, and start programs from their own folder. Moonshine's GPL source is not included. See [docs/MOONSHINE.md](docs/MOONSHINE.md)
+- **Store launch fixes** — AVX for Apple Silicon, Battle.net's login page, the three-part D3DMetal layout, and a Battle.net signature seed. Soju's GPL source is not included. See [docs/SOJU.md](docs/SOJU.md)
 - **Store import** — standalone EXE/MSI, GOG, itch.io, Battle.net, Epic (via Legendary)
 
 ---
@@ -351,6 +352,7 @@ Removes `/Applications/Cosmos Apps`, Wine prefixes, and downloaded runtimes. Doe
 | [docs/STORE_IMPORT.md](docs/STORE_IMPORT.md) | Non-Steam import workflows |
 | [docs/PORTS.md](docs/PORTS.md) | Apple Silicon wine ports (Sikarugir-style wrappers) |
 | [docs/MOONSHINE.md](docs/MOONSHINE.md) | OpenGL 3.2 check, crash notes, and the GPL boundary with Moonshine |
+| [docs/SOJU.md](docs/SOJU.md) | Battle.net, Epic, and GOG launch fixes, and the GPL boundary with Soju |
 | [docs/LICENSING.md](docs/LICENSING.md) | Third-party licenses (Wine, DXMT, winetricks, GPTK) |
 | [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md) | Practical LGPL impact (Wine, DXMT channels, offline bundles) |
 

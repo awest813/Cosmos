@@ -9,6 +9,8 @@ struct GraphicsSettings: Equatable {
     var metalFXEnabled: Bool
     var moltenvkPreset: String
     var wineDebugPreset: String
+    var rosettaAvx: String
+    var wineWritecopy: String
 
     static let defaults = GraphicsSettings(
         syncMode: "off",
@@ -17,13 +19,25 @@ struct GraphicsSettings: Equatable {
         dxmtChannel: "stable",
         metalFXEnabled: false,
         moltenvkPreset: "default",
-        wineDebugPreset: "cosmos"
+        wineDebugPreset: "cosmos",
+        rosettaAvx: "auto",
+        wineWritecopy: "auto"
     )
 
     static let syncModeOptions = ["off", "esync", "msync"]
     static let dxmtChannelOptions = ["stable", "latest"]
     static let moltenvkPresetOptions = ["default", "performance", "compatibility"]
     static let wineDebugPresetOptions = ["cosmos", "moonshine"]
+    static let sojuModeOptions = ["auto", "on", "off"]
+
+    static func normalizedSojuMode(_ value: String) -> String? {
+        switch value {
+        case "auto": return "auto"
+        case "on", "1": return "on"
+        case "off", "0": return "off"
+        default: return nil
+        }
+    }
 
     var syncModeLabel: String {
         switch syncMode {
@@ -40,6 +54,13 @@ struct GraphicsSettings: Equatable {
     var spockD3D9Configured: Bool {
         !spockD3D9Path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
+}
+
+struct SojuCommandStatus: Equatable {
+    var layout: String
+    var message: String
+
+    static let empty = SojuCommandStatus(layout: "", message: "")
 }
 
 struct OpenGLPatchStatus: Equatable {
@@ -116,6 +137,12 @@ enum GraphicsSettingsStore {
            GraphicsSettings.wineDebugPresetOptions.contains(wineDebug) {
             settings.wineDebugPreset = wineDebug
         }
+        if let avx = stored["COSMOS_ROSETTA_AVX"], let normalized = GraphicsSettings.normalizedSojuMode(avx) {
+            settings.rosettaAvx = normalized
+        }
+        if let writecopy = stored["COSMOS_WINE_WRITECOPY"], let normalized = GraphicsSettings.normalizedSojuMode(writecopy) {
+            settings.wineWritecopy = normalized
+        }
         return settings
     }
 
@@ -131,6 +158,22 @@ enum GraphicsSettingsStore {
             case "path": status.path = value
             case "offset": status.offset = value
             case "byte": status.byte = value
+            case "message": status.message = value
+            default: break
+            }
+        }
+        return status
+    }
+
+    static func parseSojuStatus(_ output: String) -> SojuCommandStatus {
+        var status = SojuCommandStatus.empty
+        for line in output.split(whereSeparator: \.isNewline) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard let eq = trimmed.firstIndex(of: "=") else { continue }
+            let key = String(trimmed[..<eq])
+            let value = String(trimmed[trimmed.index(after: eq)...])
+            switch key {
+            case "layout": status.layout = value
             case "message": status.message = value
             default: break
             }

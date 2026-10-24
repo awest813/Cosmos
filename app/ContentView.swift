@@ -29,6 +29,7 @@ struct ContentView: View {
     @State private var activeOperationTitle = "Working…"
     @State private var showAdvancedGraphics = false
     @State private var openGLStatus = OpenGLPatchStatus.empty
+    @State private var sojuStatus = SojuCommandStatus.empty
     @State private var showD3D9Guidance = false
     @State private var wineRuntime = WineRuntimeStore.load()
     @State private var showDownloads = false
@@ -2786,6 +2787,10 @@ struct ContentView: View {
 
                 moonshineGraphicsCard
 
+                Divider()
+
+                sojuLaunchCard
+
                 DisclosureGroup(isExpanded: $showAdvancedGraphics) {
                     VStack(alignment: .leading, spacing: 14) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -2960,6 +2965,34 @@ struct ContentView: View {
     private func runOpenGLCommand(_ flag: String) {
         runCommand(script: "run.command", arguments: [flag]) { _, _ in
             openGLStatus = GraphicsSettingsStore.parseOpenGLStatus(output)
+        }
+    }
+
+    private var sojuLaunchCard: some View {
+        SojuLaunchCard(
+            rosettaAvx: graphicsSettings.rosettaAvx,
+            wineWritecopy: graphicsSettings.wineWritecopy,
+            status: sojuStatus,
+            isRunning: isRunning,
+            onAvxChange: { applyGraphicsSetting(key: "COSMOS_ROSETTA_AVX", value: $0) },
+            onWritecopyChange: { applyGraphicsSetting(key: "COSMOS_WINE_WRITECOPY", value: $0) },
+            onCheckLayout: { runSojuCommand("--gptk-layout-status") },
+            onInstallLayout: { runSojuCommand("--gptk-layout") },
+            onUndoLayout: { runSojuCommand("--gptk-layout-revert") },
+            onSeedBattleNet: { runSojuCommand("--battlenet-seed") },
+            onGuide: {
+                openRepositoryDoc(
+                    relativePath: "docs/SOJU.md",
+                    bundleName: "SOJU.md",
+                    fallbackMessage: "See docs/SOJU.md in the Cosmos repository."
+                )
+            }
+        )
+    }
+
+    private func runSojuCommand(_ flag: String) {
+        runCommand(script: "run.command", arguments: [flag]) { _, _ in
+            sojuStatus = GraphicsSettingsStore.parseSojuStatus(output)
         }
     }
 
