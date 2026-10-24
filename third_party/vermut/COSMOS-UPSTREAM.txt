@@ -1,0 +1,17 @@
+Vermut 1.2.0 is included in Cosmos from
+https://github.com/Contessafry/Vermut/releases/tag/v1.2.0
+
+Commit: 3ad9649ee0ff88812052af3672992dfa354c1892
+Tag: v1.2.0
+License: MIT (LICENSE in this directory). Copyright (c) 2026 Vermut Contributors.
+That notice stays with these files. Cosmos as a whole is GPL-3.0-or-later.
+
+This tree is the upstream source, not a rewrite. Build it on macOS 14 or later
+from this directory:
+
+  swift build -c release
+
+The app target is Vermut. Wine, DXMT, DXVK, MoltenVK, and Legendary are
+downloaded at runtime. This copy does not include those binaries or the
+release disk image Vermut-1.2.0.dmg. Apple's D3DMetal is detected from a
+manual install. It is not bundled.

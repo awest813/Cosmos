@@ -189,6 +189,7 @@ a Windows program that opens as a Mac app on Apple Silicon.
 - [x] Moonshine-style OpenGL 3.2 check, launch folder, and optional detailed Wine logs (no GPL source)
 - [x] Soju-style store launch fixes: AVX, login page, D3DMetal symlink layout, Battle.net signature seed (no GPL source)
 - [x] Highball GPL-3.0 app, CLI, engine manifests, and the CC0 highball-db checkout vendored under `third_party/` (Apple's GPTK license text omitted)
+- [x] Vermut 1.2.0 MIT source vendored at `third_party/vermut` (release DMG omitted)
 - **Success:** On an Apple Silicon Mac, a user wraps one Windows `.exe` as a double-clickable app without putting D3DMetal in a port they share.
 
 ### 1.0 — Cosmos Runtime

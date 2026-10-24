@@ -136,6 +136,7 @@ licenses. Apple's D3DMetal and the CrossOver application stay out.
 | [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3.0 | May be combined. Keep upstream copyright notices with any copied files |
 | [Lutris](https://github.com/lutris/lutris) | GPL-3.0 | Installer scripts may be combined. Profiles are still Cosmos YAML, not a full installer runner |
 | [Highball](https://github.com/gauthierpiarrette/highball) | GPL-3.0 | Vendored at `third_party/highball` (commit `bbada878`). Its CC0 database is `third_party/highball-db`. Apple's GPTK license text is not included |
+| [Vermut](https://github.com/Contessafry/Vermut) 1.2.0 | MIT | Vendored at `third_party/vermut` (commit `3ad9649`). Copyright (c) 2026 Vermut Contributors. The release DMG is not included |
 | [macos-wine-steam / Merlot](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; safe to compare scripts |
 | [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Optional detection cross-check; VDF parsing patterns in `steam_lib.sh` |
 | [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) | MIT | Vendored `third_party/steam-on-m1-wine/` (wrapper + assets); launch/prefix integration in `steam_lib.sh` |

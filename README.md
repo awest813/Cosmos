@@ -50,6 +50,7 @@ Licensed under [GPL-3.0-or-later](LICENSE).
 - **Store launch fixes** — AVX for Apple Silicon, Battle.net's login page, the three-part D3DMetal layout, and a Battle.net signature seed. Soju's GPL source is not included. See [docs/SOJU.md](docs/SOJU.md)
 - **Store import** — standalone EXE/MSI, GOG, itch.io, Battle.net, Epic (via Legendary)
 - **Highball** — the GPL-3.0 Apple Silicon launcher and its CC0 compatibility database are vendored under `third_party/`. Build with `scripts/build_highball.command` on macOS 14+. See [docs/HIGHBALL.md](docs/HIGHBALL.md)
+- **Vermut 1.2.0** — the MIT store launcher (DXMT versions, Gcenx Wine 11.18, per-game settings, custom bottles) is vendored at `third_party/vermut`. Build with `scripts/build_vermut.command`. See [docs/VERMUT.md](docs/VERMUT.md)
 
 ---
 
@@ -355,6 +356,7 @@ Removes `/Applications/Cosmos Apps`, Wine prefixes, and downloaded runtimes. Doe
 | [docs/MOONSHINE.md](docs/MOONSHINE.md) | OpenGL 3.2 check, crash notes, and Moonshine |
 | [docs/SOJU.md](docs/SOJU.md) | Battle.net, Epic, and GOG launch fixes, and Soju |
 | [docs/HIGHBALL.md](docs/HIGHBALL.md) | Vendored Highball app, CLI, and CC0 game database |
+| [docs/VERMUT.md](docs/VERMUT.md) | Vendored Vermut 1.2.0 store launcher |
 | [docs/LICENSING.md](docs/LICENSING.md) | Third-party licenses (Wine, DXMT, winetricks, GPTK) |
 | [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md) | Practical LGPL impact (Wine, DXMT channels, offline bundles) |
 
