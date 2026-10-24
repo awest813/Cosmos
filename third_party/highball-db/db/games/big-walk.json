@@ -1,0 +1,13 @@
+{
+  "id": "big-walk",
+  "title": "Big Walk",
+  "steam_appid": 1478500,
+  "status": "community",
+  "renderer": "dxmt",
+  "anticheat": null,
+  "provenance": "Started here on an M4 with macOS 27.0 on 2026-10-05, engine x64-sikarugir10.0_6-r21, DXMT, the Steam copy: the game's first-run microphone check screen comes up full screen at 110 s. Not played, so not marked verified.",
+  "notes": "A Unity game about talking to friends over voice. On the default engine with DXMT it opens on its microphone check, the first screen a player sees. Nothing past that was tried, and voice chat through Wine's audio input was not tested.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

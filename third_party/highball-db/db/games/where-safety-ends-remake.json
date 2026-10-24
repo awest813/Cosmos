@@ -1,0 +1,19 @@
+{
+  "id": "where-safety-ends-remake",
+  "title": "WHERE SAFETY ENDS *Remake*",
+  "steam_appid": 2823140,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Reported playable by udance4ever (highball-db#350, 2026-10-06), Apple M1, macOS 27.0.1, Highball 0.10.9, engine x64-sikarugir10.0_6-r21, D3DMetal, rated 4 of 5. The window size was measured here on an M4 (macOS 27.0, r21, D3DMetal, 2026-10-06) up to the title menu; the game was not played here.",
+  "notes": "A Unity game that opens a fixed 1754x1240 window, set by its own script, so on most Mac screens the window runs past the bottom edge and some screens get cut off. Unity's -screen-width and -screen-height launch options and the saved Screenmanager values do not change it: the game sets the size itself and writes it back. Turn on Retina resolution in the environment's settings: Wine then counts the screen in pixels, the window becomes 877x620 points, and the whole title menu fit on a 1920x1080 display here. Retina resolution applies to every game in that environment.",
+  "knownIssues": [
+    {
+      "symptom": "The window is larger than the screen and runs past its bottom edge, cutting off parts of the game (profiles, menus)",
+      "cause": "the game's own ManageFullScreen script sets a 1754x1240 window whatever the screen size",
+      "fix": "turn on Retina resolution in the environment's settings, which halves the window's size on screen (measured on an M4); confirmed by the reporter (highball-db#350)"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

@@ -1,0 +1,186 @@
+import XCTest
+@testable import HighballKit
+
+/// Every recipe and db entry shipped from highball-db must decode with the current
+/// Recipe/GameDBEntry types — this is the drift tripwire between the two repos.
+/// Skips cleanly when the sibling checkout isn't present (e.g. bare CI).
+final class RecipeDBTests: XCTestCase {
+
+    /// The database the app build bundles, chosen the way Scripts/make-app.sh chooses it: the
+    /// checkout beside the repo, else the build's own clone in .build/highball-db, which a release
+    /// worktree has and which a build resets to origin/main. With the sibling only, the release
+    /// gate skipped six of these seven tests (2026-10-12, the 0.10.15 gate).
+    private var dbRoot: URL {
+        let repo = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let sibling = repo.deletingLastPathComponent().appending(path: "highball-db")
+        if FileManager.default.fileExists(atPath: sibling.appending(path: "recipes").path) { return sibling }
+        return repo.appending(path: ".build/highball-db")
+    }
+
+    /// highball-db#195: Wine Mono writes the same NDP v4 Release value as Microsoft's .NET 4.8.1
+    /// (0x82348), so a registry marker called .NET installed in every environment, the
+    /// Dependencies panel offered no Install, and a mixed-mode launcher kept failing under Mono.
+    /// The shipped recipe must look for the real runtime, clr.dll, which Mono never installs.
+    func testDotNet48IsNotInstalledWhereOnlyWineMonoIs() throws {
+        let f = dbRoot.appending(path: "recipes/tweaks/dotnet48.json")
+        guard FileManager.default.fileExists(atPath: f.path) else { throw XCTSkip("no highball-db checkout beside the repo and no .build/highball-db clone") }
+        let recipe = try JSONDecoder.highball.decode(Recipe.self, from: Data(contentsOf: f))
+        let dir = FileManager.default.temporaryDirectory.appending(path: "hb-dotnet-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let framework = dir.appending(path: "drive_c/windows/Microsoft.NET/Framework/v4.0.30319")
+        try FileManager.default.createDirectory(at: framework, withIntermediateDirectories: true)
+        try "WINE REGISTRY Version 2\n\n[Software\\\\Microsoft\\\\NET Framework Setup\\\\NDP\\\\v4\\\\Full] 1788462370\n\"Install\"=dword:00000001\n\"Release\"=dword:00082348\n"
+            .write(to: dir.appending(path: "system.reg"), atomically: true, encoding: .utf8)
+        try Data().write(to: framework.appending(path: "mscorlib.dll"))   // Mono leaves this one too
+        let bottle = Bottle(url: dir, settings: BottleSettings(name: "mono", engineID: "e"))
+        XCTAssertFalse(recipe.isInstalled(in: bottle), "THE BUG: Wine Mono alone must not count as .NET Framework 4.8")
+        try Data().write(to: framework.appending(path: "clr.dll"))
+        XCTAssertTrue(recipe.isInstalled(in: bottle), "the real runtime counts")
+    }
+
+    /// highball#391: every title in the database and every recipe's title makes a usable
+    /// environment name, a fifth of them through BottleStore.safeName's replacements.
+    func testEveryTitleMakesAnEnvironmentName() throws {
+        guard FileManager.default.fileExists(atPath: dbRoot.appending(path: "db/games").path) else {
+            throw XCTSkip("no highball-db checkout beside the repo and no .build/highball-db clone")
+        }
+        var titles: [String] = []
+        for dir in ["db/games", "recipes/games", "recipes/launchers", "recipes/tweaks"] {
+            let files = (try? FileManager.default.contentsOfDirectory(at: dbRoot.appending(path: dir), includingPropertiesForKeys: nil)) ?? []
+            for f in files where f.pathExtension == "json" {
+                if let o = try? JSONSerialization.jsonObject(with: Data(contentsOf: f)) as? [String: Any],
+                   let t = o["title"] as? String { titles.append(t) }
+            }
+        }
+        XCTAssertGreaterThan(titles.count, 400)
+        for t in titles {
+            let name = BottleStore.safeName(fromTitle: t)
+            XCTAssertNil(BottleStore.nameProblem(name), "\(t) -> \(name)")
+            XCTAssertNil(BottleStore.nameProblem(BottleStore.freeName(name, taken: [name])), "\(t) with a suffix")
+        }
+    }
+
+    func testAllShippedRecipesDecode() throws {
+        let recipes = dbRoot.appending(path: "recipes")
+        guard FileManager.default.fileExists(atPath: recipes.path) else {
+            throw XCTSkip("no highball-db checkout beside the repo and no .build/highball-db clone")
+        }
+        var checked = 0
+        for sub in ["launchers", "games", "tweaks"] {
+            let dir = recipes.appending(path: sub)
+            guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { continue }
+            for f in files where f.pathExtension == "json" {
+                let r: Recipe
+                do { r = try JSONDecoder.highball.decode(Recipe.self, from: Data(contentsOf: f)) }
+                catch { XCTFail("\(f.lastPathComponent) failed to decode: \(error)"); continue }
+                XCTAssertFalse(r.id.isEmpty, f.lastPathComponent)
+                XCTAssertFalse(r.title.isEmpty, f.lastPathComponent)
+                for step in r.steps {
+                    if case let .installer(url, _, _, _, _, _) = step {
+                        XCTAssertEqual(url.scheme, "https", "\(f.lastPathComponent): installer URLs must be https")
+                    }
+                }
+                checked += 1
+            }
+        }
+        XCTAssertGreaterThan(checked, 5, "expected to find shipped recipes; wrong path?")
+    }
+
+    func testAllShippedGameDBEntriesDecode() throws {
+        let dir = dbRoot.appending(path: "db/games")
+        guard FileManager.default.fileExists(atPath: dir.path) else {
+            throw XCTSkip("no highball-db checkout beside the repo and no .build/highball-db clone")
+        }
+        var checked = 0
+        for f in try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+        where f.pathExtension == "json" {
+            do {
+                let e = try JSONDecoder.highball.decode(GameDBEntry.self, from: Data(contentsOf: f))
+                XCTAssertFalse(e.id.isEmpty, f.lastPathComponent)
+                XCTAssertTrue(["verified-local", "reported-upstream", "community", "blocked-anticheat", "blocked-publisher"].contains(e.status),
+                              "\(f.lastPathComponent): unknown status '\(e.status)'")
+            } catch {
+                XCTFail("\(f.lastPathComponent) failed to decode: \(error)")
+            }
+            checked += 1
+        }
+        XCTAssertGreaterThan(checked, 0)
+    }
+
+    // A blocked recipe must refuse to run before touching the bottle — the Rockstar
+    // installer would otherwise hang a user's install forever (Sikarugir#258).
+    func testBlockedRecipeRefusesToApply() async throws {
+        let json = """
+        {"id":"b","kind":"launcher","title":"Blocked Thing","steps":[{"type":"note","text":"x"}],
+         "blocked":{"reason":"engine cannot run it","tracking":"https://example.com/1"}}
+        """
+        let r = try JSONDecoder.highball.decode(Recipe.self, from: Data(json.utf8))
+        XCTAssertEqual(r.blocked?.reason, "engine cannot run it")
+        let manifestURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "spike/engine-manifest.json")
+        let engine = InstalledEngine(manifest: try EngineManifest.load(from: manifestURL),
+                                     root: FileManager.default.temporaryDirectory.appending(path: "hb-blocked-\(UUID().uuidString)"))
+        let bottle = Bottle(url: URL(fileURLWithPath: "/tmp/hb-blocked-bottle"),
+                            settings: BottleSettings(name: "b", engineID: engine.id))
+        var runner = RecipeRunner(engine: engine, bottle: bottle)
+        do {
+            _ = try await runner.apply(r)
+            XCTFail("blocked recipe must throw")
+        } catch {
+            XCTAssertTrue("\(error)".contains("blocked"), "error should explain the block: \(error)")
+        }
+    }
+
+    // The Rockstar launcher runs on the Wine 11 engines (verified 2026-09-05, GTA V and RDR2 play
+    // through it), so the recipe must not be blocked, it must ask for that engine instead: a
+    // `blocked` recipe refuses on every engine, and it refused the Wine 10 default with a message
+    // saying the Wine 11 engine was not installable yet (highball#124).
+    func testRockstarRecipeAsksForTheWine11EngineInsteadOfBlocking() throws {
+        let f = dbRoot.appending(path: "recipes/launchers/rockstar.json")
+        guard FileManager.default.fileExists(atPath: f.path) else {
+            throw XCTSkip("no highball-db checkout beside the repo and no .build/highball-db clone")
+        }
+        let r = try JSONDecoder.highball.decode(Recipe.self, from: Data(contentsOf: f))
+        XCTAssertNil(r.blocked, "a blocked recipe refuses on every engine, including the one it works on")
+        XCTAssertEqual(r.engine?.hasPrefix("x64-crossover26.3-"), true, "the launcher needs the Wine 11 tree")
+    }
+
+    // Issue #36 tripwire: the VC++ installers must stay pinned to an immutable versioned URL
+    // with a real sha256. The rolling aka.ms/vs/17/release/vc_redist.*.exe link is what breaks
+    // winetricks every few months when Microsoft republishes behind it.
+    func testVcrunInstallersArePinnedAndVerified() throws {
+        let f = dbRoot.appending(path: "recipes/tweaks/vcrun2022.json")
+        guard FileManager.default.fileExists(atPath: f.path) else {
+            throw XCTSkip("no highball-db checkout beside the repo and no .build/highball-db clone")
+        }
+        let r = try JSONDecoder.highball.decode(Recipe.self, from: Data(contentsOf: f))
+        var installers = 0
+        for step in r.steps {
+            guard case let .installer(url, sha256, _, label, _, _) = step else { continue }
+            installers += 1
+            XCTAssertEqual(sha256?.count, 64, "\(label): pinned URLs must carry a sha256")
+            XCTAssertFalse(url.absoluteString.hasSuffix("release/vc_redist.x64.exe"),
+                           "\(label): rolling URL — pin the versioned one")
+            XCTAssertFalse(url.absoluteString.hasSuffix("release/vc_redist.x86.exe"),
+                           "\(label): rolling URL — pin the versioned one")
+        }
+        XCTAssertEqual(installers, 2, "expected the x64 and x86 redists")
+    }
+
+    // The GOG recipe regression: the web installer trips its service-pack check under
+    // Wine's win10 profile. The recipe must keep pointing at the offline installer.
+    func testGogRecipeUsesOfflineInstaller() throws {
+        let f = dbRoot.appending(path: "recipes/launchers/gog-galaxy.json")
+        guard FileManager.default.fileExists(atPath: f.path) else {
+            throw XCTSkip("no highball-db checkout beside the repo and no .build/highball-db clone")
+        }
+        let r = try JSONDecoder.highball.decode(Recipe.self, from: Data(contentsOf: f))
+        let installers = r.steps.compactMap { step -> URL? in
+            if case let .installer(url, _, _, _, _, _) = step { return url } else { return nil }
+        }
+        XCTAssertFalse(installers.contains { $0.absoluteString.contains("webinstallers") },
+                       "web installer fails its Windows 7 SP1 check under wine win10 — use the offline setup exe")
+    }
+}

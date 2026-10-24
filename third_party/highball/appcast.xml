@@ -1,0 +1,855 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Highball</title>
+    <link>https://github.com/gauthierpiarrette/highball</link>
+    <description>Run Windows games on Apple Silicon.</description>
+    <item>
+      <title>Highball 0.10.22</title>
+      <description><![CDATA[<p>Controllers now reach games on the native arm64 preview engine. On engines r1 to r5, Wine's controller support never finished starting, so Microsoft Flight Simulator 2024 saw no joystick, yoke, throttle or pedals, only mouse and keyboard. Press Play on the game to get the new revision, r6.</p><ul><li>A new app icon in Icon Composer's format, so macOS 26 and later draw it as a Liquid Glass icon. It's the work of @hayden9002, thank you Hayden!</li></ul>]]></description>
+      <pubDate>Tue, 20 Oct 2026 14:50:19 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.22/Highball-0.10.22.zip" sparkle:version="0.10.22" sparkle:shortVersionString="0.10.22" sparkle:edSignature="0qgN/NPOgOUciF9ipa3g20MXvC8MIMH/9oh0A9QK6TlGcXc+YdMQ5w7dPvgKbMNQJ54FkQWZsOJsZE403lBXBA==" length="7658975" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.21</title>
+      <description><![CDATA[<p>Play now says when a game's fix needs a newer macOS, before any question or download. Microsoft Flight Simulator 2024's engine needs macOS 26.5 or later, and Forza Horizon 6's needs macOS 27.</p><ul><li>A game with a Steam update waiting comes along to a new environment as a clone, so only the update downloads.</li><li>The memory note says what a game was tested with, rather than what it needs.</li></ul>]]></description>
+      <pubDate>Mon, 19 Oct 2026 15:05:34 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.21/Highball-0.10.21.zip" sparkle:version="0.10.21" sparkle:shortVersionString="0.10.21" sparkle:edSignature="/fBdr8hnqxPPQzqQWLCDuCuFRKEPR5EkZlXhYGgLQ359A7dAfc7G0EErmtvoUSyUuFPBzwutFbzqBMzdVj6uAw==" length="5316291" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.20</title>
+      <description><![CDATA[<p>Microsoft Flight Simulator 2024 stutters far less on the native arm64 preview engine. In test flights on a base M4, frames over 100 ms fell from 59 to 5 in two minutes parked on the runway. Press Play on the game to get the new revision, r5. This update also brings everything new since 0.10.15.</p><ul><li>Forza Horizon 6's dialogue and engine sound play on Mac speakers and headphones with the Wine 11 engines r24 and later. Thanks to @TxCsOffc.</li><li>A game can open on the display you pick (thanks to @tuandinh0801), and games on the arm64 preview engine can get macOS Game Mode (thanks to @dtacci).</li><li>Steep starts on Apple silicon (thanks to @Sean-Shmulevich), and Red Dead Redemption 2 no longer stops with Rockstar launcher error 113 (thanks to crêpe on Discord).</li><li>Flight Simulator 2024 is one click from the preview engine, and the game you installed comes along without a new download.</li></ul>]]></description>
+      <pubDate>Mon, 19 Oct 2026 13:14:41 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.20/Highball-0.10.20.zip" sparkle:version="0.10.20" sparkle:shortVersionString="0.10.20" sparkle:edSignature="Hh5/3d6Uvvu+jeVhfHTuA8UnwYInrovcgVJ3H/pM4tFSt7Iisu1Ndmmh47plgBYmJmZrVBIvEpO8CYqGxZBLDw==" length="5310133" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.19</title>
+      <description><![CDATA[Play now offers the native arm64 preview engine to Microsoft Flight Simulator 2024, and the game you already installed comes along without a new download.]]></description>
+      <pubDate>Sun, 18 Oct 2026 15:29:37 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.19/Highball-0.10.19.zip" sparkle:version="0.10.19" sparkle:shortVersionString="0.10.19" sparkle:edSignature="NRz2iFfz0qsVGVHYHtzNvSpOnlOrKZ3pWUZc8enGYA53PliaesFxyRN/jwVnuuJDhJHFbjxjApYi0z+rcIU8Dg==" length="5294524" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.18</title>
+      <description><![CDATA[Steep starts on Apple silicon with the new default Wine 10 engine r28 (thanks to @Sean-Shmulevich, highball-db#465), and Microsoft Flight Simulator 2024 on the native arm64 preview engine starts again (a regression in 0.10.17).]]></description>
+      <pubDate>Sun, 18 Oct 2026 03:13:06 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.18/Highball-0.10.18.zip" sparkle:version="0.10.18" sparkle:shortVersionString="0.10.18" sparkle:edSignature="2MSEP1WHdAKBu/89WS8JKlE7QSZyK3GHySI1bBbavwoZO/XDXtw5odJQDP4+uaRgA4RFYCyzmSdwUCCVZgHzBw==" length="5274116" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.17</title>
+      <description><![CDATA[Games can open on the display you pick (thanks to @tuandinh0801, highball#360), and games on the arm64 preview engine can get macOS Game Mode, which gives a full-screen game the highest priority on the CPU and GPU as native games get (thanks to @dtacci, highball#339). Also new Wine 11 engines r26 and r27 with Apple's D3DMetal from Game Porting Toolkit 4.0 beta 3, and the vkd3d mode keeps its shader pipeline cache between starts.]]></description>
+      <pubDate>Sat, 17 Oct 2026 23:04:45 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.17/Highball-0.10.17.zip" sparkle:version="0.10.17" sparkle:shortVersionString="0.10.17" sparkle:edSignature="XBEK5CFg6Hk7HPs9xjbLIuY0qgymbT0foofHj0fiCuby+VWasFoYoU/FLca1vIti++2yPauWzFXj9HXeazaECQ==" length="5252980" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.16</title>
+      <description><![CDATA[<p>Forza Horizon 6's dialogue and engine sound are back on Mac speakers and headphones, and Red Dead Redemption 2 no longer stops with Rockstar launcher error 113. Thanks to @TxCsOffc for the Forza fix and to crêpe on Discord for the Red Dead one.</p><ul><li>For Forza Horizon 6, pick engine r24 in its environment's settings under Advanced, Engine. Other Wine 11 environments can pick r25.</li><li>A Steam install that finishes while its page is open turns its button into Play, and Stop really stops an Epic download.</li></ul>]]></description>
+      <pubDate>Wed, 14 Oct 2026 14:07:59 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.16/Highball-0.10.16.zip" sparkle:version="0.10.16" sparkle:shortVersionString="0.10.16" sparkle:edSignature="mSIjwjBtO1WS31B+An5NOEum0/n+mz8e6WLgbMmSyZWtoia/BzsuFcq4cx8tcz0NmBQ3a/Q2jUZAT7I1eJLdBQ==" length="5116420" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.15</title>
+      <description><![CDATA[<p>Game pages show the game's screenshots and Steam's details, a Steam button in the toolbar opens Steam in one click, and loud game sound no longer crackles. Thanks to @matiasmg-ok for the pages and the button. This update also brings everything new since 0.10.10.</p><ul><li>The EA app's repair works again, and GTA V bought on Epic starts through the Rockstar launcher.</li><li>Epic installs show their size, progress and speed, and a game's first window comes to the front.</li><li>A game the Windows Steam client installed no longer shows as installed in Steam for Mac, and Mac versions of games are read from Steam's own data.</li><li>Discord activity works with Vesktop and other Discord clients.</li><li>Steam works in environments set to D3DMetal, a new environment made for a game gets its own Steam, and external drives show up as drive letters Steam can use for a library.</li><li>Portal and Portal 2 have their HDR back, and The Sims Legacy Collection's thumbnails and portraits no longer turn into noise.</li><li>Games in D3DMetal mode, such as Forza Horizon 6, start with a PlayStation controller connected.</li><li>Retina mode no longer makes Windows programs see twice the screen size. Thanks to @athei.</li><li>Each Steam game can have its own launch arguments, disc images (.iso) open, and Emulate display mode changes covers old low resolutions.</li><li>Add games and an environment's settings are pages now. Thanks to @matiasmg-ok.</li><li>Age of Empires II HD's launcher draws its buttons. Thanks to @NorseGaud.</li><li>The library remembers its filters, and Show the last launch log opens the right log. Thanks to Hayden and natalie on Discord.</li><li>When the database corrects a game's fix, environments set up before follow it on the next Play.</li><li>Thanks to udance4ever, NorseGaud, w8079, Nico and Okami for the reports behind these fixes.</li></ul><p><a href="https://github.com/gauthierpiarrette/highball/releases">Release notes for 0.10.11 to 0.10.15</a></p>]]></description>
+      <pubDate>Mon, 12 Oct 2026 00:13:06 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.15/Highball-0.10.15.zip" sparkle:version="0.10.15" sparkle:shortVersionString="0.10.15" sparkle:edSignature="QgQ6uDRlQ+qcMLoqklsEiXZrADZcgP1qN9A8OaoKQvqv756uR7ixgsgfeb4yDIV16ELyfWQLPTcihfU9sI6qDQ==" length="5053186" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.14</title>
+      <description><![CDATA[<p>Steam works in environments set to D3DMetal, a new environment made for a game gets its own Steam, and external drives show up as drive letters Steam can use for a library. This update also brings everything new since 0.10.10.</p><ul><li>Portal and Portal 2 have their HDR back, and The Sims Legacy Collection's thumbnails and portraits no longer turn into noise.</li><li>Games in D3DMetal mode, such as Forza Horizon 6, start with a PlayStation controller connected.</li><li>Retina mode no longer makes Windows programs see twice the screen size. Thanks to @athei.</li><li>Each Steam game can have its own launch arguments, disc images (.iso) open, and Emulate display mode changes covers old low resolutions.</li><li>Add games and an environment's settings are pages now. Thanks to @matiasmg-ok.</li><li>Age of Empires II HD's launcher draws its buttons. Thanks to @NorseGaud.</li><li>The library remembers its filters, and Show the last launch log opens the right log. Thanks to Hayden and natalie on Discord.</li><li>When the database corrects a game's fix, environments set up before follow it on the next Play.</li></ul><p><a href="https://github.com/gauthierpiarrette/highball/releases">Release notes for 0.10.11 to 0.10.14</a></p>]]></description>
+      <pubDate>Thu, 08 Oct 2026 03:24:14 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.14/Highball-0.10.14.zip" sparkle:version="0.10.14" sparkle:shortVersionString="0.10.14" sparkle:edSignature="WeI0hvdlYsfuMgK8Hum6Dv6zNQAff9Kn/yXdUobZ+4TwsiOgUbwmfqk+MP+lCmcT7ZWNv2j5ZVtsB6ZDYBmsAw==" length="4796727" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.13</title>
+      <description><![CDATA[External drives get their own drive letters, Add games and environment settings become pages, and Age of Empires II HD's launcher draws its buttons]]></description>
+      <pubDate>Wed, 07 Oct 2026 19:14:38 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.13/Highball-0.10.13.zip" sparkle:version="0.10.13" sparkle:shortVersionString="0.10.13" sparkle:edSignature="GpEi5QWkswUzKwIrmCm9AEzABthKQHFDTzSz2W/mJP7NaPOI91jIFiA8b00i2rnk0ppBFcnDLNity2NheDBuDg==" length="4745722" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.12</title>
+      <description><![CDATA[Games in D3DMetal mode start with a PlayStation controller connected, and a game's fix settings follow the database]]></description>
+      <pubDate>Tue, 06 Oct 2026 22:13:51 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.12/Highball-0.10.12.zip" sparkle:version="0.10.12" sparkle:shortVersionString="0.10.12" sparkle:edSignature="/6MC0ZFvg+WsQGdxBHIxcEsL39V+HqaMX3vBQjWDddxerONR5RHpHPYM/fJFhpLi+4RcJK4XWDJpjGzBHtfFAA==" length="4678037" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.11</title>
+      <description><![CDATA[Steam's window works in a D3DMetal environment, New environment installs Steam for a Steam game, Retina mode no longer doubles the screen size in any engine, new Forza Horizon 6 setups get r20]]></description>
+      <pubDate>Tue, 06 Oct 2026 19:39:29 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.11/Highball-0.10.11.zip" sparkle:version="0.10.11" sparkle:shortVersionString="0.10.11" sparkle:edSignature="7ymIPYBnYYM7ai5mmCb8hN1jq1HoqIb0zt89mrdXlrj2BmiA1P6z9o1K/Ve9RYRc6N9yA7L2HItPiFU3ij8FBQ==" length="4672272" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.10</title>
+      <description><![CDATA[<p>Forza Horizon 6 plays on macOS 27, on the new Wine 11 engine r18 with Apple's D3DMetal 4, now also in an environment whose graphics mode you set by hand. This update also brings everything new since 0.10.3.</p><ul><li>Xbox Live games keep their sign-in on the Wine 11 engine.</li><li>Discord can show what you play. It is off by default, under Settings. Thanks to @matiasmg-ok.</li><li>The library opens on an Installed games row, and switching an engine shows what moves first. Thanks to @matiasmg-ok.</li><li>Steam libraries on another disk show up, games can be renamed, and linked game folders are recognised.</li><li>The EA app installs on the Wine 11 engine.</li><li>Data execution prevention stays on, which removes a Rosetta slowdown in Direct3D 9 games that stream vertices. Thanks to @athei.</li><li>Fewer crashes on the Wine 11 engine, and Highball always opens its window.</li></ul><p><a href="https://github.com/gauthierpiarrette/highball/releases/tag/v0.10.10">Full release notes</a></p>]]></description>
+      <pubDate>Tue, 06 Oct 2026 11:33:22 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.10/Highball-0.10.10.zip" sparkle:version="0.10.10" sparkle:shortVersionString="0.10.10" sparkle:edSignature="M8B3mGGpk0CYHJY3MGu6BnDrRt0G/BpBHHYePNVdOulHBrvVTnYmLpcwQuD4kt8arUGMRdM5zIF8KXFKQpZ0CA==" length="4582957" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.9</title>
+      <description><![CDATA[Forza Horizon 6 on macOS 27, Wine 11 engines r18 and r19, Discord presence]]></description>
+      <pubDate>Tue, 06 Oct 2026 00:30:22 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.9/Highball-0.10.9.zip" sparkle:version="0.10.9" sparkle:shortVersionString="0.10.9" sparkle:edSignature="IUn9LvsWbvYu8b2O8gDYbCcpSyntp7LhgPdu6g/a4Rmow5RjujDzJDJ56beVVdKmyw0mNIF30MG/uMLNXC81DA==" length="4560044" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.8</title>
+      <description><![CDATA[The EA app installs on the Wine 11 engine, switching an environment's engine shows what moves and the steps, ContractVille passes -dx11, the day's M4 checks in the database]]></description>
+      <pubDate>Mon, 05 Oct 2026 16:31:33 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.8/Highball-0.10.8.zip" sparkle:version="0.10.8" sparkle:shortVersionString="0.10.8" sparkle:edSignature="8bwRl4ukTPWnB5yC58jXaLaRTlrQVRP+EB15WBdkqjzTzk0QLwrmbnM5HTlr4czyKpl5EmgFCB2FXWcnVpkHAg==" length="4432964" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.7</title>
+      <description><![CDATA[A symlinked Steam library lists its games, the database in the app is current again, covers and names survive an environment rename, the engine question warns that a move carries every game, Bloody Spell and Overwatch 2 recipes, seven new games]]></description>
+      <pubDate>Mon, 05 Oct 2026 11:38:14 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.7/Highball-0.10.7.zip" sparkle:version="0.10.7" sparkle:shortVersionString="0.10.7" sparkle:edSignature="r1YEokIVfwm02ycUO5domA92GkYqw6OARmNpdGS+1YuGS6+SCSzTbChYcIP2z0eglORtry1g2aB2dOeBVJrwDg==" length="4387965" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.6</title>
+      <description><![CDATA[The default engine keeps data execution prevention on (r21), the library opens on an Installed games row with Play on each cover, and games in a second Steam library folder show up]]></description>
+      <pubDate>Mon, 05 Oct 2026 00:52:55 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.6/Highball-0.10.6.zip" sparkle:version="0.10.6" sparkle:shortVersionString="0.10.6" sparkle:edSignature="IAU8z/Jk+XuOj8q+zg1svyDSp1hJ+I0wsE9vfcV8SnbXDDMUbWo1EK5IDdv0S/4We+Rl5UP2gWw8+hJWSLyuCw==" length="4330523" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.5</title>
+      <description><![CDATA[The Wine 11 engine keeps DEP on (r17, far faster Direct3D 9 through DXVK), a Steam left broken by an interrupted update offers its installer again, games can be renamed, Rockstar recipes offer the current engine, nine new games]]></description>
+      <pubDate>Sun, 04 Oct 2026 23:55:20 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.5/Highball-0.10.5.zip" sparkle:version="0.10.5" sparkle:shortVersionString="0.10.5" sparkle:edSignature="c2LwaWLid4301gP3gYoD4e4fw/aKU5OoEuHV8uL4lOgmmPVJBn7z0G6LVbfbQyqEZ/K4EGTqCd2VgPUkjmonAg==" length="4315164" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.4</title>
+      <description><![CDATA[The Wine 11 engine gets the DXMT fix (r16, highball#240), nine new games and corrected rows]]></description>
+      <pubDate>Sat, 03 Oct 2026 00:52:11 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.4/Highball-0.10.4.zip" sparkle:version="0.10.4" sparkle:shortVersionString="0.10.4" sparkle:edSignature="wRl6Kez10uqiO9bZMzuFlwCFX8ytM2lqC3xKvnDfKI1IScfZnLTuHQUiD1jbLyq9X1DefhyVxK1ZA+LuY/cICA==" length="4269388" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.3</title>
+      <description><![CDATA[Sound no longer drops out in games that keep little audio queued, the Rockstar Games Launcher installs again on the Wine 11 engine, and a game that needs that engine gets its newest revision]]></description>
+      <pubDate>Fri, 02 Oct 2026 21:27:30 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.3/Highball-0.10.3.zip" sparkle:version="0.10.3" sparkle:shortVersionString="0.10.3" sparkle:edSignature="SrJ6sGLidMG5eExvBRtTaEXlvOumHUHv0XQUhz3QxAC5hiQQ98BUsXa5wsKK5nnCXv8TwCjwil6Xe14rrpn2CQ==" length="4246028" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.2</title>
+      <description><![CDATA[Long sessions no longer freeze on msync, and the frame rate cap reaches Apple's DirectX 12 mode]]></description>
+      <pubDate>Thu, 01 Oct 2026 20:18:42 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.2/Highball-0.10.2.zip" sparkle:version="0.10.2" sparkle:shortVersionString="0.10.2" sparkle:edSignature="KCuRQlHUTsk5E7XTipgViY0x64xMTi1cszAAQUvzNILx4fd83Wr1SZoH2gHIBFkaoG6IdnVs1/CHNdM7A68fAw==" length="4206899" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.1</title>
+      <description><![CDATA[Games keep their mouse and keyboard after you switch away and come back]]></description>
+      <pubDate>Wed, 30 Sep 2026 19:06:06 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.1/Highball-0.10.1.zip" sparkle:version="0.10.1" sparkle:shortVersionString="0.10.1" sparkle:edSignature="NJKBrNUMAHNI5cxTc5LmKpcgquCGaUjfOOSyq8wMVsgw8wDZPOc8xWXad7R1TeTIRP863CUtWI8LZc3Vz0afCA==" length="4172868" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.10.0</title>
+      <description><![CDATA[The default engine no longer lets a shared texture crash a game at start, on Highball's own DXMT build]]></description>
+      <pubDate>Mon, 28 Sep 2026 19:41:17 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.10.0/Highball-0.10.0.zip" sparkle:version="0.10.0" sparkle:shortVersionString="0.10.0" sparkle:edSignature="MSNBK8/SChceUixLFEun3IpnFXBnixOiyHKwCir+9u4MFquozro1P6x34R9IHIZiB48ZAoSRrQOC+PnHXJ1pBQ==" length="4107614" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.39</title>
+      <description><![CDATA[Frame generation removed at its author's request, native Mac builds pointed out]]></description>
+      <pubDate>Sun, 27 Sep 2026 21:31:40 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.39/Highball-0.9.39.zip" sparkle:version="0.9.39" sparkle:shortVersionString="0.9.39" sparkle:edSignature="g3kI50pXq3CNjTSdXAIrXEYhLwLKiT7qIaTl2abqIfrthXOMrhxG/D3D1Jp/yULFLo4urFBkwpAt2VX6fijEDg==" length="4092846" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.38</title>
+      <description><![CDATA[Recipe settings scoped to their game, owned Steam games in the library]]></description>
+      <pubDate>Sun, 27 Sep 2026 11:29:48 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.38/Highball-0.9.38.zip" sparkle:version="0.9.38" sparkle:shortVersionString="0.9.38" sparkle:edSignature="PJ/XFPWUtwEDi91WRn7pHOLty+xrfg24JsNRnQDUinhmfwJ7E+QXxxojI+KYmFlCXac5YaZEsD3uLDPjsxyhDQ==" length="4028479" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.37</title>
+      <description><![CDATA[Closing the window with a game running no longer quits, DLL overrides restart Steam, r9 default engine with lsfg-metal 0.7.1]]></description>
+      <pubDate>Fri, 25 Sep 2026 12:42:17 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.37/Highball-0.9.37.zip" sparkle:version="0.9.37" sparkle:shortVersionString="0.9.37" sparkle:edSignature="qp17VdLBEv0T28OFBZc+lC8+fhUZkaSVmRLYBa2tIaRxHv+Zs49ApgJrd7yhrxMXO6aF0Roiivlgd0oaV08ADg==" length="3938915" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.36</title>
+      <description><![CDATA[Uninstall a game from its page or its tile: Steam and the Epic tools do their own removing, so their libraries stay right. Drop an image on a tile or a game's page to set its cover. Installing runtimes and fonts now writes its own log, so a failure can be reported with what the installer actually said.]]></description>
+      <pubDate>Tue, 22 Sep 2026 19:23:01 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.36/Highball-0.9.36.zip" sparkle:version="0.9.36" sparkle:shortVersionString="0.9.36" sparkle:edSignature="zq4LE3TT2y0Xw300gGPz5eLPa0ehDzY5vIw17siUNaLGUIirYJWarsOQeSO66xYEu+2gaVZJ/u2g097xFE+dDg==" length="3922373" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.35</title>
+      <description><![CDATA[Frame generation one switch away: engine r7, the new default, carries itsOwen's lsfg-metal shim as a component, off unless an environment turns it on (needs your own Lossless Scaling from Steam). From kkorenn: an engine emptied by an antivirus is named and reinstalled from the app, a game stuck small in a corner gets the scaled-fullscreen fix from Had problems, statistics issues say what they are, launch logs record the audio output rate.]]></description>
+      <pubDate>Tue, 22 Sep 2026 19:02:10 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.35/Highball-0.9.35.zip" sparkle:version="0.9.35" sparkle:shortVersionString="0.9.35" sparkle:edSignature="JpA4voKSnRZgHBxcuNI9FFmrJGR/R67IAEyQtbO4UPqJygj/YjXAZMyPnWTtz1EWCXD5ZCrA0wgTjlVZNF11AA==" length="3887265" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.34</title>
+      <description><![CDATA[Keep game files inside this environment: a new environment setting, off by default, that makes the Windows Documents folder live inside the environment so games stop writing saves into your Mac's Documents (asked in Discussions). Game pages gain Show the game's folder, where mods go.]]></description>
+      <pubDate>Mon, 21 Sep 2026 00:25:52 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.34/Highball-0.9.34.zip" sparkle:version="0.9.34" sparkle:shortVersionString="0.9.34" sparkle:edSignature="BxkTOklot3QCIXwVr98X9xiHF+ogZRDgmeOCQn7oj0ddWVdlzdnILLYPs56pFdKxDiNTUAQaQDb9nkCCdITwCA==" length="3841579" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.33</title>
+      <description><![CDATA[New Wine 11 engine x64-crossover26.3-r11, offered from The Last Flame's page and a pick under Advanced: the last error a game reads after a file call is now the real one on a Mac (Unity's Start did nothing, #99), and videos a game plays through Media Foundation reach DXMT as shared textures. A fix that needs an engine your Highball does not ship yet now says so and points at Check for Updates.]]></description>
+      <pubDate>Mon, 21 Sep 2026 00:08:41 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.33/Highball-0.9.33.zip" sparkle:version="0.9.33" sparkle:shortVersionString="0.9.33" sparkle:edSignature="TeLFiJ5Xo44eB2915tMHrZ1r8Kbi7L7CaJIYmiOkBs88LY8xqOfaNTcXrxVNkK7HoGpwdlAtra2N2eRCw1VVDw==" length="3823227" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.32</title>
+      <description><![CDATA[New engine to pick under Advanced on macOS 27 or newer, x64-sikarugir10.0_6-r6, with Apple's D3DMetal from Game Porting Toolkit 4 for DirectX 12 games: HumanitZ ran at a fraction of the memory, picture confirmed. Engines now stay hidden on a macOS older than they need.]]></description>
+      <pubDate>Sun, 20 Sep 2026 00:52:10 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.32/Highball-0.9.32.zip" sparkle:version="0.9.32" sparkle:shortVersionString="0.9.32" sparkle:edSignature="ruu3Zb6MksLoqWgh3h7jS8duCOfakfzq7PiiG+LQx7w4DRSwVhFL8XT3ynjMuHEt0tV1xFNnyRpm8WXKmuCECA==" length="3801948" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.31</title>
+      <description><![CDATA[Fixes a regression from the 0.9.29 and 0.9.30 betas where the installer cleanup could end the environment's own services and a still-running installer helper and leave the Visual C++ runtimes half installed. Compatibility reports now carry the environment's settings.]]></description>
+      <pubDate>Sat, 19 Sep 2026 14:50:40 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.31/Highball-0.9.31.zip" sparkle:version="0.9.31" sparkle:shortVersionString="0.9.31" sparkle:edSignature="ROpgMqDOAZvsZqhCKwaQ6kJDilgm6w4nqeu/pNXNOVb3bViB4cwW90VfGku3qZTnPSGGh7PFb7Rl5KrT2JOMAA==" length="3791501" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.30</title>
+      <description><![CDATA[Installer cleanup only when the environment was idle before the step, so a running game's own processes are never ended; CI now runs the database tests]]></description>
+      <pubDate>Fri, 18 Sep 2026 21:00:31 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.30/Highball-0.9.30.zip" sparkle:version="0.9.30" sparkle:shortVersionString="0.9.30" sparkle:edSignature="q1d7ESxr5/Dhz+DYZ2ONYj1LFj2jBTtaGN9+PDuKQRCukXvh9TTFojOzHthefGEhoDBe7EV0NQpE9UnzhILQDQ==" length="3757513" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.29</title>
+      <description><![CDATA[Installers no longer leave background agents running with the setup-time graphics stack (Battle.net, Rockstar first launch), and a failed fonts or runtime install now says why]]></description>
+      <pubDate>Fri, 18 Sep 2026 20:25:45 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.29/Highball-0.9.29.zip" sparkle:version="0.9.29" sparkle:shortVersionString="0.9.29" sparkle:edSignature="1XCmSzsg2yLHfEBtg3Tys3jsnehABoV8vJKjHXfW4f4ZzSRy9HzHc47LmouG4fMYeaF5dTM+GAjYBIVzIjjaBw==" length="3758124" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.28</title>
+      <description><![CDATA[Fresh-install launchers get the right graphics stack (Rockstar sign-in no longer empty on first launch), frame generation changes restart the Steam client]]></description>
+      <pubDate>Fri, 18 Sep 2026 19:20:56 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.28/Highball-0.9.28.zip" sparkle:version="0.9.28" sparkle:shortVersionString="0.9.28" sparkle:edSignature="/nBY/mlBa1wXdlAYLlsDXOyj+4djSEhVb91aJq07qzxQaJ8w5O1X96no9GMqLblGehSrlXBGpo6Fnc7IldNFDg==" length="3749264" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.27</title>
+      <description><![CDATA[Emulate display mode changes as a per-program setting; optional fixes offered under Advanced (RaceRoom's newer Direct3D 9); engine r5 carries that layer for opt-in use; a Steam restart stops the client alone; Apple's DirectX 12 support listed before its licence; frame generation groundwork (itsOwen)]]></description>
+      <pubDate>Fri, 18 Sep 2026 10:13:16 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.27/Highball-0.9.27.zip" sparkle:version="0.9.27" sparkle:shortVersionString="0.9.27" sparkle:edSignature="ixpSZ+E+/FNDOIaJdabeZo5szak/V3YSdX2MGzn6LUHHhw20wDToxf/9lp2jAktfOi83uTjwR4K5GRSLdIC2Aw==" length="3738026" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.26</title>
+      <description><![CDATA[Unreal 5 games pick D3DMetal before launch; copying a home onto a network share streams and warns instead of failing (s3lverd); the activity strip counts KB and seconds; the CLI's run exits with Wine's status (ihelfrich); Remove from list on a program's tile]]></description>
+      <pubDate>Thu, 17 Sep 2026 23:17:22 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.26/Highball-0.9.26.zip" sparkle:version="0.9.26" sparkle:shortVersionString="0.9.26" sparkle:edSignature="qgawiImlWUQv+g7AGKrJAe42+D0lmHWNcmFL4AVBSdFS1Nk9xZr5TTc5yX/VhGi9MtaBK1tID3f1d1jlTcf9CA==" length="3656802" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.25</title>
+      <description><![CDATA[Direct3D 12-only games pick D3DMetal before launch; a runtime a game's own setup installed gets its overrides; an incomplete engine refuses to install and the bundled one repairs itself; Steam restarts for a changed variable; DXMT serves 32-bit Direct3D 10/11 on D3DMetal (itsOwen)]]></description>
+      <pubDate>Thu, 17 Sep 2026 20:32:54 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.25/Highball-0.9.25.zip" sparkle:version="0.9.25" sparkle:shortVersionString="0.9.25" sparkle:edSignature="qHUVow9h2C29/eOFTg9drOf71QE+oZIqDWaos0pzxC/Sd0wQ0Cu3GRQzb6qG6/rPEEoDfoGuh1d1aCbh3bTbCA==" length="3637404" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.24</title>
+      <description><![CDATA[OpenGL games that open a core context (Tomb Raider IV-VI Remastered) no longer crash at launch; a failed winetricks step says what it was installing and why; new game rows and recipes]]></description>
+      <pubDate>Thu, 17 Sep 2026 09:52:54 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.24/Highball-0.9.24.zip" sparkle:version="0.9.24" sparkle:shortVersionString="0.9.24" sparkle:edSignature="hc3ZceateCCNXJqcidG9AF2ZeYuNTc/xh8lwHMREgjQou7jn2sIQUEmg8igSGogJhoUBwI1MsSumZ0th/jS/BA==" length="3616849" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.23</title>
+      <description><![CDATA[Candidate engine r4 withdrawn (it broke RaceRoom and FNAF); the Rockstar launcher recipe asks for the Wine 11 engine instead of refusing]]></description>
+      <pubDate>Thu, 17 Sep 2026 09:20:42 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.23/Highball-0.9.23.zip" sparkle:version="0.9.23" sparkle:shortVersionString="0.9.23" sparkle:edSignature="mijp3RYlKcC7BiNlGjtRWVgqI1gouownPxSjh61GlDPcCIcwtMvKSa8yZ+lT7sxUHIeH2F9TezR7FG7ZoIZpAQ==" length="3604729" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.22</title>
+      <description><![CDATA[Candidate engine r4 under Advanced: Direct3D 9 from the DXVK 3.1 macOS fork, for RaceRoom, FNAF 2 and Left 4 Dead]]></description>
+      <pubDate>Wed, 16 Sep 2026 10:20:04 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.22/Highball-0.9.22.zip" sparkle:version="0.9.22" sparkle:shortVersionString="0.9.22" sparkle:edSignature="ka+MXk4Z9LBiytbHEIIKiGwZAAumguSlCsTEzXZgsi5ocGLEpwPQx5tuf+2tyHiPDZlsvIcOfCtRNdbfVpV+Bw==" length="3596439" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.21</title>
+      <description><![CDATA[Epic installs no longer die on the language-pack prompt; candidate engine r10 with MoltenVK 1.4.2 under Advanced]]></description>
+      <pubDate>Tue, 15 Sep 2026 19:56:16 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.21/Highball-0.9.21.zip" sparkle:version="0.9.21" sparkle:shortVersionString="0.9.21" sparkle:edSignature="3D7MOgpEN/99rgFoYAUnozXAPQpzfnD45iKx8vVdnhMV4RV3+EL7NkSdkozG6YiGjbVJPYwTQXQQVAEJzxc0Cw==" length="3579459" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.20</title>
+      <description><![CDATA[Candidate engine r10 with MoltenVK 1.4.2 under Advanced, for Red Dead Redemption 2's tree pop-in]]></description>
+      <pubDate>Tue, 15 Sep 2026 19:34:03 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.20/Highball-0.9.20.zip" sparkle:version="0.9.20" sparkle:shortVersionString="0.9.20" sparkle:edSignature="J0Q30JQS2IWmXu0yRCfIbN1dsnURWQBDsmdPx2vgJi8pvdGt/FBMhL2rh4dVKWb+ZTVk4mAKqypVyGKWs2NtDg==" length="3578179" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.19</title>
+      <description><![CDATA[Engines r3 and r9: the DirectX 12 timestamp shim now carries the real d3d12 export ordinals, so games that bind them by number (Path of Exile 2) start on D3DMetal]]></description>
+      <pubDate>Tue, 15 Sep 2026 16:14:17 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.19/Highball-0.9.19.zip" sparkle:version="0.9.19" sparkle:shortVersionString="0.9.19" sparkle:edSignature="VoUe06PcYMQCP70GhvsR7qKlEgq+Gq6XlnCZM+IFSPEDTdjReVqgFb8WOD+1QqlW64ZlxyIwBhhaQdOdW5PCBA==" length="3567455" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.18</title>
+      <description><![CDATA[A Steam client kept with another graphics mode is now said out loud, in the activity log, the launch log and the session]]></description>
+      <pubDate>Tue, 15 Sep 2026 15:29:33 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.18/Highball-0.9.18.zip" sparkle:version="0.9.18" sparkle:shortVersionString="0.9.18" sparkle:edSignature="tMyNAVIJk476mfHH9fmF0u3Fn2nSoZhc5AmvkAnHaiiZ5sgR9aYtD4JoOcZxjfswaVZh0AmSVE+C7n31XwVGCA==" length="3555188" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.17</title>
+      <description><![CDATA[A changed AVX or Metal HUD toggle now restarts the Steam client, and the launch log records both]]></description>
+      <pubDate>Tue, 15 Sep 2026 13:47:42 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.17/Highball-0.9.17.zip" sparkle:version="0.9.17" sparkle:shortVersionString="0.9.17" sparkle:edSignature="Y7ucwhRApMQrqcbILj4JBu7M3fmb4NaxXKY4pgPrYAyg5ItnU7eopSm+6Uh2A31d+kZlBisdJ3Xr7hhC7BkFCg==" length="3549619" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.16</title>
+      <description><![CDATA[If Rosetta stops working, after a macOS update for instance, Highball offers to install it instead of failing every launch.]]></description>
+      <pubDate>Tue, 15 Sep 2026 10:35:53 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.16/Highball-0.9.16.zip" sparkle:version="0.9.16" sparkle:shortVersionString="0.9.16" sparkle:edSignature="If5ZapFY0/pbtI12XdqjaC00qDxUim8R333h8YT3tW5Ccq/22zDVmqcN0VQE90HFR1hNxtPn48Qyuj1GvKUsBg==" length="3544395" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.15</title>
+      <description><![CDATA[A Mac without working Rosetta gets a clear message and the install command instead of Bad CPU type in executable.]]></description>
+      <pubDate>Mon, 14 Sep 2026 23:09:27 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.15/Highball-0.9.15.zip" sparkle:version="0.9.15" sparkle:shortVersionString="0.9.15" sparkle:edSignature="93jh89yb6wlHWyq/JQlW6fv9TulHuHGGav6IOTstGLSkKUl8Y34F3Lqf0DNj+68ryHEWdKMF6u29rBNJx0l9DQ==" length="3535450" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.14</title>
+      <description><![CDATA[The Microsoft core fonts dependency installs on any Mac: Highball now bundles the cabextract tool winetricks needs.]]></description>
+      <pubDate>Mon, 14 Sep 2026 20:47:04 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.14/Highball-0.9.14.zip" sparkle:version="0.9.14" sparkle:shortVersionString="0.9.14" sparkle:edSignature="Tm+COj5WvUJ2h2S0IrPdBaLBngwwnrmcktTe9Pw7dWdg96r7FDZVp/OpSAqQoG0wczrOm39u+1jLgpK0yLrDCA==" length="3535100" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.13</title>
+      <description><![CDATA[Remove a shortcut from the game's page, and uninstall Windows programs from the environment's settings.]]></description>
+      <pubDate>Mon, 14 Sep 2026 14:57:21 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.13/Highball-0.9.13.zip" sparkle:version="0.9.13" sparkle:shortVersionString="0.9.13" sparkle:edSignature="eevtl0PaUkmrxTsXIreiuREp+wInQwjtOl8zH+Xao8yY8h3Z7PMLeF8e2O2IAbihcWB9F3lmoFBl28BG/WBPDA==" length="3466881" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.12</title>
+      <description><![CDATA[Red Dead Redemption 2 and GTA V bought on Epic now start through a stand-in for Epic's launcher, so the Rockstar launcher accepts the copy instead of showing Buy Now.]]></description>
+      <pubDate>Mon, 14 Sep 2026 11:03:46 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.12/Highball-0.9.12.zip" sparkle:version="0.9.12" sparkle:shortVersionString="0.9.12" sparkle:edSignature="B7XEStGLn8eCs0NPiXmF74QRnWmEBylarUpo9QnNI9JzaduaesdUau4Uz4pWDupFXFESeSXC7HK9lyCNSZRrDg==" length="3456049" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.11</title>
+      <description><![CDATA[Double-click a Windows program in Finder, or Open With Highball, and it runs in your environment, with the option to keep it in Programs.]]></description>
+      <pubDate>Sun, 13 Sep 2026 23:08:35 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.11/Highball-0.9.11.zip" sparkle:version="0.9.11" sparkle:shortVersionString="0.9.11" sparkle:edSignature="auZJxHAtr7YuodaL9/EClm2iLdkpafmWc2fkj0bdXtTHQqTOzsoqzGZCaLpUBNIDfBYRbwQ0cUjZ91YikwucCg==" length="3442782" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.10</title>
+      <description><![CDATA[Dependencies gain Microsoft's core fonts for games whose menus come up blank, and a report from a game on the environment's mode names that mode.]]></description>
+      <pubDate>Sun, 13 Sep 2026 21:39:23 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.10/Highball-0.9.10.zip" sparkle:version="0.9.10" sparkle:shortVersionString="0.9.10" sparkle:edSignature="rAzU42fSa7fMWORaE+xMo7loAW5KFb+42jOJ9PG8foO5ehKx8qCLA/c0sjzDdmeAdOhzgIYLrCN/GVrBqWInDg==" length="3438613" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.9</title>
+      <description><![CDATA[Metaphor: ReFantazio's recipe reaches the app again (0.9.8 bundled it in a shape the app dropped), so Play moves the environment to engine r8.]]></description>
+      <pubDate>Sat, 12 Sep 2026 22:50:19 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.9/Highball-0.9.9.zip" sparkle:version="0.9.9" sparkle:shortVersionString="0.9.9" sparkle:edSignature="Z142CVrnD4XSL5oC1lfRjoYhuVSHLuYrsJv1vi9PphsVoKCNnNll87wfzRiW0AlGJMvGulN2NtuqbXcgjX4tCQ==" length="3431192" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.8</title>
+      <description><![CDATA[Engine r8: Metaphor: ReFantazio plays, and games that switch fibers no longer trip macOS's thread scheduler.]]></description>
+      <pubDate>Sat, 12 Sep 2026 22:22:42 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.8/Highball-0.9.8.zip" sparkle:version="0.9.8" sparkle:shortVersionString="0.9.8" sparkle:edSignature="MhbJzBiWXHmY8fKTzgdW3IY6gixIdfBOxOVldEV6S38LjYoFXI/D+RyRR9+9tGNwczuRscBMDJtsa268i/coDQ==" length="3429004" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.7</title>
+      <description><![CDATA[A game reinstalled by Steam gets its fix back when you press Play.]]></description>
+      <pubDate>Fri, 11 Sep 2026 20:00:07 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.7/Highball-0.9.7.zip" sparkle:version="0.9.7" sparkle:shortVersionString="0.9.7" sparkle:edSignature="OzJKonio53j4OYEQLJFZxyObOlBaJfSdAHscGotZlSdf1Gp0LxzJhWyy6kgWN7W08wa8yP6nyVw24OO5317PAw==" length="3415579" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.6</title>
+      <description><![CDATA[A game's page says one thing about its graphics mode, the log is one click away, and the environment settings are three clicks from anywhere.]]></description>
+      <pubDate>Fri, 11 Sep 2026 19:24:03 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.6/Highball-0.9.6.zip" sparkle:version="0.9.6" sparkle:shortVersionString="0.9.6" sparkle:edSignature="HlQqfCX4R5J6vzIFCOYvbKDtY8ft1uMSoU2kTQvaKrGorSsYOgLsm6CD7x5uX7/STkA6TrBlOBkji3slIX73AQ==" length="3414692" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.5</title>
+      <description><![CDATA[Red Dead Redemption 2 and legacy CS:GO play on macOS 26 through engine r7; Play offers the right engine]]></description>
+      <pubDate>Fri, 11 Sep 2026 16:52:01 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.5/Highball-0.9.5.zip" sparkle:version="0.9.5" sparkle:shortVersionString="0.9.5" sparkle:edSignature="ztpgy9pg9iBS4Ov8ba6ZZpkOuS1J6c30LUyTtsLhT9ptFMRu4ludBw2Lz9bjcWZmW2tSU6TndH+eY7KgPQRqBg==" length="3388599" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.4</title>
+      <description><![CDATA[Recipes install their dependencies, Steam dialogs are reported instead of looking like a hang, and fresh compatibility data for 116 games]]></description>
+      <pubDate>Thu, 10 Sep 2026 21:56:02 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.4/Highball-0.9.4.zip" sparkle:version="0.9.4" sparkle:shortVersionString="0.9.4" sparkle:edSignature="a7D9EN6KptXLOUYUPKXViiqiIW5bQFKil57Ey046p8ybwNgHQRE7hn2+Cn1m0EYh8wCNbRNwCYGH154ymV6UDw==" length="3368822" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.3</title>
+      <description><![CDATA[Guardians of the Galaxy and GTA V play, and engine updates stop moving environments onto the wrong Wine]]></description>
+      <pubDate>Thu, 10 Sep 2026 00:24:18 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.3/Highball-0.9.3.zip" sparkle:version="0.9.3" sparkle:shortVersionString="0.9.3" sparkle:edSignature="m3pDp/MZ/H06E4bY26qpIArOXlqqQ48nHFadfy8QaSxK4UEFlxjfc7SBmvSX2xaKenc30nrnhKnfAfKeCLtfDw==" length="3345458" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.2</title>
+      <description><![CDATA[An engine update no longer moves an environment onto the wrong Wine]]></description>
+      <pubDate>Wed, 09 Sep 2026 17:06:43 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.2/Highball-0.9.2.zip" sparkle:version="0.9.2" sparkle:shortVersionString="0.9.2" sparkle:edSignature="mqfoTaZv6Ajy6mO8WQfSAyLoVQp1fNbwfBD7msDU+ZJhGnc7IYqSiVL55VQ2c+50OqMpRyV7otxODq/dkTEyAg==" length="3338465" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.1</title>
+      <description><![CDATA[Guardians of the Galaxy plays, and a drive check that tells the truth]]></description>
+      <pubDate>Wed, 09 Sep 2026 16:36:03 +0200</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.1/Highball-0.9.1.zip" sparkle:version="0.9.1" sparkle:shortVersionString="0.9.1" sparkle:edSignature="Wkg6ginPUOOkL9osXkR1Xr3R/b+zbAye2qlb09BXDX55zq29BfMdV6WfJprEHgls8bIBfynX2jtwb/binc+dCw==" length="3337212" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.9.0</title>
+      <description><![CDATA[A graphics mode per game with a guided trial after a bad session (#66, #67), engines and environments on any APFS drive (#24, #68), same-Wine engine updates that apply themselves, shortcuts with the game's own icon, the native-Vulkan flag (#44)]]></description>
+      <pubDate>Tue, 08 Sep 2026 01:49:38 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.9.0/Highball-0.9.0.zip" sparkle:version="0.9.0" sparkle:shortVersionString="0.9.0" sparkle:edSignature="kCaYi2tE/INn818UUDFTUjlyHW4K1EcoTGX5v8Dx3Dfccnz03hA7E5xs5L/0JAZGJG+fdgJQIZWpBlwNdWiYCg==" length="3316632" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.9</title>
+      <description><![CDATA[Epic copies match their database rows, so Play asks for Apple's DirectX 12 where a row needs it, and a removed Epic game no longer shows as installed (#63)]]></description>
+      <pubDate>Mon, 07 Sep 2026 15:19:01 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.9/Highball-0.8.9.zip" sparkle:version="0.8.9" sparkle:shortVersionString="0.8.9" sparkle:edSignature="CROsYAYLaTGCWYfIk0Jpq4iC8idwjNgB28sH7EEIksFBBqSIxKtJb2sVaQT7Vcbx1A/sAhzMtiqCvp1+eTXNAw==" length="3240639" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.8</title>
+      <description><![CDATA[The Wine 11 engine ships as an option and is offered where a launcher needs it: the EA app, and the Rockstar and Ubisoft sign-in windows (#60, #15, #56)]]></description>
+      <pubDate>Mon, 07 Sep 2026 02:49:28 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.8/Highball-0.8.8.zip" sparkle:version="0.8.8" sparkle:shortVersionString="0.8.8" sparkle:edSignature="NpgGbW8klJzsdP9j3dqY72shYaNqBNpkHVnp9lvTA7IGN66BEIhL5O4ITortAlU6NiEpzdlHU2OdX+Zu7jWLAQ==" length="3236294" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.7</title>
+      <description><![CDATA[DirectX 12 timestamp queries under D3DMetal, served by a shim in engine r2 (#63)]]></description>
+      <pubDate>Mon, 07 Sep 2026 02:29:28 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.7/Highball-0.8.7.zip" sparkle:version="0.8.7" sparkle:shortVersionString="0.8.7" sparkle:edSignature="O1QLX5mEKf7v89ZQX/OWWJwdz+hR/DzxqjMZ1cmLRnhCyVyc4VjEG3+WntIIaHYNWPlGvz+Rpw5K8ESHqm+NDg==" length="3213796" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.6</title>
+      <description><![CDATA[Chosen covers show everywhere (#64), a beta channel with steadier updates, the Epic menu shows when connected, Make a shortcut]]></description>
+      <pubDate>Mon, 07 Sep 2026 02:07:30 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.6/Highball-0.8.6.zip" sparkle:version="0.8.6" sparkle:shortVersionString="0.8.6" sparkle:edSignature="lpenTOfZOf+fZTKOMxKWH+Dj/mnNpDKh7v5JCFM5IkP0NpVHn3zKOc1BxJirCbJFnsB4AyOamjjaKiMpBP0SAQ==" length="3210909" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.5</title>
+      <description><![CDATA[A graphics mode the engine cannot run no longer kills every launch (#61)]]></description>
+      <pubDate>Sun, 06 Sep 2026 08:33:00 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.5/Highball-0.8.5.zip" sparkle:version="0.8.5" sparkle:shortVersionString="0.8.5" sparkle:edSignature="nRky9ek/kHYVsPYAbJJdyuv6oQMuz6KCelzFQfSBeuepZrEzlQA54L0Q4OWUyDVEwU5jO4nR6vYsHpC9zS2jDA==" length="3198186" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.4</title>
+      <description><![CDATA[Dark appearance for the whole app; installer junctions turned into symlinks]]></description>
+      <pubDate>Sun, 06 Sep 2026 06:07:43 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.4/Highball-0.8.4.zip" sparkle:version="0.8.4" sparkle:shortVersionString="0.8.4" sparkle:edSignature="JXfs3DGHRCSXK0esoXwAO4asuZA534vlHQZCOIjAbGZ6JBPpXgIjmxK82lHckY9KgS0p+OBwp9jxgRkDF1lUCw==" length="3191602" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.3</title>
+      <description><![CDATA[Library keeps up with installs; a stuck Steam first start restarts itself; Mac apps stay out of the way and cover launchers (#53)]]></description>
+      <pubDate>Sat, 05 Sep 2026 09:42:35 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.3/Highball-0.8.3.zip" sparkle:version="0.8.3" sparkle:shortVersionString="0.8.3" sparkle:edSignature="rgOWNM75cNJj+/ilN4H9C/dQu6PoUGj+fGpU8DZRK7cYFmZI1NJj/RRQhZW4URaniZu4xwBxe2Le/CZwTsRnDg==" length="3174951" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.2</title>
+      <description><![CDATA[Fixes launch opening only the Settings window when it was left open at quit (#58); the main window always comes back]]></description>
+      <pubDate>Sat, 05 Sep 2026 06:20:24 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.2/Highball-0.8.2.zip" sparkle:version="0.8.2" sparkle:shortVersionString="0.8.2" sparkle:edSignature="jXl3RZ+o9/V8DqTfGOL510hfhk5qZaalljG5dL/6kPiDXjTNy/fd9hUDFcmuWkCgDEDe7BvNJg6jvj5cdxu3CQ==" length="3166477" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.1</title>
+      <description><![CDATA[Fixes the 0.8.0 create-environment and first-run regressions (#21, #57): progress and clear errors instead of a silent Create; damaged environments recognized; play links wait for the library]]></description>
+      <pubDate>Sat, 05 Sep 2026 04:57:50 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.1/Highball-0.8.1.zip" sparkle:version="0.8.1" sparkle:shortVersionString="0.8.1" sparkle:edSignature="iqHJsT5D1R9TNGUQgSs99AtXmEVZ9V0wYV68hW1xUCV/kV0ERQSAYq5peKDuCOQlJcaVzEROhTG7HjZXueFWAw==" length="3158189" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.8.0</title>
+      <description><![CDATA[One-button setup, one library, honest game pages and an activity strip]]></description>
+      <pubDate>Fri, 04 Sep 2026 10:24:29 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.8.0/Highball-0.8.0.zip" sparkle:version="0.8.0" sparkle:shortVersionString="0.8.0" sparkle:edSignature="DDAIh8zmEcMWjVIODyxsWULGP39J5JD0sJ9olVNurmj5Yrll6UdrOV72cv+CBXfSyy3rCLuzX8odeiWsD+YoDA==" length="3091715" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.22</title>
+      <description><![CDATA[Ready for a second engine, msync back in older bottles, failures that say what to do next, resumable downloads]]></description>
+      <pubDate>Fri, 04 Sep 2026 07:51:15 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.22/Highball-0.7.22.zip" sparkle:version="0.7.22" sparkle:shortVersionString="0.7.22" sparkle:edSignature="OdrLkcuRa1vAew8POJaBp6B3VUT7p66T7zmcSi4D4IkKi5BRSUjdjWJcNVJOrLwcrLOc21bDIpvhEW0kr2tWCQ==" length="2849545" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.21</title>
+      <description><![CDATA[Bottles stop for real; commands work while Steam is open; the Steam tile wakes a running client]]></description>
+      <pubDate>Thu, 03 Sep 2026 13:48:44 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.21/Highball-0.7.21.zip" sparkle:version="0.7.21" sparkle:shortVersionString="0.7.21" sparkle:edSignature="JJwNq0pJYHmaZOwQHHhemKq3vsQ6SCGyT6ujCx7qeey6yryYdWUQ8GpgSAfT/WRFW/FoFzGXW5AFTwoTAkx8AQ==" length="2766908" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.20</title>
+      <description><![CDATA[Repair and engine updates no longer hang in bottles with the real .NET Framework]]></description>
+      <pubDate>Thu, 03 Sep 2026 13:09:20 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.20/Highball-0.7.20.zip" sparkle:version="0.7.20" sparkle:shortVersionString="0.7.20" sparkle:edSignature="PMTt7OyopmTN0ci3e5Dkd/HIOTJ7+RgwvjLq92U+aAQq6GvbO+shYpH0ged/vLuFizBSvIsT1cvqY8RovAf2Cw==" length="2756239" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.19</title>
+      <description><![CDATA[The Sims Legacy Collection renders; engine updates without reinstall]]></description>
+      <pubDate>Wed, 02 Sep 2026 16:04:42 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.19/Highball-0.7.19.zip" sparkle:version="0.7.19" sparkle:shortVersionString="0.7.19" sparkle:edSignature="0IxpssPTku7J6tt9lzW8rGlvKNs7y8DNOTUehElrJu4W/LxwxFMv7thXQbnhCPQaXWp+wVYYB2capzTUfAmaCQ==" length="2752544" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.18</title>
+      <description><![CDATA[DXVK async shader compilation is off by default and existing bottles are switched off; bug reports no longer attach a bottle's startup log (#21).]]></description>
+      <pubDate>Mon, 31 Aug 2026 07:49:19 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.18/Highball-0.7.18.zip" sparkle:version="0.7.18" sparkle:shortVersionString="0.7.18" sparkle:edSignature="FVfG6bau0AJx2CyGmkZgjIn0pZrys3BKi8yl0q1byKrSvt9xROoq1DNl97rG9wo6ZC2RESzCR4tGJAcE4X12CA==" length="2715200" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.17</title>
+      <description><![CDATA[Deleting a bottle no longer leaves it half-removed and unusable (#38); D3D9 games now get DXVK on every renderer (#21).]]></description>
+      <pubDate>Mon, 31 Aug 2026 00:41:58 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.17/Highball-0.7.17.zip" sparkle:version="0.7.17" sparkle:shortVersionString="0.7.17" sparkle:edSignature="fP5MP2eyYPon1Trszq7KDkg/lkjqKYunMLLtav987IIf1+ScJi9/nrZIfzF+xo016KpF/I0Vx21eyK2dUz+0Cg==" length="2714877" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.16</title>
+      <description><![CDATA[Fixes bottles that were created without 32-bit Windows support, which made every installer fail on macOS 26.6 and newer (#37).]]></description>
+      <pubDate>Sat, 29 Aug 2026 15:01:30 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.16/Highball-0.7.16.zip" sparkle:version="0.7.16" sparkle:shortVersionString="0.7.16" sparkle:edSignature="isQztMvrrkvIVTPsEpOeGcZun5FBklsVkas3Qq5vEqzCSMmiuXiTbG8bZ1R034rW8YGEah0WVUSZ4K6CuosFDw==" length="2654347" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.15</title>
+      <description><![CDATA[Play applies verified fixes for you; Visual C++ installs no longer fail when the runtime is already present (#36); logs now record the exit code.]]></description>
+      <pubDate>Sat, 29 Aug 2026 13:46:43 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.15/Highball-0.7.15.zip" sparkle:version="0.7.15" sparkle:shortVersionString="0.7.15" sparkle:edSignature="vrQkSTpF0aVkCcRATxXrR09Bd335bGF1NTTDVk6Ia1RXNUE9Lmr5fHta8rHC9thQlqr6lLiklwNzGRe+71V1Dw==" length="2649105" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.14</title>
+      <description><![CDATA[Apply-fix button on game pages; Portal 1 and 2 verified working (96 / 210+ fps) with their recipes applying the fix for you.]]></description>
+      <pubDate>Fri, 28 Aug 2026 16:10:01 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.14/Highball-0.7.14.zip" sparkle:version="0.7.14" sparkle:shortVersionString="0.7.14" sparkle:edSignature="UIzaJmS8RBuX3MPLGe1EELDmZhboqYmLIknZbcaB99Ph/Rkydr8Lj10K8jMy0PlwaydaGh8X7El+s3DsKb93Dw==" length="2627212" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.13</title>
+      <description><![CDATA[Library polish: every cover sits on the same baseline, verdict or not.]]></description>
+      <pubDate>Fri, 28 Aug 2026 12:23:16 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.13/Highball-0.7.13.zip" sparkle:version="0.7.13" sparkle:shortVersionString="0.7.13" sparkle:edSignature="I1yue1En6In+1U9rm3iYT1wSjIT6ZfCRhd57VpbKLgLgQ+90vwhwzX0FeYrsZqRbeiSAis2PkYIsXoUqNH9gDA==" length="2620077" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.12</title>
+      <description><![CDATA[One Library: all your games across every bottle and store in a single cover grid, with a Continue Playing shelf, per-game pages, and custom covers.]]></description>
+      <pubDate>Fri, 28 Aug 2026 12:17:53 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.12/Highball-0.7.12.zip" sparkle:version="0.7.12" sparkle:shortVersionString="0.7.12" sparkle:edSignature="NG6mtiRTPIY3qUt/9vGsE9AJGj8vHhJ1RtcF1Iw9qHtjnls+U0TIl6t48GEOuOeI5X+lTze4349Sd2h1uZMzDA==" length="2619931" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.11</title>
+      <description><![CDATA[Onboarding you can trust: explicit Done states, honest timing on slow installs, Epic games as first-class cards, and recipes that respect your renderer choice.]]></description>
+      <pubDate>Fri, 28 Aug 2026 11:21:29 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.11/Highball-0.7.11.zip" sparkle:version="0.7.11" sparkle:shortVersionString="0.7.11" sparkle:edSignature="QLWPbp+lAYUNAqVNo8ue51Wveot7V3VHqe+fNvCBisNP4+KnVISjJfqLmoxHMSwGGPR07T4ElIVTIndEvtRiAw==" length="2515227" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.10</title>
+      <description><![CDATA[Legacy CS:GO map-load freeze fixed: per-game DXVK config turns async shader compilation off for csgo.exe and adds 32-bit memory headroom.]]></description>
+      <pubDate>Thu, 27 Aug 2026 14:50:56 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.10/Highball-0.7.10.zip" sparkle:version="0.7.10" sparkle:shortVersionString="0.7.10" sparkle:edSignature="SRct45bgvqtdJdPaxXbJ+n9sn3iNGDPgjRSNa2vizZbv3mNVRjmPs7ZnHbikLnCWq35940wA8SYes1Gq3NznAg==" length="2483134" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.9</title>
+      <description><![CDATA[Fixes fresh engine installs: the winetricks checksum mismatch and broken runtime links. DLL overrides now apply even while Steam is running, and failed installs show their error immediately.]]></description>
+      <pubDate>Thu, 27 Aug 2026 13:00:08 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.9/Highball-0.7.9.zip" sparkle:version="0.7.9" sparkle:shortVersionString="0.7.9" sparkle:edSignature="aYdiOxHdWtOVMl8B9VcH/HPY8YjpHhwMSLsxs5whm/ZERd0viAILnVzhYgMGA56XFGQYBxXILc+3vVY+1Y1nDQ==" length="2481433" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.8</title>
+      <description><![CDATA[DirectX 9 games (like legacy CS:GO) now run on the full DXVK graphics path]]></description>
+      <pubDate>Wed, 26 Aug 2026 14:22:39 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.8/Highball-0.7.8.zip" sparkle:version="0.7.8" sparkle:shortVersionString="0.7.8" sparkle:edSignature="e8j7IuMkgQjAU9acWeLr8hkA3biUGza5L2eOzbbSe+iFIGtIRXUs+gc4NCBNNxCRunTVT3RBvpBCavlKzaDdCg==" length="2464182" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.7</title>
+      <description><![CDATA[Clearer errors for stale entries, correct bug-report logs, more reliable launcher startup]]></description>
+      <pubDate>Wed, 26 Aug 2026 10:37:15 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.7/Highball-0.7.7.zip" sparkle:version="0.7.7" sparkle:shortVersionString="0.7.7" sparkle:edSignature="kzDAeNxoE8FtLoT3ciftmMeeyUyQHZKQ7DJPWFIrObKuzA/fRXU8v2gU2ClyMPQpL7dBZPnK+h1cevwqvwfXBw==" length="2463616" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.6</title>
+      <description><![CDATA[Preinstalled games: run and pin exes from anywhere on disk]]></description>
+      <pubDate>Wed, 26 Aug 2026 03:59:30 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.6/Highball-0.7.6.zip" sparkle:version="0.7.6" sparkle:shortVersionString="0.7.6" sparkle:edSignature="vmINvmsjvPKeD4m0g4UaIsIAkHUfIDbyHz+svjX5Phkt2dyrutFyFWnKwBt8iuqff75IsZ3XQ2MvbbxG1YEDDg==" length="2461772" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.5</title>
+      <description><![CDATA[Blocked launcher tiles with reasons; Rockstar diagnosis filed upstream]]></description>
+      <pubDate>Wed, 26 Aug 2026 03:39:34 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.5/Highball-0.7.5.zip" sparkle:version="0.7.5" sparkle:shortVersionString="0.7.5" sparkle:edSignature="RvRLBKiccsCXbZMNtp7W5WWrYXBEwKZnX9K2gDmEQw6aoXa6+7qqcvSgNaNL7EtLOPnuvZSeMnblgzrGJDN1Dw==" length="2461176" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.4</title>
+      <description><![CDATA[Per-program settings: launch arguments, environment and renderer per program]]></description>
+      <pubDate>Tue, 25 Aug 2026 17:57:22 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.4/Highball-0.7.4.zip" sparkle:version="0.7.4" sparkle:shortVersionString="0.7.4" sparkle:edSignature="mmW+xejIk6HIxp8yb0QIPYE3Q4ujt6t0yIa+cocE7v9bR0wbG9g7bwarUMXwExdVWxSNWUKhIpDgF7cImoApBQ==" length="2453831" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.3</title>
+      <description><![CDATA[Completes the NVIDIA-driver-error fix from 0.7.1: the GPU identity it wrote was silently rejected by Wine (the device id wasn't in Wine's table). Bottles now use an identity Wine accepts, verified against Wine's own diagnostics. New bottles get it automatically; existing bottles: right-click the bottle and choose Repair.]]></description>
+      <pubDate>Tue, 25 Aug 2026 15:38:06 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.3/Highball-0.7.3.zip" sparkle:version="0.7.3" sparkle:shortVersionString="0.7.3" sparkle:edSignature="tBbcadJRrfwX8yZXTvh/b9X6AorWbMcCcJef91fbNR7mWc24nX6pdrzDKB0jGgTuYXbTqqfQe3VrftrFPjsBBw==" length="2430006" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.2</title>
+      <description><![CDATA[New Advanced section in bottle settings: add your own Wine DLL overrides (mods like Cyber Engine Tweaks need version=n,b) and environment variables, no terminal required. Overrides combine correctly with what each renderer already sets.]]></description>
+      <pubDate>Tue, 25 Aug 2026 13:58:19 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.2/Highball-0.7.2.zip" sparkle:version="0.7.2" sparkle:shortVersionString="0.7.2" sparkle:edSignature="tgTvAkBR+zBZ8hEkNUCFRkaKtcudRygWKcXxXhBEtb4EoYkv7mLY2Ta/rRiGZy99OyrV+HqKyuuxkZwHKWkVCg==" length="2429981" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.1</title>
+      <description><![CDATA[Fixes games that refused to start with an NVIDIA driver error (NVAPI, seen with CS:GO among others). Wine was telling games they were on an NVIDIA card; bottles now identify as AMD, which those games handle fine. New bottles get this automatically; for existing bottles right-click the bottle and choose Repair.]]></description>
+      <pubDate>Tue, 25 Aug 2026 13:47:18 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.1/Highball-0.7.1.zip" sparkle:version="0.7.1" sparkle:shortVersionString="0.7.1" sparkle:edSignature="Ey7qzdunD8sErZ6Syrp9eLlvWZ/Iu2b7SeSHribXf/NGmk/EF8ZgZq/Hek3TlVaxbvcLIOEn2CcOLJ2R2J+0CA==" length="2416067" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.7.0</title>
+      <description><![CDATA[Epic Games support, in the app. Connect your Epic account (your password never touches Highball), see your library in any bottle, and install and play with one click, through the same open source path the Heroic launcher uses, so the Epic launcher's broken install flow is never involved. Games default to the renderer that works. Also in this release: .bat files in the run picker, clearer rejected-drop messages, and protection against double-launching a starting program.]]></description>
+      <pubDate>Tue, 25 Aug 2026 13:10:14 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.7.0/Highball-0.7.0.zip" sparkle:version="0.7.0" sparkle:shortVersionString="0.7.0" sparkle:edSignature="w+Z06jaLFzdEvmrvjKLN+C/VeiYyKWvCSfmIdJTMiN3teXx025SXXxa8ZI7gX4pA+3KY/vUTKbFTNnnZGu1ICQ==" length="2415359" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.6.4</title>
+      <description><![CDATA[The Dependencies section gains .NET Framework 4.8, one click per bottle and verified end to end. This unblocks games whose launchers need .NET, like Assetto Corsa (32-bit .NET apps work; 64-bit ones can still hit a known Wine limitation). Also fixes the underlying winetricks support on the engine and lets the file picker select .bat scripts.]]></description>
+      <pubDate>Tue, 25 Aug 2026 11:59:21 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.6.4/Highball-0.6.4.zip" sparkle:version="0.6.4" sparkle:shortVersionString="0.6.4" sparkle:edSignature="Tfwry1Zmikh5lnvdzMPporSFjwNdfcwAG6QjqXZVEpjND++7V2TTrDjbhX1OMrHYRdWl06q6uuY7FZe/RSE1Cg==" length="2373028" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.6.3</title>
+      <description><![CDATA[Fixes the crash some of you hit right after a launcher or game closed (the 'Highball quit unexpectedly' dialog, most common on M4 and M5 Macs) — root-caused from a reader's crash report. Also: dropping an unsupported file on a bottle now tells you which file types work instead of doing nothing.]]></description>
+      <pubDate>Tue, 25 Aug 2026 09:21:25 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.6.3/Highball-0.6.3.zip" sparkle:version="0.6.3" sparkle:shortVersionString="0.6.3" sparkle:edSignature="EWkHM8ivOQoGepEsPqlvkWBHhzsHtvaa9jEJz2d8dbuOHjyMgOkWreC6LSeOcHS3PyWnzY4n9QXVb+YIc2TRCg==" length="2348903" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.6.2</title>
+      <description><![CDATA[You can now run any Windows .exe or .msi from the GUI without knowing the secret: a 'Run a Windows program…' button lives under the launchers (also File menu, ⌘O), opening the same run-or-pin flow as drag-and-drop — which still works, and is now labeled so you can actually find it.]]></description>
+      <pubDate>Tue, 25 Aug 2026 06:57:37 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.6.2/Highball-0.6.2.zip" sparkle:version="0.6.2" sparkle:shortVersionString="0.6.2" sparkle:edSignature="5GAR99n+VIZxwU1MvcpUopRvca4sAiPQeo7uW3ltRKotSandSmXuPHAM/4xN0JKBBRSkHYOobJa4ZFulrgFFDg==" length="2342880" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.6.1</title>
+      <description><![CDATA[New Dependencies section in bottle settings: one-click install of the Visual C++ 2015-2022 runtimes (the 'Microsoft Visual C++ runtime error' fix many games need), with install-state tracking. More runtimes will follow as they're verified on the engine.]]></description>
+      <pubDate>Tue, 25 Aug 2026 06:39:38 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.6.1/Highball-0.6.1.zip" sparkle:version="0.6.1" sparkle:shortVersionString="0.6.1" sparkle:edSignature="8NHgEMHM1rcb7xQGyE1N6LlPQLm1ZsR4slBSLAnsMqI28y7pib5iRgKOqBM8x6TvzsHBks7utl3MD7+6dpJiAQ==" length="2335531" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.6.0</title>
+      <description><![CDATA[Three additions from your launch-week feedback: a Report a Problem button that opens a pre-filled GitHub issue with your system info and latest log; Steam's slow first update now shows its progress inline and auto-recovers from its known mid-update crash; and bottles can be duplicated (safe backups) and repaired from the sidebar's right-click menu.]]></description>
+      <pubDate>Tue, 25 Aug 2026 06:21:54 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.6.0/Highball-0.6.0.zip" sparkle:version="0.6.0" sparkle:shortVersionString="0.6.0" sparkle:edSignature="jd3i62cNzwkWi4zhxx/lDxWFifZIvqBoelZM6NH6k3/I2fGaMyannsG8DKpBLKZUrr4WdyFZ9pfteS2cPaYACA==" length="2321380" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.5.7</title>
+      <description><![CDATA[New: Retina mode — a per-bottle toggle in Settings for crisp text and UI at your display's native resolution (with a DPI bump so nothing goes microscopic). Off by default: native rendering is heavier, so pair it with the frame rate cap for demanding games.]]></description>
+      <pubDate>Tue, 25 Aug 2026 05:54:20 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.5.7/Highball-0.5.7.zip" sparkle:version="0.5.7" sparkle:shortVersionString="0.5.7" sparkle:edSignature="WAtPLcjs+un5u395DXitNrSs/cOaels8WH+hmPpdJjYJdVmn4QnUrmiL3az6E2FkSF/S/J0dRBjkUU0k6M77AA==" length="2300586" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.5.6</title>
+      <description><![CDATA[Fixes a crash at launch when a bottle folder had been copied or duplicated in Finder — the copy now just appears as its own working bottle. If Highball was crashing on open for you, this is the fix.]]></description>
+      <pubDate>Tue, 25 Aug 2026 04:38:05 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.5.6/Highball-0.5.6.zip" sparkle:version="0.5.6" sparkle:shortVersionString="0.5.6" sparkle:edSignature="w52f8XXTFeIKCVpgcsX59uxCrNfNqTFVWbri0GS4IME6VTB3JlAW/MtWswd+gSRHcJtrLyCr3IyoL+1BkjciCg==" length="2296692" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.5.5</title>
+      <description><![CDATA[Games can now use your microphone: macOS will show the standard permission prompt the first time a game or app in a bottle asks for it. Previously the app was missing the required declarations, so voice chat got silently denied with no prompt.]]></description>
+      <pubDate>Tue, 25 Aug 2026 03:47:24 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.5.5/Highball-0.5.5.zip" sparkle:version="0.5.5" sparkle:shortVersionString="0.5.5" sparkle:edSignature="sx4Vvg41PXF57c/jy/BIjYJkGUo1LqsZtgsBQnzpNEJ/MYNsNg5dKo53iGYYjWWS5uFE5Y6rO0hrNYkTRH8YDQ==" length="2296486" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.5.4</title>
+      <description><![CDATA[Engine installs now show live download progress (per-component MB counts) instead of a blank sheet, and a stalled connection fails with a clear error after 60 seconds instead of hanging forever. Also: CLI quickstart fixes for source builds (recipe lookup guidance, bare program names route through Wine).]]></description>
+      <pubDate>Tue, 25 Aug 2026 02:41:09 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.5.4/Highball-0.5.4.zip" sparkle:version="0.5.4" sparkle:shortVersionString="0.5.4" sparkle:edSignature="+PWZTy6z8oOl0OxjGcEat4YvcR1WPXclPdYU9EBa7AideyM4UhrGiyANvzEVOk7jdwyW+lCLaXtAqcXludvxBw==" length="2296209" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.5.3</title>
+      <description><![CDATA[Quitting Highball now offers to stop all Windows processes (or deliberately leave a game running) instead of silently stranding them — and the app menu gains Stop All Windows Processes for cleanup after a crash.]]></description>
+      <pubDate>Mon, 24 Aug 2026 14:39:41 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.5.3/Highball-0.5.3.zip" sparkle:version="0.5.3" sparkle:shortVersionString="0.5.3" sparkle:edSignature="m4P6e5xzeVglb3yMPsXFGuZPHuil5dORXzjNP8hmYnoMUS5gNvj9bPoXkvUjPvN6Yo4qKEhjznXwRj6SzPJ/Dg==" length="2289233" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.5.2</title>
+      <description><![CDATA[Bottle names are now validated before creation: names with characters Windows forbids in paths (\ / : * ? " < > |) silently broke the Wine prefix (wineboot exit 53). The New Bottle sheet now explains the problem inline. Fixes #12.]]></description>
+      <pubDate>Mon, 24 Aug 2026 12:39:46 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.5.2/Highball-0.5.2.zip" sparkle:version="0.5.2" sparkle:shortVersionString="0.5.2" sparkle:edSignature="R/p3kwYcHhsTXhBwC1HyKsCNRhFMZzd8XjATTIe7ELXW8XimXty2DOatrj1Km2SPeHgLvRPPLTbaEbxON5FxBw==" length="2283383" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.5.1</title>
+      <description><![CDATA[Hotfix: creating your first bottle failed on fresh installs (the app pointed Wine's working directory at a folder that only exists after first boot). If 0.5.0 wouldn't make a bottle for you — this is the fix, and it'll arrive via Check for Updates too.]]></description>
+      <pubDate>Mon, 24 Aug 2026 06:25:36 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.5.1/Highball-0.5.1.zip" sparkle:version="0.5.1" sparkle:shortVersionString="0.5.1" sparkle:edSignature="toS3cMuMxj/YYE8vQEo7f6VpIsX8VUDQLA8RSQtjvkHcxrp/xLEBcNcWff2aIAtv92wqTVFQblrPl/P9dd9XAQ==" length="2280922" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.5.0</title>
+      <description><![CDATA[The design release. Highball now looks like what it is — a game launcher: full-bleed artwork cards with verdicts on the art and play-on-hover, one launcher row where installed means Open and missing means Install, Highball's amber through the whole shell instead of system blue, and settings tucked into a toolbar sheet where they belong. Same engine, same database, entirely different feel.]]></description>
+      <pubDate>Mon, 24 Aug 2026 05:12:19 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.5.0/Highball-0.5.0.zip" sparkle:version="0.5.0" sparkle:shortVersionString="0.5.0" sparkle:edSignature="ekAzn6wO+1ErdHG7x7oK1MDgkfBPqc60Z35haQAYeXUAzrze2eLDCgYJc05v7OBUfDE70K/YBeX9lNIle+EEBA==" length="2280875" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.4.1</title>
+      <description><![CDATA[Design pass: branded sidebar, amber bottle header, launcher tiles with icons, humanized engine names, game-card hover states, empty states, and the redesigned compatibility database site with 12,491 predictions. Plus the automated verification harness from 0.4.0, now with display-wake fixed.]]></description>
+      <pubDate>Mon, 24 Aug 2026 04:58:41 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.4.1/Highball-0.4.1.zip" sparkle:version="0.4.1" sparkle:shortVersionString="0.4.1" sparkle:edSignature="WWw3VzNevq6ZoFNvRiMXv0wIxYgsKPUuBwaz6T4rqJT2Ov6+hdm2ICNf3Xmxm2a3CCRkb/Chi088cxub257RCA==" length="2226394" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.4.0</title>
+      <description><![CDATA[The database learns to feed itself: automated verification harness (highball verify — tests your installed games under every renderer, detects crashes and black screens, records provenance-complete verdicts; anti-cheat titles skipped by design), 12,491 machine-derived Mac predictions on the database site, Mac-aware anti-cheat map for 1,166 titles, UI polish (game-card hover, humanized engine names, empty states), and a landing page at gauthierpiarrette.github.io/highball.]]></description>
+      <pubDate>Mon, 24 Aug 2026 04:41:04 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.4.0/Highball-0.4.0.zip" sparkle:version="0.4.0" sparkle:shortVersionString="0.4.0" sparkle:edSignature="ftHIMMy+mCnUJq1iChHoYJPe6z8YyuYvo+TVT/mbJOi9UtWim9MecOnppqbEVhGChDy0mz9v/rhavde9Z5tmBw==" length="2207279" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>Highball 0.3.1</title>
+      <description><![CDATA[Notarized build with automatic updates. macOS opens it without any right-click ritual, and this is the last version you'll ever download by hand — updates arrive in-app via Sparkle. Includes everything from 0.3.0: +42% game frame rate via msync, DXVK async, frame-rate caps, game library with compatibility verdicts, French UI.]]></description>
+      <pubDate>Mon, 24 Aug 2026 03:37:31 -0700</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/gauthierpiarrette/highball/releases/download/v0.3.1/Highball-0.3.1.zip" sparkle:version="0.3.1" sparkle:shortVersionString="0.3.1" sparkle:edSignature="Y+T0H0SbtPnLfw/eR/RntcHRGgxq821BleLX7kKYgLzjn39wSYPfy0T7lemKQjTJb1+Gxn2f+AKxo0wma42bAg==" length="2135020" type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>

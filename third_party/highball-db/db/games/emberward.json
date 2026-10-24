@@ -1,0 +1,13 @@
+{
+  "id": "emberward",
+  "title": "Emberward",
+  "steam_appid": 2643980,
+  "status": "community",
+  "renderer": "dxmt",
+  "anticheat": null,
+  "provenance": "Reported by togdon (highball-db#320, 2026-10-05), Apple M1 Pro, macOS 26.6.2, Highball 0.10.3, engine x64-sikarugir10.0_6-r19, DXMT, msync, Windows 10 set in the environment, rated 5 of 5 after 119 minutes. Not verified by the maintainer.",
+  "notes": "Reported perfect on DXMT on the default engine over a session of almost two hours. No measurement here yet.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

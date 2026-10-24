@@ -1,0 +1,263 @@
+#!/bin/zsh
+# Cut a Highball release: build+sign+notarize the app, sign the update for Sparkle,
+# update appcast.xml, publish the GitHub release.
+# Usage: Scripts/release.sh [--beta|--hotfix] 0.3.1 "One-line summary" [notes-file.md]
+#        Scripts/release.sh --promote 0.3.1     (beta -> stable, phased over seven days)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+# Every push below names origin's main, where the appcast is served from. A plain `git push`
+# failed on a detached HEAD after the build and notarization had run (0.10.9), and `git push
+# origin HEAD` from a release worktree's own branch would have made a new branch of that name
+# instead of updating main (seen in a dry run before 0.10.11, 2026-10-06). The pushes are refused
+# when HEAD does not contain origin/main, so check that before anything starts.
+git fetch -q origin main || { echo "release.sh: cannot fetch origin main" >&2; exit 1; }
+git merge-base --is-ancestor origin/main HEAD || { echo "release.sh: HEAD does not contain origin/main. Rebase onto it and run Scripts/gate.sh again" >&2; exit 1; }
+# Channels (2026-09-07): a normal release goes to beta first (`--beta`), then `--promote <version>`
+# turns the same signed artifact into a stable, phased rollout by editing the appcast: no rebuild,
+# so what testers ran is byte for byte what everyone gets. `--hotfix` is stable at once, no phasing.
+CHANNEL=stable
+case "${1:-}" in
+  --beta) CHANNEL=beta; shift ;;
+  --hotfix) CHANNEL=hotfix; shift ;;
+  --promote)
+    PV="${2:?usage: release.sh --promote <version>}"
+    git diff-index --quiet HEAD -- || { echo "tracked files modified; commit before promoting" >&2; exit 1; }
+    # Cadence (2026-09-08): a stable rollout takes seven days, so promoting again inside that window
+    # restarts the clock for everyone and makes beta testers chase daily builds. Betas ship as often
+    # as needed; a promotion waits for the previous one to finish unless HB_CADENCE_OK=1 says the
+    # new build fixes something stable users are hitting now.
+    python3 - <<'PY' || { echo "set HB_CADENCE_OK=1 to promote anyway" >&2; exit 1; }
+import os, re, sys, time
+from email.utils import parsedate_to_datetime
+s = open('appcast.xml').read()
+last = None
+for item in re.findall(r'<item>.*?</item>', s, re.S):
+    if 'phasedRolloutInterval' in item:
+        m = re.search(r'<pubDate>(.*?)</pubDate>', item)
+        if m: last = max(last or 0, parsedate_to_datetime(m.group(1)).timestamp())
+if last and time.time() - last < 7 * 86400 and os.environ.get('HB_CADENCE_OK') != '1':
+    print(f"release cadence: the previous stable promotion was {(time.time() - last) / 86400:.1f} days ago and its seven-day rollout is still running.", file=sys.stderr); sys.exit(1)
+PY
+    HB_VERSION="$PV" HB_DATE="$(date -R 2>/dev/null || date "+%a, %d %b %Y %H:%M:%S %z")" python3 - <<'PY'
+import os, re, xml.dom.minidom
+v = os.environ['HB_VERSION']
+s = open('appcast.xml').read()
+m = re.search(r'(    <item>\n      <title>Highball ' + re.escape(v) + r'</title>.*?</item>)', s, re.S)
+assert m, f'no appcast item for {v}'
+item = m.group(1)
+assert '<sparkle:channel>beta</sparkle:channel>' in item, f'{v} is not a beta item'
+new = item.replace('      <sparkle:channel>beta</sparkle:channel>\n', '      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>\n')
+# The phased rollout counts from pubDate, so promotion is the item's new date.
+new = re.sub(r'<pubDate>.*?</pubDate>', f"<pubDate>{os.environ['HB_DATE']}</pubDate>", new)
+open('appcast.xml', 'w').write(s.replace(item, new, 1))
+xml.dom.minidom.parse('appcast.xml')
+print(f'appcast: {v} promoted to stable, phased over seven days from now')
+PY
+    gh release edit "v$PV" --prerelease=false --latest --title "Highball $PV"
+    git add appcast.xml && git commit -m "release: promote v$PV to stable" && git push origin "HEAD:refs/heads/main"
+    echo "promoted v$PV"
+    exit 0 ;;
+esac
+VERSION="${1:?usage: release.sh [--beta|--hotfix] <version> <summary> [notes.md]  |  release.sh --promote <version>}"
+SUMMARY="${2:?summary required}"
+NOTES_FILE="${3:-}"
+export HB_CHANNEL="$CHANNEL"
+# Beta cadence (2026-09-18): three betas in one day is churn for testers and for the owner. A
+# beta waits two days after the previous one unless it fixes a regression (say "regression" in
+# the summary) or HB_CADENCE_OK=1 says so.
+if [ "$CHANNEL" = beta ]; then
+  HB_SUMMARY="${2:-}" python3 - <<'PY' || { echo "set HB_CADENCE_OK=1 to cut it anyway, or put 'regression' in the summary if it fixes one" >&2; exit 1; }
+import os, re, sys, time
+from email.utils import parsedate_to_datetime
+if os.environ.get('HB_CADENCE_OK') == '1' or 'regression' in os.environ.get('HB_SUMMARY', '').lower(): sys.exit(0)
+s = open('appcast.xml').read()
+last = None
+for item in re.findall(r'<item>.*?</item>', s, re.S):
+    if '<sparkle:channel>beta</sparkle:channel>' in item:
+        m = re.search(r'<pubDate>(.*?)</pubDate>', item)
+        if m: last = max(last or 0, parsedate_to_datetime(m.group(1)).timestamp())
+if last and time.time() - last < 2 * 86400:
+    print(f"release cadence: the previous beta was {(time.time() - last) / 3600:.1f} hours ago; betas wait two days unless they fix a regression.", file=sys.stderr); sys.exit(1)
+PY
+fi
+
+# The tag below marks HEAD as the source of this build, so the tree must be clean.
+git diff-index --quiet HEAD -- || { echo "tracked files modified; commit before releasing" >&2; exit 1; }
+
+# Release gate (2026-09-07): Scripts/gate.sh runs every automated check and records
+# private/gate/latest.json. A beta or stable release needs a passing result younger than 24 hours
+# for this very commit: the tree that was tested is the tree that ships. A hotfix skips the gate
+# (an urgent fix is never hostage to a ten-minute run) and only warns about stale smoke results.
+if [ "$CHANNEL" != hotfix ]; then
+  HB_HEAD="$(git rev-parse HEAD)" python3 - <<'PY' || exit 1
+import json, os, sys, time
+try:
+    d = json.load(open("private/gate/latest.json"))
+except Exception:
+    print("release gate: no Scripts/gate.sh result. Run Scripts/gate.sh (about ten minutes), or --hotfix for an urgent fix.", file=sys.stderr); sys.exit(1)
+required = d.get("required", []); checks = d.get("checks", {})
+if not d.get("passed"):
+    failed = [k for k in required if checks.get(k, {}).get("result") != "pass"]
+    print(f"release gate: the last Scripts/gate.sh run failed ({', '.join(failed)}). Fix it, or --hotfix for an urgent fix.", file=sys.stderr); sys.exit(1)
+age = time.time() - d.get("epoch", 0)
+if age > 86400:
+    print(f"release gate: the last passing Scripts/gate.sh run is {age/3600:.0f} hours old. Run it again, or --hotfix for an urgent fix.", file=sys.stderr); sys.exit(1)
+if d.get("commit") != os.environ["HB_HEAD"]:
+    print(f"release gate: Scripts/gate.sh ran on {d.get('commit', '?')[:7]}, HEAD is {os.environ['HB_HEAD'][:7]}. Run it again on this commit, or --hotfix for an urgent fix.", file=sys.stderr); sys.exit(1)
+advisory = [f"{k} ({v.get('result')})" for k, v in checks.items() if k not in required and v.get("result") != "pass"]
+print("release gate: passed." + (f" Advisory checks: {', '.join(advisory)} (private/gate/*.log)." if advisory else ""), file=sys.stderr)
+PY
+else
+  for check in render-smoke upgrade-smoke firstrun-smoke launch-window-smoke game-smoke; do
+    if ! HB_CHECK="$check" python3 - <<'PY' 2>/dev/null
+import json, os, sys, time
+d = json.load(open(f"private/{os.environ['HB_CHECK']}/latest.json"))
+sys.exit(0 if d.get("passed") and time.time() - d.get("epoch", 0) < 14*86400 else 1)
+PY
+    then echo "WARNING (hotfix): no passing $check result from the last 14 days." >&2; fi
+  done
+fi
+
+# Push CI (.github/workflows/ci.yml) builds with the runners' Xcode 16, older than this Mac's.
+# 2026-09-08: the 0.9.0 beta shipped while CI was red on a type-check timeout that only Xcode 16
+# hit, so the local gate alone is not enough. A beta or stable release needs a green CI run for
+# HEAD. No finished run yet (the push may be minutes old) only warns; --hotfix only warns.
+ci=$(gh run list --workflow ci.yml --commit "$(git rev-parse HEAD)" --limit 1 --json status,conclusion -q '.[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)
+case "$ci" in
+  "completed success") echo "release gate: push CI is green for HEAD." >&2 ;;
+  "completed "*)
+    if [ "$CHANNEL" = hotfix ]; then echo "WARNING (hotfix): push CI is ${ci#completed } for HEAD." >&2
+    else echo "release gate: push CI is ${ci#completed } for HEAD (gh run list --workflow ci.yml). Fix it, or --hotfix for an urgent fix." >&2; exit 1; fi ;;
+  *) echo "WARNING: no finished push CI run for HEAD yet (${ci:-none}); it should be green before this release is promoted." >&2 ;;
+esac
+
+# Every recipe the app will bundle must decode with this very build of the CLI. A recipe the app
+# cannot decode is dropped silently at load, so Play never applies it: 0.9.8 shipped the Metaphor
+# recipe with a bare-date lastVerified and the engine it asks for never reached anyone (2026-09-12).
+RECIPES_DIR="../highball-db/recipes"; [ -d "$RECIPES_DIR" ] || RECIPES_DIR=".build/highball-db/recipes"
+if [ -d "$RECIPES_DIR" ]; then
+  swift build -c debug --product highball >/dev/null 2>&1 || { echo "release: debug CLI build failed" >&2; exit 1; }
+  for f in "$RECIPES_DIR"/launchers/*.json "$RECIPES_DIR"/games/*.json "$RECIPES_DIR"/tweaks/*.json; do
+    [ -f "$f" ] || continue
+    .build/debug/highball recipe show "$f" >/dev/null 2>/tmp/hb-recipe-err || { echo "release: the CLI cannot decode $f: $(head -c 300 /tmp/hb-recipe-err)" >&2; exit 1; }
+  done
+  echo "release: every recipe in $RECIPES_DIR decodes with this build"
+fi
+Scripts/make-app.sh release "$VERSION"
+ZIP="dist/Highball-$VERSION.zip"
+ditto -c -k --keepParent dist/Highball.app "$ZIP"
+
+# Sparkle EdDSA signature for the appcast.
+SIGN=.build/artifacts/sparkle/Sparkle/bin/sign_update
+ED_ATTRS=$("$SIGN" "$ZIP" | tr -d '\n')   # sparkle:edSignature="…" length="…"
+
+DOWNLOAD_URL="https://github.com/gauthierpiarrette/highball/releases/download/v$VERSION/Highball-$VERSION.zip"
+DATE=$(date -R 2>/dev/null || date "+%a, %d %b %Y %H:%M:%S %z")
+
+# Create appcast.xml if missing, then insert the new item after <channel>.
+if [ ! -f appcast.xml ]; then
+  cat > appcast.xml <<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Highball</title>
+    <link>https://github.com/gauthierpiarrette/highball</link>
+    <description>Run Windows games on Apple Silicon.</description>
+  </channel>
+</rss>
+XML
+fi
+# Insert via python, not sed: the summary is arbitrary text (a '|' or '&' must not break the release).
+HB_VERSION="$VERSION" HB_SUMMARY="$SUMMARY" HB_DATE="$DATE" HB_URL="$DOWNLOAD_URL" HB_ED="$ED_ATTRS" python3 - <<'PY'
+import os, xml.dom.minidom
+v = os.environ['HB_VERSION']
+# Channel: a beta item is only seen by installs that opted in; a stable item rolls out in phases
+# (Sparkle: seven groups, one per interval, from pubDate; manual checks get it at once). A hotfix
+# is stable with no phasing.
+channel = os.environ.get('HB_CHANNEL', 'stable')
+extra = ''
+if channel == 'beta':
+    extra = '      <sparkle:channel>beta</sparkle:channel>\n'
+elif channel == 'stable':
+    extra = '      <sparkle:phasedRolloutInterval>86400</sparkle:phasedRolloutInterval>\n'
+item = f"""    <item>
+      <title>Highball {v}</title>
+      <description><![CDATA[{os.environ['HB_SUMMARY']}]]></description>
+      <pubDate>{os.environ['HB_DATE']}</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+{extra}      <enclosure url="{os.environ['HB_URL']}" sparkle:version="{v}" sparkle:shortVersionString="{v}" {os.environ['HB_ED']} type="application/octet-stream"/>
+    </item>"""
+s = open('appcast.xml').read()
+anchor = '<description>Run Windows games on Apple Silicon.</description>'
+assert anchor in s, 'appcast anchor missing'
+assert f'v{v}/' not in s, f'version {v} already in appcast'
+open('appcast.xml', 'w').write(s.replace(anchor, anchor + '\n' + item, 1))
+xml.dom.minidom.parse('appcast.xml')
+print('appcast.xml valid')
+PY
+
+# DMG is THE user-facing download: unzip and many third-party unarchivers destroy the zip's
+# Sparkle symlinks, which breaks the signature and triggers Gatekeeper's malware warning
+# (proven 2026-08-25, repeated Reddit reports). A DMG has no extraction step to mangle.
+# The zip stays as the Sparkle update enclosure. Landing/README link
+# .../releases/latest/download/Highball.dmg, so the DMG asset name must stay unversioned.
+# The window layout (background, icon positions, volume icon) lives in Scripts/make-dmg.sh.
+DMG="dist/Highball.dmg"
+Scripts/make-dmg.sh
+codesign --sign "Developer ID Application: Gauthier PIARRETTE (B95M7DARU4)" --timestamp "$DMG"
+xcrun notarytool submit "$DMG" --keychain-profile highball --wait
+xcrun stapler staple "$DMG"
+
+# Tag the exact commit this build came from and push it BEFORE gh release create:
+# without an existing tag, gh tags the REMOTE default-branch head, which mislabeled
+# v0.7.8 (local fix commits weren't pushed yet, so the tag landed on the v0.7.7 commit).
+git tag "v$VERSION"
+git push origin "HEAD:refs/heads/main" "v$VERSION"
+
+# Publishing is one GitHub call that can fail on a network blip after the tag is already pushed
+# (0.8.2: a read error on the final PATCH left a tag with no release and no appcast). Retry, and if
+# a previous attempt left the release behind, finish it instead of failing: upload the assets again
+# and make sure it is published.
+# A beta is a GitHub prerelease and never "latest": the website's latest-download link and the
+# stable appcast item stay on the previous stable until promotion.
+if [ "$CHANNEL" = beta ]; then FLAGS="--prerelease"; TITLE="Highball $VERSION (beta)"; else FLAGS="--latest"; TITLE="Highball $VERSION"; fi
+publish() {
+  if gh release view "v$VERSION" >/dev/null 2>&1; then
+    gh release upload "v$VERSION" "$ZIP" "$DMG" --clobber
+    gh release edit "v$VERSION" --draft=false $FLAGS --title "$TITLE"
+  elif [ -n "$NOTES_FILE" ]; then
+    gh release create "v$VERSION" "$ZIP" "$DMG" $FLAGS --title "$TITLE" --notes-file "$NOTES_FILE"
+  else
+    gh release create "v$VERSION" "$ZIP" "$DMG" $FLAGS --title "$TITLE" --notes "$SUMMARY"
+  fi
+}
+for attempt in 1 2 3 4; do
+  if publish; then break; fi
+  [ "$attempt" = 4 ] && { echo "release publish failed four times; the tag v$VERSION is pushed, run again to finish" >&2; exit 1; }
+  echo "publish attempt $attempt failed, retrying in 15s…" >&2; sleep 15
+done
+# The assets exist only once the release is published; do not point the appcast at them before.
+gh release view "v$VERSION" --json isDraft --jq '.isDraft' | grep -q false
+
+git add appcast.xml && git commit -m "release: v$VERSION appcast" && git push origin "HEAD:refs/heads/main"
+
+# GitHub's asset CDN lags the upload by a few seconds: wait until the zip downloads at full size.
+for i in $(seq 1 24); do
+  got=$(curl -sL -o /dev/null -w '%{size_download}' "$DOWNLOAD_URL" || echo 0)
+  [ "$got" = "$(stat -f %z "$ZIP")" ] && break
+  sleep 5
+done
+
+# Post-publish gate: download the published assets back and verify them exactly as users do.
+# Any failure aborts loudly (set -e) — a release is not done until this passes.
+GATE=$(mktemp -d)
+curl -sL -o "$GATE/app.dmg" "https://github.com/gauthierpiarrette/highball/releases/download/v$VERSION/Highball.dmg"
+xcrun stapler validate "$GATE/app.dmg"
+spctl --assess --type open --context context:primary-signature "$GATE/app.dmg"
+curl -sL -o "$GATE/app.zip" "$DOWNLOAD_URL"
+ditto -x -k "$GATE/app.zip" "$GATE/x"
+xcrun stapler validate "$GATE/x/Highball.app"
+spctl --assess --type execute "$GATE/x/Highball.app"
+rm -rf "$GATE"
+echo "post-publish verification passed: dmg + zip notarized as downloaded"
+echo "released v$VERSION — appcast live once the push lands"

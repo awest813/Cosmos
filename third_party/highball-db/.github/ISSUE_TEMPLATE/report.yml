@@ -1,0 +1,61 @@
+name: Compatibility report
+description: How did a game or launcher run through Highball?
+labels: [report]
+body:
+  - type: markdown
+    attributes:
+      value: "One line is enough. If you played through Highball, the button it shows after a session opens this form with the chip, macOS, engine and graphics mode filled in."
+  - type: input
+    id: game
+    attributes: { label: Game or launcher, placeholder: "Elden Ring" }
+    validations: { required: true }
+  - type: input
+    id: steam_appid
+    attributes: { label: Steam AppID (if a Steam game), placeholder: "1245620" }
+  - type: dropdown
+    id: rating
+    attributes:
+      label: Rating
+      options: ["5 — perfect", "4 — playable, minor issues", "3 — playable with workarounds", "2 — launches, not playable", "1 — does not launch"]
+    validations: { required: true }
+  - type: input
+    id: issues
+    attributes:
+      label: What was not perfect?
+      description: "Skip this for a 5. For anything lower, one line on what you saw is what turns the report into a fix: a glitch, a stutter, a crash point, a control that stopped working."
+      placeholder: "Frame drops when shooting; the family portrait is noise; clicks stop after alt-tab"
+  - type: input
+    id: renderer
+    attributes:
+      label: Renderer
+      description: "The graphics mode the game ran in, one of dxmt, d3dmetal, dxvk or wined3d. A link from Highball fills it in. It is a text field because GitHub fills only text fields from a link."
+      placeholder: "dxmt"
+  - type: input
+    id: chip
+    attributes: { label: Chip, placeholder: "Apple M1 Pro" }
+  - type: input
+    id: macos
+    attributes: { label: macOS version, placeholder: "14.6" }
+  - type: input
+    id: engine
+    attributes: { label: Engine id, placeholder: "x64-sikarugir10.0_6-r0" }
+  - type: input
+    id: version
+    attributes: { label: Highball version, placeholder: "0.9.6" }
+  - type: textarea
+    id: settings
+    attributes:
+      label: Environment settings
+      description: "Filled in by Highball from the environment the session ran in, only what was set away from its default. Nothing to add unless you changed something outside the app."
+  - type: input
+    id: session
+    attributes:
+      label: Session
+      description: "Filled in by Highball: how long the game ran. When you fill in the form yourself, leave it empty. Your own words go under Notes."
+      placeholder: "Played for 25 min through Highball."
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: "Three short lines help most: what you played into (a menu, a level, a match), for how long, and the frame rate if the Metal HUD was on. Then anything that mattered: a setting, a glitch, a workaround."
+      placeholder: "Played a full bot match on Dust II for 25 min, 100 to 108 fps at 1728x1117 on the Metal HUD. No settings changed."

@@ -1,0 +1,13 @@
+{
+  "id": "sos-ops",
+  "title": "SOS OPS!",
+  "steam_appid": 2475460,
+  "status": "community",
+  "renderer": "dxmt",
+  "anticheat": null,
+  "provenance": "Reported by julianglstr (highball-db#291, 2026-10-03), Apple M4, macOS 27.0.1, Highball 0.9.39, the Wine 11 engine x64-crossover26.3-r9, DXMT, rated 5 of 5 after 12 minutes. Not verified by the maintainer.",
+  "notes": "Reported perfect on DXMT after 12 minutes, in an environment on the Wine 11 engine; whether the default engine runs it was not reported. No measurement here yet.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

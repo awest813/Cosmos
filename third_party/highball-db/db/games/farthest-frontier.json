@@ -1,0 +1,19 @@
+{
+  "id": "farthest-frontier",
+  "title": "Farthest Frontier",
+  "steam_appid": 1044720,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Reported by jnp-nl (highball-db#359, 2026-10-06), the Steam copy, Apple M5 Max, macOS 27.0.1, Highball 0.10.3, engine x64-sikarugir10.0_6-r19, D3DMetal, rated 4 of 5 after 52 minutes. Not verified by the maintainer.",
+  "notes": "Reported playable on D3DMetal with a 60 fps cap, in a 52-minute session. The reporter's environment had Windows 11, 192 dpi scaling and AVX advertised.",
+  "knownIssues": [
+    {
+      "symptom": "Typing a save name shows no characters in the input field",
+      "cause": "not diagnosed",
+      "fix": "none known"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

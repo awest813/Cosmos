@@ -1,0 +1,28 @@
+{
+  "id": "xact",
+  "kind": "tweak",
+  "title": "Microsoft XAudio 2.7 and XACT (32-bit)",
+  "requires": [],
+  "renderer": null,
+  "steps": [
+    {
+      "type": "winetricks",
+      "verbs": [
+        "xact"
+      ],
+      "slow": "Downloads Microsoft's DirectX June 2010 redistributable (about 100 MB) and installs its XAudio 2.0 to 2.7, XACT and X3DAudio libraries into the environment, a few minutes."
+    },
+    {
+      "type": "note",
+      "text": "Microsoft's 32-bit XAudio 2.7 and XACT are installed and preferred over Wine's own in this environment. Some older 32-bit games play their sound through middleware that Wine's XAudio does not satisfy (CRI's ADX in Binary Domain, highball-db#345), and come out silent or broken without them. Every 32-bit game in the environment that uses XAudio 2.7 or older gets Microsoft's version, so install it only where a game needs it."
+    }
+  ],
+  "knownIssues": [],
+  "lastVerified": {
+    "date": "2026-10-05",
+    "engine": "x64-sikarugir10.0_6-r21",
+    "macos": "27.0",
+    "chip": "Apple M4",
+    "result": "winetricks xact completes (exit 0) on a fresh environment with the app's bundled cabextract. windows/syswow64/xaudio2_7.dll is then Microsoft's (527,192 bytes, dated 2010-06-02) and user.reg prefers xaudio2_7, xactengine3_7 and x3daudio1_7 native,builtin. The 64-bit side keeps Wine's. Whether it mends a given game's sound is per game; not yet checked with Binary Domain."
+  }
+}

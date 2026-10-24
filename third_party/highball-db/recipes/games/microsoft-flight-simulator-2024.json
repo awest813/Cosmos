@@ -1,0 +1,146 @@
+{
+  "id": "microsoft-flight-simulator-2024",
+  "kind": "game",
+  "title": "Microsoft Flight Simulator 2024",
+  "requires": [
+    "steam",
+    "flight-controls-raw-hid"
+  ],
+  "renderer": "vkd3d",
+  "engine": "arm64-wine11.18-r6",
+  "minMemoryGB": 32,
+  "knownIssues": [
+    {
+      "symptom": "Joysticks, yokes, throttles and pedals do not show up in the game's controls, only mouse and keyboard",
+      "cause": "the preview engines before r6 never started Wine's controller support (a missing SDL3 library name)",
+      "fix": "this recipe's engine r6 starts it, and Highball offers the move when you press Play"
+    },
+    {
+      "symptom": "A Honeycomb Bravo throttle quadrant shows up as a gamepad (Controller_1) and its levers move the menus, or the Alpha yoke does not show up at all",
+      "cause": "Wine's controller driver counted the Bravo, six levers and dozens of switches, as a gamepad when it read it through SDL, and Apple's game controller layer hid the Alpha",
+      "fix": "this recipe's Flight controls as on Windows tweak reads Honeycomb devices directly, as Windows does; from Highball 0.10.23, Play applies it to environments set up before"
+    },
+    {
+      "symptom": "On the Intel engines the game refuses to start with 'Your graphics card does not support Shader Model 6.7', or quits during its first loading screen",
+      "cause": "D3DMetal 3 and the first D3DMetal 4 betas report Shader Model 6.6, and past that check the game stops during its first load under Rosetta",
+      "fix": "this recipe asks for the native arm64 preview engine, which Play offers for this game"
+    },
+    {
+      "symptom": "A short freeze of one to two seconds a few times a flight, more in daylight",
+      "cause": "Metal stopping on lossless-compressed images the game copies every frame",
+      "fix": "this recipe sets HB_MVK_NO_LOSSLESS=1 on the environment, which removes most of them, and one flight in four still shows two in daylight"
+    },
+    {
+      "symptom": "About one start in sixteen to forty ends in a crash during the world load",
+      "cause": "under study (memory corruption during the load)",
+      "fix": "none yet, start again"
+    },
+    {
+      "symptom": "About seven minutes to the start screen and four more from Start to the cockpit",
+      "cause": "the emulator translating the game's code, the shader preparation and the game unpacking its packages on one thread",
+      "fix": "none, later starts reuse the shader and code caches"
+    },
+    {
+      "symptom": "Short hitches remain, most on the first take-off after loading and when one of the game's pop-ups opens",
+      "cause": "under study",
+      "fix": "none yet"
+    },
+    {
+      "symptom": "Menus can freeze for three to four seconds",
+      "cause": "under study",
+      "fix": "switching to another app and back with Cmd+Tab ends the freeze, as a tester found"
+    },
+    {
+      "symptom": "Far map tiles stay coarse on the Free Flight page away from the departure airport, and the main menu's globe shows pale wedges over the oceans",
+      "cause": "under study",
+      "fix": "none yet"
+    },
+    {
+      "symptom": "Some lights and line effects are missing",
+      "cause": "geometry-shader pipelines Metal cannot run",
+      "fix": "none yet"
+    },
+    {
+      "symptom": "Smeared picture when the view turns",
+      "cause": "the game's motion blur at these frame rates",
+      "fix": "turn Motion Blur off in the game's graphics settings"
+    }
+  ],
+  "lastVerified": {
+    "date": "2026-10-20",
+    "engine": "arm64-wine11.18-r6 (r5 with the SDL3 library name Wine's controller support needs: Wine 11.18 with Highball's 25 arm64 patches, FEX 2610 with fex/patches 0001 to 0023 and this recipe's FEX switches, MoltenVK 1.4.2 with patches 0001 to 0016, vkd3d-proton 3.0.1)",
+    "macos": "27.0",
+    "chip": "Apple M4",
+    "result": "On r6 (2026-10-20), one check flight in Highball's test harness: boot, Free Flight, a 2-minute park and a 1-minute take-off roll at Gibraltar, 26.1 fps parked and 21.8 rolling, no crash, no GPU hang, and Wine's controller buses (SDL, UDEV, IOHID) started. On r5 (2026-10-19): steam copy (2537590) on a Mac mini M4 with 32 GB, in daylight at Gibraltar in a Cessna 172: boot, Free Flight, three 2-minute parks and three 1-minute take-off rolls with two in-game restarts a flight, at the Medium preset with FSR Balanced in a 1920x931 window. With this recipe's FEX switches (engine r5, FEX patch 0023), four flights against two on r4 in Highball's test harness: frames over 100 ms 5 per park instead of 59 and 23 per minute of take-off roll instead of 55, frames over 250 ms 0.5 instead of 9 per park, the 99th percentile frame time 71 ms parked instead of 160, 22.5 fps parked and 19 rolling instead of 19 and 16. A check flight on the released engine without the harness instrumentation did 24 fps parked and 20.5 rolling, with 5 and 4 frames over 100 ms per window. No crash, no GPU hang, about 7 minutes to the start screen and 13 to the cockpit. Not tested: camera turns, a longer flight, other aircraft or airports, a real controller, any other Mac."
+  },
+  "steps": [
+    {
+      "type": "environment",
+      "name": "VKD3D_FEATURE_LEVEL",
+      "value": "12_1"
+    },
+    {
+      "type": "environment",
+      "name": "VKD3D_SHADER_MODEL",
+      "value": "6_7"
+    },
+    {
+      "type": "environment",
+      "name": "VKD3D_CONFIG",
+      "value": "force_native_fp16,no_staggered_submit"
+    },
+    {
+      "type": "environment",
+      "name": "HB_MVK_TEXTURE_2D_AS_ARRAY",
+      "value": "1"
+    },
+    {
+      "type": "environment",
+      "name": "DXVK_CONFIG",
+      "value": "dxgi.maxVideoMemoryBudget=${memoryMB*0.375}"
+    },
+    {
+      "type": "dlloverride",
+      "value": "gameoverlayrenderer64,gameoverlayrenderer=d"
+    },
+    {
+      "type": "environment",
+      "name": "HB_MVK_NO_LOSSLESS",
+      "value": "1"
+    },
+    {
+      "type": "environment",
+      "name": "HB_FEX_SMC_SKIP_SAME",
+      "value": "1"
+    },
+    {
+      "type": "environment",
+      "name": "HB_FEX_SMC_RETIRE",
+      "value": "1"
+    },
+    {
+      "type": "environment",
+      "name": "HB_FEX_SMC_HOT_MAXINST",
+      "value": "64"
+    },
+    {
+      "type": "environment",
+      "name": "HB_FEX_VM_FASTPATH",
+      "value": "1"
+    },
+    {
+      "type": "environment",
+      "name": "HB_FEX_SMC_DEFER_CALLRET",
+      "value": "1"
+    },
+    {
+      "type": "environment",
+      "name": "FEX_DYNAMICL1CACHE",
+      "value": "0"
+    },
+    {
+      "type": "note",
+      "text": "Microsoft Flight Simulator 2024 runs on Highball's native arm64 preview engine, which this recipe asks for, and the Intel engines cannot start it. The engine needs macOS 26.5 or later. It was tested on a Mac with 32 GB of memory, where the game used 25 to 27 GB. The first start takes about seven minutes to the start screen and four more from Start to the cockpit, and later starts reuse the shader and code caches. On a base M4 in daylight, expect 22 to 25 fps parked and 19 to 21 on the take-off roll at the Medium preset with FSR Balanced. Turn Motion Blur off in the graphics settings."
+    }
+  ]
+}

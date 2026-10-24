@@ -1,0 +1,38 @@
+{
+  "id": "planet-coaster-2",
+  "kind": "game",
+  "title": "Planet Coaster 2",
+  "requires": [
+    "steam"
+  ],
+  "renderer": "d3dmetal",
+  "engine": "x64-crossover26.3-r9",
+  "steps": [
+    {
+      "type": "renderer",
+      "renderer": "d3dmetal"
+    },
+    {
+      "type": "note",
+      "text": "Direct3D 12 only, so D3DMetal, and it needs a Wine 11 engine (Wine 10.8 or newer): on the Wine 10 engines it dies at start with the game's own crash dialog even on D3DMetal. Highball offers the engine before applying this. Denuvo, so Steam must be signed in. Not yet run here. Until 2026-10-06 this recipe also turned on Metal's validation layer (MTL_DEBUG_LAYER=1 with MTL_DEBUG_LAYER_ERROR_MODE=nslog), the Cellar project's workaround for a D3DMetal startup race, reported playable on an M5 there. With it, two Macs here (an M3 Pro and an M5 Pro) froze and needed a restart, so it was removed. Without it, the expected failure is the game's crash dialog at start, which is the safer one."
+    }
+  ],
+  "knownIssues": [
+    {
+      "symptom": "With the recipe's configuration in place (Wine 11 r9, D3DMetal, Metal's validation layer on, confirmed by 'Metal API Validation Enabled' in the launch log) the game shows nothing for five minutes; stopping the environment then froze the whole Mac and needed a forced reboot (highball-db#115, Apple M3 Pro, macOS 26.6.2, 2026-09-18)",
+      "cause": "not diagnosed; the Cellar profile this recipe carries was reported working on an M5. A first run in the same session went to a Steam client started before the variables were set, which reproduced the original crash dialog once.",
+      "fix": "none confirmed on an M3 Pro. Do not force-stop the environment while the game is up under D3DMetal, quit from the game if it ever shows; close Steam and Play again after changing the environment's variables so the client carries them"
+    },
+    {
+      "symptom": "On an M5 Pro (macOS 27.0.1, engine r18 with D3DMetal 4 and r19 with D3DMetal 3) the game process stays alive with no window, and the Mac becomes unresponsive within minutes and needs a restart (highball-db#356, 2026-10-06)",
+      "cause": "not diagnosed; same shape as the M3 Pro report above",
+      "fix": "none known"
+    },
+    {
+      "symptom": "Crash dialog offering to send diagnostics to the developer right at launch (reported highball-db#115, DXMT and D3DMetal, engine x64-sikarugir10.0_6-r2 and r3)",
+      "cause": "two things stack: DXMT has no Direct3D 12 at all, and on the Wine 10 engines D3DMetal hits a startup race that ends the game within seconds. Cellar's profile documents the race and the Wine 10.8+ requirement.",
+      "fix": "Apply this recipe on the Wine 11 engine it asks for. The Cellar workaround (MTL_DEBUG_LAYER=1 and MTL_DEBUG_LAYER_ERROR_MODE=nslog) is not recommended: on an M3 Pro and an M5 Pro it led to a frozen Mac that needed a restart"
+    }
+  ],
+  "lastVerified": null
+}

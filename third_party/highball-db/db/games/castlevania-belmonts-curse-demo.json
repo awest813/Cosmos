@@ -1,0 +1,19 @@
+{
+  "id": "castlevania-belmonts-curse-demo",
+  "title": "Castlevania: Belmont's Curse Demo",
+  "steam_appid": 5000760,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Reported by udance4ever (highball-db#353, 2026-10-06), Apple M1, macOS 27.0.1, Highball 0.10.9, engine x64-sikarugir10.0_6-r21, D3DMetal, rated 5 of 5 after 18 minutes, to the first boss at 50 to 60 fps by the player's account. Not verified by the maintainer.",
+  "notes": "Reported perfect on D3DMetal on a base M1, 50 to 60 fps. A DualSense was not picked up, which players report on Linux too. An XInput controller (an 8BitDo Lite) works.",
+  "knownIssues": [
+    {
+      "symptom": "A DualSense controller does nothing in game",
+      "cause": "The demo's DirectInput path, which also fails on Linux (Steam community thread for the full game)",
+      "fix": "Use an XInput controller, such as an 8BitDo in X mode (highball-db#353)"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

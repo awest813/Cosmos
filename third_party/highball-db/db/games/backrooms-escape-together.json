@@ -1,0 +1,24 @@
+{
+  "id": "backrooms-escape-together",
+  "title": "Backrooms: Escape Together",
+  "steam_appid": 2141730,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Reported by wubrosnz-cmd (highball-db#327, 2026-10-05), Apple M5, macOS 27.0.1, Highball 0.9.33, engine x64-sikarugir10.0_6-r5, D3DMetal, frame cap 60, rated 4 of 5 after 24 minutes. Not verified by the maintainer.",
+  "notes": "Reported playable on D3DMetal; the reporter says the other graphics modes half render the scene and the lights misbehave, so D3DMetal is the one to use. The microphone picked up their voice but friends could not hear them in game. No measurement here yet.",
+  "knownIssues": [
+    {
+      "symptom": "Friends cannot hear you in voice chat although the microphone picks up your voice",
+      "cause": "reported once, not diagnosed",
+      "fix": "none known yet (highball-db#327)"
+    },
+    {
+      "symptom": "Scene half rendered and lights wrong on DXMT and DXVK",
+      "cause": "reported once",
+      "fix": "use D3DMetal"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

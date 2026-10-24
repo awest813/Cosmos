@@ -1,0 +1,13 @@
+{
+  "id": "limbus-company",
+  "title": "Limbus Company",
+  "steam_appid": 1973530,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Reported by ProgramingFreshie (highball-db#317, 2026-10-04), Apple M3, macOS 26.6.2, Highball 0.10.3, engine x64-sikarugir10.0_6-r19, D3DMetal, msync, Windows 10 set in the environment, rated 5 of 5 after 15 minutes. Not verified by the maintainer.",
+  "notes": "Reported perfect on D3DMetal on the default engine after a short session of 15 minutes. The game is free to play on Steam. No measurement here yet.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

@@ -11,6 +11,7 @@ Merlot Apps/
 .swiftpm/
 /build/
 Package.resolved
+!third_party/highball/Package.resolved
 
 # Auto-generated Steam launcher configs (detect_steam_games.command)
 cosmos_configs/steam-*.conf

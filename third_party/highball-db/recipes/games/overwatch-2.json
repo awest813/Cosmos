@@ -1,0 +1,18 @@
+{
+  "id": "overwatch-2",
+  "kind": "game",
+  "title": "Overwatch 2",
+  "requires": [
+    "steam"
+  ],
+  "renderer": null,
+  "engine": "x64-crossover26.3-r15",
+  "steps": [
+    {
+      "type": "note",
+      "text": "Asks for the Wine 11 engine r15 or newer. On the default engine the game starts but never opens a window, on every graphics mode (highball#232, reproduced on an M4 on 2026-10-01). On the Wine 11 engine it opens, shows Blizzard's account link screen on a first start, and a player on an M5 Pro reports it plays flawlessly (2026-10-05). Everything installed in the environment stays."
+    }
+  ],
+  "knownIssues": [],
+  "lastVerified": null
+}

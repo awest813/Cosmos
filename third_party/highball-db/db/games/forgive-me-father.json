@@ -1,0 +1,13 @@
+{
+  "id": "forgive-me-father",
+  "title": "Forgive Me Father",
+  "steam_appid": 1590910,
+  "status": "community",
+  "renderer": "dxmt",
+  "anticheat": null,
+  "provenance": "Reported by thevideogameraptorboggle (highball-db#314, 2026-10-04), Apple M4, macOS 26.5, Highball 0.9.39, engine x64-sikarugir10.0_6-r11, DXMT, msync, Windows 10 set in the environment, rated 5 of 5 after 27 minutes. Not verified by the maintainer.",
+  "notes": "Reported perfect on DXMT on the default engine after a session of 27 minutes. No measurement here yet.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

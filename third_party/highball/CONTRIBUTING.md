@@ -1,0 +1,25 @@
+# Contributing
+
+**Ran a game?** That's the most valuable contribution: `highball report <bottle> "<title>" --rating N`
+opens a pre-filled issue on [highball-db](https://github.com/gauthierpiarrette/highball-db). Chip, macOS,
+engine and renderer are captured automatically.
+
+**Recipes** (install/config knowledge) are CC0 data in highball-db — PR with the CLI output attached.
+Every recipe carries `lastVerified` so stale data is visible rather than silently wrong.
+
+**Code**: `swift build && swift test` is the whole loop; `Scripts/make-app.sh debug` builds the app
+bundle. `Scripts/dev.sh` rebuilds that bundle and reopens it when a Swift file changes, and reopens
+it when a file in the sibling highball-db checkout changes. Ctrl+C stops the app. Steam keeps running.
+Match the style around you. Interface text is English; a French line in `L10n.swift` is
+welcome but optional, English shows until someone adds it. By contributing you license your work
+under GPL-3.0 (code) or CC0 (data).
+
+Everyone here follows the [code of conduct](CODE_OF_CONDUCT.md).
+
+**Automated verification** (`highball verify`): tests only games *you already installed*, one at a
+time, exactly as a player launching them would — via Steam's own documented `-applaunch` flag. It
+never touches the store, never installs anything, and skips anti-cheat titles by default. Keep it
+that way: batch auto-installing or store automation is out of scope by policy, not oversight.
+
+**Engines**: manifest PRs bumping pinned SHA-256s, with a note on what you verified. Highball never
+hosts binaries and never carries Wine patches — that's a design rule, not a preference.

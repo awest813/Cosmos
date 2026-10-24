@@ -1,0 +1,36 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+# Least privilege: CI only needs to read the checkout. No token write scope.
+permissions:
+  contents: read
+# One in-flight run per ref; a newer push/PR update cancels the older one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select Xcode 16
+        run: sudo xcode-select -s /Applications/Xcode_16.1.app || sudo xcode-select -s /Applications/Xcode_16.0.app || true
+      - name: Build
+        run: swift build
+      # The db checkout has to sit next to the repo before the unit tests: RecipeDBTests
+      # decode every shipped recipe and row and skip themselves when it is absent, which
+      # left five of them silently unrun on every CI run until 2026-09-18.
+      - name: Check out highball-db next to the repo
+        run: git clone --depth 1 https://github.com/gauthierpiarrette/highball-db.git ../highball-db
+      - name: Unit tests
+        run: swift test
+      - name: Upgrade smoke (an existing install is still seen; headless)
+        run: Scripts/upgrade-smoke.sh
+      - name: First-run smoke (empty home installs the engine; headless)
+        run: Scripts/firstrun-smoke.sh
+      - name: Validate recipes against the CLI (from highball-db)
+        run: |
+          for f in ../highball-db/recipes/launchers/*.json ../highball-db/recipes/games/*.json ../highball-db/recipes/tweaks/*.json; do
+            .build/debug/highball recipe show "$f" > /dev/null || exit 1
+          done

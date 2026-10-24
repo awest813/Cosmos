@@ -1,0 +1,55 @@
+{
+  "id": "portal-2",
+  "kind": "game",
+  "title": "Portal 2",
+  "requires": [
+    "steam"
+  ],
+  "renderer": "dxvk",
+  "steps": [
+    {
+      "type": "file",
+      "path": "Program Files (x86)/Steam/steamapps/common/Portal 2/portal2/cfg/video.txt",
+      "contents": "\"VideoConfig\"\n{\n\t\"setting.mat_hdr_level\"\t\t\"2\"\n}\n"
+    },
+    {
+      "type": "file",
+      "path": "Program Files (x86)/Steam/steamapps/common/Portal 2/portal2/cfg/autoexec.cfg",
+      "contents": "mat_hdr_level 2\nmat_tonemapping_occlusion_use_stencil 1\n"
+    },
+    {
+      "type": "registry",
+      "key": "HKCU\\Software\\Wine\\AppDefaults\\portal2.exe\\Direct3D",
+      "name": "VideoMemorySize",
+      "valueType": "REG_SZ",
+      "data": "2047"
+    },
+    {
+      "type": "note",
+      "text": "Portal 2 runs with HDR on, with the lighting, bloom and haze it has on Windows. On a Mac, Source's HDR auto-exposure pass used to make every map load freeze or crash, because it draws into a pass with nothing attached, which the Mac's GPU driver gives up on. This recipe sets mat_tonemapping_occlusion_use_stencil 1, Source's own switch that runs that pass on the stencil buffer instead, and HDR then loads and plays. If loads ever freeze with a white or stuck screen, turn HDR off again by changing mat_hdr_level 2 to 0 in portal2/cfg/autoexec.cfg and in portal2/cfg/video.txt. Keep the game on DXVK."
+    },
+    {
+      "type": "note",
+      "text": "Portal 2 sizes video memory from Windows' WMI, where Wine reports 4294967295 bytes on a Mac with a lot of memory. The game reads that as -1 and picks its lowest Model / Texture Detail on its first start. The recipe tells Wine to report 2047 MB to portal2.exe, so the game picks High. A config saved before this keeps its old setting: set Model / Texture Detail to High in Options, Video, Advanced once."
+    }
+  ],
+  "knownIssues": [
+    {
+      "symptom": "Freeze or crash at the end of every map load (white or stuck screen), menus fine",
+      "cause": "Source's HDR auto-exposure pass draws occlusion queries into a render pass with no attachments, and the Apple GPU loses the device on it inside MoltenVK (VK_ERROR_DEVICE_LOST, Metal 'Internal Error (0000010d)', and Metal API and shader validation report nothing before it). Engine-level, and it affects other Source titles too.",
+      "fix": "mat_tonemapping_occlusion_use_stencil 1 (this recipe writes it into portal2/cfg/autoexec.cfg) runs that pass on the stencil buffer, so it has an attachment, and HDR works. Measured on an M4 with macOS 27.0, engine x64-sikarugir10.0_6-r21 and DXVK on 2026-10-07, in nine map loads with HDR on across sp_a1_intro1, sp_a1_intro2, sp_a1_intro3 and sp_a2_laser_intro, the last two with this recipe applied by Highball itself. No device loss, and portals drawn correctly. Without the switch every HDR load lost the device. Earlier this recipe turned HDR off (mat_hdr_level 0), which still works as a fallback."
+    },
+    {
+      "symptom": "Textures look softer than on Windows. Options, Video, Advanced shows Model / Texture Detail on Low after the first start",
+      "cause": "Portal 2's shaderapidx9 sizes video memory through WMI (Win32_VideoController). Wine answers AdapterRAM 4294967295 (0xFFFFFFFF) under DXVK, the game reads it as -1 (mat_info: m_TextureMemorySize -1, Size of Texture Memory 0 kb) and its autodetect saves gpu_mem_level 0. Seen on an M1 Pro (16 GB) and an M4 (32 GB), 2026-10-06.",
+      "fix": "this recipe sets HKCU\\Software\\Wine\\AppDefaults\\portal2.exe\\Direct3D VideoMemorySize = 2047, then the game reports 2047 MB and saves gpu_mem_level 2 (High). Verified on the M4, macOS 27.0, r21. A config saved before needs Model / Texture Detail set to High once by hand."
+    }
+  ],
+  "lastVerified": {
+    "date": "2026-10-07",
+    "engine": "x64-sikarugir10.0_6-r21",
+    "macos": "27.0",
+    "chip": "Apple M4",
+    "result": "HDR on with mat_tonemapping_occlusion_use_stencil 1 in nine map loads (sp_a1_intro3 four times, sp_a1_intro1 and sp_a1_intro2 twice each, sp_a2_laser_intro once), the last two with this recipe applied by highball recipe apply. No device loss, HDR lighting, bloom and fog drawn, and an orange and a blue portal opened from the console drawn with the far side visible. Without the switch, every HDR load lost the device (four runs on sp_a1_intro1 and sp_a1_intro3). Earlier verifications with HDR off on an M1 Pro, macOS 14.6 and 26.6.2 (2026-08-28, 2026-09-02)."
+  }
+}

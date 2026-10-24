@@ -1,0 +1,13 @@
+{
+  "id": "resident-evil-6-benchmark",
+  "title": "Resident Evil 6 Benchmark Tool",
+  "steam_appid": 229950,
+  "status": "community",
+  "renderer": null,
+  "anticheat": null,
+  "provenance": "Started here on an M4 with macOS 27.0 on 2026-10-05, engine x64-sikarugir10.0_6-r21, the Steam copy: after Capcom's EULA and Steam's first-run DirectX and Visual C++ installers, the title screen (Press any key) comes up full screen at 120 s. The benchmark itself was not run, so not marked verified.",
+  "notes": "Capcom's free benchmark for Resident Evil 6, a Direct3D 9 game, so it draws through DXVK's Direct3D 9 in every graphics mode but wined3d. On the default engine it reaches its title screen; no score was taken.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

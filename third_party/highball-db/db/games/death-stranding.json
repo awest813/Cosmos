@@ -1,0 +1,27 @@
+{
+  "id": "death-stranding",
+  "title": "Death Stranding",
+  "steam_appid": 1190460,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "provenance": "Reported working by detnarrrrrrrrr (highball#107, 2026-09-15), Apple M5, macOS 26.6.2, Highball 0.9.19, Epic copy, D3DMetal with AVX advertised. Not verified by the maintainer. ppapantoniou (highball-db#313, 2026-10-04), Apple M5, macOS 27.2 as written, Highball 0.10.4, engine x64-sikarugir10.0_6-r19, D3DMetal with AVX advertised, Windows 11 set in the environment, with the death-stranding and controller recipes, rated 5 of 5 after 74 minutes.",
+  "notes": "DirectX 12, so D3DMetal. The game refuses to start without AVX (\"Death Stranding requires a CPU with AVX support\", highball#107 on an M5), which Rosetta hides unless asked, so the recipe advertises it to the game. Confirmed by the reporter on an M5 with Highball 0.9.19. A second perfect report, 74 minutes on D3DMetal on an M5 with the death-stranding recipe.",
+  "lastVerified": null,
+  "nativeMac": {
+    "available": true,
+    "where": "Mac App Store only",
+    "note": "A native Director's Cut exists on the Mac App Store (macOS 13.3, M1 or later), but it is a separate purchase: a Steam copy will not launch it."
+  },
+  "knownIssues": [
+    {
+      "symptom": "\"Death Stranding requires a CPU with AVX support\" at launch (reported on an M5)",
+      "cause": "Rosetta hides AVX unless asked",
+      "fix": "the recipe advertises AVX to the game (ROSETTA_ADVERTISE_AVX=1), or the Compatibility switch in Environment settings"
+    },
+    {
+      "symptom": "\"failed to load d3d12.dll\" with exception C06D007F right after the AVX check (reported on an M5, Epic copy, Highball 0.9.15)",
+      "cause": "measured on Path of Exile 2 and Hogwarts Legacy the same day: the DirectX 12 timestamp shim numbered its exports from 1 and the game binds D3D12CreateDevice by ordinal 101",
+      "fix": "Highball 0.9.19 and its engines r3 and r9. Confirmed by the reporter"
+    }
+  ]
+}

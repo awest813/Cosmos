@@ -1,0 +1,79 @@
+{
+  "id": "ea-app",
+  "kind": "launcher",
+  "flaky": {
+    "reason": "Needs the Wine 11 engine: Highball offers it when you install the EA app (0.8.8 and later)."
+  },
+  "title": "EA app",
+  "renderer": "dxmt",
+  "engine": "x64-crossover26.3-r15",
+  "steps": [
+    {
+      "type": "note",
+      "text": "Asks for the Wine 11 engine r15 or newer since 2026-10-05 (was r4). The EA app's setup makes a directory link that only the Wine 11 engine creates; on the default Wine 10 engine the installer rolls back (INST-14-1627). Verified on r15: install, service, sign-in window."
+    },
+    {
+      "type": "sync",
+      "sync": "none"
+    },
+    {
+      "type": "environment",
+      "name": "DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN",
+      "value": "1",
+      "note": "The EA app's sign-in is a Chromium browser drawing into the client's window across processes; DXMT refuses that unless told the driver supports it, which Highball's Wine 11 engines do. The 2026-09-06 verification ran with this set on the environment but the recipe never carried it, so fresh environments went without it until 2026-09-18."
+    },
+    {
+      "type": "installer",
+      "url": "https://origin-a.akamaihd.net/EA-Desktop-Client-Download/installer-releases/EAappInstaller.exe",
+      "sha256": null,
+      "arguments": [],
+      "label": "EAappInstaller"
+    },
+    {
+      "type": "pin",
+      "pin": {
+        "id": "6B1F0D2A-0000-4000-8000-000000000004",
+        "name": "EA app",
+        "path": "Program Files/Electronic Arts/EA Desktop/EA Desktop/EADesktop.exe",
+        "arguments": [],
+        "environment": {
+          "DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN": "1"
+        },
+        "renderer": "dxmt"
+      }
+    },
+    {
+      "type": "note",
+      "text": "The EA app is a Qt/CEF hybrid and one of the flakiest launchers under Wine. The Sikarugir community runs it under D3DMetal (see LIVE4MINT/Sikarugir-EA-App-Mac). Expect background-service errors that can be dismissed."
+    }
+  ],
+  "lastVerified": {
+    "date": "2026-10-05",
+    "engine": "x64-crossover26.3-r15",
+    "macos": "27.0",
+    "chip": "Apple M4",
+    "result": "EAappInstaller.exe 13.796.0.6309 in an environment on the Wine 11 engine r15 with Steam installed: LET'S GO, the package installs, the setup moves the files into EA Desktop\\13.796.0.6309 and leaves EA Desktop\\EA Desktop as a directory link, the background service starts, the bootstrapper ends with exit code 0 and the EA app opens on its sign-in window. Not signed in. On the default Wine 10 engine the same installer rolls back with INST-14-1627 (see knownIssues)."
+  },
+  "knownIssues": [
+    {
+      "symptom": "On the default Wine 10 engine the installer ends with 'Something went wrong' (INST-14-1603 or INST-14-1627) and rolls everything back",
+      "cause": "measured 2026-10-05 on an M4 (engine x64-sikarugir10.0_6-r21) with +msi,+service traces: the package's custom action JunoSetupSymlinkMode moves the installed files into EA Desktop\\<version> and replaces EA Desktop\\EA Desktop with a directory symbolic link, then the background service is started through that path. The prebuilt Wine 10 reports success for CreateSymbolicLinkW without creating anything (mklink /D exits 0 and leaves nothing on disk), so the service's file is gone and StartServices fails with error 2. The Wine 11 engine creates the link and the install completes.",
+      "fix": "install the EA app on the Wine 11 engine, which this recipe asks for; Play offers it (highball-db#318)"
+    },
+    {
+      "symptom": "Fresh environment on x64-crossover26.3-r10: the installer starts, logs 'Detect complete' in its own bootstrapper log, then sits with no window and no CPU (2026-09-18, seven minutes, screen unlocked)",
+      "cause": "not diagnosed; the Burn bootstrapper waits for a window it never shows. The verified install was on r4 on 2026-09-06; whether r10 or the missing browser flag is the difference is not measured yet.",
+      "fix": "none confirmed; retry on the engine the recipe asks for, and stop the environment if the installer shows nothing after a minute"
+    },
+    {
+      "symptom": "On the bundled Wine 10 engine the installer runs, then exits after ~2 minutes with nothing installed (MSI 1627, or 1603 once the service step is worked around).",
+      "cause": "Reproduced 2026-09-06 (M1 Pro, also reported on M4/M5): EA's MSI installs a vital background service that Wine 10's service manager can't start (error 2), and its setup steps are managed .NET (WiX DTF) custom actions that fail under Wine's bundled Mono (SFXCA 0x80004001). Either failure aborts and rolls back the install. Not chip- or renderer-specific.",
+      "fix": "Both work on the Wine 11 (CrossOver 26.3) engine, where the same installer completes and the service runs. From Highball 0.8.8, installing the EA app on an environment that runs Wine 10 offers that engine: a new environment on it (other programs untouched) or moving the current one."
+    },
+    {
+      "symptom": "The client window is a blank dark frame, or the app is 'not there' after a successful install.",
+      "cause": "The EA app draws its UI in an embedded Chromium whose GPU process presents into the browser's window, which needs the cross-process swapchain (DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN=1, set by this recipe on the pin). The installer also links EA Desktop\\EA Desktop to a versioned folder with an NTFS junction that Wine stores as an empty 'EA Desktop?' stub nothing resolves.",
+      "fix": "Highball 0.8.4+ turns the stub into a host symlink after the install and when launching the pin; the recipe sets the swapchain flag. Older Highball: make the link by hand (ln -s '13.783.0.6296/EA Desktop' 'EA Desktop' inside Program Files/Electronic Arts/EA Desktop)."
+    }
+  ]
+}

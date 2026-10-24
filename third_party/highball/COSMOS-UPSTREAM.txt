@@ -1,0 +1,19 @@
+Highball is included in Cosmos from https://github.com/gauthierpiarrette/highball
+
+Commit: bbada878d142521a3267f0818a09cd62111b5789
+Date: 2026-10-23
+License: GPL-3.0 (LICENSE in this directory). Copyright remains with the Highball authors.
+
+This tree is the upstream project, not a rewrite. Build it on macOS 14 or later
+from this directory:
+
+  swift build -c release
+
+The CLI is .build/release/highball. The app target is HighballApp.
+Recipes and the compatibility database are the sibling checkout
+../highball-db (CC0). See docs/HIGHBALL.md in the Cosmos repository root.
+
+Apple's Game Porting Toolkit license text is not in this copy. spike/d3dmetal-license.txt
+was omitted. Highball already falls back to telling you to read License.pdf from
+https://github.com/Gcenx/game-porting-toolkit before accepting D3DMetal. Cosmos does
+not redistribute Apple's binaries or that license document.

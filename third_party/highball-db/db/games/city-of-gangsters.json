@@ -1,0 +1,13 @@
+{
+  "id": "city-of-gangsters",
+  "title": "City of Gangsters",
+  "steam_appid": 1386780,
+  "status": "community",
+  "renderer": "dxmt",
+  "anticheat": null,
+  "provenance": "Reported by oznksc (highball-db#347, 2026-10-05), the Epic Games copy, Apple M4, macOS 27.2, Highball 0.10.3, engine x64-sikarugir10.0_6-r19, DXMT, rated 4 of 5 after 4 minutes. Not verified by the maintainer.",
+  "notes": "Reported playable on DXMT from the Epic Games Store, in a short session. The Steam copy has not been reported.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

@@ -1,0 +1,13 @@
+{
+  "id": "woman-simulator",
+  "title": "Woman Simulator",
+  "steam_appid": 4072240,
+  "status": "community",
+  "renderer": "dxmt",
+  "anticheat": null,
+  "provenance": "Reported twice by vizzyvae (highball-db#337 and #338, 2026-10-05), Apple M1, macOS 26.6.2, Highball 0.10.3, engine x64-sikarugir10.0_6-r19, environment on DXMT, rated 4 of 5 after 9 and then 93 minutes. Not verified by the maintainer.",
+  "notes": "Reported playable on an M1 with the environment on DXMT, a little laggy. No measurement here yet.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

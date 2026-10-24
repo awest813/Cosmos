@@ -1,0 +1,335 @@
+import SwiftUI
+import HighballKit
+
+/// Advanced is the Settings window (⌘,): environments live here and nowhere else (UX plan §3.7,
+/// canvas "Advanced: Settings"). Nothing here is needed to play a game.
+struct SettingsView: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        @Bindable var state = state
+        VStack(spacing: 0) {
+            TabView(selection: $state.settingsTab) {
+                EnvironmentsPane().tabItem { Label(L("Environments"), systemImage: "cylinder.split.1x2") }
+                    .tag(SettingsTab.environments)
+                EnginePane().tabItem { Label(L("Engine"), systemImage: "gearshape.2") }
+                    .tag(SettingsTab.engine)
+                TroubleshootingPane().tabItem { Label(L("Troubleshooting"), systemImage: "wrench.and.screwdriver") }
+                    .tag(SettingsTab.troubleshooting)
+            }
+            // Issue #58: this window must never be the only one back after a relaunch. Restoration
+            // is off for it, and if it does appear without the main window (a restored session,
+            // or the main window closed earlier), open the main window.
+            .background(WindowAccessor { window in window.isRestorable = false })
+            .onAppear {
+                MainWindow.opener = { openWindow(id: "main") }
+                MainWindow.ensureOpen()
+            }
+            // The strip lives on the main window; a compact echo here so a repair or a new
+            // environment started from Settings is not silent (review #14).
+            if state.busy {
+                Divider()
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text(state.busyTitle).font(.callout).lineLimit(1)
+                    if !state.stage.isEmpty { Text(state.stage).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                    Spacer()
+                    if let stop = state.busyStop { Button(stop.label) { state.stopBusy() }.controlSize(.small) }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+            } else if let done = state.doneState {
+                Divider()
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(HB.good)
+                    Text(done.title).font(.callout).lineLimit(1)
+                    Spacer()
+                    Button(L("Dismiss")) { state.doneState = nil }.controlSize(.small)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+            }
+        }
+        .frame(minWidth: 820, minHeight: 560)
+        .sheet(isPresented: $state.showGPTKLicense) { GPTKLicenseSheet() }
+    }
+}
+
+struct EnvironmentSettingsDestination: Hashable {
+    let name: String
+}
+
+private struct EnvironmentProgramsDestination: Hashable {
+    let name: String
+}
+
+/// One environment by default, more only when two games need settings that conflict.
+struct EnvironmentsPane: View {
+    @Environment(AppState.self) private var state
+    @State private var selectedName: String?
+    @State private var navigationPath = NavigationPath()
+    @State private var pendingDelete: String?
+    @State private var showCreate = false
+
+    private var selected: Bottle? {
+        state.bottles.first { $0.name == selectedName } ?? state.defaultBottle
+    }
+
+    var body: some View {
+        NavigationStack(path: $navigationPath) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(L("Highball keeps your games in one Windows environment and looks after it. A second one is only for a game whose settings conflict with the others."))
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(state.bottles, id: \.name) { bottle in
+                            environmentCard(bottle)
+                        }
+                        ForEach(state.damagedBottles) { damaged in
+                            HStack(spacing: 12) {
+                                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(damaged.name).font(.headline)
+                                    Text(damaged.reason).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button(L("Delete…"), role: .destructive) { pendingDelete = damaged.name }.controlSize(.small)
+                            }
+                            .padding(12)
+                            .background(RoundedRectangle(cornerRadius: 10).fill(HB.card))
+                        }
+                    }
+                }
+                .frame(maxHeight: 170)
+                if let bottle = selected { details(bottle) }
+                Spacer(minLength: 0)
+                HStack(spacing: 10) {
+                    Button(L("New environment…")) { showCreate = true }.disabled(state.busy)
+                    Spacer()
+                    // Where it all lives (#24, #68): games are big and internal disks are small.
+                    Text(String(format: L("Kept in %@"), state.paths.home.path)).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        .help(state.paths.home.path)
+                    Button(L("Change…")) { state.chooseHome() }.controlSize(.small).disabled(state.busy)
+                    if HighballPaths.configuredHome() != nil {
+                        Button(L("Default")) { state.useDefaultHome() }.controlSize(.small).disabled(state.busy)
+                            .help(L("Back to ~/Library/Application Support/Highball, with the data"))
+                    }
+                    if let b = selected {
+                        Button(L("Repair")) { state.repairBottle(b) }.disabled(state.busy)
+                        Button(L("Settings…")) { navigationPath.append(EnvironmentSettingsDestination(name: b.name)) }.help(L("Graphics, compatibility, engine, DLL overrides, environment variables and dependencies for this environment."))
+                        Button(L("Full page…")) { navigationPath.append(EnvironmentProgramsDestination(name: b.name)) }
+                    }
+                    Spacer()
+                    Text(L("Repair re-runs the Windows first boot. Games and Steam stay where they are."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(20)
+            .navigationDestination(for: EnvironmentProgramsDestination.self) { destination in
+                if let bottle = state.bottles.first(where: { $0.name == destination.name }) {
+                    BottleView(bottle: bottle, navigationPath: $navigationPath)
+                }
+            }
+            .navigationDestination(for: EnvironmentSettingsDestination.self) { destination in
+                if let bottle = state.bottles.first(where: { $0.name == destination.name }) {
+                    EnvironmentSettingsPage(bottle: bottle, showsInlineBack: true)
+                }
+            }
+            .sheet(isPresented: $showCreate) { CreateBottleSheet() }
+            .confirmationDialog("Delete environment \"\(pendingDelete ?? "")\"? This removes its Windows drive and everything installed in it, games included.",
+                                isPresented: .init(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+                                titleVisibility: .visible) {
+                Button(L("Delete"), role: .destructive) { if let n = pendingDelete { state.deleteBottle(n) }; pendingDelete = nil }
+                Button(L("Cancel"), role: .cancel) { pendingDelete = nil }
+            }
+            #if DEBUG
+            // HB_DEBUG_SETTINGS="<environment>" (see ContentView) lands on that environment's page.
+            .task {
+                if let name = ProcessInfo.processInfo.environment["HB_DEBUG_SETTINGS"], navigationPath.isEmpty {
+                    navigationPath.append(EnvironmentSettingsDestination(name: name))
+                }
+            }
+            #endif
+        }
+    }
+
+    /// Every game installed in the environment, also one whose tile lives in another (highball#264).
+    private func footprint(_ bottle: Bottle) -> (count: Int, bytes: Int64) {
+        LibraryIndex.footprint(of: bottle.name, items: state.libraryItems, steamGames: state.gamesByBottle[bottle.name] ?? [])
+    }
+
+    private func sizeText(_ bottle: Bottle) -> String {
+        let bytes = footprint(bottle).bytes
+        return bytes > 0 ? ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) : ""
+    }
+
+    private func environmentCard(_ bottle: Bottle) -> some View {
+        let isSelected = selected?.name == bottle.name
+        let titles = footprint(bottle).count
+        return Button {
+            selectedName = bottle.name
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "cylinder.split.1x2").foregroundStyle(isSelected ? HB.amber : .secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Text(bottle.name).font(.headline)
+                        if bottle.name == state.defaultBottle?.name {
+                            Text(L("DEFAULT")).font(.system(size: 9, weight: .bold)).padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Capsule().fill(HB.good.opacity(0.2))).foregroundStyle(HB.good)
+                        }
+                        if state.deletingBottles.contains(bottle.name) {
+                            Text(L("deleting…")).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    Text([state.engine(for: bottle)?.displayName ?? bottle.settings.engineID,
+                          String(format: L("%d installed"), titles),
+                          sizeText(bottle)].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(RoundedRectangle(cornerRadius: 10).fill(HB.card))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(isSelected ? HB.amber.opacity(0.6) : HB.cardStroke))
+        .contextMenu {
+            Button(L("Full page…")) { navigationPath.append(EnvironmentProgramsDestination(name: bottle.name)) }
+            Button(L("Stop all processes")) { state.killBottle(bottle) }
+            Button(L("Duplicate")) { state.duplicateBottle(bottle) }
+            Button(L("Repair (re-run the Windows first boot)")) { state.repairBottle(bottle) }
+            Divider()
+            Button(L("Delete…"), role: .destructive) { pendingDelete = bottle.name }
+                .disabled(state.deletingBottles.contains(bottle.name))
+        }
+    }
+
+    private func details(_ bottle: Bottle) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            row(L("Graphics mode")) { GraphicsModePicker(bottle: bottle) }
+            Divider().padding(.vertical, 8)
+            row(L("Windows components")) { WindowsComponentsRow(bottle: bottle) }
+            Divider().padding(.vertical, 8)
+            row(L("Files")) {
+                HStack(spacing: 14) {
+                    Button(L("Show the Windows drive")) { NSWorkspace.shared.open(bottle.driveC) }
+                        .buttonStyle(.link)
+                    Button(L("Uninstall Windows programs…")) { state.openUninstaller(in: bottle) }
+                        .buttonStyle(.link)
+                        .help(L("Opens Windows' Add/Remove Programs for this environment, for programs you installed into it."))
+                }
+            }
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 10).fill(HB.card))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(HB.cardStroke))
+    }
+
+    private func row<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text(label).font(.callout).frame(width: 150, alignment: .leading).padding(.top, 2)
+            content()
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+struct EnginePane: View {
+    @Environment(AppState.self) private var state
+    /// The updater delegate reads the same key: AppStorage so the switch redraws when flipped.
+    @AppStorage(UpdateChannels.betaDefaultsKey) private var betaUpdates = false
+    @State private var showLicense = false
+
+    var body: some View {
+        @Bindable var state = state
+        VStack(alignment: .leading, spacing: 14) {
+            Text(L("The engine is the Wine build and graphics layers Highball runs games with. Highball picks it; an update never moves an environment to a different Wine build on its own."))
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if let engine = state.defaultEngine {
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(engine.displayName).font(.headline)
+                        Text(engine.id).font(.caption.monospaced()).foregroundStyle(.secondary)
+                        Text(String(format: L("Graphics layers: %@"), ["dxmt", "dxvk", "d3dmetal"].filter { engine.rendererDir($0) != nil }.map { GamePageCopy.plainName(Renderer(rawValue: $0) ?? .dxvk) }.joined(separator: ", ")))
+                            .font(.caption).foregroundStyle(.secondary)
+                        if engine.ships("d3dmetal"), engine.rendererDir("d3dmetal") == nil {
+                            Button(L("Read Apple's licence and turn on DirectX 12 support…")) {
+                                state.licenseEngine = engine; state.loadGPTKLicense(); showLicense = true
+                            }.buttonStyle(.link).font(.caption)
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            GroupBox {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle(L("Get beta builds"), isOn: $betaUpdates)
+                        .onChange(of: betaUpdates) { _, on in
+                            // A fresh opt-in should find the current beta now, not at the next scheduled check.
+                            if on { (NSApp.delegate as? AppDelegate)?.updaterController.updater.checkForUpdatesInBackground() }
+                        }
+                    Text(L("Each release goes to beta a day or two before everyone else, less tested. Turning this off keeps the build you have until the next stable one is newer."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            GroupBox {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle(L("Share game activity with Discord"), isOn: $state.discordSharingEnabled)
+                    Text(L("Let Discord show what you play and the game's Rich Presence while both apps are open. Off by default."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if let update = state.engineUpdate {
+                GroupBox {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("A newer engine is available")).font(.headline)
+                            Text(update.id).font(.caption.monospaced()).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(L("Update engine")) { state.updateEngine() }.disabled(state.busy)
+                    }
+                }
+            }
+            if state.engines.count > 1 {
+                Text(String(format: L("Installed engines: %@. An environment's engine is chosen on its own page."), state.engines.map(\.id).joined(separator: ", ")))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(20)
+        .sheet(isPresented: $showLicense) { GPTKLicenseSheet() }
+    }
+}
+
+struct TroubleshootingPane: View {
+    @Environment(AppState.self) private var state
+    @State private var showLog = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(L("When a game misbehaves, the log of its last launch is what a report needs. Nothing here is sent anywhere without you."))
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                Button(L("Show the logs folder")) { NSWorkspace.shared.open(state.paths.logs) }
+                Button(L("Report a problem…")) {
+                    let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+                    Task.detached {
+                        let url = BugReport.url(version: version)
+                        await MainActor.run { NSWorkspace.shared.open(url) }
+                    }
+                }
+                Button(L("Show the last background task")) { showLog = true }
+            }
+            if let b = state.defaultBottle {
+                Divider()
+                Text(String(format: L("If Steam or a game is stuck, stop the environment's processes; the next Play starts fresh. Environment: %@."), b.name))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Button(L("Stop all processes")) { state.killBottle(b) }.disabled(state.busy)
+            }
+            Spacer()
+        }
+        .padding(20)
+        .sheet(isPresented: $showLog) { LogSheet() }
+    }
+}

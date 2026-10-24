@@ -1,0 +1,70 @@
+{
+  "id": "battle-net",
+  "kind": "launcher",
+  "flaky": {
+    "reason": "Login can crash on submit (CEF under Wine). Retry, keep sync none, and disable hardware acceleration in Battle.net's settings."
+  },
+  "title": "Battle.net",
+  "renderer": "dxmt",
+  "steps": [
+    {
+      "type": "sync",
+      "sync": "none"
+    },
+    {
+      "type": "environment",
+      "name": "DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN",
+      "value": "1",
+      "note": "Battle.net's login is a Chromium browser whose GPU process draws into the client's window. DXMT refuses such cross-process swapchains unless told the driver supports them; Highball's Wine 11 engines do. Same fix as the Rockstar launcher."
+    },
+    {
+      "type": "installer",
+      "url": "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe",
+      "sha256": null,
+      "arguments": [
+        "--lang=enUS",
+        "--installpath=C:\\Program Files (x86)\\Battle.net"
+      ],
+      "label": "Battle.net-Setup"
+    },
+    {
+      "type": "pin",
+      "pin": {
+        "id": "6B1F0D2A-0000-4000-8000-000000000001",
+        "name": "Battle.net",
+        "path": "Program Files (x86)/Battle.net/Battle.net Launcher.exe",
+        "arguments": [],
+        "environment": {}
+      }
+    },
+    {
+      "type": "note",
+      "text": "Installer runs unattended with the recipe's language and path arguments; the client then opens its login window, which renders fully (verified 2026-08-25 on engine sikarugir-10.0_6, the one CEF launcher that paints on this engine). Log in and game installs not yet exercised. The installer is a GUI (no silent mode): pick the install path and let it download the client. Battle.net's login is CEF-based like Steam's — keep sync: none. Historically the top-1 Whisky issue (54 comments); expect login flakiness."
+    }
+  ],
+  "knownIssues": [
+    {
+      "symptom": "On the Wine 11 engines (x64-crossover26.3-r8 to r10) the login window opens but its browser area stays black, with only the frame, the settings gear and the language switch drawn",
+      "cause": "measured 2026-09-18 on r10: with the flag the client no longer crashes; its login sub-window was captured black in that run. But that was the login sub-window only, not measured the way Steam's main window was (Steam's main window does paint on Wine 11 with the flag, 2026-09-19), so whether Battle.net actually fails to paint on Wine 11, or the reading was a sub-window artifact, is not settled. Either way the recipe ships on the Wine 10 engine where the full form paints.",
+      "fix": "Use the Wine 10 engine the recipe asks for (x64-sikarugir10.0_6-r5, the one Highball bundles); Highball offers it before installing. The Wine 11 result is unconfirmed and not needed."
+    },
+    {
+      "symptom": "Client dies with an int3 inside libcef on a Wine 11 engine (reported highball#119 on x64-crossover26.3-r8, DXMT, Highball 0.9.12)",
+      "cause": "the embedded browser's GPU process under DXMT on Wine 11 without the cross-process swapchain flag",
+      "fix": "the recipe now sets DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN=1, which stops the crash on Wine 11, but the window is then black there (see above); the real fix is the Wine 10 engine"
+    },
+    {
+      "symptom": "Login window crash on submit",
+      "cause": "CEF under Wine; historically broken on CrossOver-derived engines too",
+      "fix": "retry; keep sync none; disable hardware acceleration in Battle.net settings once in"
+    }
+  ],
+  "lastVerified": {
+    "date": "2026-09-18",
+    "engine": "x64-sikarugir10.0_6-r5",
+    "macos": "26.6.2",
+    "chip": "Apple M1 Pro",
+    "result": "Fresh environment through the recipe on the bundled Wine 10 engine, DXMT: installer runs unattended (exit 0 in 74 s), the client cold-starts with the recipe's settings, and the 'Battle.net Login' window paints the full form (logo, email field, Continue, the SSO buttons) with no crash and no renderer restarts. The same day on the Wine 11 engine r10 the window stays black under both DXMT and DXVK, so the recipe asks for the Wine 10 engine. Log in and game installs not yet exercised."
+  },
+  "engine": "x64-sikarugir10.0_6-r5"
+}

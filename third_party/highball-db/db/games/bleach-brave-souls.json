@@ -1,0 +1,24 @@
+{
+  "id": "bleach-brave-souls",
+  "title": "BLEACH Brave Souls",
+  "steam_appid": 1201240,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Reported by udance4ever (highball-db#342, 2026-10-05), Apple M1, macOS 27.0.1, Highball 0.10.8, engine x64-sikarugir10.0_6-r21, D3DMetal, rated 4 of 5 after a short session into the game. Not verified by the maintainer.",
+  "notes": "Reported playable on D3DMetal (free to play). After the logo the intro video stays black while its audio plays; it can be skipped after a few seconds, and the game does not play it again after the first start. It is a port of the mobile game, so some dialogs need the mouse even though a controller works in play.",
+  "knownIssues": [
+    {
+      "symptom": "The intro video after the logo is black while its audio plays",
+      "cause": "Not diagnosed. A game video played through Windows Media Foundation is the usual cause of picture-less video under Wine",
+      "fix": "Skip it after a few seconds. It only plays on the first start (highball-db#342)"
+    },
+    {
+      "symptom": "Some dialogs ignore the controller",
+      "cause": "The game is a mobile port that expects a touch, which the mouse stands in for",
+      "fix": "Click those dialogs with the mouse"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

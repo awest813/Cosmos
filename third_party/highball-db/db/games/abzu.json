@@ -1,0 +1,13 @@
+{
+  "id": "abzu",
+  "title": "ABZU",
+  "steam_appid": 384190,
+  "status": "community",
+  "renderer": "dxmt",
+  "anticheat": null,
+  "provenance": "Reported by aptonline (highball-db#335, 2026-10-05), Apple M1 Max, macOS 26.6.2, Highball 0.10.8, engine x64-sikarugir10.0_6-r21, DXMT, frame cap 60, rated 5 of 5 after 2 minutes. Not verified by the maintainer.",
+  "notes": "Reported perfect on DXMT in a short session. No measurement here yet.",
+  "knownIssues": [],
+  "launchArgs": null,
+  "lastVerified": null
+}

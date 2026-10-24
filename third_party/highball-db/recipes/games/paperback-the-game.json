@@ -1,0 +1,24 @@
+{
+  "id": "paperback-the-game",
+  "kind": "game",
+  "title": "Paperback: The Game",
+  "requires": [
+    "steam"
+  ],
+  "renderer": null,
+  "engine": "x64-crossover26.3-r21",
+  "steps": [
+    {
+      "type": "note",
+      "text": "Paperback runs on the Wine 11 engine r21 and on no engine before it. The game (Loom engine, SDL and OpenGL) loads glClearDepthf in the OpenGL 2.1 context macOS gives it, where older engines hand it nothing, so it crashed at address 0 a second after start on every engine and graphics mode (highball-db#349). r21 answers that call and four like it in old-style contexts (engine patch 0021), and both of the game's builds reach the title menu there. The graphics mode does not apply to an OpenGL game, so this fix only names the engine, nothing in the environment changes."
+    }
+  ],
+  "knownIssues": [],
+  "lastVerified": {
+    "date": "2026-10-06",
+    "engine": "x64-crossover26.3-r21",
+    "macos": "27.0",
+    "chip": "Apple M4",
+    "result": "Steam build (710700) on r21, installed from its manifest into an empty home: an environment booted, and both Paperback.exe (32-bit, the one Steam starts) and Paperback64.exe reached the title menu. Gameplay past the title menu not exercised, frame rate not read."
+  }
+}

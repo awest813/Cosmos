@@ -1,0 +1,19 @@
+{
+  "id": "stacking",
+  "title": "Stacking",
+  "steam_appid": 115110,
+  "status": "community",
+  "renderer": null,
+  "anticheat": null,
+  "provenance": "Reported by udance4ever (highball-db#321, 2026-10-05), Apple M1, macOS 27.0.1, Highball 0.10.6 beta, engine x64-sikarugir10.0_6-r21, environment in D3DMetal mode, rated 4 of 5. Not verified by the maintainer.",
+  "notes": "Reported playable on the default engine. A Direct3D 9 game, so it draws through DXVK's Direct3D 9 in every graphics mode but wined3d, whatever the environment's mode says. The reporter found gameplay noticeably darker than the Xbox 360 version while the intro and cutscenes look normal. The same is reported on Windows itself (Steam discussions, a player on Intel Iris Xe graphics with the dolls pitch black), so it is the game's lighting on current GPUs, not something Highball adds. No measurement here yet.",
+  "knownIssues": [
+    {
+      "symptom": "Gameplay much darker than the Xbox 360 version, dolls nearly black, while the intro and cutscenes look normal",
+      "cause": "the game's dynamic lighting on current GPUs; reported on Windows too (Steam discussions for app 115110), not specific to Highball",
+      "fix": "none known; the graphics settings did not help the Windows player"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

@@ -1,0 +1,9 @@
+highball-db is included in Cosmos from https://github.com/gauthierpiarrette/highball-db
+
+Commit: 2b5c876308a39268189b12f391d07c34c5fb7c3e
+Date: 2026-10-24
+License: CC0-1.0 (LICENSE in this directory).
+
+Highball looks for this checkout as a sibling of third_party/highball:
+recipes/ and db/games/. The data is public domain. It is not Cosmos's own
+profile format.

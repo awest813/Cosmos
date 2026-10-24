@@ -1,0 +1,3402 @@
+import AppKit
+import Foundation
+import HighballKit
+import Observation
+import os
+
+/// The three Settings tabs, so a deep link can select one.
+enum SettingsTab: Hashable { case environments, engine, troubleshooting }
+
+@Observable @MainActor
+final class AppState {
+    var engines: [InstalledEngine] = []
+    /// frame generation shim directory per engine id, resolved once in refresh() so the settings view does not repair links on every redraw
+    var lsfgShimDirs: [String: URL] = [:]
+    var bottles: [Bottle] = []
+    /// Directories under bottles/ that aren't loadable bottles. Shown alongside the real
+    /// ones so a bottle whose settings file is gone still has somewhere to be acted on (#38).
+    var damagedBottles: [DamagedBottle] = []
+    /// Bottles with a delete in flight. Their rows show it and refuse a second click.
+    var deletingBottles: Set<String> = []
+    var selectedBottle: String?
+    /// Which Settings tab to show. A deep link (the library's "Open Troubleshooting") sets it
+    /// before opening the window; the TabView binds its selection to it.
+    var settingsTab: SettingsTab = .environments
+    var gamesByBottle: [String: [SteamGame]] = [:]
+    /// The Steam account's games per bottle, installed or not (SteamOwnedLibrary, highball#199).
+    var steamOwnedByBottle: [String: [OwnedSteamGame]] = [:]
+    /// What Steam's app data says about each owned game's Mac build (MacAppInfoBuild), by appid.
+    /// Built with steamOwnedByBottle, so the library's tiles look it up instead of searching.
+    var macAppInfoByAppID: [Int: MacAppInfoBuild] = [:]
+    var gameDB = GameDB(directories: [])
+
+    // Long-running work
+    var busy = false
+    var busyTitle = ""
+    var stage = ""
+    var logLines: [String] = []
+    var showLog = false
+    // Onboarding legibility (#31): a first-time user should never have to guess whether
+    // something is working, finished, or stuck.
+    var stageHint = ""                  // recipe-declared "slow step, this is normal" text
+    var busyStartedAt: Date?            // drives the "running for N min" row
+    var busyExpected: String?           // human duration ("usually 20–40 minutes")
+    var lastOutputAt: Date?             // liveness: when the task last produced output
+    var doneState: DoneState?           // explicit success panel with an optional next step
+    struct DoneState {
+        var title: String
+        var ctaTitle: String?
+        var cta: (() -> Void)?
+        /// No done row: a session or the Steam row took over from the busy operation.
+        var silent = false
+        static let handedOff = DoneState(title: "", ctaTitle: nil, cta: nil, silent: true)
+    }
+    // The activity strip (UX plan 0.5): what the busy operation can show beyond its title.
+    struct Transfer: Equatable { var received: Int64; var total: Int64? }
+    var busyProgress: Transfer?         // bytes of the current download, for the bar
+    var transferRate: Double?           // measured bytes per second, never a prediction
+    /// How a busy operation can be stopped, and what stopping does. A download stops cleanly
+    /// (the partial file stays); a launch stops by ending the bottle's processes.
+    enum BusyStop {
+        case cancelTask(label: String)
+        case killBottle(Bottle, label: String)
+        /// A Windows step (installer, recipe) cannot stop cleanly: the bottle is ended and the
+        /// repair path runs right after, and the button says so (UX plan §3.3).
+        case killBottleThenRepair(Bottle, label: String)
+        var label: String {
+            switch self {
+            case .cancelTask(let l), .killBottle(_, let l), .killBottleThenRepair(_, let l): return l
+            }
+        }
+        var stoppedTitle: String {
+            switch self {
+            case .cancelTask: return L("Stopped. Nothing already downloaded is lost.")
+            case .killBottle: return L("Stopped.")
+            case .killBottleThenRepair: return L("Stopped. Repairing the environment so nothing half-installed stays behind.")
+            }
+        }
+        var bottleToRepair: Bottle? {
+            if case .killBottleThenRepair(let b, _) = self { return b }
+            return nil
+        }
+    }
+    var busyStop: BusyStop?
+    @ObservationIgnored private var busyTask: Task<Void, Never>?
+    @ObservationIgnored private var transferSamples: [ActivityText.Sample] = []
+    @ObservationIgnored private var stopRequested = false
+
+    // Onboarding
+    var rosettaInstalled = true
+    /// Rosetta stopped working on a Mac that already has an engine that needs it: the app asks to install it.
+    var rosettaMissing = false
+    /// Get started will install Rosetta first: the Mac lacks it and the bundled engine needs it.
+    var setupInstallsRosetta = false
+    /// Whether the engine Get started installs is Intel code. Every engine shipped so far is; the
+    /// arm64 line (private/notes/rosetta-transition-plan.md) says `requires: []` and skips Rosetta.
+    static var bundledEngineRequiresRosetta: Bool {
+        guard let url = bundledManifest, let m = try? EngineManifest.load(from: url) else { return true }
+        return m.requiresRosetta
+    }
+
+    /// Installs Rosetta for an existing install, from the ask that rosettaMissing raises.
+    func installRosettaNow() {
+        rosettaMissing = false
+        runBusy(L("Installing Rosetta, Apple's compatibility layer"), expected: L("a minute or two")) { [self] in
+            try await Self.installRosetta()
+            await MainActor.run { self.rosettaInstalled = true; self.appendLog("Rosetta installed"); self.refresh() }
+        }
+    }
+    var needsOnboarding = false
+    var showGPTKLicense = false
+    var gptkLicenseText = ""
+
+    // Crash follow-up
+    var crashSuggestion: CrashSuggestion?
+    struct CrashSuggestion {
+        let program: String
+        /// The bottle that was actually launched. The alert used to edit `selectedBottle`, which
+        /// `launchGame` never sets — so accepting could rewrite an unrelated bottle, or none.
+        let bottleName: String
+        /// The renderer to offer next.
+        let renderer: Renderer
+        let logPath: String
+        /// The renderer the program actually ran under, and how long it lived: the facts the
+        /// alert can state as detected.
+        var current: Renderer
+        var seconds: Int
+        /// Another installed engine to offer as the second way out, when there is one.
+        var alternateEngine: InstalledEngine? = nil
+        /// The library item this launch belongs to, when it is a game: accepting then changes the
+        /// mode for that game alone, never the whole environment.
+        var itemID: String? = nil
+    }
+
+    /// A game that ran, badly by the player's account, with another mode to try next time (the
+    /// guided renderer trial, ux-plan item 1). One click sets it for this game only.
+    struct RendererTrial {
+        let itemID: String
+        let title: String
+        let current: Renderer
+        let next: Renderer
+    }
+    var rendererTrial: RendererTrial?
+
+    /// Graphics modes chosen per game (library id), the store's copy for the views.
+    var libraryOverrides: [String: Renderer] = [:]
+    func rendererOverride(for item: LibraryItem) -> Renderer? { libraryOverrides[item.id] }
+    /// Launch arguments the player set for a game (highball#236), by library id.
+    var libraryLaunchArgs: [String: [String]] = [:]
+    func launchArguments(for item: LibraryItem) -> [String] { libraryLaunchArgs[item.id] ?? [] }
+    func setLaunchArguments(_ line: String, for item: LibraryItem) {
+        let args = ArgumentLine.split(line)
+        guard args != launchArguments(for: item) else { return }
+        libraryStore.setLaunchArguments(args, for: item.id)
+        libraryLaunchArgs = libraryStore.launchArguments()
+        appendLog(args.isEmpty ? "\(item.id): launch arguments cleared" : "\(item.id): launch arguments set to \(ArgumentLine.join(args))")
+    }
+    /// The display (CoreGraphics UUID) a game's window moves to, by library id.
+    var libraryDisplays: [String: String] = [:]
+    func displayChoice(for item: LibraryItem) -> String? { libraryDisplays[item.id] }
+    func setDisplay(_ uuid: String?, for item: LibraryItem) {
+        guard uuid != displayChoice(for: item) else { return }
+        if uuid != nil { _ = WindowMover.ensureTrusted(prompt: true) }
+        libraryStore.setDisplay(uuid, for: item.id)
+        libraryDisplays = libraryStore.displayChoices()
+        let name = uuid.flatMap { u in Monitor.connected().first { $0.id == u }?.name }
+        appendLog(uuid == nil ? "\(item.id): display back to the main one" : "\(item.id): display set to \(name ?? "a disconnected display")")
+    }
+    func setRendererOverride(_ renderer: Renderer?, for id: String) {
+        libraryStore.setRendererOverride(renderer, for: id)
+        libraryOverrides = libraryStore.rendererOverrides()
+        appendLog(renderer.map { "\(id): graphics mode set to \($0.rawValue) for this game" } ?? "\(id): graphics mode back to the environment's")
+    }
+
+    /// A game whose last run asked Windows for a fullscreen size this Mac never switched to.
+    /// One click tells Wine to pretend the switch happened and scale the game to the screen.
+    struct ModesetTrial {
+        let itemID: String
+        let title: String
+    }
+    var modesetTrial: ModesetTrial?
+    func acceptModesetTrial() {
+        defer { modesetTrial = nil }
+        guard let trial = modesetTrial, let item = libraryItems.first(where: { $0.id == trial.itemID }) else { return }
+        setDisplayModeEmulation(true, for: item)
+    }
+
+    /// "Had problems" on the post-play row: offer the next mode for this game, then the report.
+    func offerRendererTrial(for record: SessionRecord) {
+        postPlay = nil
+        guard let bottle = bottles.first(where: { $0.name == record.bottle }), let engine = engine(for: bottle),
+              let item = libraryItems.first(where: { $0.steamAppID != nil && $0.steamAppID == record.appid })
+                ?? libraryItems.first(where: { $0.title == record.title && $0.bottleName == record.bottle }) else { return }
+        // A game that came up in a corner of the screen, with the mouse landing away from what it
+        // draws, is not asking for another graphics mode: it asked for a fullscreen size the Mac
+        // did not switch to, and every mode behaves the same (highball#67, #103). The log says
+        // which of the two happened, so offer the fix that matches rather than a mode to try.
+        if displayModeEmulation(for: item) == false, let log = lastLaunchLog(for: item),
+           DisplayModeEmulation.looksUnswitched(log: log) {
+            modesetTrial = ModesetTrial(itemID: item.id, title: item.title)
+            return
+        }
+        let current = record.renderer.flatMap(Renderer.init(rawValue:)) ?? rendererOverride(for: item) ?? bottle.settings.renderer
+        let next = Renderer.suggestion(after: current, d3dmetalAvailable: engine.rendererDir("d3dmetal") != nil,
+                                       vkd3dAvailable: engine.rendererDir("vkd3d") != nil)
+        rendererTrial = RendererTrial(itemID: item.id, title: item.title, current: current, next: next)
+    }
+    func acceptRendererTrial() {
+        guard let trial = rendererTrial else { return }
+        setRendererOverride(trial.next, for: trial.itemID)
+        rendererTrial = nil
+    }
+
+    /// A component-only engine update (same Wine) applies itself, once per launch, when nothing
+    /// runs in any environment: the move kills a bottle's Wine processes, so a running game or
+    /// Steam client makes it wait for the next launch (EngineStore.autoUpdateAllowed).
+    private var autoUpdateTried = false
+    func maybeAutoUpdateEngine() {
+        #if DEBUG
+        // HB_DEBUG_NO_ENGINE_UPDATE=1 keeps a scratch build from downloading and applying an engine
+        // update in the home it is pointed at: one launched for screenshots on the test Mac pulled
+        // a whole engine into its real home (2026-10-06).
+        if ProcessInfo.processInfo.environment["HB_DEBUG_NO_ENGINE_UPDATE"] != nil { return }
+        #endif
+        guard !autoUpdateTried, !busy, !needsOnboarding, runningSessions.isEmpty,
+              let update = engineUpdate, let current = defaultEngine,
+              EngineStore.autoUpdateAllowed(from: current.manifest, to: update) else { return }
+        autoUpdateTried = true
+        let prefixes = bottles.map(\.url)
+        Task { [weak self] in
+            let steamUp = await Task.detached { prefixes.contains { WineRunner.steamIsRunning(inPrefix: $0) } }.value
+            await MainActor.run {
+                guard let self else { return }
+                if steamUp { self.appendLog("engine \(update.id) is ready; it applies itself once Steam is closed"); self.autoUpdateTried = false; return }
+                self.appendLog("engine \(update.id) is the same Wine as \(current.id): applying it now, no click needed")
+                self.updateEngine()
+            }
+        }
+    }
+
+    /// The engine the crash alert offers next to the renderer suggestion, if another one is installed.
+    func alternateEngine(for bottle: Bottle) -> InstalledEngine? {
+        EngineStore.alternateEngine(for: bottle.settings.engineID, installed: engines, defaultID: defaultEngine?.id)
+    }
+
+    var errorMessage: String?
+    /// The recovery the error alert shows (headline, meaning, one button) and what its button
+    /// runs. Set together with errorMessage, which keeps the raw text for the details view.
+    var errorRecovery: Recovery?
+    var errorRetry: (() -> Void)?
+    var errorBottle: Bottle?
+    var showErrorDetails = false
+
+    /// The one place failures are put in front of the user: the recovery sentences on the alert,
+    /// the raw description behind Details, and the retry the button runs when the recovery
+    /// says so. `bottle` lets a Repair recovery know what to repair.
+    func fail(_ error: Error, retry: (() -> Void)? = nil, bottle: Bottle? = nil) {
+        errorIsPartialSuccess = false
+        errorRecovery = Recovery.describe(error)
+        errorRetry = retry
+        errorBottle = bottle
+        errorMessage = Self.message(for: error)
+        errorDetailsText = errorMessage ?? ""
+    }
+    /// The raw description of the last failure, for the Details sheet.
+    var errorDetailsText = ""
+    /// True when errorMessage describes an operation that SUCCEEDED with something left over,
+    /// so the alert can say so instead of calling it a failure.
+    var errorIsPartialSuccess = false
+
+    // MARK: One Library (Phase 2)
+
+    /// Which primary surface the detail column shows. `selectedBottle` keeps backing every
+    /// bottle action and the File-menu commands; it just stopped being the router.
+    var libraryItems: [LibraryItem] = []
+    var libraryPlays: [String: LibraryStore.PlayRecord] = [:]
+    var libraryStore: LibraryStore { LibraryStore(paths: paths) }
+
+    func rebuildLibrary() {
+        customNames = nameStore.names()
+        libraryItems = LibraryIndex.build(bottles: bottles, steamByBottle: gamesByBottle,
+                                          steamOwnedByBottle: steamOwnedByBottle, macInstalled: macSteamGames,
+                                          epicOwned: epicOwned, epicInstalls: epicInstalls,
+                                          plays: libraryPlays, defaultBottle: defaultBottle?.name,
+                                          pinExists: { bottle, pin in
+                                              // follows links, so a link to a file that is gone counts as missing
+                                              FileManager.default.fileExists(atPath: pin.executableURL(driveC: bottle.driveC).path)
+                                          })
+        sortLibraryByDisplayTitle()
+        if let deferred = deferredPlayLink { resolvePlayLink(deferred.request) }
+        refreshMacFlags()
+    }
+
+    // MARK: Names people give their games
+
+    /// Custom names by item id (NameStore). A renamed game sorts, searches and shows under its
+    /// new name; the store's own title stays the key for the database and for Steam.
+    var customNames: [String: String] = [:]
+    var nameStore: NameStore { NameStore(paths: paths) }
+    /// The tile whose rename field is open, and the text in it.
+    var renaming: LibraryItem?
+    var renameText = ""
+
+    func displayTitle(_ item: LibraryItem) -> String { NameStore.name(for: item.id, in: customNames) ?? item.title }
+
+    func beginRename(_ item: LibraryItem) {
+        renameText = displayTitle(item)
+        renaming = item
+    }
+
+    /// Saves the name in the field; a blank resets to the store's title.
+    func rename(_ item: LibraryItem, to name: String) {
+        do {
+            try nameStore.setName(name, for: item.id)
+            customNames = nameStore.names()
+            sortLibraryByDisplayTitle()
+        } catch { fail(error) }
+        renaming = nil
+    }
+
+    func resetName(for item: LibraryItem) { rename(item, to: "") }
+
+    private func sortLibraryByDisplayTitle() {
+        guard !customNames.isEmpty else { return }
+        libraryItems.sort { displayTitle($0).localizedCaseInsensitiveCompare(displayTitle($1)) == .orderedAscending }
+    }
+
+    // MARK: Mac builds on Steam
+
+    /// What Steam for Mac has installed (MacSteam), refreshed with the bottles' own installs.
+    var macSteamGames: [SteamGame] = []
+
+    /// Steam for Mac, when it is one of the apps registered for steam:// (MacSteam.app).
+    var steamForMacApp: URL? {
+        MacSteam.app(among: NSWorkspace.shared.urlsForApplications(toOpen: URL(string: "steam://run/0")!))
+    }
+
+    var steamForMacInstalled: Bool { steamForMacApp != nil }
+
+    /// Opens a steam:// URL with Steam for Mac itself, never the scheme's default handler.
+    private func openInSteamForMac(_ url: URL) -> Bool {
+        guard let app = steamForMacApp else { return false }
+        NSWorkspace.shared.open([url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+        return true
+    }
+
+    /// Starts the native build through Steam for Mac.
+    func playOnMac(_ item: LibraryItem) {
+        guard let appid = item.steamAppID else { return }
+        recordPlay(item)
+        _ = openInSteamForMac(URL(string: "steam://run/\(appid)")!)
+    }
+
+    /// Hands the game to Steam for Mac, whose own dialog asks where to put it; without it, the
+    /// download page for Steam for Mac.
+    func installOnMac(_ item: LibraryItem) {
+        guard let appid = item.steamAppID else { return }
+        if !openInSteamForMac(URL(string: "steam://install/\(appid)")!) {
+            NSWorkspace.shared.open(URL(string: "https://store.steampowered.com/about/")!)
+        }
+    }
+
+    /// Store `platforms.mac` per appid (MacFlagStore), for Steam games whose appinfo lists macOS.
+    var macFlags: [Int: Bool] = [:]
+    /// Asked this session, answered or not: a store outage must not turn every library rebuild
+    /// into another round of requests.
+    private var macFlagsAsked: Set<Int> = []
+    private var macFlagsTask: Task<Void, Never>?
+
+    func refreshMacFlags() {
+        var listsMac: [Int: Bool] = [:]
+        for game in steamOwnedByBottle.values.joined() { listsMac[game.appid] = game.listsMac }
+        let appids = MacFlagStore.worthAsking(libraryItems.compactMap { $0.source == .steam ? $0.steamAppID : nil },
+                                              listsMac: listsMac)
+        let ask = appids.filter { macFlags[$0] == nil && !macFlagsAsked.contains($0) }
+        guard !ask.isEmpty, macFlagsTask == nil else { return }
+        macFlagsAsked.formUnion(ask)
+        let store = MacFlagStore(paths: paths)
+        macFlagsTask = Task { [weak self] in
+            let flags = await store.refresh(ask)
+            self?.macFlags.merge(flags) { $1 }
+            self?.macFlagsTask = nil
+            self?.refreshMacFlags()   // games that joined the library meanwhile (the owned list loads after installs)
+        }
+    }
+
+    /// Play on Mac leads for this item (see MacSteamBuild.leads).
+    func prefersMacBuild(_ item: LibraryItem) -> Bool {
+        MacSteamBuild.leads(entry: gameDB.entry(for: item), installedOnMac: item.installedOnMac,
+                            appInfo: item.steamAppID.flatMap { macAppInfoByAppID[$0] })
+    }
+
+    func macSteamBuild(for item: LibraryItem) -> MacSteamBuild? {
+        guard item.source == .steam else { return nil }
+        return MacSteamBuild.resolve(entry: gameDB.entry(for: item), storeMac: item.steamAppID.flatMap { macFlags[$0] },
+                                     installedOnMac: item.installedOnMac,
+                                     appInfo: item.steamAppID.flatMap { macAppInfoByAppID[$0] })
+    }
+
+    /// The verified fix recipe for a library item, if the db has one (db entry id == recipe id).
+    func fixRecipe(for item: LibraryItem) -> HighballKit.Recipe? {
+        guard let entry = gameDB.entry(for: item),
+              let recipe = Self.recipe(entry.id), recipe.kind == .game else { return nil }
+        // A recipe pinned to an engine this install does not see (a line still in preview) is not
+        // offered: the game page and Play stay as they were before the recipe existed.
+        let defaults = UserDefaults.standard
+        if EngineChannels.hidesPin(recipe.engine, bundled: Self.bundledManifests,
+                                   beta: defaults.bool(forKey: UpdateChannels.betaDefaultsKey),
+                                   preview: defaults.bool(forKey: EngineChannels.previewDefaultsKey),
+                                   optedIn: Self.previewOptIns) { return nil }
+        return recipe
+    }
+
+    /// The game's own recipe from the database, whatever the channel of the engine it names (fixRecipe hides a recipe
+    /// pinned to a hidden engine), for what Play checks before anything else. An opt-in recipe stays the page's
+    /// business, as everywhere.
+    func gameRecipe(for item: LibraryItem) -> HighballKit.Recipe? {
+        guard let entry = gameDB.entry(for: item), let recipe = Self.recipe(entry.id), recipe.kind == .game, !recipe.isOptIn
+        else { return nil }
+        return recipe
+    }
+
+    /// The preview engine a game's recipe pins while this Mac does not see it (EngineChannels.previewToOffer): Play
+    /// asks the player before anything changes. An opt-in recipe stays the page's business, as everywhere.
+    func previewOffer(for item: LibraryItem) -> (recipe: HighballKit.Recipe, manifest: EngineManifest)? {
+        guard let recipe = gameRecipe(for: item) else { return nil }
+        let defaults = UserDefaults.standard
+        guard let manifest = EngineChannels.previewToOffer(pin: recipe.engine, bundled: Self.bundledManifests,
+                                                           beta: defaults.bool(forKey: UpdateChannels.betaDefaultsKey),
+                                                           preview: defaults.bool(forKey: EngineChannels.previewDefaultsKey),
+                                                           optedIn: Self.previewOptIns) else { return nil }
+        return (recipe, manifest)
+    }
+
+
+    /// The "never pick a bottle first" guarantee: every Play in the library resolves the
+    /// item's own bottle and dispatches by source. Play also means "make it work the way
+    /// the db verified it": an unapplied fix recipe whose steps are all harmless (config
+    /// files, renderer — no wine processes, no installs) is applied silently first; one
+    /// with heavy steps asks, with the cost stated.
+    /// `renderer` forces one graphics mode for this launch (the D3DMetal ask's "play with the
+    /// other mode"); nil lets the row and the environment decide.
+    /// `windowsBuild` plays the bottle's copy of a game Steam for Mac also has installed; without
+    /// it the native build goes first.
+    func play(_ item: LibraryItem, renderer: Renderer? = nil, windowsBuild: Bool = false) {
+        if prefersMacBuild(item), renderer == nil, !windowsBuild { playOnMac(item); return }
+        guard let bottleName = item.bottleName,
+              let found = bottles.first(where: { $0.name == bottleName }) else { return }
+        var bottle = found
+        // A recipe whose engine needs a newer macOS than this Mac runs, on every revision the app ships (the arm64 line
+        // needs macOS 26.5, the D3DMetal 4 revisions macOS 27): say so before any question or download. Until 0.10.21
+        // Play offered such an engine on any macOS and nothing stopped its install. An environment already on that
+        // engine plays as it is.
+        if let recipe = gameRecipe(for: item), let id = recipe.engine,
+           let floor = recipe.engineMacOSFloor(bundled: Self.bundledManifests),
+           !(engine(for: bottle).map { EngineManifest.isAtOrAfter(current: $0.manifest.id, wanted: id) } ?? false) {
+            pendingMacOS = (recipe, floor, item, bottle, renderer)
+            return
+        }
+        // A recipe pinned to a preview engine this Mac does not see yet: before 0.10.19 Play launched the game here
+        // as if the recipe did not exist, which for Microsoft Flight Simulator 2024 was a Rosetta engine it cannot
+        // start on. An environment already on that engine counts as the player's choice, and so does one on an
+        // earlier revision of its line (the move is offered just below); any other asks first.
+        if fixRecipe(for: item) == nil, let offer = previewOffer(for: item) {
+            if let current = engine(for: bottle), EngineManifest.satisfies(current: current.manifest, wanted: offer.manifest)
+                || EngineChannels.runsLine(current: current.manifest, of: offer.manifest) {
+                Self.optInPreview(offer.manifest.id)
+                play(item, renderer: renderer, windowsBuild: windowsBuild)
+            } else {
+                pendingPreview = (offer.recipe, bottle, offer.manifest, item, renderer)
+            }
+            return
+        }
+        // An environment on an earlier revision of the preview line its game's recipe now pins (Microsoft Flight
+        // Simulator 2024 set up on r3 when its recipe moved to r5, 2026-10-19). The engine ask further down comes only
+        // before a recipe is applied, so nothing else would offer the revision the database verifies now. Asked once
+        // per environment and revision; the environment's Engine setting can move it any time after.
+        if let recipe = fixRecipe(for: item), !recipe.isOptIn, bottle.settings.recipes.contains(recipe.id),
+           let engine = engine(for: bottle),
+           let wanted = recipe.previewRevisionToOffer(current: engine.manifest, known: Self.knownManifests),
+           Self.firstPreviewMoveAsk(bottle: bottle.name, engine: wanted.id) {
+            pendingPreviewMove = (recipe, bottle, engine.manifest, wanted, item, renderer)
+            return
+        }
+        // A game whose recipe was applied before variables were scoped still has them bottle-wide,
+        // where every other program inherits them (highball#198). Move them to the game once; the
+        // launch below then carries them for this game only, and the log says what moved. Then the
+        // game's variables follow its recipe as the database has it now, so a fix that changed or
+        // dropped one reaches environments set up before it (highball-db#115, #356).
+        if let recipe = fixRecipe(for: item), bottle.settings.recipes.contains(recipe.id) {
+            var settings = bottle.settings
+            let moved = HighballKit.Recipe.scopeLeakedEnvironment(of: recipe, in: &settings)
+            let synced = HighballKit.Recipe.syncScopedEnvironment(of: recipe, in: &settings)
+            if !moved.isEmpty || !synced.isEmpty {
+                bottle.settings = settings
+                try? bottle.save()
+                if !moved.isEmpty {
+                    appendLog("\(item.title): \(moved.joined(separator: ", ")) now applies to this game only, not to everything in \(bottle.name).")
+                }
+                if !synced.isEmpty {
+                    appendLog("\(item.title): the fix's variables now match the database (\(synced.joined(separator: ", "))).")
+                }
+                refresh()
+            }
+        }
+        // The mode this launch will run with, whoever chose it: the caller, the row (unless the
+        // environment's mode is an explicit choice), a pinned program's own, or the environment.
+        // An engine that cannot run it must not be found out by Wine (#61: a fix recipe had set
+        // D3DMetal on a bottle whose engine had no licence accepted, and every launch in it
+        // died with "missing renderer"). A licence is asked for here, once, in context; a mode
+        // the engine simply lacks degrades to one it has, and the log says so.
+        // The game's own mode is part of what this launch asks for, so every path below carries
+        // it: the Steam restart check, the launch after a fix recipe, Epic (highball-db#195).
+        var renderer = Renderer.launchRequest(requested: renderer, gameOverride: rendererOverride(for: item),
+                                              nativeVulkan: gameDB.entry(for: item)?.nativeVulkan == true)
+        if let engine = engine(for: bottle) {
+            let entry = gameDB.entry(for: item)
+            let pinMode = item.pinID.flatMap { id in bottle.settings.pins.first { $0.id == id }?.renderer }
+            var wanted = Renderer.choose(requested: renderer, gameOverride: rendererOverride(for: item), row: entry?.effectiveRenderer(),
+                                         environmentExplicit: bottle.settings.rendererExplicit, pin: pinMode,
+                                         environment: bottle.settings.renderer, nativeVulkan: entry?.nativeVulkan == true)
+            // A program that needs Direct3D 12 cannot run on DXMT, DXVK or Wine's Direct3D, so a
+            // mode that has it takes over before the launch, and the log says so (Farming
+            // Simulator 22 stopped at "Shader model 6.0 is required" on DXMT, highball#139;
+            // Unreal 5 titles stop before their menu, highball#138). A per-game choice and a
+            // row's verified mode stand; an environment's explicit mode stands too, except for a
+            // program it cannot run at all (Forza Horizon 6 on a DXMT environment, 2026-10-06).
+            if let instead = Renderer.direct3D12TakeOver(chosen: wanted, requested: renderer, gameOverride: rendererOverride(for: item),
+                                                         row: entry?.effectiveRenderer(), environmentExplicit: bottle.settings.rendererExplicit,
+                                                         nativeVulkan: entry?.nativeVulkan == true, engine: engine,
+                                                         programNeedsDirect3D12: { self.programNeedsDirect3D12(item) }) {
+                let kept = bottle.settings.rendererExplicit ? " \(bottle.name) keeps \(GamePageCopy.plainName(wanted)) for everything else." : ""
+                appendLog("\(item.title) needs Direct3D 12 and \(GamePageCopy.plainName(wanted)) has none, playing with \(GamePageCopy.plainName(instead)).\(kept)")
+                wanted = instead
+                renderer = instead
+            }
+            switch wanted.availability(in: engine) {
+            case .available:
+                break
+            case .needsLicence:
+                pendingD3DMetal = (item, bottle, engine)
+                return
+            case .notShipped:
+                let instead = Renderer.fallback(for: wanted, in: engine)
+                appendLog("\(item.title): \(wanted.unavailableReason(in: engine) ?? "") Playing with \(GamePageCopy.plainName(instead)).")
+                renderer = instead
+            }
+        }
+        // An opt-in fix is the owner's call from the page, never Play's: it helps some Macs and
+        // breaks others (RaceRoom's newer Direct3D 9, highball-db#60). Play leaves it alone.
+        if let recipe = fixRecipe(for: item), !recipe.isOptIn,
+           !bottle.settings.recipes.contains(recipe.id) || !recipe.artifactsPresent(driveC: bottle.driveC, steamGames: gamesByBottle[bottle.name] ?? []),
+           let engine = engine(for: bottle) {
+            // The engine comes first, whatever the steps: a recipe of plain notes that names r7
+            // used to auto-apply on r5 and launch there, so nobody was ever offered the engine
+            // the game was verified on (Red Dead's and CS:GO's case).
+            if let wanted = recipe.engineToOffer(current: engine.manifest, known: Self.knownManifests) {
+                pendingEngine = (recipe, bottle, wanted, item, environmentFit(for: recipe, besides: bottle, item: item))
+                return
+            }
+            if let missing = recipe.engineUnknown(current: engine.manifest, known: Self.knownManifests) {
+                pendingUpdate = (recipe, missing, (item, bottle, renderer))
+                return
+            }
+            if recipe.isAutoApplicable {
+                // The tweaks it brings along count too: a driver setting needs the environment restarted.
+                let driverSettings = recipe.changesDriverSettings
+                    || recipe.missingRequiredTweaks(applied: bottle.settings.recipes, resolve: { Self.recipe($0) })
+                        .contains(where: \.changesDriverSettings)
+                Task { @MainActor in
+                    var runner = RecipeRunner(paths: paths, engine: engine, bottle: bottle)
+                    if let notes = try? await runner.apply(recipe, resolve: { Self.recipe($0) }) {
+                        logLines.append("applied the \(recipe.title) fix")
+                        for n in notes { logLines.append("note: \(n)") }
+                    }
+                    if driverSettings {
+                        await restartForDriverSettings(engine: engine, bottle: runner.bottle)
+                    } else if recipe.changesLaunchEnvironment {
+                        // A running Steam keeps the environment it started with; the game we are
+                        // about to launch through it would never see the recipe's settings. Only
+                        // the client stops: other programs in the environment keep running.
+                        try? await WineRunner(paths: paths, engine: engine, bottle: bottle).stopSteam()
+                        logLines.append("stopped the Steam client so the new settings apply to this launch")
+                    }
+                    refresh()
+                    let fresh = bottles.first { $0.name == bottleName } ?? runner.bottle
+                    launch(item, in: fresh, renderer: renderer)
+                }
+                return
+            }
+            // A heavy fix is a step, not a question (UX plan §3.5): the page listed it with its
+            // cost, Play runs it on the strip with Stop available, and the done row offers Play
+            // as the next thing rather than firing a launch long after anyone stopped watching.
+            applyRecipe(recipe.id, to: bottle, then: DoneState(
+                title: String(format: L("%@ installed"), recipe.title),
+                ctaTitle: String(format: L("Play %@"), item.title),
+                cta: { [weak self, renderer] in
+                    guard let self, let fresh = self.bottles.first(where: { $0.name == bottleName }) else { return }
+                    self.launch(item, in: fresh, renderer: renderer)
+                }))
+            return
+        }
+        // A recipe applied before it gained a dependency: the tweaks it requires now and this environment lacks are
+        // applied before the launch, since Play applies a recipe once (Microsoft Flight Simulator 2024's flight
+        // controls tweak for environments set up on 0.10.22 and earlier, highball#397).
+        if let recipe = fixRecipe(for: item), !recipe.isOptIn, bottle.settings.recipes.contains(recipe.id),
+           let engine = engine(for: bottle) {
+            let missing = recipe.missingRequiredTweaks(applied: bottle.settings.recipes, resolve: { Self.recipe($0) })
+            if !missing.isEmpty, missing.allSatisfy(\.isAutoApplicable) {
+                Task { @MainActor in
+                    var runner = RecipeRunner(paths: paths, engine: engine, bottle: bottle)
+                    for tweak in missing {
+                        if let notes = try? await runner.apply(tweak, resolve: { Self.recipe($0) }) {
+                            logLines.append("applied \(tweak.title), which \(recipe.title) now needs")
+                            for n in notes { logLines.append("note: \(n)") }
+                        }
+                    }
+                    if missing.contains(where: \.changesDriverSettings) {
+                        await restartForDriverSettings(engine: engine, bottle: runner.bottle)
+                    } else if missing.contains(where: \.changesLaunchEnvironment) {
+                        try? await WineRunner(paths: paths, engine: engine, bottle: runner.bottle).stopSteam()
+                        logLines.append("stopped the Steam client so the new settings apply to this launch")
+                    }
+                    refresh()
+                    let fresh = bottles.first { $0.name == bottleName } ?? runner.bottle
+                    launch(item, in: fresh, renderer: renderer)
+                }
+                return
+            }
+        }
+        launch(item, in: bottle, renderer: renderer)
+    }
+
+    /// After a recipe or tweak wrote a driver's settings (Recipe.changesDriverSettings). Wine's drivers read them
+    /// when the environment starts, so the environment stops before the launch when, the Steam client aside, only
+    /// Wine's own processes run in it, and the launch starts it again with the new settings. Programs the owner
+    /// started keep running, and the log says to stop the environment once.
+    private func restartForDriverSettings(engine: InstalledEngine, bottle: Bottle) async {
+        guard ProcessTable.liveServer(forPrefix: bottle.url) != nil else { return }
+        let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+        try? await runner.stopSteam()
+        // Steam's web helpers can outlive the client by a moment.
+        for _ in 0..<10 where !ProcessTable.isIdle(prefix: bottle.url) { try? await Task.sleep(for: .milliseconds(500)) }
+        if ProcessTable.isIdle(prefix: bottle.url) {
+            _ = try? runner.kill()
+            logLines.append("stopped \(bottle.name) so Wine's drivers start with the new settings")
+        } else {
+            logLines.append("\(bottle.name) has programs running, so its drivers keep their old settings until it stops (Stop all processes)")
+        }
+    }
+
+    private func launch(_ item: LibraryItem, in bottle: Bottle, renderer: Renderer? = nil) {
+        recordPlay(item)
+        if !FunnelLog.records(in: paths.logs).contains(where: { $0.event == .firstLaunch }) { funnel(.firstLaunch) }
+        switch item.source {
+        case .steam:
+            guard let game = (gamesByBottle[bottle.name] ?? []).first(where: { $0.appid == item.steamAppID }) else { return }
+            launchGame(game, in: bottle, renderer: renderer)
+        case .epic:
+            guard let game = epicOwned.first(where: { $0.app_name == item.epicAppName }) else { return }
+            epicPlay(game, in: bottle, renderer: renderer,
+                     throughEpicLauncherStandIn: fixRecipe(for: item)?.requires?.contains("rockstar") == true)
+        case .pin:
+            guard let pin = bottle.settings.pins.first(where: { $0.id == item.pinID }) else { return }
+            launch(pin: pin.launching(with: renderer), in: bottle)
+        }
+    }
+
+    /// Reads each bottle's owned Steam games off the main thread: appinfo.vdf runs to megabytes
+    /// on a large library. Only a full refresh does this; the library changes rarely.
+    func steamOwnedRefresh() {
+        let bottles = self.bottles
+        Task.detached { [weak self] in
+            let owned = Dictionary(bottles.map { ($0.name, SteamOwnedLibrary.games(in: $0)) }, uniquingKeysWith: { a, _ in a })
+            await MainActor.run {
+                guard let self, owned != self.steamOwnedByBottle else { return }
+                self.steamOwnedByBottle = owned
+                self.macAppInfoByAppID = Dictionary(owned.values.joined().map { ($0.appid, $0.macBuild) },
+                                                    uniquingKeysWith: { a, _ in a })
+                self.rebuildLibrary()
+            }
+        }
+    }
+
+    @ObservationIgnored private var steamLibrarySignatures: [String: String] = [:]
+
+    func steamLibraryMayHaveChanged(_ bottle: String, signature: String) {
+        guard steamLibrarySignatures[bottle] != signature else { return }
+        steamLibrarySignatures[bottle] = signature
+        steamOwnedRefresh()
+    }
+
+    @ObservationIgnored private var steamInstallSignatures: [String: String] = [:]
+
+    /// The client watch's backstop for the install watcher: a running Steam's install records
+    /// changed, so the installed games are read again whether or not the watcher heard it
+    /// (highball#286, a finished install whose page kept offering Install).
+    func steamInstallsMayHaveChanged(_ bottle: String, signature: String) {
+        guard steamInstallSignatures[bottle] != signature else { return }
+        steamInstallSignatures[bottle] = signature
+        refreshSteamInstalls()
+    }
+
+    /// Hands an owned Steam game to its bottle's Steam, whose own dialog asks where to put it:
+    /// a running client takes the steam:// URL; otherwise Steam starts as its pin does (with
+    /// the sync its window needs) and receives it as an argument. Nothing is automated.
+    func installSteamGame(_ item: LibraryItem) {
+        guard item.source == .steam, let appid = item.steamAppID,
+              let bottle = item.bottleName.flatMap({ name in bottles.first { $0.name == name } }) ?? defaultBottle,
+              let engine = engine(for: bottle) else { return }
+        // An environment without Steam (one made by an older "New environment", which left Steam
+        // out) gets Steam first, then the same button installs the game. It used to run a
+        // steam.exe that was not there and blame an older Highball (2026-10-06).
+        guard steamInstalled(in: bottle) else {
+            appendLog("\(item.title): Steam is not installed in \(bottle.name) yet, installing it first")
+            applyRecipe("steam", to: bottle, then: DoneState(
+                title: String(format: L("Steam is installed in %@"), bottle.name),
+                ctaTitle: String(format: L("Install %@"), displayTitle(item)),
+                cta: { [weak self] in self?.installSteamGame(item) }))
+            return
+        }
+        let url = "steam://install/\(appid)"
+        appendLog("\(item.title): asking Steam to install it (\(url))")
+        let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+        // The recipe's own Steam pin carries the environment Steam's window needs (sync off);
+        // a plain one stands in when the bottle has none.
+        let steam = bottle.driveC.appending(path: "Program Files (x86)/Steam/steam.exe")
+        var pin = bottle.settings.pins.first(where: isSteamUI)
+            ?? Pin(name: "Steam", path: Pin.storagePath(for: steam, driveC: bottle.driveC))
+        pin.arguments.append(url)
+        Task { [weak self] in
+            if (try? await runner.forwardToRunningSteam([url])) == nil {
+                self?.launch(pin: pin, in: bottle)
+            }
+        }
+    }
+
+    /// Epic installs into the item's resolved bottle, else the selected one, else the first — a
+    /// menu in the detail view refines it, never a modal prerequisite. Steam hands off to Steam.
+    func install(_ item: LibraryItem) {
+        if item.source == .steam { installSteamGame(item); return }
+        guard item.source == .epic,
+              let game = epicOwned.first(where: { $0.app_name == item.epicAppName }) else { return }
+        guard let target = item.bottleName.flatMap({ name in bottles.first { $0.name == name } }) ?? defaultBottle else { return }
+        epicInstall(game, in: target)
+    }
+
+    private func recordPlay(_ item: LibraryItem) {
+        libraryStore.recordPlay(id: item.id, bottle: item.bottleName)
+        libraryPlays[item.id] = LibraryStore.PlayRecord(lastPlayedAt: Date(), bottle: item.bottleName)
+        rebuildLibrary()
+    }
+
+    // Custom covers (Phase 3): local images only, chosen by the user.
+    var coverStore: CoverStore { CoverStore(paths: paths) }
+    /// Bumped when a cover changes so tiles reload their local image.
+    var coverVersion = 0
+
+    func chooseCover(for item: LibraryItem) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.message = String(format: L("Choose a cover image for %@"), item.title)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        setCover(for: item, from: url)
+    }
+
+    func setCover(for item: LibraryItem, from url: URL) {
+        do { try coverStore.setCover(for: item.id, from: url); coverVersion += 1 }
+        catch { fail(error) }
+    }
+
+    /// Takes a dropped image as a game's cover, so nobody has to walk a file browser for it
+    /// (highball#175). A file is read from disk; an image dragged out of a browser arrives as
+    /// bytes with no file, and is taken too. Returns whether anything was claimed, which is what
+    /// SwiftUI uses to decide if the drop was ours.
+    @discardableResult
+    func acceptCoverDrop(_ providers: [NSItemProvider], for item: LibraryItem) -> Bool {
+        guard let provider = providers.first else { return false }
+        if provider.canLoadObject(ofClass: URL.self) {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url else { return }
+                Task { @MainActor in self.setCover(for: item, from: url) }
+            }
+            return true
+        }
+        guard let type = provider.registeredTypeIdentifiers.first(where: { UTType($0)?.conforms(to: .image) == true }) else { return false }
+        provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
+            guard let data else { return }
+            Task { @MainActor in
+                do { try self.coverStore.setCover(for: item.id, imageData: data); self.coverVersion += 1 }
+                catch { self.fail(error) }
+            }
+        }
+        return true
+    }
+
+    func resetCover(for item: LibraryItem) {
+        coverStore.clearCover(for: item.id)
+        coverVersion += 1
+    }
+
+    // Epic (via Legendary; see EpicStore)
+    var epicSignedIn = false
+    var epicOwned: [EpicStore.Game] = []
+    /// app_name → install_path. Legendary's install state is global; which bottle a game
+    /// lives in is decided by its path, via epicInstalled(_:in:). (The old Set-of-names
+    /// showed Play in bottles that had no files.)
+    var epicInstalls: [String: String] = [:]
+    var epicLoading = false
+    private var epicFetchInFlight = false
+    var showEpicSignIn = false
+
+    /// A Windows program awaiting the run/pin choice (from drag-drop, the File menu, or the button).
+    var pendingRun: URL?
+    /// The environment a dropped program runs in: the page it was dropped on, else the default.
+    var pendingRunBottle: String?
+
+    /// A Windows program double-clicked in Finder, or opened with Highball from Open With
+    /// (issue #90). Same dialog as a dropped or chosen file: run it in the default environment,
+    /// or run and keep it in Programs. Anything that is not a program says so instead of doing nothing.
+    func openFile(_ url: URL) {
+        if Self.isDiscImage(url) { openDiscImage(url, in: nil); return }
+        guard ["exe", "msi", "bat"].contains(url.pathExtension.lowercased()) else {
+            fail(HighballError.failed(String(format: L("'%@' isn't a Windows program. Highball opens .exe, .msi and .bat files."), url.lastPathComponent)))
+            return
+        }
+        if pendingRun == url { return }   // macOS can deliver the same open twice
+        refresh()
+        pendingRunBottle = nil
+        pendingRun = url
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func chooseProgramToRun(in bottle: String? = nil) {
+        let panel = NSOpenPanel()
+        panel.title = L("Choose a Windows program")
+        panel.allowedContentTypes = [.exe, .msi, .bat, UTType(filenameExtension: "iso")].compactMap { $0 }
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if Self.isDiscImage(url) { openDiscImage(url, in: bottle); return }
+        pendingRunBottle = bottle; pendingRun = url
+    }
+
+    /// A disc image (.iso), as old games and their installers often come: Highball mounts it the
+    /// way a double-click in Finder would and asks for the program on it, then runs that like any
+    /// other (highball#184, a player dropped "Chrome (Poland).iso" and only got an error). Wine
+    /// sees the mounted disc under /Volumes like any other drive.
+    static func isDiscImage(_ url: URL) -> Bool { url.pathExtension.lowercased() == "iso" }
+
+    func openDiscImage(_ image: URL, in bottle: String?) {
+        Task { [weak self] in
+            let mounted = await Task.detached { () -> Result<URL, Error> in
+                do {
+                    let out = try Shell.capture("/usr/bin/hdiutil", ["attach", "-readonly", "-plist", image.path])
+                    // macOS 27 prints a deprecation warning before the plist on the same stream.
+                    let xml = out.range(of: "<?xml").map { String(out[$0.lowerBound...]) } ?? out
+                    guard let data = xml.data(using: .utf8),
+                          let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+                          let entities = plist["system-entities"] as? [[String: Any]],
+                          let point = entities.compactMap({ $0["mount-point"] as? String }).first else {
+                        throw HighballError.failed(String(format: L("macOS could not open '%@' as a disc."), image.lastPathComponent))
+                    }
+                    return .success(URL(fileURLWithPath: point, isDirectory: true))
+                } catch { return .failure(error) }
+            }.value
+            await MainActor.run {
+                guard let self else { return }
+                switch mounted {
+                case let .failure(error): self.fail(error)
+                case let .success(disc):
+                    self.appendLog("mounted \(image.lastPathComponent) at \(disc.path)")
+                    let panel = NSOpenPanel()
+                    panel.title = L("Choose the program on the disc")
+                    panel.message = L("Usually the disc's setup or install program.")
+                    panel.directoryURL = disc
+                    panel.allowedContentTypes = [.exe, .msi, .bat].compactMap { $0 }
+                    panel.allowsMultipleSelection = false
+                    NSApp.activate(ignoringOtherApps: true)
+                    guard panel.runModal() == .OK, let program = panel.url else { return }
+                    self.pendingRunBottle = bottle
+                    self.pendingRun = program
+                }
+            }
+        }
+    }
+
+    let paths = HighballPaths()
+    /// The chosen data location whose drive is not connected (#24): shown instead of the library,
+    /// never as a first run, so nothing gets reinstalled onto the internal disk by mistake.
+    var homeUnavailable: URL? { paths.unavailableConfiguredHome }
+    /// A location chosen in Settings, waiting for the move to be confirmed.
+    var pendingHome: URL?
+
+    /// Settings › Environments › Change…: a folder that can hold an environment, checked before
+    /// anything moves. A network share is allowed and warned about, not refused.
+    func chooseHome() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
+        panel.prompt = L("Use this folder")
+        panel.message = L("Highball will keep its engines and environments in this folder. Pick a drive with room to spare: Highball checks the folder before moving anything, and says so if the drive cannot hold an environment.")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let folder = URL(fileURLWithPath: url.path, isDirectory: true)
+        if let why = HighballPaths.locationProblem(folder) { errorMessage = why; return }
+        if folder.standardizedFileURL == paths.home.standardizedFileURL { return }
+        pendingHome = folder
+    }
+
+    /// Moves everything, records the location, then relaunches: the running app keeps its old paths.
+    func moveHome(to target: URL) {
+        pendingHome = nil
+        let source = paths.home
+        runBusy(String(format: L("Moving Highball's data to %@"), target.lastPathComponent),
+                expected: L("as long as copying your games takes; nothing is removed until the copy checks out"),
+                done: DoneState(title: L("Moved. Highball needs a relaunch to use the new location."), ctaTitle: L("Relaunch"), cta: { Self.relaunch() })) { [self] in
+            try await Task.detached {
+                try HomeMove.move(from: source, to: target) { name, copied, items in
+                    Task { @MainActor in self.reportHomeCopy(name: name, copied: copied, items: items) }
+                }
+                try HighballPaths.setConfiguredHome(target)
+            }.value
+            await MainActor.run { self.appendLog("data moved to \(target.path)") }
+        }
+    }
+
+    /// Back to the default location, with the data, from the unavailable-drive screen or Settings.
+    func useDefaultHome() {
+        let target = HighballPaths.defaultHome
+        if paths.home.standardizedFileURL == target.standardizedFileURL || !paths.hasData {
+            try? HighballPaths.setConfiguredHome(nil); Self.relaunch(); return
+        }
+        pendingHome = nil
+        runBusy(L("Moving Highball's data back to the default location"), done: DoneState(title: L("Moved. Highball needs a relaunch."), ctaTitle: L("Relaunch"), cta: { Self.relaunch() })) { [self] in
+            try await Task.detached {
+                try HomeMove.move(from: self.paths.home, to: target) { name, copied, items in
+                    Task { @MainActor in self.reportHomeCopy(name: name, copied: copied, items: items) }
+                }
+                try HighballPaths.setConfiguredHome(nil)
+            }.value
+        }
+    }
+
+    /// File count in the stage line so a tree of tiny files is not stuck on "0 MB".
+    private func reportHomeCopy(name: String, copied: Int64, items: Int) {
+        stage = items <= 0
+            ? String(format: L("Copying %@…"), name)
+            : items == 1
+                ? String(format: L("Copying %@ — 1 file"), name)
+                : String(format: L("Copying %@ — %d files"), name, items)
+        lastOutputAt = Date()
+        if let last = transferSamples.last, copied < last.bytes { transferSamples = [] }
+        transferSamples.append(.init(bytes: copied, at: Date()))
+        if transferSamples.count > 40 {
+            transferSamples.removeFirst(transferSamples.count - 40)
+        }
+        transferRate = ActivityText.rate(transferSamples)
+        busyProgress = Transfer(received: copied, total: nil)
+    }
+
+    static func relaunch() {
+        let bundle = Bundle.main.bundleURL.path
+        let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "sleep 1; /usr/bin/open -n \"\(bundle)\""]
+        try? p.run()
+        NSApp.terminate(nil)
+    }
+    /// This Mac's chip, read once: the game page compares it with the chip a verdict was taken on.
+    let machineChip = Machine.chip()
+    var engineStore: EngineStore { EngineStore(paths: paths) }
+    var bottleStore: BottleStore { BottleStore(paths: paths) }
+
+    private var prunedLogsThisRun = false
+
+    /// Re-reads the launchers' install records when they change (a download starting or
+    /// finishing in an open Steam window), so the library follows without a relaunch.
+    @ObservationIgnored private var installWatcher: DirectoryWatcher?
+
+    /// The directories whose entries change when a game is installed or removed: the steamapps
+    /// of each Steam library folder (appmanifest files) and the folder Epic installs land in.
+    private func installDirectories(of bottle: Bottle) -> [URL] {
+        [bottle.driveC.appending(path: "Games")] + SteamLibrary.steamappsDirectories(of: bottle)
+    }
+
+    /// The cheap part of `refresh`: installed games only. Runs on every install-record change,
+    /// so it must not spawn per call beyond legendary's install list, and never touches the
+    /// directories it watches.
+    func refreshInstalledGames() {
+        refreshSteamInstalls()
+        let mac = MacSteam.installedGames()
+        if mac != macSteamGames { macSteamGames = mac; rebuildLibrary() }
+        refreshEpicInstalls()
+    }
+
+    /// The Windows Steam part of `refreshInstalledGames`, without legendary, so the client watch
+    /// can run it every few seconds of a long download for the price of a few directory reads.
+    func refreshSteamInstalls() {
+        // Re-arm first: a steamapps that did not exist at the last full refresh (Steam was
+        // installed after launch, or a library folder was added) is only watched from here on,
+        // and a replaced one is reopened.
+        installWatcher?.watch(bottles.flatMap(installDirectories) + MacSteam.steamappsDirectories())
+        let games = Dictionary(bottles.map { ($0.name, SteamLibrary.games(in: $0)) }, uniquingKeysWith: { a, _ in a })
+        if games != gamesByBottle { gamesByBottle = games; forgetProgramExecutables(); rebuildLibrary() }
+    }
+
+    private func refreshEpicInstalls() {
+        guard epicSignedIn, !epicFetchInFlight else { return }
+        epicFetchInFlight = true
+        Task.detached { [store = epicStore] in
+            let installed = (try? store.installedGames()) ?? []
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.epicFetchInFlight = false
+                let installs = EpicStore.installMap(installed)
+                guard installs != self.epicInstalls else { return }
+                self.epicInstalls = installs
+                self.forgetProgramExecutables()
+                self.rebuildLibrary()
+            }
+        }
+    }
+
+    func refresh() {
+        forgetProgramExecutables()
+        if !prunedLogsThisRun {
+            prunedLogsThisRun = true
+            let n = LogPruner.prune(directory: paths.logs)
+            if n > 0 { appendLog("pruned \(n) old log file(s)") }
+        }
+        // Facts a newer bundled manifest states about an installed engine reach its installed
+        // manifest here, before the engines are read (the r11/r12 Direct3D 9 rule, highball#198).
+        engineStore.adoptKnownFacts(known: Self.knownManifests)
+        engines = (try? engineStore.installedEngines()) ?? []
+        lsfgShimDirs = Dictionary(engines.compactMap { e in e.resolveLsfgShimDir().map { (e.id, $0) } }, uniquingKeysWith: { a, _ in a })
+        bottles = (try? bottleStore.list()) ?? []
+        damagedBottles = (try? bottleStore.damaged()) ?? []
+        needsOnboarding = engines.isEmpty && homeUnavailable == nil   // an unplugged drive is not a first run
+        rosettaInstalled = Self.rosettaWorks()
+        // An existing install can lose Rosetta (two Macs did after the macOS 27 update, #101 and
+        // #106) and onboarding is the only place that used to install it. Offer it here instead,
+        // and only while an engine that needs it is installed: the arm64 line never does.
+        rosettaMissing = !rosettaInstalled && engines.contains { $0.manifest.requiresRosetta }
+        setupInstallsRosetta = !rosettaInstalled && Self.bundledEngineRequiresRosetta
+        // Drop a selection whose bottle is gone, not merely a nil one: a delete that threw after
+        // the bottle had in fact been removed (the losing side of a race) left the selection
+        // pinned to a name nothing could resolve.
+        if let sel = selectedBottle, !bottles.contains(where: { $0.name == sel }) { selectedBottle = nil }
+        if selectedBottle == nil { selectedBottle = bottles.first?.name }
+        // Never trap on duplicate names (a Finder-duplicated bottle crashed the app at launch — issue #13).
+        gamesByBottle = Dictionary(bottles.map { ($0.name, SteamLibrary.games(in: $0)) }, uniquingKeysWith: { a, _ in a })
+        if installWatcher == nil { installWatcher = DirectoryWatcher { [weak self] in self?.refreshInstalledGames() } }
+        installWatcher?.watch(bottles.flatMap(installDirectories) + MacSteam.steamappsDirectories())
+        macSteamGames = MacSteam.installedGames()
+        startSteamClientWatch()
+        startDiscordWatch()
+        libraryPlays = libraryStore.load()
+        libraryOverrides = libraryStore.rendererOverrides()
+        libraryLaunchArgs = libraryStore.launchArguments()
+        libraryDisplays = libraryStore.displayChoices()
+        rebuildLibrary()
+        steamOwnedRefresh()
+        epicRefresh()
+        maybeAutoUpdateEngine()
+        if gameDB.byAppID.isEmpty {
+            var dirs: [URL] = []
+            if let res = Bundle.main.resourceURL { dirs.append(res.appending(path: "db-games")) }
+            if let root = Self.repoRoot {
+                dirs.append(root.deletingLastPathComponent().appending(path: "highball-db/db/games"))
+            }
+            gameDB = GameDB(directories: dirs)
+        }
+    }
+
+    func engine(for bottle: Bottle) -> InstalledEngine? {
+        (try? engineStore.engine(bottle.settings.engineID)) ?? defaultEngine
+    }
+
+    /// The engine new bottles get and the sidebar shows: the one the bundled manifest names when
+    /// it is installed, else the newest installed (numeric-aware id order). Without this, an
+    /// engine update would leave two engines side by side and `engines.first` would keep
+    /// picking the old one.
+    var defaultEngine: InstalledEngine? {
+        EngineStore.defaultEngine(installed: engines, bundledID: Self.bundledManifestID)
+    }
+
+    static var bundledManifestID: String? {
+        guard let url = bundledManifest, let m = try? EngineManifest.load(from: url) else { return nil }
+        return m.id
+    }
+
+    /// The bundled manifest when it names an engine that is not installed yet while another one
+    /// is: an engine update is available. New installs never see this (onboarding installs the
+    /// bundled engine directly).
+    var engineUpdate: EngineManifest? {
+        guard !engines.isEmpty, let url = Self.bundledManifest,
+              let m = try? EngineManifest.load(from: url),
+              // An installed copy missing its Wine files counts as not installed: it fails every
+              // launch (highball#118), and installing it again over itself is the repair.
+              !engines.contains(where: { $0.id == m.id && $0.isComplete }),
+              // An install set up on the other architecture (the native line, where Rosetta could not
+              // be installed: highball#413) has nothing the bundled engine would update.
+              engines.contains(where: { $0.manifest.arch == m.arch }) else { return nil }
+        return m
+    }
+
+    /// Installs the bundled engine next to the current one. Bottles move to it only when the Wine
+    /// build is unchanged (a component-only update, like r1's MoltenVK): nothing to re-run, nothing
+    /// that can regress. When the Wine build differs, every bottle stays on its engine and the
+    /// old engine stays installed as long as any bottle runs on it; the owner switches a bottle
+    /// from its settings, one at a time, and can switch back. New bottles get the new engine.
+    /// Licenses already accepted on the old engine carry over; the download cache makes an
+    /// update cost only the components that actually changed.
+    func updateEngine() {
+        guard let manifest = engineUpdate, let old = defaultEngine else { return }
+        let oldID = old.id
+        let accepted = Set(engines.flatMap { $0.manifest.acceptedLicenses ?? [] })
+        let title = String(format: L("Updating engine to %@"), manifest.id)
+        runBusy(title, expected: L("usually a few minutes"),
+                done: DoneState(title: L("Engine updated"), ctaTitle: nil, cta: nil),
+                stop: .cancelTask(label: L("Stop"))) { [self] in
+            await MainActor.run { self.engineSwitchStep = .download }
+            let fresh = try await engineStore.install(manifest, accepted: accepted) { name, received, total in
+                Task { @MainActor in self.reportDownload(name, received: received, total: total) }
+            }
+            await MainActor.run { self.appendLog("engine \(fresh.id) installed") }
+            // Whether the prefix survives is a question about THIS bottle's engine, not about the
+            // default engine's own step. Comparing old (the previous default) to fresh moved a
+            // bottle sitting on a different Wine build across builds whenever the default's own
+            // update happened to be component-only: on 2026-09-09 a 0.8.9 build walked bottles
+            // from the Wine 11 engine onto its Wine 10 default because r1 to r2 was same-Wine.
+            let installedNow = try engineStore.installedEngines()
+            let known = Self.knownManifests
+            let shipped = Set(known.flatMap { $0.components.keys })
+            // Bottles whose engine offers something the new default does not (the GPTK 4 line's
+            // D3DMetal 4): they go to their own line's newest revision instead, after this loop.
+            var leftBehind: [(Bottle, InstalledEngine)] = []
+            for var bottle in try bottleStore.list() where bottle.settings.engineID != fresh.id {
+                guard let bottleEngine = installedNow.first(where: { $0.id == bottle.settings.engineID }) else {
+                    await MainActor.run { self.appendLog("bottle '\(bottle.name)' stays on \(bottle.settings.engineID): that engine is not installed here, so this build cannot tell whether its Wine matches") }
+                    continue
+                }
+                guard EngineStore.canMoveBottle(on: bottleEngine.manifest, to: fresh.manifest) else {
+                    await MainActor.run { self.appendLog("bottle '\(bottle.name)' stays on \(bottle.settings.engineID): the new engine has a different Wine build; switch it from the bottle's settings when you want") }
+                    continue
+                }
+                let lost = EngineStore.componentsLost(from: bottleEngine.manifest, to: fresh.manifest, shipped: shipped)
+                guard lost.isEmpty else {
+                    await MainActor.run { self.appendLog("bottle '\(bottle.name)' stays on \(bottle.settings.engineID) for now: \(fresh.id) does not carry its \(lost.joined(separator: ", "))") }
+                    leftBehind.append((bottle, bottleEngine))
+                    continue
+                }
+                let runnerOld = WineRunner(paths: paths, engine: bottleEngine, bottle: bottle)
+                try? runnerOld.kill()
+                try? await Task.sleep(for: .seconds(2))
+                bottle.settings.engineID = fresh.id
+                if !bottle.supportsDLSS(engine: fresh) { bottle.settings.dlssEnabled = false }
+                try bottle.save()
+                await MainActor.run { self.appendLog("bottle '\(bottle.name)' moved to \(fresh.id) (same Wine, no prefix refresh needed)") }
+            }
+            for (stayed, bottleEngine) in leftBehind {
+                var bottle = stayed
+                guard let next = EngineStore.successor(for: bottleEngine.manifest, among: known, shipped: shipped) else { continue }
+                let target: InstalledEngine
+                if let have = try engineStore.installedEngines().first(where: { $0.id == next.id && $0.isComplete }) {
+                    target = have
+                } else {
+                    target = try await engineStore.install(next, accepted: accepted) { name, received, total in
+                        Task { @MainActor in self.reportDownload(name, received: received, total: total) }
+                    }
+                }
+                let runnerOld = WineRunner(paths: paths, engine: bottleEngine, bottle: bottle)
+                try? runnerOld.kill()
+                try? await Task.sleep(for: .seconds(2))
+                bottle.settings.engineID = target.id
+                try bottle.save()
+                await MainActor.run { self.appendLog("bottle '\(bottle.name)' moved to \(target.id), the newer revision of its own engine (same Wine, nothing it had is lost)") }
+            }
+            // Clean up only the engine this update superseded. Anything else stays, including an
+            // engine this build has never heard of: a newer Highball may have installed it, and
+            // deleting it throws away a 300 MB download and strands every bottle on it.
+            let referenced = Set(try bottleStore.list().map(\.settings.engineID))
+            if let stale = EngineStore.engineToRemoveAfterUpdate(
+                oldID: oldID, freshID: fresh.id, referencedIDs: referenced,
+                installed: try engineStore.installedEngines()) {
+                try? FileManager.default.removeItem(at: stale.root)
+                await MainActor.run { self.appendLog("old engine \(stale.id) removed (no bottle uses it)") }
+            }
+            if referenced.contains(oldID) {
+                await MainActor.run { self.appendLog("engine \(oldID) kept: bottles still run on it") }
+            }
+        }
+    }
+
+    /// Moves one bottle to another installed engine, on its owner's request. Re-runs the Windows
+    /// first boot only when the Wine build differs (the same rule as an engine update), then the
+    /// per-bottle setup that boot resets. Switching back is the same call the other way.
+    func moveBottle(_ bottle: Bottle, to target: InstalledEngine, done: DoneState? = nil) {
+        guard bottle.settings.engineID != target.id, !busy else { return }
+        let title = String(format: L("Moving '%@' to %@"), bottle.name, target.id)
+        runBusy(title, expected: L("a minute or two when the Windows setup re-runs"),
+                done: done ?? DoneState(title: L("Engine switched"), ctaTitle: nil, cta: nil)) { [self] in
+            try await performMove(bottle, to: target)
+        }
+    }
+
+    /// The move itself, shared by the two entry points and run inside their single busy sheet.
+    /// The bottle is re-read from disk right before the write: the caller's copy may be minutes
+    /// old (an engine download ran in between) and saving it would revert edits made meanwhile.
+    /// The source engine is resolved strictly: when its directory is gone, nothing is known
+    /// about the Wine that built the prefix, so the prefix is refreshed.
+    private func performMove(_ stale: Bottle, to target: InstalledEngine) async throws {
+        guard var bottle = try? bottleStore.get(stale.name) else { throw HighballError.invalid("bottle '\(stale.name)' no longer exists") }
+        guard bottle.settings.engineID != target.id else { return }
+        await MainActor.run { self.engineSwitchStep = .stopPrograms }
+        let source = try? engineStore.engine(bottle.settings.engineID)
+        if let source {
+            let runnerOld = WineRunner(paths: paths, engine: source, bottle: bottle)
+            try? runnerOld.kill()
+            try? await Task.sleep(for: .seconds(2))
+        }
+        bottle.settings.engineID = target.id
+        if !bottle.supportsDLSS(engine: target) { bottle.settings.dlssEnabled = false }
+        try bottle.save()
+        guard EngineManifest.needsPrefixRefresh(from: source?.manifest, to: target.manifest) else {
+            await MainActor.run { self.appendLog("bottle '\(bottle.name)' moved to \(target.id) (same Wine, no prefix refresh needed)") }
+            return
+        }
+        await MainActor.run { self.stage = String(format: L("Refreshing bottle '%@'"), bottle.name); self.engineSwitchStep = .windowsSetup }
+        let runner = WineRunner(paths: paths, engine: target, bottle: bottle)
+        try await BottleStore.refreshPrefix(runner: runner, bottle: bottle)
+        await MainActor.run { self.appendLog("bottle '\(bottle.name)' moved to \(target.id)") }
+    }
+
+    /// What to put in front of the user when something throws. Interpolating an NSError dumps
+    /// its domain, code, userInfo and a pointer address, with the one readable sentence buried
+    /// in the middle — that is what a failed delete looked like in #38.
+    static func message(for error: Error) -> String {
+        if let known = error as? HighballError { return known.description }
+        return (error as NSError).localizedDescription
+    }
+
+    /// Retries anything a previous purge could not remove. Free when `.trash` is empty, which
+    /// is the normal case, so a leftover with a transient cause clears itself at the next launch.
+    func sweepTrash() {
+        let store = bottleStore
+        Task.detached { store.sweepTrash() }
+    }
+
+    private func appendLog(_ line: String) {
+        logLines.append(line)
+        if logLines.count > 400 { logLines.removeFirst(logLines.count - 400) }
+        lastOutputAt = Date()
+        if let s = ProgressParser.stage(for: line) {
+            stage = s
+            if s.hasPrefix("Step ") { stageHint = "" }  // a new step retires the old hint
+        }
+        // Recipe slow-hints ("[dotnet48] hint: takes 20-40 min…") ride the same log stream.
+        if let h = ProgressParser.hint(for: line) { stageHint = h }
+    }
+
+    /// Runs one long operation on the activity strip. The strip is the surface: the log sheet
+    /// opens only from its Details button (or `showLogSheet` for the rare case that needs it).
+    private func runBusy(_ title: String, expected: String? = nil, showLogSheet: Bool = false,
+                         done: DoneState? = nil, stop: BusyStop? = nil, cleanup: (() -> Void)? = nil,
+                         _ work: @escaping () async throws -> Void) {
+        // One busy operation at a time: a second call would reset the sheet's state under the
+        // first and end it early when the second finishes (found in review, 2026-09-04).
+        guard !busy else { return }
+        busy = true; busyTitle = title; stage = ""; stageHint = ""; logLines = []; showLog = showLogSheet
+        busyStartedAt = Date(); busyExpected = expected; lastOutputAt = nil; doneState = nil
+        busyStop = stop; busyProgress = nil; transferRate = nil; transferSamples = []; stopRequested = false
+        busyTask = Task {
+            // On failure, dismiss the log sheet ourselves: SwiftUI defers the error alert
+            // until the sheet closes, so a stuck sheet showed "Done" over a failed install
+            // and hid the alert until the user clicked Close (issues #27/#28).
+            do {
+                try await work()
+                let d = done ?? DoneState(title: L("Done"), ctaTitle: nil, cta: nil)
+                doneState = d.silent ? nil : d
+            } catch {
+                showLog = false
+                if title == L("Setting up Highball"), !stopRequested {
+                    let bytes = busyProgress.map { " at \($0.received / 1_048_576) MB" } ?? ""
+                    if let u = error as? URLError { funnel(.downloadFailed, detail: "URLError \(u.code.rawValue)\(bytes)") }
+                    else if case HighballError.checksumMismatch = error { funnel(.downloadFailed, detail: "checksum mismatch") }
+                    else if busyProgress == nil, engines.isEmpty { funnel(.extractFailed, detail: String(describing: type(of: error))) }
+                }
+                if stopRequested || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                    // The user stopped it: a result, not a failure, and no alert.
+                    doneState = DoneState(title: stop?.stoppedTitle ?? L("Stopped."), ctaTitle: nil, cta: nil)
+                    appendLog("stopped by the user")
+                } else {
+                    // A retry is the same operation with the same closure; the sheet's own state
+                    // resets when runBusy starts again.
+                    fail(error, retry: { [weak self] in self?.runBusy(title, expected: expected, showLogSheet: showLogSheet, done: done, stop: stop, cleanup: cleanup, work) })
+                }
+            }
+            cleanup?()
+            let repairAfterStop = stopRequested ? stop?.bottleToRepair : nil
+            busy = false; busyStop = nil; busyProgress = nil; transferRate = nil; busyTask = nil
+            refresh()
+            if let bottle = repairAfterStop, let fresh = bottles.first(where: { $0.name == bottle.name }) {
+                repairBottle(fresh)
+            }
+        }
+    }
+
+    /// The strip's Stop button. What it does depends on the operation (see `BusyStop`); the
+    /// operation's own error path then reads as "stopped", never as a failure.
+    func stopBusy() {
+        guard busy, let stop = busyStop else { return }
+        stopRequested = true
+        switch stop {
+        case .cancelTask:
+            busyTask?.cancel()
+        case .killBottle(let bottle, _), .killBottleThenRepair(let bottle, _):
+            guard let engine = engine(for: bottle) else { busyTask?.cancel(); return }
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            // kill waits on the wineserver: off the main thread, then end this busy work (the
+            // task captured now, not whatever runs when the kill returns).
+            let task = busyTask
+            Task.detached {
+                try? runner.kill()
+                task?.cancel()
+            }
+        }
+    }
+
+    /// Feeds the strip from a component download: a plain stage, moving bytes, a measured rate.
+    private func reportDownload(_ name: String, received: Int64, total: Int64?) {
+        let total = (total ?? 0) > 0 ? total : nil
+        recordTransfer(received: received, total: total)
+        stage = String(format: L("Downloading %@"), name)
+        if let total, received >= total {
+            appendLog("downloaded \(name), verifying and unpacking…")
+            busyProgress = nil; transferRate = nil; transferSamples = []
+        }
+    }
+
+    /// Moving bytes and the rate measured from them, for the strip's bar and numbers.
+    private func recordTransfer(received: Int64, total: Int64?) {
+        if let last = transferSamples.last, received < last.bytes { transferSamples = [] }   // next component
+        transferSamples.append(.init(bytes: received, at: Date()))
+        if transferSamples.count > 40 { transferSamples.removeFirst(transferSamples.count - 40) }
+        transferRate = ActivityText.rate(transferSamples)
+        busyProgress = Transfer(received: received, total: total)
+    }
+
+    /// The size legendary announced for the Epic download in progress, nil until it does.
+    private var epicDownloadTotal: Int64?
+
+    /// legendary prints the download's size, then how much has arrived about once a second. The
+    /// strip shows them as it does an engine download's: bar, bytes and measured rate, never
+    /// legendary's own time estimate, which stays in Details (ActivityText predicts nothing,
+    /// highball#287).
+    private func reportEpicDownload(_ line: String) {
+        if let total = EpicStore.downloadSize(inLegendaryLine: line) {
+            epicDownloadTotal = total > 0 ? total : nil
+        } else if busy, let received = EpicStore.downloaded(inLegendaryLine: line) {
+            recordTransfer(received: received, total: epicDownloadTotal)
+        }
+    }
+
+    // MARK: Actions
+
+    /// The name of the environment Highball makes for everyone; bottles stay a power feature.
+    static let defaultEnvironmentName = "Games"
+
+    /// First launch, one button (UX plan §3.2): Rosetta if the Mac lacks it, the engine
+    /// download, then one Windows environment, all on the strip with Stop. No licence question
+    /// here: D3DMetal is asked for at the first game that needs it.
+    func getStarted() {
+        guard let manifestURL = Self.bundledManifest else {
+            fail(HighballError.failed("No engine manifest is bundled. Reinstall Highball.")); return
+        }
+        runBusy(L("Setting up Highball"),
+                expected: L("usually 5–15 minutes"),
+                done: DoneState(title: L("Highball is ready"), ctaTitle: nil, cta: nil),
+                stop: .cancelTask(label: L("Stop"))) { [self] in
+            funnel(.installStarted)
+            var manifest = try EngineManifest.load(from: manifestURL)
+            if manifest.requiresRosetta, !rosettaInstalled {
+                await MainActor.run { self.stage = L("Installing Rosetta, Apple's compatibility layer") }
+                do {
+                    try await Self.installRosetta()
+                    await MainActor.run { self.rosettaInstalled = true; self.appendLog("Rosetta installed") }
+                } catch {
+                    // An engine this install sees that needs no Rosetta (the native line, with the
+                    // preview key) sets the Mac up instead of a dead end (highball#413).
+                    guard engines.isEmpty, let native = EngineStore.startingEngineWithoutRosetta(known: Self.knownManifests) else { throw error }
+                    let id = native.id
+                    await MainActor.run { self.appendLog("Rosetta could not be installed, so setup uses \(id), which runs without it") }
+                    manifest = native
+                }
+            }
+            if engines.isEmpty {
+                _ = try await engineStore.install(manifest, accepted: []) { name, received, total in
+                    Task { @MainActor in self.reportDownload(name, received: received, total: total) }
+                }
+                await MainActor.run { self.appendLog("engine installed"); self.funnel(.installCompleted); self.refresh() }
+            }
+            if bottles.isEmpty, let engine = defaultEngine {
+                await MainActor.run { self.stage = L("Preparing your Windows environment"); self.busyExpected = L("about 90 seconds") }
+                _ = try await bottleStore.create(name: Self.defaultEnvironmentName, engine: engine)
+                await MainActor.run { self.appendLog("environment ready"); self.funnel(.environmentCreated); self.selectedBottle = Self.defaultEnvironmentName }
+            }
+        }
+    }
+
+    /// Whether Intel code runs on this Mac: an actual Intel program is executed rather than a
+    /// file looked for, because a Mac on macOS 27 reported "Bad CPU type in executable" on every
+    /// Wine launch while the old file check said Rosetta was there (issue #101).
+    nonisolated static func rosettaWorks() -> Bool {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/arch")
+        p.arguments = ["-x86_64", "/usr/bin/true"]
+        p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
+        do { try p.run() } catch { return false }
+        p.waitUntilExit()
+        return p.terminationStatus == 0
+    }
+
+    /// `softwareupdate` installs Rosetta for a normal user on Apple silicon; when it cannot,
+    /// the error names the one command that does, so the recovery card can show it.
+    static func installRosetta() async throws {
+        let out = try await Task.detached { () -> (Int32, String) in
+            let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/sbin/softwareupdate")
+            p.arguments = ["--install-rosetta", "--agree-to-license"]
+            let pipe = Pipe(); p.standardOutput = pipe; p.standardError = pipe
+            try p.run(); p.waitUntilExit()
+            return (p.terminationStatus, String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+        }.value
+        let installed = rosettaWorks()
+        guard out.0 == 0 || installed else {
+            let said = out.1.trimmingCharacters(in: .whitespacesAndNewlines)
+            // "Rosetta 2 update is not available" comes back when macOS cannot load Apple's update
+            // catalog at all; running the same command in Terminal then fails the same way (highball#413).
+            if said.localizedCaseInsensitiveContains("is not available") || said.localizedCaseInsensitiveContains("software update server") {
+                throw HighballError.failed("macOS could not get Rosetta from Apple's software update server. Check that this Mac can reach Apple's servers (a VPN, firewall or content filter can block them, and so can a managed Mac's settings), then press Get started again. (\(said.suffix(200)))")
+            }
+            throw HighballError.failed("Rosetta did not install. In Terminal, run: softwareupdate --install-rosetta --agree-to-license, then press Get started again. (\(said.suffix(200)))")
+        }
+    }
+
+    /// The environment new games go into: the one named Games, else the first.
+    var defaultBottle: Bottle? {
+        bottles.first { $0.name == Self.defaultEnvironmentName }
+            ?? bottles.first { steamInstalled(in: $0) }
+            ?? bottles.first
+    }
+
+    /// Makes the default environment for a Mac that has the engine but no bottle yet.
+    func makeDefaultEnvironment() {
+        guard let engine = defaultEngine else {
+            fail(HighballError.failed("No engine is installed yet. Restart Highball to finish setup.")); return
+        }
+        guard !busy else { return }   // already preparing; the strip shows it
+        runBusy(L("Preparing your Windows environment"), expected: L("about 90 seconds"),
+                done: DoneState(title: L("Highball is ready"), ctaTitle: nil, cta: nil)) { [self] in
+            _ = try await bottleStore.create(name: Self.defaultEnvironmentName, engine: engine)
+            await MainActor.run { self.selectedBottle = Self.defaultEnvironmentName }
+        }
+    }
+
+    /// Installs Steam into the default environment and opens its window (the "Where are your
+    /// games?" card). Steam's own first start follows, on the strip.
+    /// Opens a launcher's window if it is installed in the default environment, else installs it.
+    /// The launcher's pin is named by its short label (see BottleView.launcherMeta / recipes).
+    func openOrInstallLauncher(_ id: String, short: String) {
+        guard let bottle = defaultBottle else { makeDefaultEnvironment(); return }
+        let fresh = bottles.first { $0.name == bottle.name } ?? bottle
+        if fresh.settings.recipes.contains(id),
+           let pin = fresh.settings.pins.first(where: { $0.name.lowercased().hasPrefix(short.lowercased().prefix(5)) }) {
+            launch(pin: pin, in: fresh)
+        } else {
+            applyRecipe(id, to: fresh)
+        }
+    }
+
+    func launcherInstalled(_ id: String) -> Bool { defaultBottle?.settings.recipes.contains(id) ?? false }
+
+    func installSteam() {
+        guard let bottle = defaultBottle else { makeDefaultEnvironment(); return }
+        let steam = bottle.driveC.appending(path: "Program Files (x86)/Steam/steam.exe")
+        if steamInstalled(in: bottle) {   // already there: open it, never run the installer again
+            launch(pin: Pin(name: "Steam", path: Pin.storagePath(for: steam, driveC: bottle.driveC)), in: bottle)
+            return
+        }
+        applyRecipe("steam", to: bottle, then: DoneState(
+            title: L("Steam is installed"), ctaTitle: L("Open Steam"),
+            cta: { [weak self] in
+                guard let self, let fresh = self.bottles.first(where: { $0.name == bottle.name }) else { return }
+                self.launch(pin: Pin(name: "Steam", path: Pin.storagePath(for: steam, driveC: fresh.driveC)), in: fresh)
+            }))
+    }
+
+    /// The launcher shortcut never installs Steam or picks a different environment.
+    var defaultSteamBottle: Bottle? {
+        guard let bottle = defaultBottle, steamInstalled(in: bottle) else { return nil }
+        return bottle
+    }
+
+    func steamLauncherTitle(in bottle: Bottle) -> String {
+        steamClients.contains(bottle.name) ? L("Show Steam") : L("Open Steam")
+    }
+
+    /// Steam counts as installed when its steam.exe is a Windows executable, not merely a file: an
+    /// empty or truncated one, the leftover of an interrupted self-update, showed Open Steam and
+    /// then a crash alert proposing another graphics mode (highball#245). Now the row offers the
+    /// installer again, which writes a fresh client over it and keeps the rest of the folder.
+    func steamInstalled(in bottle: Bottle) -> Bool {
+        PEExportName.isWindowsExecutable(at: bottle.driveC.appending(path: "Program Files (x86)/Steam/steam.exe"))
+    }
+
+    /// A game the row says needs D3DMetal, on an engine where it is not enabled yet: Play asks
+    /// once, in context, with the consequence from the row (UX plan §3.5, canvas "Asked in
+    /// context"). Nothing downloads; the files are in the engine and accepting flips the flag.
+    var pendingD3DMetal: (item: LibraryItem, bottle: Bottle, engine: InstalledEngine)?
+
+    /// A launcher whose recipe names another engine (the EA app needs the Wine 11 tree, #60),
+    /// about to be installed into an environment on a different Wine build. Nothing downloads
+    /// or re-runs the Windows setup without asking: the ask offers a new environment on that
+    /// engine (other programs untouched) or moving this one.
+    /// `item` is the game Play was starting, nil when a fix's own button asked. `fit` is an
+    /// environment already on the right engine that the ask offers first, worked out when the
+    /// ask is raised: reading engines from disk inside the alert kept it from ever showing.
+    var pendingEngine: (recipe: HighballKit.Recipe, bottle: Bottle, manifest: EngineManifest, item: LibraryItem?, fit: Bottle?)?
+    /// The page a player sees after picking another engine on an environment's page (highball#254).
+    /// Only for a switch the player started; the app's own engine questions stay as they are.
+    struct EngineTransition: Identifiable {
+        let bottleName: String
+        let targetID: String
+        var id: String { bottleName + ">" + targetID }
+    }
+    var engineTransition: EngineTransition?
+    /// The step a running switch is on, set by the move itself so the page never parses stage text.
+    var engineSwitchStep: EngineSwitchPlan.Step?
+    /// Whether the last switch the page started finished (true), failed or was stopped (false).
+    var engineSwitchSucceeded: Bool?
+    /// Debug screenshot runs: the switch page presses its own Switch button (HB_SHOW_ENGINE_SWITCH).
+    var debugStartEngineTransition = false
+    /// How many other programs an environment has installed, the ones a move would carry onto the
+    /// engine too: Steam games ready to play other than the recipe's own, plus added programs.
+    func otherProgramCount(in bottle: Bottle, besides recipe: HighballKit.Recipe) -> Int {
+        let own = gameDB.byTitle.values.first { $0.id == recipe.id }?.steam_appid
+        let games = (gamesByBottle[bottle.name] ?? []).filter { $0.isReady && $0.appid != own }
+        return games.count + bottle.settings.pins.count
+    }
+
+    /// A recipe naming an engine this build does not ship: the database moved ahead of the
+    /// app (The Last Flame's fix needs r11, which 0.9.33 was the first to carry). The ask
+    /// points at Check for Updates; `play` is the game Play was launching, so the owner can
+    /// still run it without the fix, or nil when the page's own button asked for the fix.
+    var pendingUpdate: (recipe: HighballKit.Recipe, engineID: String, play: (item: LibraryItem, bottle: Bottle, renderer: Renderer?)?)?
+
+    /// A game whose recipe pins a preview engine this Mac does not see yet, asked from Play (previewOffer).
+    var pendingPreview: (recipe: HighballKit.Recipe, bottle: Bottle, manifest: EngineManifest, item: LibraryItem, renderer: Renderer?)?
+
+    /// The preview ask's way in: that engine is offered on this Mac from now on, and Play goes on to the usual
+    /// engine ask, which makes the environment (the game coming along when it can).
+    func acceptPreview() {
+        guard let pending = pendingPreview else { return }
+        pendingPreview = nil
+        Self.optInPreview(pending.manifest.id)
+        appendLog("\(pending.item.title): the \(pending.manifest.id) preview engine is offered on this Mac from now on")
+        play(pending.item, renderer: pending.renderer)
+    }
+
+    /// The preview ask's way out that keeps playing: as before the ask existed, on the current engine.
+    func playWithoutPreview() {
+        guard let pending = pendingPreview else { return }
+        pendingPreview = nil
+        appendLog("\(pending.item.title): its fix needs the \(pending.manifest.id) preview engine; playing without it.")
+        launch(pending.item, in: pending.bottle, renderer: pending.renderer)
+    }
+
+    /// A game whose recipe's engine needs a newer macOS than this Mac runs, asked from Play (Recipe.engineMacOSFloor).
+    var pendingMacOS: (recipe: HighballKit.Recipe, floor: String, item: LibraryItem, bottle: Bottle, renderer: Renderer?)?
+
+    /// The macOS ask's way out that keeps playing: on the current engine, as before the ask existed.
+    func playWithoutMacOSFix() {
+        guard let pending = pendingMacOS else { return }
+        pendingMacOS = nil
+        appendLog("\(pending.item.title): its fix needs macOS \(pending.floor) or later; playing without it.")
+        launch(pending.item, in: pending.bottle, renderer: pending.renderer)
+    }
+
+    /// An environment on an earlier revision of the preview line its game's recipe pins, asked from Play
+    /// (Recipe.previewRevisionToOffer). `current` is the revision the environment runs.
+    var pendingPreviewMove: (recipe: HighballKit.Recipe, bottle: Bottle, current: EngineManifest, manifest: EngineManifest,
+                             item: LibraryItem, renderer: Renderer?)?
+
+    /// The move's way in: the environment moves to the later revision, after a download when it is new, and the done
+    /// row offers Play, which brings the recipe's variables up to date before the launch.
+    func acceptPreviewMove() {
+        guard let pending = pendingPreviewMove else { return }
+        pendingPreviewMove = nil
+        let item = pending.item
+        moveBottle(pending.bottle, toEngineID: pending.manifest.id, done: DoneState(
+            title: L("Engine switched"), ctaTitle: String(format: L("Play %@"), displayTitle(item)),
+            cta: { [weak self] in
+                guard let self else { return }
+                self.refresh()
+                self.play(self.libraryItems.first { $0.id == item.id } ?? item)
+            }))
+    }
+
+    /// The move's way out that keeps playing, on the revision the environment runs. The ask was recorded, so Play
+    /// goes straight on.
+    func playWithoutPreviewMove() {
+        guard let pending = pendingPreviewMove else { return }
+        pendingPreviewMove = nil
+        play(pending.item, renderer: pending.renderer)
+    }
+
+    /// Environments Play offered a later preview revision, as "<environment>\t<engine id>": the ask comes once.
+    static let previewMoveAskedKey = "previewMoveAsked"
+
+    /// True the first time for an environment and revision, and records it.
+    static func firstPreviewMoveAsk(bottle: String, engine: String) -> Bool {
+        let key = "\(bottle)\t\(engine)"
+        var asked = UserDefaults.standard.stringArray(forKey: previewMoveAskedKey) ?? []
+        guard !asked.contains(key) else { return false }
+        asked.append(key)
+        UserDefaults.standard.set(asked, forKey: previewMoveAskedKey)
+        return true
+    }
+
+    /// Whether the game Play started from `bottle` can come along to a new environment as a clone.
+    func canCarryGame(_ item: LibraryItem?, from bottle: Bottle) -> Bool {
+        guard let item, item.source == .steam, let appid = item.steamAppID,
+              let game = (gamesByBottle[bottle.name] ?? []).first(where: { $0.appid == appid }) else { return false }
+        return SteamGameCarryOver.canCarry(game, toBottlesRoot: paths.bottles)
+    }
+
+    /// The ask's first way out: a new environment on the engine the recipe names, the recipe
+    /// applied; the engine downloads first when it is not installed. A new environment starts
+    /// without the game, so for a Steam game the done row's button hands it to that environment's
+    /// Steam (highball-db#318: the row said "installed" and nothing said what came next).
+    func createEnvironment(for recipe: HighballKit.Recipe, on manifest: EngineManifest, item: LibraryItem? = nil) {
+        pendingEngine = nil
+        guard !busy else { return }
+        let name = BottleStore.freeName(BottleStore.safeName(fromTitle: recipe.title), taken: Set(bottles.map(\.name)))
+        let accepted = Set(engines.flatMap { $0.manifest.acceptedLicenses ?? [] })
+        let done: DoneState
+        // The game installed where Play started comes along as a clone when it can (SteamGameCarryOver): no second
+        // download, no extra disk, the original untouched. The done row then offers Play; `carried` says what
+        // actually happened, so a clone the file system refuses at the last moment still ends in Install.
+        let source = item.flatMap { item in bottles.first { $0.name == item.bottleName } }
+        let carries = source.map { canCarryGame(item, from: $0) } ?? false
+        let carried = CarryFlag()
+        if let item, item.source == .steam {
+            done = DoneState(title: String(format: L("The %@ environment is ready"), name),
+                             ctaTitle: String(format: carries ? L("Play %@") : L("Install %@"), displayTitle(item)),
+                             cta: { [weak self] in
+                                 guard let self else { return }
+                                 if carried.value {
+                                     self.refresh()
+                                     self.play((self.libraryItems.first { $0.id == item.id } ?? item).homed(in: name))
+                                 } else {
+                                     self.installSteamGame(item.homed(in: name))
+                                 }
+                             })
+        } else {
+            done = DoneState(title: String(format: L("%@ installed"), recipe.title), ctaTitle: nil, cta: nil)
+        }
+        runBusy(String(format: L("Creating the %@ environment on %@"), name, GamePageCopy.shortEngineName(manifest)),
+                expected: L("a download when the engine is new, then a first boot of about 90 seconds"),
+                done: done,
+                stop: .cancelTask(label: L("Stop"))) { [self] in
+            let engine: InstalledEngine
+            if let installed = engines.first(where: { $0.id == manifest.id }) {
+                engine = installed
+            } else {
+                engine = try await engineStore.install(manifest, accepted: accepted) { name, received, total in
+                    Task { @MainActor in self.reportDownload(name, received: received, total: total) }
+                }
+                await MainActor.run { self.appendLog("engine \(engine.id) installed"); self.refresh() }
+            }
+            let bottle = try await bottleStore.create(name: name, engine: engine)
+            await MainActor.run { self.appendLog("bottle '\(name)' created on \(engine.id)"); self.refresh() }
+            var runner = RecipeRunner(paths: paths, engine: engine, bottle: bottle)
+            var notes: [String] = []
+            // A Steam game's new environment needs a Steam of its own. The recipe runner never
+            // installs a launcher named in `requires` (it only says where the game comes from), so
+            // the environment came up empty and its "Install <game>" ran a steam.exe that was not
+            // there (2026-10-06, Forza Horizon 6 on an M5 Max). Steam goes in first: its recipe
+            // suggests DXMT and its own sync, and the game's recipe applied after it has the last word.
+            if item?.source == .steam || (recipe.requires ?? []).contains("steam"),
+               !PEExportName.isWindowsExecutable(at: bottle.driveC.appending(path: "Program Files (x86)/Steam/steam.exe")),
+               let steam = Self.recipe("steam") {
+                notes += try await runner.apply(steam, resolve: { Self.recipe($0) }) { line in Task { @MainActor in self.appendLog(line) } }
+            }
+            notes += try await runner.apply(recipe, resolve: { Self.recipe($0) }) { line in Task { @MainActor in self.appendLog(line) } }
+            for n in notes { await MainActor.run { self.appendLog("note: \(n)") } }
+            if carries, let item, let appid = item.steamAppID, let source,
+               let game = SteamLibrary.games(in: source).first(where: { $0.appid == appid }),
+               let steam = SteamLibrary.steamRoot(of: runner.bottle) {
+                // The new environment's Steam reads the record when it next starts, so it is stopped first; a Steam
+                // already running would offer to download the game Play is about to find installed.
+                try? await WineRunner(paths: paths, engine: engine, bottle: runner.bottle).stopSteam()
+                let outcome = SteamGameCarryOver.carry(game, into: steam.appending(path: "steamapps", directoryHint: .isDirectory))
+                await MainActor.run {
+                    switch outcome {
+                    case .carried:
+                        carried.value = true
+                        self.appendLog("\(item.title): carried over from '\(source.name)' as a clone, no download and no extra disk space")
+                    case .skipped(let why):
+                        self.appendLog("\(item.title): not carried over from '\(source.name)': \(why); the new environment's Steam installs it")
+                    }
+                }
+            }
+            await MainActor.run { self.selectedBottle = name }
+        }
+    }
+
+    /// What the carry-over in createEnvironment did, read by the done row's button.
+    @MainActor final class CarryFlag { var value = false }
+
+    /// The update ask's way out that keeps playing: the game launches as it would have before
+    /// the recipe existed, on the current engine, and the log says which fix it went without.
+    func playWithoutTheFix() {
+        guard let pending = pendingUpdate else { return }
+        pendingUpdate = nil
+        guard let play = pending.play else { return }
+        appendLog("\(play.item.title): its fix needs the \(pending.engineID) engine, which this Highball does not ship; playing without it.")
+        launch(play.item, in: play.bottle, renderer: play.renderer)
+    }
+
+    /// An environment, other than the one Play started from, already on an engine the recipe
+    /// accepts: the one the ask's "New environment" made, or one the player moved there. Offered
+    /// first by the ask, so pressing Play again never makes a second environment (highball-db#318).
+    /// Only for a game Play can reach there: one installed there, or a Steam game its Steam can install.
+    func environmentFit(for recipe: HighballKit.Recipe, besides bottle: Bottle, item: LibraryItem?) -> Bottle? {
+        guard let item else { return nil }
+        let candidates = bottles.filter { b in
+            b.name != bottle.name && !deletingBottles.contains(b.name)
+                && engine(for: b).map { recipe.engineToOffer(current: $0.manifest, known: Self.knownManifests) == nil } == true
+                && (item.otherBottles.contains(b.name) || item.source == .steam)
+        }.map { b in
+            EnvironmentFit.Candidate(name: b.name, holdsGame: item.otherBottles.contains(b.name),
+                                     hasFix: b.settings.recipes.contains(recipe.id))
+        }
+        return EnvironmentFit.best(candidates).flatMap { c in bottles.first { $0.name == c.name } }
+    }
+
+    /// The ask's way out through an environment that already fits: the fix goes in first when it
+    /// is missing (for Mirror's Edge Catalyst that is the EA app), then the game plays there, or
+    /// that environment's Steam is asked to install it.
+    func useEnvironment(_ env: Bottle, for recipe: HighballKit.Recipe, item: LibraryItem) {
+        pendingEngine = nil
+        let target = item.homed(in: env.name)
+        let next: () -> Void = { [weak self] in
+            guard let self else { return }
+            if target.installed { self.play(target) } else { self.installSteamGame(target) }
+        }
+        if !env.settings.recipes.contains(recipe.id) || !recipe.artifactsPresent(driveC: env.driveC, steamGames: gamesByBottle[env.name] ?? []) {
+            applyRecipe(recipe.id, to: env, then: DoneState(
+                title: String(format: L("%@ installed"), recipe.title),
+                ctaTitle: String(format: target.installed ? L("Play %@") : L("Install %@"), displayTitle(item)),
+                cta: next))
+        } else {
+            next()
+        }
+    }
+
+    /// The ask's second way out: move the environment itself (the Windows setup re-runs, nothing
+    /// installed is lost), then the done row offers the install.
+    func moveEnvironment(for recipe: HighballKit.Recipe, bottle: Bottle, to manifest: EngineManifest) {
+        pendingEngine = nil
+        let done = DoneState(title: L("Engine switched"), ctaTitle: String(format: L("Install %@"), recipe.title), cta: { [weak self] in
+            guard let self, let fresh = self.bottles.first(where: { $0.name == bottle.name }) else { return }
+            self.applyRecipe(recipe.id, to: fresh)
+        })
+        moveBottle(bottle, toEngineID: manifest.id, done: done)
+    }
+
+    func enableD3DMetalAndPlay() {
+        guard let (item, _, engine) = pendingD3DMetal else { return }
+        pendingD3DMetal = nil
+        acceptGPTK(engine: engine)
+        play(item, renderer: .d3dmetal)   // through play, so a fix recipe still applies
+    }
+
+    /// The other graphics mode the row recorded as working, when the person declines D3DMetal.
+    func playPendingD3DMetal(with renderer: Renderer) {
+        guard let (item, _, _) = pendingD3DMetal else { return }
+        pendingD3DMetal = nil
+        play(item, renderer: renderer)
+    }
+
+    /// The engine the licence sheet enables D3DMetal on: the one the ask was about.
+    var licenseEngine: InstalledEngine?
+
+    func acceptGPTK(engine: InstalledEngine) {
+        do { _ = try engineStore.accept(license: "apple-gptk-license-2023-08-17", engine: engine); refresh() }
+        catch { fail(error) }
+    }
+
+    /// The engines New environment offers besides the default one (EngineStore.newEnvironmentAlternatives):
+    /// none unless this install sees a line built for the other architecture.
+    var newEnvironmentEngines: [String] {
+        guard let fallback = defaultEngine else { return [] }
+        return EngineStore.newEnvironmentAlternatives(defaultArch: fallback.manifest.arch, installed: engines, known: Self.knownManifests)
+    }
+
+    /// `engineID` is one of `newEnvironmentEngines`, nil for the default engine. One that is not
+    /// installed downloads first, with the licences accepted on installed engines.
+    func createBottle(name: String, recipeID: String?, engineID: String? = nil) {
+        guard let fallback = defaultEngine else {
+            fail(HighballError.failed("No engine is installed yet. Reinstall Highball, or restart it to finish setup.")); return
+        }
+        guard !busy else {
+            fail(HighballError.failed("Highball is already busy. Wait for the current step to finish, then try again — its progress is on the strip at the bottom of the window.")); return
+        }
+        let chosen = engineID.flatMap { id in engines.first { $0.id == id } }
+        let download = chosen == nil ? engineID.flatMap { id in Self.knownManifests.first { $0.id == id } } : nil
+        if let engineID, chosen == nil, download == nil {
+            fail(HighballError.failed("Engine \(engineID) is not offered by this version of Highball.")); return
+        }
+        let accepted = Set(engines.flatMap { $0.manifest.acceptedLicenses ?? [] })
+        runBusy(String(format: L("Creating the %@ environment — first boot takes about 90 seconds"), name),
+                done: DoneState(title: String(format: L("The %@ environment is ready"), name), ctaTitle: nil, cta: nil),
+                stop: .cancelTask(label: L("Stop"))) { [self] in
+            var fresh: InstalledEngine?
+            if let download {
+                await MainActor.run { self.stage = String(format: L("Downloading engine %@"), download.id) }
+                let installed = try await engineStore.install(download, accepted: accepted) { name, received, total in
+                    Task { @MainActor in self.reportDownload(name, received: received, total: total) }
+                }
+                await MainActor.run { self.appendLog("engine \(installed.id) installed"); self.refresh() }
+                fresh = installed
+            }
+            let engine = fresh ?? chosen ?? fallback
+            let bottle = try await bottleStore.create(name: name, engine: engine)
+            await MainActor.run { self.appendLog("bottle created") }
+            if let recipeID, let recipe = Self.recipe(recipeID) {
+                var runner = RecipeRunner(paths: paths, engine: engine, bottle: bottle)
+                let notes = try await runner.apply(recipe, resolve: { Self.recipe($0) }) { line in Task { @MainActor in self.appendLog(line) } }
+                for n in notes { await MainActor.run { self.appendLog("note: \(n)") } }
+            }
+            await MainActor.run { self.selectedBottle = name }
+        }
+    }
+
+    func applyRecipe(_ id: String, to bottle: Bottle, then done: DoneState? = nil) {
+        guard let engine = engine(for: bottle), let recipe = Self.recipe(id) else { return }
+        if let wanted = recipe.engineToOffer(current: engine.manifest, known: Self.knownManifests) {
+            pendingEngine = (recipe, bottle, wanted, nil, nil); return
+        }
+        if let missing = recipe.engineUnknown(current: engine.manifest, known: Self.knownManifests) {
+            pendingUpdate = (recipe, missing, nil); return
+        }
+        runBusy("Installing \(recipe.title)",
+                done: done ?? DoneState(title: String(format: L("%@ installed"), recipe.title), ctaTitle: nil, cta: nil),
+                stop: .killBottleThenRepair(bottle, label: L("Stop and repair"))) { [self] in
+            var runner = RecipeRunner(paths: paths, engine: engine, bottle: bottle)
+            let notes = try await runner.apply(recipe, resolve: { Self.recipe($0) }) { line in Task { @MainActor in self.appendLog(line) } }
+            for n in notes { await MainActor.run { self.appendLog("note: \(n)") } }
+        }
+    }
+
+    /// Steam's own UI (CEF) hangs under msync/esync, and Wine's sync mode is fixed when the
+    /// prefix's wineserver starts. So the Steam window gets a cold start with sync forced off,
+    /// while games keep the bottle's (faster) sync. See recipes/launchers/steam.json.
+    private func isSteamUI(_ pin: Pin) -> Bool {
+        pin.path.lowercased().hasSuffix("steam/steam.exe")
+    }
+
+    /// Pins whose launch session is still active — a second click would kill and restart the
+    /// wineserver under the live session (issue #13's crash sequence), so it's refused instead.
+    private var launchingPins: Set<UUID> = []
+
+    // MARK: Play from outside the app (UX plan §3.9)
+
+    /// A play request that arrived without this install's token: confirm before running.
+    var pendingPlayLink: LibraryItem?
+
+    /// A play link whose game is not resolvable yet (Epic still loading), with the moment it
+    /// arrived, so a link that names a truly-absent game gives up after a grace period.
+    @ObservationIgnored private var deferredPlayLink: (request: PlayLink.Request, at: Date)?
+
+    func open(url: URL) {
+        if url.isFileURL { openFile(url); return }
+        guard let request = PlayLink.parse(url) else { return }
+        refresh()
+        if case let .launcher(id) = request.target {
+            // A launcher stub (issue #53). Only a link carrying this install's token opens it:
+            // a web page cannot start an install through the scheme.
+            guard request.token == PlayLink.token(in: paths) else {
+                fail(HighballError.failed(L("That launcher link did not come from one of your Highball apps."))); return
+            }
+            openOrInstallLauncher(id, short: BottleView.launcherMeta.first { $0.id == id }?.short ?? id)
+            return
+        }
+        resolvePlayLink(request)
+    }
+
+    private func resolvePlayLink(_ request: PlayLink.Request) {
+        if let item = libraryItems.first(where: { $0.id == request.target.libraryID }) {
+            deferredPlayLink = nil
+            if request.token == PlayLink.token(in: paths) { play(item) } else { pendingPlayLink = item }
+            return
+        }
+        // Not there yet. Epic's owned list arrives after refresh() on a cold launch; wait for the
+        // next rebuildLibrary. Give up after 20 s so a bad link does not linger forever.
+        if let first = deferredPlayLink, Date().timeIntervalSince(first.at) > 20 {
+            deferredPlayLink = nil
+            fail(HighballError.failed("That game is not in this Highball's library."))
+        } else if deferredPlayLink == nil {
+            deferredPlayLink = (request, Date())
+        }
+    }
+
+    /// Writes the game's Mac app into ~/Applications/Highball and reveals it.
+    func makeMacApp(for item: LibraryItem) {
+        guard let target = PlayLink.target(for: item) else { return }
+        let url = PlayLink.url(for: target, token: PlayLink.token(in: paths))
+        let cover = coverStore.coverURL(for: item.id) ?? item.artworkTall
+        do {
+            let app = try MacAppStub.write(title: item.title, libraryID: item.id, url: url, cover: cover, icon: programIcon(for: item))
+            appendLog("made \(app.lastPathComponent) in ~/Applications/Highball")
+            NSWorkspace.shared.activateFileViewerSelecting([app])
+        } catch { fail(error) }
+    }
+
+    /// The program an item runs: the largest .exe in a Steam or Epic game's folder, a pin's own.
+    /// Finding it walks the game's folder, so the answer is kept per item until the next
+    /// library refresh: views ask on every evaluation.
+    private var executableCache: [String: URL] = [:]
+    /// Installed games whose folder holds no program the search recognises, kept for the same
+    /// span: without it a page would walk such a folder five levels deep on every evaluation.
+    private var executableMisses: Set<String> = []
+    /// Both are dropped whenever the install records change, not only at a full refresh: a game's page opened while
+    /// the game downloaded found no program yet, and that answer stood until the app restarted, so the per-program
+    /// settings, Display mode among them, stayed hidden once the install finished (one way the switch went missing
+    /// after a reinstall in highball-db#429).
+    private func forgetProgramExecutables() {
+        executableCache.removeAll()
+        executableMisses.removeAll()
+    }
+    func programExecutable(for item: LibraryItem) -> URL? {
+        if let hit = executableCache[item.id] { return hit }
+        if executableMisses.contains(item.id) { return nil }
+        let found = findProgramExecutable(for: item)
+        if let found { executableCache[item.id] = found }
+        else if programFolder(for: item) != nil { executableMisses.insert(item.id) }
+        return found
+    }
+    private func findProgramExecutable(for item: LibraryItem) -> URL? {
+        guard let bottleName = item.bottleName, let bottle = bottles.first(where: { $0.name == bottleName }) else { return nil }
+        switch item.source {
+        case .steam, .epic:
+            return programFolder(for: item).flatMap { PEIcon.bestExecutable(in: $0) }
+        case .pin:
+            return item.pinID.flatMap { id in bottle.settings.pins.first { $0.id == id } }.map { $0.executableURL(driveC: bottle.driveC) }
+        }
+    }
+
+    /// The game's own folder on disk: Steam's install directory, Epic's install path, or the
+    /// directory a pinned program lives in. What "Show the game's folder" opens (discussion
+    /// #126: mods are folder copies, and the question was where the game is). Nil when the
+    /// game is not installed here.
+    func programFolder(for item: LibraryItem) -> URL? {
+        guard let bottleName = item.bottleName, let bottle = bottles.first(where: { $0.name == bottleName }) else { return nil }
+        let folder: URL?
+        switch item.source {
+        case .steam:
+            guard let game = gamesByBottle[bottleName]?.first(where: { $0.appid == item.steamAppID }), !game.installdir.isEmpty else { return nil }
+            folder = game.installFolder ?? bottle.driveC.appending(path: "Program Files (x86)/Steam/steamapps/common/\(game.installdir)", directoryHint: .isDirectory)
+        case .epic:
+            folder = item.epicAppName.flatMap { epicInstalls[$0] }.map { URL(fileURLWithPath: $0, isDirectory: true) }
+        case .pin:
+            folder = item.pinID.flatMap { id in bottle.settings.pins.first { $0.id == id } }.map { $0.executableURL(driveC: bottle.driveC).deletingLastPathComponent() }
+        }
+        guard let folder else { return nil }
+        var isDir: ObjCBool = false
+        return FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDir) && isDir.boolValue ? folder : nil
+    }
+
+    /// Emulated display mode changes for a program (`DisplayModeEmulation`): the bottle's
+    /// registry is the state, `registryVersion` makes views re-read it after a write.
+    private(set) var registryVersion = 0
+    /// user.reg is a megabyte in a used bottle; keep the answer until the file changes.
+    private var displayModeCache: [String: (modified: Date, on: Bool)] = [:]
+    func displayModeEmulation(in bottle: Bottle, executable exe: URL) -> Bool {
+        _ = registryVersion
+        let reg = bottle.url.appending(path: "user.reg")
+        let modified = (try? reg.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        let key = bottle.name + "|" + exe.lastPathComponent
+        // A write made while the environment runs sits in Wine's server until it saves user.reg,
+        // seconds later or at exit, so the file still says off and the box sprang back
+        // unchecked (highball-db#350: "it doesn't let me check the box"). What was just written
+        // stands until the file is newer than the write.
+        if let written = displayModeWritten[key], written.at > modified { return written.on }
+        if let hit = displayModeCache[key], hit.modified == modified { return hit.on }
+        let on = DisplayModeEmulation.isOn(in: bottle, executable: exe)
+        displayModeCache[key] = (modified, on)
+        return on
+    }
+    func displayModeEmulation(for item: LibraryItem) -> Bool? {
+        guard let bottleName = item.bottleName, let bottle = bottles.first(where: { $0.name == bottleName }),
+              let exe = programExecutable(for: item) else { return nil }
+        return displayModeEmulation(in: bottle, executable: exe)
+    }
+    @ObservationIgnored private var displayModeWritten: [String: (on: Bool, at: Date)] = [:]
+    func setDisplayModeEmulation(_ on: Bool, in bottle: Bottle, executable exe: URL) {
+        guard let engine = engine(for: bottle) else { return }
+        let key = bottle.name + "|" + exe.lastPathComponent
+        displayModeWritten[key] = (on, Date())
+        registryVersion += 1
+        Task { @MainActor in
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            do {
+                try await DisplayModeEmulation.set(on, in: runner, executable: exe)
+                // Wine builds the list of display modes when the environment starts, so the
+                // emulated ones appear only after a restart. Nothing is stopped under a game.
+                if !sessionRuns(in: bottle) {
+                    Task.detached { try? runner.kill() }
+                    appendLog("\(exe.lastPathComponent): emulated display mode changes \(on ? "on" : "off") in \(bottle.name); stopped the environment's background processes so its next start lists the modes.")
+                } else {
+                    appendLog("\(exe.lastPathComponent): emulated display mode changes \(on ? "on" : "off") in \(bottle.name); applies once the game running there has quit and the environment restarts.")
+                }
+            } catch {
+                displayModeWritten[key] = nil
+                fail(error, bottle: bottle)
+            }
+            registryVersion += 1
+        }
+    }
+    func setDisplayModeEmulation(_ on: Bool, for item: LibraryItem) {
+        guard let bottleName = item.bottleName, let bottle = bottles.first(where: { $0.name == bottleName }),
+              let exe = programExecutable(for: item) else { return }
+        setDisplayModeEmulation(on, in: bottle, executable: exe)
+    }
+
+    /// Whether the item's program needs Direct3D 12 (`ProgramNeeds.wantsDirect3D12`), remembered
+    /// per executable and modification date: finding the executable walks the game's folder.
+    private var direct3D12Cache: [String: (exe: URL, modified: Date, verdict: Bool)] = [:]
+    func programNeedsDirect3D12(_ item: LibraryItem) -> Bool {
+        guard let exe = programExecutable(for: item) else { return false }
+        let modified = (try? exe.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        if let hit = direct3D12Cache[item.id], hit.exe == exe, hit.modified == modified { return hit.verdict }
+        let verdict = ProgramNeeds.wantsDirect3D12(program: exe)
+        direct3D12Cache[item.id] = (exe, modified, verdict)
+        return verdict
+    }
+
+    /// The game's own icon as a PNG under covers/icons, read from its executable (the largest
+    /// .exe in its folder, or a pin's own), or nil when there is none to read.
+    func programIcon(for item: LibraryItem) -> URL? {
+        guard let exe = programExecutable(for: item), let png = PEIcon.png(from: exe) else { return nil }
+        let dir = paths.home.appending(path: "covers/icons", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appending(path: MacAppStub.bundleID(for: item.id) + ".png")
+        guard (try? png.write(to: file, options: .atomic)) != nil else { return nil }
+        return file
+    }
+
+    /// A Mac app for a launcher (Steam, Epic, …) that opens it, installing it first if needed
+    /// (issue #53). Highball's own icon stands in for a cover.
+    func makeMacApp(forLauncher id: String, short: String) {
+        let url = PlayLink.url(for: .launcher(id: id), token: PlayLink.token(in: paths))
+        let icon = Bundle.main.url(forResource: "AppIcon", withExtension: "png")
+        do {
+            let app = try MacAppStub.write(title: short, libraryID: "launcher:\(id)", url: url, cover: icon)
+            appendLog("made \(app.lastPathComponent) in ~/Applications/Highball")
+            NSWorkspace.shared.activateFileViewerSelecting([app])
+        } catch { fail(error) }
+    }
+
+    /// Trashes the Mac app for a game or a launcher (issue #97).
+    func removeMacApp(title: String) {
+        do {
+            try MacAppStub.remove(for: title)
+            appendLog("removed the Mac app for \(title) from ~/Applications/Highball")
+        } catch { fail(error) }
+    }
+
+    /// Opens Wine's Add/Remove Programs in the environment, the way to uninstall a Windows
+    /// program that was installed into it (issue #97). Nothing here is Highball's own data.
+    /// A game the owner asked to remove, held until they confirm (highball#185).
+    var pendingUninstall: (item: LibraryItem, route: Uninstall.Route)?
+
+    /// Offers to remove a game. Nothing happens until the confirmation is answered, and nothing
+    /// deletes files behind a store's back: Steam and the Epic tools do their own removing.
+    func askUninstall(_ item: LibraryItem) {
+        pendingUninstall = (item, Uninstall.route(for: item))
+    }
+
+    /// Carries out the route the ask offered.
+    func uninstallConfirmed() {
+        guard let (item, route) = pendingUninstall else { return }
+        pendingUninstall = nil
+        guard let bottleName = item.bottleName, let bottle = bottles.first(where: { $0.name == bottleName }) else { return }
+        switch route {
+        case let .steam(appID):
+            guard let engine = engine(for: bottle) else { return }
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            let url = Uninstall.steamURL(appID: appID)
+            appendLog("\(item.title): asking Steam to uninstall it (\(url))")
+            // Its dialog has to be seen, so the client gets the mode its window draws in.
+            let mode = SteamRestart.windowRenderer(shortcut: nil, environment: bottle.settings.renderer,
+                                                   dxmtRuns: Renderer.dxmt.availability(in: engine) == .available)
+            Task.detached {
+                // A running client takes the URL and shows its own dialog; with none running the
+                // client starts first, which is what `start` does with a steam:// argument.
+                if (try? await runner.forwardToRunningSteam([url])) == nil {
+                    _ = try? await runner.start(bottle.driveC.appending(path: "Program Files (x86)/Steam/steam.exe"), arguments: [url], renderer: mode)
+                }
+            }
+        case let .epic(appName):
+            appendLog("\(item.title): asking the Epic tools to uninstall it")
+            let store = EpicStore(paths: paths)
+            runBusy(String(format: L("Removing %@"), item.title),
+                    done: DoneState(title: String(format: L("%@ removed"), item.title), ctaTitle: nil, cta: nil),
+                    stop: .cancelTask(label: L("Stop"))) { [self] in
+                _ = try store.uninstall(appName) { line in Task { @MainActor in self.appendLog(line) } }
+                await MainActor.run { self.refresh() }
+            }
+        case .windowsUninstaller:
+            openUninstaller(in: bottle)
+        case .none:
+            break
+        }
+    }
+
+    func openUninstaller(in bottle: Bottle) {
+        guard let engine = engine(for: bottle) else { return }
+        let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+        appendLog("\(bottle.name): opening Add/Remove Programs")
+        Task.detached {
+            _ = try? await runner.run(["uninstaller"], renderer: .wined3d, label: "uninstaller")
+        }
+    }
+
+    /// Wine's Game Controllers panel (joy.cpl) for an environment: every joystick, gamepad, yoke or wheel Wine sees
+    /// there, with a live test of its buttons and axes. A player whose game shows only mouse and keyboard can tell
+    /// whether the device reaches Wine at all, where highball-db#574 took a diagnosis to learn that the arm64 engines
+    /// before r6 started no controller bus.
+    func openControllerTest(in bottle: Bottle) {
+        guard let engine = engine(for: bottle) else { return }
+        let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+        appendLog("\(bottle.name): opening Game Controllers")
+        Task.detached {
+            _ = try? await runner.run(["control", "joy.cpl"], renderer: .wined3d, label: "joy.cpl")
+        }
+    }
+
+    // MARK: Install funnel (UX plan 0.7)
+
+    /// Local only. Nothing leaves the Mac unless the person reads the aggregate and sends it.
+    func funnel(_ event: FunnelLog.Event, detail: String? = nil) {
+        FunnelLog.append(.init(event: event, detail: detail), to: paths.logs)
+    }
+    /// The strip's one-time offer after the first game session of a minute or more.
+    var funnelOffer = false
+    private var funnelAsked: Bool {
+        get { UserDefaults.standard.bool(forKey: "funnelAsked") }
+        set { UserDefaults.standard.set(newValue, forKey: "funnelAsked") }
+    }
+    func declineFunnel() { funnelAsked = true; funnelOffer = false }
+    /// Shows the aggregate as an issue draft in the browser; the person reads it there first.
+    func sendFunnel() {
+        funnelAsked = true; funnelOffer = false
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+        let text = FunnelLog.aggregate(FunnelLog.records(in: paths.logs), appVersion: version, macos: Machine.macOSVersion(), chip: machineChip)
+        NSWorkspace.shared.open(FunnelLog.url(aggregate: text))
+    }
+
+    // MARK: Steam clients (UX plan §3.3, issue #33)
+
+    /// Bottles with a Steam client running right now. A client left behind by a game launch is
+    /// invisible otherwise, and a new steam.exe only forwards to it (#33); the strip shows it
+    /// with Show and Quit.
+    var steamClients: Set<String> = []
+    @ObservationIgnored private var steamClientWatch: Task<Void, Never>?
+
+    @ObservationIgnored private var discordWatch: Task<Void, Never>?
+    @ObservationIgnored private var discordWatchID: UUID?
+    @ObservationIgnored private var discordStopping: Task<Void, Never>?
+    @ObservationIgnored private var discordEnvironments: [UUID: [String: String]] = [:]
+
+    var discordSharingEnabled = UserDefaults.standard.bool(forKey: DiscordPresence.enabledDefaultsKey) {
+        didSet {
+            UserDefaults.standard.set(discordSharingEnabled, forKey: DiscordPresence.enabledDefaultsKey)
+            DiscordPresence.shared.setEnabled(discordSharingEnabled)
+            if discordSharingEnabled { startDiscordWatch() }
+            else { stopDiscordWatch(); discordEnvironments.removeAll() }
+        }
+    }
+
+    /// Discord's own apps, or any other client serving Discord's local socket (Vesktop with
+    /// arRPC on), which is all the bridge needs.
+    private var discordIsOpen: Bool {
+        NSWorkspace.shared.runningApplications.contains {
+            ["com.hnc.Discord", "com.hnc.DiscordPTB", "com.hnc.DiscordCanary"].contains($0.bundleIdentifier ?? "")
+        } || DiscordPresence.shared.clientSocketPresent
+    }
+
+    private func stopDiscordWatch() {
+        guard let watch = discordWatch else { return }
+        watch.cancel()
+        discordWatch = nil
+        discordWatchID = nil
+        discordStopping = Task.detached(priority: .utility) {
+            // Close helpers now, even if the cancelled worker is awaiting a catalog response.
+            DiscordPresence.shared.stop()
+            await watch.value
+        }
+    }
+
+    /// Only the session watcher asks for a game's environment, reusing its process list.
+    private func discordEnvironmentPrefix(for session: GameSession) -> URL? {
+        guard discordSharingEnabled, discordIsOpen, runningSessions.contains(session),
+              discordEnvironments[session.id] == nil else { return nil }
+        return bottles.first { $0.name == session.bottleName }?.url
+    }
+
+    private func rememberDiscordEnvironment(_ environment: [String: String], for session: GameSession) {
+        guard discordSharingEnabled, discordIsOpen, runningSessions.contains(session) else { return }
+        discordEnvironments[session.id] = environment
+        startDiscordWatch()
+    }
+
+    private func startDiscordWatch() {
+        guard discordSharingEnabled, !runningSessions.isEmpty, discordWatch == nil, discordIsOpen else { return }
+        DiscordPresence.shared.setEnabled(true)
+        let stopping = discordStopping
+        let id = UUID()
+        discordWatchID = id
+        discordWatch = Task.detached(priority: .utility) { [weak self] in
+            // Complete the previous shutdown before creating another helper after a quick toggle.
+            await stopping?.value
+            let presence = DiscordPresence.shared
+            while !Task.isCancelled {
+                guard let self else { break }
+                let (sessions, bottles, engines, environments, paths, discordOpen) = await MainActor.run { [self] in
+                    (self.runningSessions, self.bottles, self.engines, self.discordEnvironments, self.paths, self.discordIsOpen)
+                }
+                guard !Task.isCancelled, discordOpen, !sessions.isEmpty else { break }
+                let activeBottles = bottles.filter { bottle in sessions.contains { $0.bottleName == bottle.name } }
+                presence.retainBridges(for: activeBottles.map(\.url))
+                for bottle in activeBottles {
+                    guard !Task.isCancelled,
+                          let session = sessions.first(where: { $0.bottleName == bottle.name && environments[$0.id] != nil }),
+                          let env = environments[session.id],
+                          let engine = engines.first(where: { $0.id == bottle.settings.engineID }) else { continue }
+                    presence.ensureBridge(engine: engine, bottle: bottle, environment: env)
+                }
+                await presence.update(games: DiscordSessions.games(sessions), paths: paths)
+                do { try await Task.sleep(for: .seconds(5)) } catch { break }
+            }
+            presence.stop()
+            await self?.discordWatchFinished(id)
+        }
+    }
+
+    private func discordWatchFinished(_ id: UUID) {
+        guard discordWatchID == id else { return }
+        discordWatch = nil
+        discordWatchID = nil
+    }
+
+    private func startSteamClientWatch() {
+        guard steamClientWatch == nil else { return }
+        steamClientWatch = Task.detached(priority: .utility) { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                let bottles = await MainActor.run { [self] in self.bottles }
+                let running = Set(bottles.filter { WineRunner.steamIsRunning(inPrefix: $0.url) }.map(\.name))
+                await MainActor.run { [self] in if self.steamClients != running { self.steamClients = running } }
+                // A first start that deadlocked after its bootstrap (issue #9) is restarted once.
+                for bottle in bottles where running.contains(bottle.name) {
+                    guard let root = SteamLibrary.steamRoot(of: bottle) else { continue }
+                    if SteamFirstStart.isHung(steamRoot: root) {
+                        await MainActor.run { [self] in self.restartHungFirstStart(bottle) }
+                        continue
+                    }
+                    // The owned library fills in as the client loads it after sign-in (highball#199).
+                    let signature = SteamOwnedLibrary.signature(steamRoot: root)
+                    await MainActor.run { [self] in self.steamLibraryMayHaveChanged(bottle.name, signature: signature) }
+                    // An install starting or finishing where the directory watcher can't hear it (highball#286).
+                    let installs = SteamLibrary.installSignature(of: bottle)
+                    await MainActor.run { [self] in self.steamInstallsMayHaveChanged(bottle.name, signature: installs) }
+                    // Steam can park a launch on a dialog nobody sees (issue #74).
+                    if let waiting = SteamGameAction.pending(steamRoot: root) {
+                        await MainActor.run { [self] in self.steamIsWaitingForAnAnswer(waiting, in: bottle) }
+                    }
+                }
+                try? await Task.sleep(for: .seconds(8))
+            }
+        }
+    }
+
+    /// Bottles whose stuck first start was already restarted this run: once is the deal, a
+    /// second hang is something to report, not to loop on.
+    @ObservationIgnored private var firstStartRestarted: Set<String> = []
+
+    /// Steam's first start deadlocked after its bootstrap (issue #9): stop it and start it again,
+    /// which is what fixes it; say so in the strip so the wait has a name.
+    func restartHungFirstStart(_ bottle: Bottle) {
+        guard !firstStartRestarted.contains(bottle.name), !busy else { return }
+        firstStartRestarted.insert(bottle.name)
+        appendLog("Steam's first start in \(bottle.name) got stuck after its update; restarting it once")
+        stage = L("Steam's first start got stuck; restarting it")
+        killBottle(bottle)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self, let fresh = self.bottles.first(where: { $0.name == bottle.name }) else { return }
+            self.showSteam(in: fresh)
+        }
+    }
+
+    /// Launch attempts already reported, so one dialog is mentioned once and not every 8 seconds.
+    @ObservationIgnored private var steamWaitsReported: Set<String> = []
+
+    /// Steam stopped a launch and is waiting for the player to answer something in its own window
+    /// — usually a publisher licence agreement (issue #74). Nothing is wrong with the game: the
+    /// process starts and then sits there, every log is clean, and if the Steam window is behind
+    /// another one the dialog is never seen. Say what is happening and put the window in front.
+    func steamIsWaitingForAnAnswer(_ waiting: SteamGameAction.Pending, in bottle: Bottle) {
+        let key = "\(bottle.name)#\(waiting.appID)#\(waiting.actionID)#\(waiting.task)"
+        guard !steamWaitsReported.contains(key) else { return }
+        steamWaitsReported.insert(key)
+        let name = SteamLibrary.games(in: bottle).first { $0.appid == waiting.appID }?.name
+        let message = SteamGameAction.message(for: waiting, name: name)
+        appendLog(message)
+        stage = message
+        showSteam(in: bottle)
+    }
+
+    /// Brings the bottle's Steam window forward (the running client is asked to show it; with
+    /// none running this is a normal Steam start).
+    func showSteam(in bottle: Bottle) {
+        let steam = bottle.driveC.appending(path: "Program Files (x86)/Steam/steam.exe")
+        launch(pin: Pin(name: "Steam", path: Pin.storagePath(for: steam, driveC: bottle.driveC)), in: bottle)
+    }
+
+    /// Whether a game the app knows about runs in the bottle: Quit on the Steam row hides then.
+    func sessionRuns(in bottle: Bottle) -> Bool { runningSessions.contains { $0.bottleName == bottle.name } }
+
+    // MARK: Sessions (UX plan 0.6)
+
+    /// Games running right now, from their processes. The library shows them and offers Stop;
+    /// nothing here blocks the app while a game runs.
+    var runningSessions: [GameSession] = []
+    /// The last session that ended, for the post-play prompt to come.
+    var lastEndedSession: SessionRecord?
+    /// A finished session worth asking about: at least a minute of play (a shorter one is a
+    /// crash, and the early-exit alert already covers that). The strip asks once; Not now clears it.
+    var postPlay: SessionRecord?
+
+    /// Opens highball-db's report form prefilled from the session. The rating is theirs to give.
+    func reportPlay(_ record: SessionRecord) {
+        let bottle = bottles.first { $0.name == record.bottle }
+        let engine = bottle?.settings.engineID ?? "?"
+        // A game with no mode of its own ran on the environment's mode, so the report says that
+        // one: two of three app-sent reports on 2026-09-13 arrived with the mode empty.
+        let renderer = record.renderer ?? bottle?.settings.renderer.rawValue
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+        // The environment's settings go along (highball#159): a pinned program adds its own.
+        let pin = bottle?.settings.pins.first { $0.name == record.title }
+        let settings = bottle.map { PlayReport.settingsSummary($0.settings, pin: pin) }
+        NSWorkspace.shared.open(PlayReport.url(title: record.title, appid: record.appid, renderer: renderer,
+                                               chip: Machine.chip(), macos: Machine.macOSVersion(), engine: engine,
+                                               minutes: record.seconds / 60, version: version, settings: settings))
+        postPlay = nil
+    }
+
+    /// The newest launch log for a game, by the log's name. A Steam game runs inside the client,
+    /// whose log carries its output; a program's log carries the program's name.
+    func lastLaunchLog(for item: LibraryItem) -> URL? {
+        guard let bottleName = item.bottleName else { return nil }
+        let executable: String
+        switch item.source {
+        case .steam: executable = "steam.exe"
+        case .pin:
+            guard let pin = bottles.first(where: { $0.name == bottleName })?.settings.pins.first(where: { $0.id == item.pinID }) else { return nil }
+            executable = URL(fileURLWithPath: pin.path.replacingOccurrences(of: "\\", with: "/")).lastPathComponent
+        default: return nil
+        }
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: paths.logs.path)) ?? []
+        // A Steam game's lines are in the log of the client that ran it, not in the empty one a
+        // later "open Steam" handed over to that client (LaunchLogs.newestWithOutput).
+        let name = item.source == .steam
+            ? LaunchLogs.newestWithOutput(names: names, bottle: bottleName, executable: executable) { LaunchLogs.hasOutput(paths.logs.appending(path: $0)) }
+            : LaunchLogs.newest(names: names, bottle: bottleName, executable: executable)
+        return name.map { paths.logs.appending(path: $0) }
+    }
+    private var sessionWatchers: [UUID: Task<Void, Never>] = [:]
+
+    func session(forAppID appid: Int) -> GameSession? { runningSessions.first { $0.appid == appid } }
+
+    private func beginSession(_ session: GameSession, processList: String) {
+        runningSessions.append(session)
+        appendLog("\(session.title) is running")
+        bringForwardWhenItDraws(session)
+        moveToChosenDisplay(session)
+        if !FunnelLog.records(in: paths.logs).contains(where: { $0.event == .firstGameProcess }) { funnel(.firstGameProcess) }
+        sessionWatchers[session.id] = Task.detached { [weak self] in
+            if let prefix = await self?.discordEnvironmentPrefix(for: session),
+               let env = DiscordSessions.environment(for: session, prefix: prefix, processList: processList) {
+                await self?.rememberDiscordEnvironment(env, for: session)
+            }
+            // A game that is gone for two consecutive checks has ended; one miss can be a
+            // process table read racing a restart (some games relaunch themselves once).
+            // Detached: the `ps` behind isAlive must never run on the main thread.
+            var misses = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                let processes = SessionWatch.currentProcessList()
+                if SessionWatch.isAlive(markers: session.markers, ps: processes) {
+                    misses = 0
+                    if let prefix = await self?.discordEnvironmentPrefix(for: session),
+                       let env = DiscordSessions.environment(for: session, prefix: prefix, processList: processes) {
+                        await self?.rememberDiscordEnvironment(env, for: session)
+                    }
+                    await self?.startDiscordWatch()
+                    continue
+                }
+                misses += 1
+                if misses >= 2 { break }
+            }
+            await MainActor.run { self?.endSession(session, reason: "ended") }
+        }
+        startDiscordWatch()
+    }
+
+    /// Since macOS 14 an app comes forward only when the app in front lets it, and a game Highball
+    /// started could open its first window behind Highball's: a key prompt the player never saw
+    /// (highball#286). While Highball is still the app in front, it hands over to the game's
+    /// process as soon as that process has a window on screen, checking every two seconds for
+    /// two minutes. Once the player has gone to another app, Highball is no longer in front and
+    /// the game waits its turn, as any app would.
+    private func bringForwardWhenItDraws(_ session: GameSession) {
+        guard let prefix = bottles.first(where: { $0.name == session.bottleName })?.url else { return }
+        Task { @MainActor [weak self] in
+            for _ in 0..<60 {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self, self.runningSessions.contains(session), NSApp.isActive else { return }
+                let pids = await Task.detached { SessionWatch.pids(ofPrefix: prefix, markers: session.markers) }.value
+                guard let pid = pids.first(where: Self.hasWindowOnScreen),
+                      let game = NSRunningApplication(processIdentifier: pid) else { continue }
+                let done = game.activate(from: .current, options: [])
+                self.appendLog(done ? "brought \(session.title) to the front" : "macOS kept \(session.title) behind")
+                return
+            }
+        }
+    }
+
+    /// Moves the game's windows onto the display the player chose on its page (Accessibility API;
+    /// Wine's Mac driver always opens on the main display). Checks once a second for two minutes,
+    /// moving each window once so one the player drags afterwards stays put.
+    private func moveToChosenDisplay(_ session: GameSession) {
+        guard let id = session.libraryID, let uuid = libraryDisplays[id],
+              let prefix = bottles.first(where: { $0.name == session.bottleName })?.url else { return }
+        guard WindowMover.ensureTrusted(prompt: false) else {
+            appendLog("\(session.title): moving to a display needs Accessibility permission for Highball (System Settings > Privacy & Security > Accessibility)")
+            return
+        }
+        // Off the main actor: AX calls can block while the game loads. Only the checks hop back.
+        Task.detached { [weak self] in
+            var handled: [AXUIElement] = []
+            for _ in 0..<120 {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self else { return }
+                let state = await MainActor.run { () -> (running: Bool, monitor: Monitor?) in
+                    (self.runningSessions.contains(session), Monitor.connected().first(where: { $0.id == uuid }))
+                }
+                guard state.running else { return }
+                guard let monitor = state.monitor else {
+                    await self.appendLog("\(session.title): chosen display is not connected, leaving the window where it opened")
+                    return
+                }
+                for pid in SessionWatch.pids(ofPrefix: prefix, markers: session.markers) {
+                    for _ in 0..<WindowMover.move(pid: pid, to: monitor.bounds, alreadyMoved: &handled) {
+                        await self.appendLog("moved \(session.title) to \(monitor.name)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Whether the process owns a normal window on screen. Owner and layer come without the
+    /// screen recording permission, which only window titles need.
+    private static func hasWindowOnScreen(_ pid: pid_t) -> Bool {
+        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return false }
+        return windows.contains { ($0[kCGWindowOwnerPID as String] as? pid_t) == pid && ($0[kCGWindowLayer as String] as? Int) == 0 }
+    }
+
+    private func endSession(_ session: GameSession, reason: String) {
+        guard runningSessions.contains(session) else { return }
+        runningSessions.removeAll { $0.id == session.id }
+        discordEnvironments[session.id] = nil
+        if runningSessions.isEmpty { stopDiscordWatch() }
+        sessionWatchers[session.id]?.cancel()
+        sessionWatchers[session.id] = nil
+        let record = SessionRecord(title: session.title, bottle: session.bottleName, appid: session.appid,
+                                   started: session.started, ended: Date(), reason: reason, renderer: session.renderer)
+        SessionWatch.append(record, to: paths.logs)
+        lastEndedSession = record
+        funnel(.sessionEnded, detail: "\(record.seconds) s, \(reason)")
+        if record.seconds >= 60 {
+            postPlay = record
+            // The consent question comes after the first game that ran for a minute, never
+            // before (0.7); asked once, whatever the answer.
+            if !funnelAsked { funnelOffer = true }
+        }
+        appendLog("\(session.title) \(reason) after \(record.seconds / 60) min")
+    }
+
+    /// Ends the game's own processes and leaves Steam and the server running, so the next
+    /// Play needs no cold start.
+    func stopSession(_ session: GameSession) {
+        guard let bottle = bottles.first(where: { $0.name == session.bottleName }) else {
+            // The environment was deleted while the game "ran": end the record, no ghost prompt.
+            endSession(session, reason: "stopped"); postPlay = nil; return
+        }
+        let prefix = bottle.url, markers = session.markers
+        // terminate waits out a grace period: off the main thread, then the record.
+        Task.detached {
+            _ = ProcessTable.terminate(SessionWatch.pids(ofPrefix: prefix, markers: markers))
+            await MainActor.run { self.endSession(session, reason: "stopped") }
+        }
+    }
+
+    /// Ends a bottle's Steam client from the strip's Quit, off the main thread (a stop waits
+    /// on the wineserver for up to ten seconds).
+    func quitSteam(in bottle: Bottle) {
+        guard let engine = engine(for: bottle) else { return }
+        let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+        // A game may be running under Steam even when Highball did not start it (launched from
+        // Steam's own window); killing the wineserver would take it down. Refuse then.
+        guard !runner.steamGameIsRunning() else {
+            fail(HighballError.failed("A game is still running in this environment. Quit it first, then quit Steam."))
+            return
+        }
+        steamClients.remove(bottle.name)
+        Task.detached { try? runner.kill() }
+    }
+
+    func launch(pin: Pin, in bottle: Bottle) {
+        guard let engine = engine(for: bottle) else { return }
+        // A pinned program's own mode behind an unaccepted licence gets the same ask as a game's
+        // (#61); the runner degrades any other mode the engine lacks, with a note.
+        if let wanted = pin.renderer ?? Optional(bottle.settings.renderer),
+           case .needsLicence = wanted.availability(in: engine),
+           let item = libraryItems.first(where: { $0.pinID == pin.id }) {
+            pendingD3DMetal = (item, bottle, engine)
+            return
+        }
+        guard !launchingPins.contains(pin.id) else {
+            fail(HighballError.failed("\(pin.name) is already starting or running. If its window never appeared, stop the environment's processes in Settings, then try again."))
+            return
+        }
+        // runBusy refuses a second operation silently; the pin must not be marked as launching then.
+        guard !busy else { return }
+        launchingPins.insert(pin.id)
+        // Steam's very first launch bootstraps its client for 15–25 minutes and looks frozen the
+        // whole time (#31, #9). Detect it (no CEF dir yet) and show the progress sheet with honest
+        // expectations instead of launching silently into what reads as a hang.
+        let steamFirstBoot = isSteamUI(pin) && !FileManager.default.fileExists(
+            atPath: bottle.driveC.appending(path: "Program Files (x86)/Steam/bin/cef").path)
+        let cef = bottle.driveC.appending(path: "Program Files (x86)/Steam/bin/cef")
+        runBusy(steamFirstBoot ? L("Starting Steam for the first time — it downloads and unpacks its own client") : "Starting \(pin.name)",
+                expected: steamFirstBoot ? L("usually 15–25 minutes; long quiet stretches are normal") : nil,
+                done: .handedOff,
+                stop: .killBottle(bottle, label: L("Stop")),
+                cleanup: { [weak self] in self?.launchingPins.remove(pin.id) }) { [self] in
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            var extraEnvironment = [String: String]()
+            // A Steam client left running by a game launch answers a new steam.exe by swallowing
+            // it (issue #33). Ask it to show its window instead, and leave the wineserver alone:
+            // a game may still be running under it.
+            await BottleStore.preflight(runner: runner, bottle: bottle) { line in Task { @MainActor in self.appendLog(line) } }
+            // A client a game's Play started under D3DMetal shows a black window; with no game
+            // running it is restarted so the window gets the mode it draws with (highball#416).
+            if isSteamUI(pin),
+               let window = SteamRestart.windowRenderer(shortcut: pin.renderer, environment: bottle.settings.renderer,
+                                                        dxmtRuns: Renderer.dxmt.availability(in: engine) == .available),
+               let live = runner.runningSteamEnvironment(), SteamRestart.windowNeedsRestart(live: live, window: window),
+               !runner.steamGameIsRunning() {
+                await MainActor.run { self.appendLog("Steam was running with D3DMetal, which leaves its window black, so it restarts with \(Renderer.displayName(window))") }
+                try await runner.stopSteam()
+            }
+            if isSteamUI(pin), let shown = try await runner.showRunningSteam(onOutput: { line in Task { @MainActor in self.appendLog(line) } }) {
+                await MainActor.run { self.appendLog("Steam was already running; asked it to show its window") }
+                if shown.crashedEarly { /* the forward exits at once by design; not a crash */ }
+                return
+            }
+            if isSteamUI(pin), bottle.settings.sync != SyncMode.none {
+                try? runner.kill()                      // restart the wineserver so sync=none takes effect
+                try? await Task.sleep(for: .seconds(2))
+                extraEnvironment = ["WINEMSYNC": "0", "WINEESYNC": "0"]
+            }
+            let extra = extraEnvironment
+            var started = pin
+            if isSteamUI(pin), let mode = SteamRestart.windowRenderer(shortcut: pin.renderer, environment: bottle.settings.renderer,
+                                                                      dxmtRuns: Renderer.dxmt.availability(in: engine) == .available) {
+                started.renderer = mode
+                await MainActor.run { self.appendLog("Steam's window opens with \(Renderer.displayName(mode)), since it stays black with D3DMetal. Games still start with D3DMetal.") }
+            }
+            let steamPin = started
+            // The process outlives "starting": busy covers the start only, then the Steam row
+            // (a client) or a session (anything else) carries it, and the app stays free (0.6).
+            let box = LaunchOutcome()
+            let log = logLine(box)
+            let steamUI = isSteamUI(pin)
+            watchedLaunch(box) {
+                if steamUI {
+                    let (r, resumed) = try await runner.startResumingKnownSteamCrash(pin: steamPin, extraEnvironment: extra) { line in
+                        log(line)
+                        if line.contains("relaunching so it resumes") {
+                            Task { @MainActor in self.stage = L("Steam crashed at a known spot — relaunching to resume the update") }
+                        }
+                    }
+                    if resumed { await MainActor.run { self.appendLog("resumed after the known crash") } }
+                    return r
+                }
+                return try await runner.start(pin: pin, extraEnvironment: extra, onOutput: log)
+            }
+            let markers = SessionWatch.markers(executable: pin.executableURL(driveC: bottle.driveC))
+            let prefix = bottle.url
+            let handedOff = try await awaitHandoff(box, program: pin.name, timeout: steamUI ? nil : 360) {
+                if steamUI {
+                    // A first boot is "started" once the client is unpacked and running; the
+                    // Steam row shows it from then on.
+                    guard FileManager.default.fileExists(atPath: cef.path) else { return false }
+                    return await Task.detached { WineRunner.steamIsRunning(inPrefix: prefix) }.value
+                }
+                let processes = await Self.processList()
+                box.processList = processes
+                return SessionWatch.isAlive(markers: markers, ps: processes)
+            } crashed: { result in
+                // A program whose file is not a Windows executable never ran: Wine's loader hands
+                // it to start.exe, which reports "File not found" within seconds. Another graphics
+                // mode cannot help, so say what is wrong instead of proposing one (highball#245).
+                guard PEExportName.isWindowsExecutable(at: pin.executableURL(driveC: bottle.driveC)) else {
+                    self.appendLog("\(pin.name) did not start: its file is not a Windows program (empty or cut short), so Wine could not run it. Install it again; for Steam, the Steam row offers the installer.")
+                    return
+                }
+                let current = pin.renderer ?? bottle.settings.renderer
+                self.crashSuggestion = CrashSuggestion(program: pin.name, bottleName: bottle.name,
+                                                       renderer: Renderer.suggestion(after: current, d3dmetalAvailable: engine.rendererDir("d3dmetal") != nil, vkd3dAvailable: engine.rendererDir("vkd3d") != nil),
+                                                       logPath: result.log.path, current: current, seconds: Int(result.duration),
+                                                       alternateEngine: self.alternateEngine(for: bottle))
+            }
+            guard handedOff else { return }
+            if steamUI {
+                steamClients.insert(bottle.name)   // the poll would take up to 8 s to notice
+            } else {
+                beginSession(GameSession(title: pin.name, bottleName: bottle.name, appid: nil, markers: markers,
+                                         renderer: (pin.renderer ?? bottle.settings.renderer).rawValue,
+                                         libraryID: "pin:\(bottle.name):\(pin.id.uuidString)"), processList: box.processList)
+            }
+        }
+    }
+
+    func update(_ bottle: Bottle) {
+        do { try bottleStore.update(bottle); refresh() } catch { fail(error, bottle: bottle) }
+    }
+
+    /// Discussion #157: the environment's Documents becomes a real folder inside it (or the link
+    /// to the Mac's Documents again). The prefix changes first, the setting records it; a failure
+    /// leaves the setting as it was, so the switch never claims a shape the prefix does not have.
+    func setKeepFilesInside(_ on: Bool, for bottle: Bottle) {
+        var copy = bottles.first { $0.name == bottle.name } ?? bottle
+        guard copy.settings.keepFilesInside != on else { return }
+        do {
+            for line in try UserFolders.set(inside: on, driveC: copy.driveC) { appendLog(line) }
+            copy.settings.keepFilesInside = on
+            update(copy)
+        } catch { fail(error, bottle: copy) }
+    }
+
+    func deleteBottle(_ name: String) {
+        // The row and its Delete item stay on screen for the whole operation, so without this a
+        // second click started a second delete and the loser reported "missing" for a delete that
+        // was in fact succeeding.
+        guard !deletingBottles.contains(name) else { return }
+        deletingBottles.insert(name)
+        runBusy(String(format: L("Deleting the %@ environment"), name), showLogSheet: false,
+                cleanup: { [weak self] in self?.deletingBottles.remove(name) }) { [self] in
+            let store = bottleStore
+            let killer = killerFor(name)
+            // Stop the bottle before anything moves: `wineserver -k` resolves the prefix by path,
+            // so after the rename it exits 1 and leaves the server running. It is a synchronous
+            // wineserver call that measured 2.3 s against a live server, so it belongs off the
+            // main actor with the purge rather than in front of it, freezing the window.
+            // A prefix can be tens of GB, and the old delete ran the whole walk on the main
+            // actor — 985 ms for 20,841 entries, minutes for a big Steam bottle.
+            let leftovers = try await Task.detached {
+                killer?()
+                return try store.delete(name)
+            }.value
+            await MainActor.run {
+                if self.selectedBottle == name { self.selectedBottle = nil }
+                guard let first = leftovers.first else { return }
+                self.errorIsPartialSuccess = true
+                self.errorMessage = """
+                    '\(name)' is deleted and the name is free again. Some of its files are still \
+                    on disk because macOS refused to remove them, starting at \(first.path) \
+                    (\(first.reason)). Highball keeps them in .trash inside its data folder and \
+                    tries again each time it starts.
+                    """
+            }
+        }
+    }
+
+    /// Builds the stop-the-bottle work on the main actor (where the state lives) but hands it
+    /// back as a closure, so the blocking `wineserver -k` runs wherever the caller wants it.
+    private func killerFor(_ name: String) -> (@Sendable () -> Void)? {
+        // A damaged bottle is not in `bottles`, and it is exactly the one whose wineserver most
+        // needs stopping: nothing else has been able to touch it.
+        let bottle = bottles.first { $0.name == name }
+            ?? Bottle(url: paths.bottle(name),
+                      settings: BottleSettings(name: name, engineID: engines.first?.id ?? ""))
+        guard let engine = engine(for: bottle) else { return nil }
+        let paths = paths
+        return { try? WineRunner(paths: paths, engine: engine, bottle: bottle).kill() }
+    }
+
+    func removePin(_ pin: Pin, from bottle: Bottle) {
+        var copy = bottle
+        copy.settings.pins.removeAll { $0.id == pin.id }
+        update(copy)
+    }
+
+    /// Replace a pin wholesale (program settings sheet: arguments, environment, renderer).
+    func updatePin(_ pin: Pin, in bottle: Bottle) {
+        var copy = bottle
+        if let i = copy.settings.pins.firstIndex(where: { $0.id == pin.id }) {
+            copy.settings.pins[i] = pin
+            update(copy)
+        }
+    }
+
+    func setPinRenderer(_ renderer: Renderer?, pin: Pin, in bottle: Bottle) {
+        var copy = bottle
+        if let i = copy.settings.pins.firstIndex(where: { $0.id == pin.id }) {
+            copy.settings.pins[i].renderer = renderer
+            update(copy)
+        }
+    }
+
+    /// A game folder on a drive that keeps Mac metadata in `._` files beside each file (exFAT, FAT,
+    /// some network shares) shows the game those files as its own: Alice: Madness Returns failed on
+    /// the 4,407 in a Steam library on an exFAT drive, and a reinstall brought them back
+    /// (highball-db#429). The ones beside the game's files go before each launch, off the main
+    /// thread; a folder on APFS is not walked.
+    private func removeMacMetadataFiles(from folder: URL?, of title: String) async {
+        guard let folder else { return }
+        let removed = await Task.detached { AppleDouble.cleanGameFolder(folder) }.value
+        guard removed > 0 else { return }
+        appendLog("Removed \(removed) macOS '._' files from \(title)'s folder. Its drive keeps Mac metadata in them, and the game would read them as files of its own.")
+    }
+
+    /// Launch a Steam game by appid through the bottle's Steam client.
+    func launchGame(_ game: SteamGame, in bottle: Bottle, renderer preferred: Renderer? = nil) {
+        guard let engine = engine(for: bottle) else { return }
+        if let running = session(forAppID: game.appid) {
+            fail(HighballError.failed("\(running.title) is already running."))
+            return
+        }
+        let steam = bottle.driveC.appending(path: "Program Files (x86)/Steam/steam.exe")
+        let entry = gameDB[game.appid]
+        // A mode the user set on the environment is respected, as the page promises; the row's
+        // verified mode applies otherwise, and a forced mode (the D3DMetal ask) beats both.
+        let renderer = preferred ?? (bottle.settings.rendererExplicit ? nil : entry?.effectiveRenderer())
+        // Per-game launch args ride the db (e.g. windowed for legacy CS:GO on macOS 26, #21), then
+        // the ones the player set on the game's page (highball#236).
+        let extraArgs = (entry?.effectiveLaunchArgs() ?? []) + (libraryLaunchArgs["steam:\(game.appid)"] ?? [])
+        // The variables this game's recipe scoped to it (highball#198); other games get none of them.
+        let gameEnvironment = bottle.settings.environment(forGame: entry?.id)
+        let markers = SessionWatch.markers(installdir: game.installdir)
+        let folder = game.installdir.isEmpty ? nil : game.installFolder
+            ?? bottle.driveC.appending(path: "Program Files (x86)/Steam/steamapps/common/\(game.installdir)", directoryHint: .isDirectory)
+        // The busy sheet covers the start only: Steam's client outlives the game and its launch
+        // call says nothing about it, so the game's own processes decide when "starting" ends
+        // and a session begins, and the app is free while the game runs (UX plan 0.6).
+        runBusy("Starting \(game.name)", expected: L("a cold Steam client can take a couple of minutes"),
+                done: .handedOff,
+                stop: .killBottle(bottle, label: L("Stop"))) { [self] in
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            await adoptRuntimesInstalledByGames(in: bottle, engine: engine)
+            await removeMacMetadataFiles(from: folder, of: game.name)
+            // A running client would serve the launch with its own environment; when that is
+            // not the game's, cold-start first: never under a running game, Steam's or not.
+            // A kept client is said out loud, in the activity log and in the launch log's header:
+            // the game runs on the client's stack, and a report must not claim otherwise.
+            var headerNote: String?
+            var served = renderer ?? bottle.settings.renderer
+            switch try await runner.restartSteamIfMismatched(renderer: renderer, extraEnvironment: gameEnvironment, mayRestart: !sessionRuns(in: bottle)) {
+            case .restarted(let why):
+                await MainActor.run { self.appendLog("Restarting Steam before \(game.name): \(why).") }
+            case .kept(let why, let live):
+                let liveName = Renderer(rawValue: live).map(Renderer.displayName) ?? live
+                let text = "Steam keeps running as it is because a game is still open in \(bottle.name): \(why). \(game.name) gets the client's \(liveName) stack, not \(Renderer.displayName(served)). Quit the open game or crash window, or press Stop all processes, then Play again."
+                headerNote = text
+                if let r = Renderer(rawValue: live) { served = r }
+                await MainActor.run { self.appendLog(text) }
+            case .noClient, .serves:
+                break
+            }
+            // A client on the D3DMetal stack cannot draw Steam's pre-launch notices ("controller
+            // recommended", the Steam Input question a PlayStation controller brings), so a launch
+            // would wait on one for good. No client runs at this point when the launch cold-starts
+            // one, which is when the record can be written (see SteamLaunchNotice).
+            if served == .d3dmetal, runner.runningSteamEnvironment() == nil {
+                let root = bottle.driveC.appending(path: "Program Files (x86)/Steam")
+                if SteamLaunchNotice.markSeen(steamRoot: root, appID: game.appid) > 0 {
+                    await MainActor.run { self.appendLog("Recorded Steam's pre-launch notices for \(game.name) as seen: Steam cannot show them in D3DMetal mode.") }
+                }
+            }
+            let note = headerNote, servedRenderer = served
+            let box = LaunchOutcome()
+            let log = logLine(box)
+            watchedLaunch(box) {
+                try await runner.start(steam, arguments: ["-silent", "-applaunch", String(game.appid)] + extraArgs, renderer: renderer, extraEnvironment: gameEnvironment, headerNote: note, onOutput: log)
+            }
+            let handedOff = try await awaitHandoff(box, program: game.name, timeout: 360, exitEndsWait: false) {
+                let processes = await Self.processList()
+                box.processList = processes
+                return SessionWatch.isAlive(markers: markers, ps: processes)
+            } crashed: { result in
+                let current = servedRenderer
+                self.crashSuggestion = CrashSuggestion(program: game.name, bottleName: bottle.name,
+                                                       renderer: Renderer.suggestion(after: current, d3dmetalAvailable: engine.rendererDir("d3dmetal") != nil, vkd3dAvailable: engine.rendererDir("vkd3d") != nil),
+                                                       logPath: result.log.path, current: current, seconds: Int(result.duration),
+                                                       alternateEngine: self.alternateEngine(for: bottle), itemID: "steam:\(game.appid)")
+            }
+            guard handedOff else { return }
+            beginSession(GameSession(title: game.name, bottleName: bottle.name, appid: game.appid, markers: markers,
+                                     renderer: servedRenderer.rawValue, libraryID: "steam:\(game.appid)", startNotice: entry?.startNotice,
+                                     startNoticeMinutes: entry?.startNoticeMinutes), processList: box.processList)
+        }
+    }
+
+    /// Where a launch reports back. The busy work polls this instead of awaiting the task:
+    /// `Task.value` is not cancellation-aware, so racing it against a timer blocked until the
+    /// process exited and the hand-off never happened (review, 2026-09-04).
+    @MainActor final class LaunchOutcome {
+        var result: Result<LaunchResult, Error>?
+        /// After the hand-off the process's output goes to its file log only, so a client
+        /// that lives for hours cannot rewrite a later operation's stage line.
+        var handedOff = false
+        /// The existing launch liveness check supplies this; Discord does not run another scan.
+        var processList = ""
+    }
+
+    private func watchedLaunch(_ box: LaunchOutcome, _ body: @escaping @Sendable () async throws -> LaunchResult) {
+        Task.detached {
+            let outcome: Result<LaunchResult, Error>
+            do { outcome = .success(try await body()) } catch { outcome = .failure(error) }
+            await MainActor.run { box.result = outcome }
+        }
+    }
+
+    private func logLine(_ box: LaunchOutcome) -> @Sendable (String) -> Void {
+        { line in Task { @MainActor in if !box.handedOff { self.appendLog(line) } } }
+    }
+
+    /// `ps` for the liveness checks, never on the main thread.
+    private static func processList() async -> String {
+        await Task.detached { SessionWatch.currentProcessList() }.value
+    }
+
+    /// Polls until the launch hands off (`started`) or ends. A launch that ended is a result:
+    /// its own error is thrown, an early crash goes to `crashed` unless the user stopped it.
+    /// Returns true on a hand-off. `timeout` nil waits as long as the process lives.
+    /// `exitEndsWait` false keeps polling after a clean exit: `steam -applaunch` forwards to a
+    /// running client and exits within seconds while the game is still starting.
+    private func awaitHandoff(_ box: LaunchOutcome, program: String, timeout: Int?, exitEndsWait: Bool = true,
+                              started: () async -> Bool, crashed: (LaunchResult) -> Void) async throws -> Bool {
+        var waited = 0
+        var exited = false
+        while true {
+            if !exited, let outcome = box.result {
+                switch outcome {
+                case .failure(let error): throw error
+                case .success(let result):
+                    if result.crashedEarly, !stopRequested {
+                        // A program that hands itself to its launcher exits at once with an error code
+                        // and comes back moments later, started by the launcher: Star Wars Galaxy of
+                        // Heroes through the EA app read as a crash and Highball offered another mode
+                        // for a game that was running fine (highball-db#566). It gets 20 s to appear.
+                        for _ in 0..<10 {
+                            if await started() { box.handedOff = true; return true }
+                            if stopRequested { return false }
+                            try await Task.sleep(for: .seconds(2))
+                        }
+                        crashed(result); return false
+                    }
+                    if exitEndsWait { return false }
+                    exited = true
+                }
+            }
+            if await started() { box.handedOff = true; return true }
+            if let timeout, waited >= timeout {
+                throw HighballError.failed("\(program) never started: no process of its own appeared in six minutes. Its log is in Details.")
+            }
+            try await Task.sleep(for: .seconds(2)); waited += 2
+        }
+    }
+
+    /// Handle an .exe/.msi dropped on a bottle: run it (installer) inside the bottle.
+    func runDropped(_ url: URL, in bottle: Bottle, andPin: Bool) {
+        guard engine(for: bottle) != nil else { return }
+        let ext = url.pathExtension.lowercased()
+        if ext == "exe" {
+            // A game runs as a session: the app stays free, Stop and the post-play question
+            // work, and the window hands off like any other launch (review #4).
+            let pin = Pin(name: url.deletingPathExtension().lastPathComponent,
+                          path: Pin.storagePath(for: url, driveC: bottle.driveC))
+            if andPin {
+                var copy = bottle; copy.settings.pins.append(pin); update(copy)
+                launch(pin: pin, in: bottles.first { $0.name == bottle.name } ?? copy)
+            } else {
+                launch(pin: pin, in: bottle)
+            }
+            return
+        }
+        // .msi / .bat: an installer, which cannot stop cleanly, so it stays a blocking op.
+        guard let engine = engine(for: bottle) else { return }
+        runBusy(String(format: L("Running %@"), url.lastPathComponent), stop: .killBottleThenRepair(bottle, label: L("Stop and repair"))) { [self] in
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            let args = ext == "msi" ? ["msiexec", "/i", url.path] : [url.path]
+            _ = try await runner.run(args, renderer: .wined3d, label: url.lastPathComponent,
+                                     workingDirectory: url.deletingLastPathComponent()) { line in
+                Task { @MainActor in self.appendLog(line) }
+            }
+        }
+    }
+
+    func duplicateBottle(_ bottle: Bottle) {
+        runBusy(String(format: L("Duplicating the %@ environment"), bottle.name)) { [self] in
+            killBottle(bottle)   // flush registry files before copying
+            try? await Task.sleep(for: .seconds(1))
+            let store = bottleStore, name = bottle.name
+            // The copy can be many GB — keep it off the main thread.
+            let copy = try await Task.detached { try store.duplicate(name) }.value
+            await MainActor.run { self.selectedBottle = copy.name }
+        }
+    }
+
+    /// Installs an engine again over the copy on disk, for one whose files went missing after it
+    /// was installed — an antivirus quarantine emptying parts of Highball's folder, which reaches
+    /// the user as Wine failing to find its own DLLs (highball#151, #153). `install` stages a
+    /// whole tree and only then replaces the old one, so the id, the bottles on it and their
+    /// settings are untouched; accepted licences carry over as they do for an update.
+    func reinstallEngine(_ id: String) {
+        guard let manifest = manifestForReinstall(id) else {
+            fail(HighballError.failed("Highball cannot tell what engine \(id) was made of: its manifest is gone too. Quit Highball, move the engines folder inside ~/Library/Application Support/Highball to the Trash, then open Highball again and it installs its engine fresh.")); return
+        }
+        let accepted = Set(engines.flatMap { $0.manifest.acceptedLicenses ?? [] })
+        runBusy(String(format: L("Installing engine %@ again"), id), expected: L("usually a few minutes"),
+                done: DoneState(title: L("Engine installed again"), ctaTitle: nil, cta: nil),
+                stop: .cancelTask(label: L("Stop"))) { [self] in
+            // The install swaps the engine directory under whatever runs on it. Nothing should
+            // be running on a damaged engine, but the detection is a heuristic, so stop the
+            // bottles on it first the way an engine move does, and the swap is safe either way.
+            if let damaged = engines.first(where: { $0.id == id }) {
+                for bottle in bottles where bottle.settings.engineID == id {
+                    try? WineRunner(paths: paths, engine: damaged, bottle: bottle).kill()
+                }
+            }
+            _ = try await engineStore.install(manifest, accepted: accepted) { name, received, total in
+                Task { @MainActor in self.reportDownload(name, received: received, total: total) }
+            }
+            await MainActor.run { self.appendLog("engine \(id) installed again"); self.refresh() }
+        }
+    }
+
+    /// What to reinstall engine `id` from: its own manifest, or the bundled one when that file
+    /// was taken too and it describes the same engine.
+    private func manifestForReinstall(_ id: String) -> EngineManifest? {
+        if let m = try? EngineManifest.load(from: paths.engine(id).appending(path: "manifest.json")) { return m }
+        guard let url = Self.bundledManifest, let bundled = try? EngineManifest.load(from: url), bundled.id == id else { return nil }
+        return bundled
+    }
+
+    func repairBottle(_ bottle: Bottle) {
+        _repairBottle(bottle, stop: .killBottle(bottle, label: L("Stop")))
+    }
+    private func _repairBottle(_ bottle: Bottle, stop: BusyStop?) {
+        guard let engine = engine(for: bottle) else { return }
+        runBusy(String(format: L("Repairing the %@ environment — re-running the Windows first boot"), bottle.name), stop: stop) { [self] in
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            try? runner.kill()
+            try? await Task.sleep(for: .seconds(2))
+            // Repair is the escape hatch for a bottle whose 32-bit half never got built (#37);
+            // refreshPrefix carries that check.
+            try await BottleStore.refreshPrefix(runner: runner, bottle: bottle)
+            await MainActor.run { self.appendLog("environment repaired — Windows first boot refreshed") }
+        }
+    }
+
+    // MARK: Epic
+
+    var epicStore: EpicStore { EpicStore(paths: paths) }
+
+    func epicRefresh() {
+        epicSignedIn = epicStore.isAuthenticated
+        guard epicSignedIn else { epicOwned = []; epicInstalls = [:]; return }
+        guard !epicFetchInFlight else { return }
+        epicFetchInFlight = true
+        epicLoading = epicOwned.isEmpty
+        Task.detached { [store = epicStore] in
+            let owned = (try? store.ownedGames()) ?? []
+            let installed = (try? store.installedGames()) ?? []
+            await MainActor.run { [weak self] in
+                self?.epicOwned = owned.sorted { $0.app_title < $1.app_title }
+                self?.epicInstalls = EpicStore.installMap(installed)
+                self?.epicLoading = false
+                self?.epicFetchInFlight = false
+                self?.rebuildLibrary()   // Epic results arrive after refresh(); fold them in
+            }
+        }
+    }
+
+    /// Installed *in this bottle* — a game legendary installed into another bottle's
+    /// drive_c is not playable here.
+    func epicInstalled(_ appName: String, in bottle: Bottle) -> Bool {
+        guard let path = epicInstalls[appName] else { return false }
+        return EpicStore.isInstalled(path: path, inDriveC: bottle.driveC)
+    }
+
+    func epicSignIn(code: String) {
+        runBusy(L("Connecting your Epic account"), stop: .cancelTask(label: L("Stop"))) { [self] in
+            let store = epicStore
+            _ = try await store.ensureInstalled()
+            try await Task.detached { try store.authenticate(code: code) }.value
+            await MainActor.run { self.epicRefresh() }
+        }
+    }
+
+    /// The Epic install running now, for the strip's Stop and for quitting the app (highball#323).
+    @ObservationIgnored private var epicInstallControl: LegendaryControl?
+
+    func epicInstall(_ game: EpicStore.Game, in bottle: Bottle) {
+        let control = LegendaryControl()
+        runBusy("Installing \(game.app_title)", expected: L("a large download; you can leave it running"),
+                stop: .cancelTask(label: L("Stop")), cleanup: { [weak self] in self?.epicInstallControl = nil }) { [self] in
+            epicInstallControl = control
+            let store = epicStore
+            epicDownloadTotal = nil
+            let refused = OSAllocatedUnfairLock(initialState: false)
+            let failure = OSAllocatedUnfairLock<String?>(initialState: nil)
+            // Stop cancels this task, and the cancellation reaches legendary as a Ctrl-C, which
+            // keeps the download's progress for the next Install.
+            let status = try await withTaskCancellationHandler {
+                try await Task.detached {
+                    try store.install(game.app_name, into: bottle, control: control) { line in
+                        if EpicStore.refusedForLock(line) { refused.withLock { $0 = true } }
+                        if let why = EpicStore.installFailure(line) { failure.withLock { if $0 == nil { $0 = why } } }
+                        Task { @MainActor in self.appendLog(line); self.reportEpicDownload(line) }
+                    }
+                }.value
+            } onCancel: { control.stop() }
+            try Task.checkCancellation()
+            if refused.withLock({ $0 }) {
+                throw HighballError.failed(L("Another Epic download is still running, and legendary installs one game at a time. If Highball shows none, one started before Highball last quit is still going, so quit legendary in Activity Monitor and press Install again."))
+            }
+            guard status == 0 else {
+                if let why = failure.withLock({ $0 }) { throw HighballError.failed(why) }
+                throw HighballError.processFailed(command: "epic install", status: status, output: "see the log above")
+            }
+            await MainActor.run { self.epicRefresh() }
+        }
+    }
+
+    /// Quitting the app stops an Epic download the way Stop does, so it never runs on alone,
+    /// holding legendary's install lock with nothing on screen to stop it (highball#323).
+    func stopEpicInstall() { epicInstallControl?.stop() }
+
+    // renderer nil = the bottle's own renderer (the old hardcoded .dxvk default ignored it).
+    /// `throughEpicLauncherStandIn`: a Rockstar game bought on Epic (its recipe requires the
+    /// Rockstar launcher) starts through a stand-in named EpicGamesLauncher.exe placed in the
+    /// game folder, because the Rockstar launcher accepts the Epic entitlement only while a
+    /// process of that name exists (highball#93). The stand-in ships in the app bundle, built
+    /// from spike/epic-stub; it starts the real executable with Legendary's arguments and lives
+    /// as long as the game.
+    func epicPlay(_ game: EpicStore.Game, in bottle: Bottle, renderer: Renderer? = nil, throughEpicLauncherStandIn: Bool = false) {
+        guard let engine = engine(for: bottle) else { return }
+        if runningSessions.contains(where: { $0.title == game.app_title && $0.bottleName == bottle.name }) {
+            fail(HighballError.failed("\(game.app_title) is already running."))
+            return
+        }
+        let folder = epicInstalls[game.app_name].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        runBusy("Starting \(game.app_title)", done: .handedOff, stop: .killBottle(bottle, label: L("Stop"))) { [self] in
+            let store = epicStore
+            await removeMacMetadataFiles(from: folder, of: game.app_title)
+            // Fresh single-use token, fetched off the main thread right before launch.
+            let info = try await Task.detached { try store.launchInfo(game.app_name) }.value
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            let box = LaunchOutcome()
+            let log = logLine(box)
+            var executable = info.executable, arguments = info.arguments
+            if throughEpicLauncherStandIn {
+                if let standIn = Self.placeEpicLauncherStandIn(in: info.executable.deletingLastPathComponent()) {
+                    appendLog("\(game.app_title): Rockstar game bought on Epic, starting through the EpicGamesLauncher.exe stand-in")
+                    executable = standIn
+                    arguments = [info.executable.lastPathComponent] + info.arguments
+                } else {
+                    appendLog("\(game.app_title): this build has no EpicGamesLauncher.exe stand-in, the Rockstar launcher may not accept the Epic copy")
+                }
+            }
+            // The variables this game's recipe scoped to it (highball#198), on top of Legendary's.
+            let row = gameDB.byEpicAppName[game.app_name]
+            let gameEnvironment = bottle.settings.environment(forGame: row?.id)
+            watchedLaunch(box) {
+                try await runner.start(executable, arguments: arguments,
+                                       renderer: renderer, extraEnvironment: info.environment.merging(gameEnvironment) { _, new in new },
+                                       workingDirectory: info.workingDirectory, onOutput: log)
+            }
+            let markers = SessionWatch.markers(executable: info.executable)
+            let handedOff = try await awaitHandoff(box, program: game.app_title, timeout: 360) {
+                let processes = await Self.processList()
+                box.processList = processes
+                return SessionWatch.isAlive(markers: markers, ps: processes)
+            } crashed: { result in
+                let current = renderer ?? bottle.settings.renderer
+                self.crashSuggestion = CrashSuggestion(program: game.app_title, bottleName: bottle.name,
+                                                       renderer: Renderer.suggestion(after: current, d3dmetalAvailable: engine.rendererDir("d3dmetal") != nil, vkd3dAvailable: engine.rendererDir("vkd3d") != nil),
+                                                       logPath: result.log.path, current: current, seconds: Int(result.duration),
+                                                       alternateEngine: self.alternateEngine(for: bottle))
+            }
+            guard handedOff else { return }
+            beginSession(GameSession(title: game.app_title, bottleName: bottle.name, appid: nil, markers: markers,
+                                     renderer: (renderer ?? bottle.settings.renderer).rawValue, libraryID: "epic:\(game.app_name)",
+                                     startNotice: row?.startNotice, startNoticeMinutes: row?.startNoticeMinutes), processList: box.processList)
+        }
+    }
+
+    /// Copies the bundled EpicGamesLauncher.exe stand-in into the game folder when it is missing
+    /// or differs, and returns its location. Nil when this build has none (a debug build without
+    /// mingw) or the folder cannot be written.
+    nonisolated static func placeEpicLauncherStandIn(in gameDir: URL) -> URL? {
+        guard let bundled = Bundle.main.url(forResource: "EpicGamesLauncher", withExtension: "exe"),
+              let data = try? Data(contentsOf: bundled) else { return nil }
+        let target = gameDir.appending(path: "EpicGamesLauncher.exe")
+        if let existing = try? Data(contentsOf: target), existing == data { return target }
+        do { try data.write(to: target, options: .atomic) } catch { return nil }
+        return target
+    }
+
+    func setDpi(_ scale: Int, retinaAt100: Bool? = nil, in bottle: Bottle) {
+        guard let engine = engine(for: bottle) else { return }
+        var copy = bottle
+        copy.settings.dpiScale = scale
+        if let retinaAt100 { copy.settings.retinaAt100 = retinaAt100 }
+        update(copy)
+        let retina = copy.settings.retinaAt100
+        runBusy("Applying display scaling", showLogSheet: false) { [self] in
+            try await WineRunner(paths: paths, engine: engine, bottle: copy).setDpi(logPixels: scale, retinaAt100: retina)
+        }
+    }
+
+    func killBottle(_ bottle: Bottle) {
+        guard let engine = engine(for: bottle) else { return }
+        try? WineRunner(paths: paths, engine: engine, bottle: bottle).kill()
+    }
+
+    /// True while any Wine process from any bottle is alive. Every Wine process (wineserver,
+    /// preloaders, services) runs from the engines directory, so its path in `ps` is the marker.
+    func wineProcessesRunning() -> Bool {
+        guard let ps = try? Shell.capture("/bin/ps", ["axww"]) else { return false }
+        return ps.contains(paths.engines.path)
+    }
+
+    /// Stop every bottle's wineserver (and with it all Windows processes).
+    func killAllBottles() {
+        for bottle in bottles { killBottle(bottle) }
+    }
+
+    func loadGPTKLicense() {
+        for candidate in [Self.repoRoot?.appending(path: "spike/d3dmetal-license.txt"),
+                          Bundle.main.url(forResource: "d3dmetal-license", withExtension: "txt")].compactMap({ $0 }) {
+            if let text = try? String(contentsOf: candidate, encoding: .utf8) { gptkLicenseText = text; return }
+        }
+        gptkLicenseText = "License text unavailable locally. Read it at github.com/Gcenx/game-porting-toolkit (License.pdf) before accepting."
+    }
+
+    // MARK: Resource lookup (repo checkout or app bundle)
+
+    nonisolated static var repoRoot: URL? {
+        var dir = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
+        for _ in 0..<6 {
+            if FileManager.default.fileExists(atPath: dir.appending(path: "spike/engine-manifest.json").path) { return dir }
+            dir.deleteLastPathComponent()
+        }
+        let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        if FileManager.default.fileExists(atPath: cwd.appending(path: "spike/engine-manifest.json").path) { return cwd }
+        return nil
+    }
+
+    static var bundledManifest: URL? {
+        Bundle.main.url(forResource: "engine-manifest", withExtension: "json")
+            ?? repoRoot?.appending(path: "spike/engine-manifest.json")
+    }
+
+    /// Every engine manifest this install may see: the bundled ones minus those whose channel it
+    /// does not get (EngineChannels; a preview line ships hidden). A bottle can move to any of
+    /// them; one that is not installed downloads first.
+    static var knownManifests: [EngineManifest] {
+        let defaults = UserDefaults.standard
+        let beta = defaults.bool(forKey: UpdateChannels.betaDefaultsKey)
+        let preview = defaults.bool(forKey: EngineChannels.previewDefaultsKey)
+        let optedIn = previewOptIns
+        return bundledManifests.filter { EngineChannels.visible($0, beta: beta, preview: preview, optedIn: optedIn) }
+    }
+
+    /// Preview engines the player took from Play for a game (EngineChannels.optInDefaultsKey).
+    static var previewOptIns: Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: EngineChannels.optInDefaultsKey) ?? [])
+    }
+
+    static func optInPreview(_ id: String) {
+        var ids = UserDefaults.standard.stringArray(forKey: EngineChannels.optInDefaultsKey) ?? []
+        guard !ids.contains(id) else { return }
+        ids.append(id)
+        UserDefaults.standard.set(ids, forKey: EngineChannels.optInDefaultsKey)
+    }
+
+    /// Every engine manifest the app ships, visible or not: the default one plus
+    /// `engines/*.json` (previous engines kept for rollback, candidates offered in Advanced,
+    /// lines still in preview).
+    static var bundledManifests: [EngineManifest] {
+        var urls: [URL] = []
+        if let m = bundledManifest { urls.append(m) }
+        if let dir = Bundle.main.resourceURL?.appending(path: "engines"),
+           let more = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            urls += more.filter { $0.pathExtension == "json" }
+        } else if let dir = repoRoot?.appending(path: "spike/engines"),
+                  let more = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            urls += more.filter { $0.pathExtension == "json" }
+        }
+        var seen = Set<String>()
+        return urls.compactMap { try? EngineManifest.load(from: $0) }.filter { seen.insert($0.id).inserted }
+    }
+
+    /// Installed-marker results per bottle, keyed by system.reg's modification time so the
+    /// registry text (12 MB on a busy bottle) is read once per change, not on every render.
+    private var installedTweaksCache: [String: (regModified: Date, ids: Set<String>)] = [:]
+    func tweakIsInstalled(_ recipe: HighballKit.Recipe, in bottle: Bottle) -> Bool {
+        let reg = bottle.url.appending(path: "system.reg")
+        let modified = (try? FileManager.default.attributesOfItem(atPath: reg.path)[.modificationDate] as? Date) ?? .distantPast
+        if let hit = installedTweaksCache[bottle.name], hit.regModified == modified { return hit.ids.contains(recipe.id) }
+        let ids = Set(Self.tweakRecipes().filter { $0.isInstalled(in: bottle) }.map(\.id))
+        installedTweaksCache[bottle.name] = (modified, ids)
+        return ids.contains(recipe.id)
+    }
+
+    /// Takes a registry-only tweak back off an environment: each value it set is deleted, so Wine
+    /// uses its own default again, and the environment stops if nothing runs in it, since drivers
+    /// such as the controller bus read their options when the environment starts. A DualSense player
+    /// with "Controllers through SDL" installed had no way back short of regedit (Discord, 2026-10-19).
+    func removeTweak(_ recipe: HighballKit.Recipe, from bottle: Bottle) {
+        guard recipe.isRemovable, let engine = engine(for: bottle) else { return }
+        runBusy(String(format: L("Removing %@"), recipe.title)) { [self] in
+            let runner = WineRunner(paths: paths, engine: engine, bottle: bottle)
+            for value in recipe.registryValues { try await runner.regDelete(key: value.key, name: value.name) }
+            let stopped = ProcessTable.liveServer(forPrefix: bottle.url) != nil && ProcessTable.isIdle(prefix: bottle.url)
+            if stopped { _ = try? runner.kill() }
+            await MainActor.run {
+                var copy = self.bottles.first { $0.name == bottle.name } ?? bottle
+                copy.settings.recipes.removeAll { $0 == recipe.id }
+                self.update(copy)
+                self.appendLog("\(recipe.title) removed from \(bottle.name): its registry values are gone, so Wine uses its defaults again"
+                               + (stopped ? "; the idle environment stopped so its next start reads them." : ". Stop the environment once so programs see it."))
+            }
+        }
+    }
+
+    /// A runtime a game's own first-run setup installed (Steam runs the Visual C++ redist for
+    /// most games) registers itself like Highball's install does, but leaves Wine's built-in
+    /// copies of its DLLs in front of the real ones, and a launcher that checks those files
+    /// says the runtime is missing (Meccha Chameleon's, highball-db#105). Highball's own
+    /// install sets overrides for that; this sets the same ones, once, for a runtime the
+    /// checklist sees installed without Highball having installed it. Registry only: nothing
+    /// is downloaded, and the game's processes read the registry at their start, so a running
+    /// Steam client does not need restarting.
+    func adoptRuntimesInstalledByGames(in bottle: Bottle, engine: InstalledEngine) async {
+        for tweak in Self.tweakRecipes() where !bottle.settings.recipes.contains(tweak.id) && tweakIsInstalled(tweak, in: bottle) {
+            var registryOnly = tweak
+            registryOnly.steps = tweak.steps.filter { step in
+                switch step {
+                case .registry, .dllOverride: return true
+                default: return false
+                }
+            }
+            registryOnly.requires = nil
+            registryOnly.renderer = nil
+            guard !registryOnly.steps.isEmpty else { continue }
+            var runner = RecipeRunner(paths: paths, engine: engine, bottle: bottle)
+            do {
+                _ = try await runner.apply(registryOnly)
+                appendLog("\(tweak.title) was installed by a game's own setup; set the overrides Highball's install sets, so programs find the real files.")
+            } catch {
+                appendLog("\(tweak.title) is installed but its overrides could not be set: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Starts the switch the engine page confirmed. The work is the same move as before, on the
+    /// activity strip like every long operation; the page only watches it.
+    func startEngineTransition(_ t: EngineTransition) {
+        guard !busy, let bottle = bottles.first(where: { $0.name == t.bottleName }) else { return }
+        engineSwitchStep = nil
+        engineSwitchSucceeded = nil
+        moveBottle(bottle, toEngineID: t.targetID, done: DoneState(title: L("Engine switched"), ctaTitle: nil, cta: nil))
+        // moveBottle returns at once; the outcome is read when the operation ends.
+        Task { @MainActor [weak self] in
+            while let self, self.busy { try? await Task.sleep(for: .milliseconds(300)) }
+            guard let self else { return }
+            let moved = self.bottles.first { $0.name == t.bottleName }?.settings.engineID == t.targetID
+            self.engineSwitchSucceeded = moved
+            if moved { self.engineSwitchStep = .done }
+        }
+    }
+
+    /// The programs an environment has, by name, for the switch page: Steam games ready to play,
+    /// then the programs added by hand.
+    func programNames(in bottle: Bottle) -> [String] {
+        let games = (gamesByBottle[bottle.name] ?? []).filter(\.isReady).map(\.name)
+        return games + bottle.settings.pins.map(\.name)
+    }
+
+    /// What the bottle's Engine picker lists: installed engines, then known ones to download.
+    /// Whether `bottle` may move to `target` (EngineStore.sameArch). The bottle's engine is read
+    /// from the installed list, and from the bundled manifests only when its folder is gone.
+    func canMove(_ bottle: Bottle, to target: EngineManifest) -> Bool {
+        let id = bottle.settings.engineID
+        let arch = engines.first { $0.id == id }?.manifest.arch ?? Self.bundledManifests.first { $0.id == id }?.arch
+        return EngineStore.sameArch(current: arch, target: target.arch)
+    }
+
+    func offeredEngines(for bottle: Bottle) -> [EngineStore.OfferedEngine] {
+        EngineStore.offeredEngines(installed: engines, known: Self.knownManifests, current: bottle.settings.engineID)
+    }
+
+    /// Moves a bottle to an engine by id, installing it first when it is only known from a
+    /// bundled manifest. Licenses accepted on any installed engine carry over.
+    func moveBottle(_ bottle: Bottle, toEngineID id: String, done: DoneState? = nil) {
+        guard !busy else { return }
+        if let target = engines.first(where: { $0.id == id })?.manifest ?? Self.knownManifests.first(where: { $0.id == id }),
+           !canMove(bottle, to: target) {
+            appendLog("\(bottle.name) stays on \(bottle.settings.engineID): \(id) is built for another architecture, and an environment does not move between the two")
+            return
+        }
+        if let installed = engines.first(where: { $0.id == id }) { moveBottle(bottle, to: installed, done: done); return }
+        guard let manifest = Self.knownManifests.first(where: { $0.id == id }) else { return }
+        let accepted = Set(engines.flatMap { $0.manifest.acceptedLicenses ?? [] })
+        let title = String(format: L("Downloading engine %@"), manifest.id)
+        runBusy(title, expected: L("usually a few minutes"),
+                done: done ?? DoneState(title: L("Engine switched"), ctaTitle: nil, cta: nil),
+                stop: .cancelTask(label: L("Stop"))) { [self] in
+            let fresh = try await engineStore.install(manifest, accepted: accepted) { name, received, total in
+                Task { @MainActor in self.reportDownload(name, received: received, total: total) }
+            }
+            await MainActor.run { self.appendLog("engine \(fresh.id) installed"); self.refresh() }
+            try await performMove(bottle, to: fresh)
+        }
+    }
+
+    /// All bundled dependency ("tweak") recipes, for the Dependencies section in bottle settings.
+    static func tweakRecipes() -> [HighballKit.Recipe] {
+        var dirs: [URL] = []
+        if let res = Bundle.main.resourceURL { dirs.append(res) }
+        if let root = repoRoot { dirs.append(root.deletingLastPathComponent().appending(path: "highball-db/recipes/tweaks")) }
+        var out: [String: HighballKit.Recipe] = [:]
+        for dir in dirs {
+            for url in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+            where url.pathExtension == "json" {
+                if let r = try? HighballKit.Recipe.load(from: url), r.kind == .tweak, out[r.id] == nil { out[r.id] = r }
+            }
+        }
+        return out.values.sorted { $0.title < $1.title }
+    }
+
+    /// Reads a recipe from the bundle or a sibling checkout. Nonisolated because recipe
+    /// application resolves dependencies off the main actor: it touches no app state.
+    nonisolated static func recipe(_ id: String) -> HighballKit.Recipe? {
+        if let url = Bundle.main.url(forResource: id, withExtension: "json"),
+           let r = try? HighballKit.Recipe.load(from: url) { return r }
+        guard let root = repoRoot else { return nil }
+        for base in [root.appending(path: "recipes"), root.deletingLastPathComponent().appending(path: "highball-db/recipes")] {
+            for sub in ["launchers", "games", "tweaks"] {
+                let url = base.appending(path: "\(sub)/\(id).json")
+                if let r = try? HighballKit.Recipe.load(from: url) { return r }
+            }
+        }
+        return nil
+    }
+
+    static let launcherRecipes = ["steam", "epic-games", "battle-net", "gog-galaxy", "ea-app", "ubisoft-connect", "rockstar"]
+}
+
+import UniformTypeIdentifiers
+
+extension UTType {
+    static let exe = UTType(filenameExtension: "exe")
+    static let msi = UTType(filenameExtension: "msi")
+    static let bat = UTType(filenameExtension: "bat")
+}

@@ -1,0 +1,19 @@
+{
+  "id": "tankhead",
+  "title": "TankHead",
+  "steam_appid": null,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Reported by zn2m4swhkv-sys (highball-db#348, 2026-10-05), a copy from outside Steam in its own environment, Apple M2, macOS 27.0.1, Highball 0.10.8, engine x64-sikarugir10.0_6-r20 (D3DMetal 4), rated 3 of 5. Not verified by the maintainer.",
+  "notes": "Reported playable with workarounds at a low frame rate on an M2, an Unreal Engine game. The player's setup: the D3DMetal 4 engine r20 with D3DM_MTL4=1 (Metal 4 back end, which the engine turns off by default because it stops some Unreal 5 games) and D3DM_ENABLE_METALFX=1, nvapi64,nvngx=n,b so the game's DLSS option maps to MetalFX, Windows 11, AVX advertised, a 120 fps cap in Highball with the real cap set in game, and Engine.ini settings under AppData/Local/TankHead/Saved/Config/Windows (r.GTSyncType=1, r.OneFrameThreadLag=0, s.AsyncLoadingThreadEnabled=1, r.ShaderPipelineCache.Enabled=1 with BatchSize 10, fx.MaxNiagaraCPUParticlesPerEmitter=0, r.Tonemapper.Quality=1, r.SSR.Quality=1). Which of these matter was not tested here.",
+  "knownIssues": [
+    {
+      "symptom": "Low frame rate",
+      "cause": "Reported on an M2, not measured here",
+      "fix": "The player's settings in the notes made it playable; which of them help was not measured (highball-db#348)"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

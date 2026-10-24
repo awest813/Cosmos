@@ -1,0 +1,67 @@
+{
+  "id": "gog-galaxy",
+  "kind": "launcher",
+  "blocked": {
+    "reason": "GOG Galaxy installs but its login window renders black, so you can't sign in. Its DRM-free offline installers run directly in a bottle instead."
+  },
+  "title": "GOG Galaxy",
+  "renderer": "dxmt",
+  "steps": [
+    {
+      "type": "sync",
+      "sync": "none"
+    },
+    {
+      "type": "installer",
+      "url": "https://content-system.gog.com/open_link/download?path=/open/galaxy/client/setup_galaxy_2.1.6.29.exe",
+      "sha256": "c2888e0a1425823e47ed04c26e2d3c81cb14564a8e92d9c9628c3ed77a9d87bc",
+      "arguments": [
+        "/VERYSILENT",
+        "/NORESTART",
+        "/SUPPRESSMSGBOXES"
+      ],
+      "label": "GOG-Galaxy-Offline-Setup"
+    },
+    {
+      "type": "winetricks",
+      "verbs": [
+        "mfc140"
+      ]
+    },
+    {
+      "type": "pin",
+      "pin": {
+        "id": "6B1F0D2A-0000-4000-8000-000000000003",
+        "name": "GOG Galaxy",
+        "path": "Program Files/GOG Galaxy/GalaxyClient.exe",
+        "arguments": [
+          "/runWithoutUpdating",
+          "/deelevated"
+        ],
+        "environment": {}
+      }
+    },
+    {
+      "type": "note",
+      "text": "Uses GOG's full offline installer, not the tiny web installer from gog.com's download button. The web installer checks the Windows service pack fields, which Wine's win10 profile leaves empty, and wrongly claims 'requires Windows 7 SP1 or newer'. The offline Inno Setup package passes on win10. Verified installing 2.1.6.29 on engine sikarugir-10.0_6, 2026-08-25."
+    }
+  ],
+  "lastVerified": null,
+  "knownIssues": [
+    {
+      "symptom": "On the Wine 11 engines the client shows its login form and dies about two seconds later, sending a crash report",
+      "cause": "EXCEPTION_ACCESS_VIOLATION in Qt6WebEngineCore.dll at offset 0x292ada, the same instruction on x64-crossover26.3-r9 (2026-09-16) and r10 (2026-09-18), with and without DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN=1, on a clean cold start with the DXMT overlay. Galaxy's login is Chromium inside Qt WebEngine, and that build does not survive Wine 11 here. --disable-gpu makes no difference.",
+      "fix": "none yet; tracked at highball#149. GOG games are DRM-free, so run their offline installers from gog.com in an environment instead."
+    },
+    {
+      "symptom": "Installs and runs (services, logs, background client) but the login window is black on the Wine 10 engine; login is impossible",
+      "cause": "same engine limitation as Ubisoft Connect: the client's embedded Chromium UI fails GPU (ANGLE) init under this Wine build on every renderer. --disable-gpu switches it to software rendering but the window stays black.",
+      "fix": "none at the app level; run GOG's offline installers directly instead"
+    },
+    {
+      "symptom": "GalaxyClientService logs 'Failed to create Vulkan registry keys. Cannot create Vulkan keys without elevation and a registry elevator', and the client 'Failed to write Vulkan registry keys'",
+      "cause": "the overlay's Vulkan layer registration under HKLM\\SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers goes through the service, which under Wine does not run as SYSTEM. Not fatal: the client files a problem report and carries on to the login form (measured 2026-09-18). Pre-seeding the two ImplicitLayers values does not stop the request.",
+      "fix": "ignore it; it is not what stops the client"
+    }
+  ]
+}

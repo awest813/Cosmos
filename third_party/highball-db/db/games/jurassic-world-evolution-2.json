@@ -1,0 +1,24 @@
+{
+  "id": "jurassic-world-evolution-2",
+  "title": "Jurassic World Evolution 2",
+  "steam_appid": 1244460,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Outside reports, not verified by Highball: CodeWeavers' compatibility page rates it Runs Great on CrossOver 26.2 (codeweavers.com/compatibility/crossover/jurassic-world-evolution-2), a CrossOver 26 player on an M4 Pro reports about 50 fps on D3DMetal at high settings, and a CrossOver 25 player on an M4 got 'no suitable 3D graphics' at start. A Highball player could not get it to start on the default engine (highball-db#71, 2026-09-18).",
+  "notes": "Runs on Wine 11 with D3DMetal by outside reports, and fails to start on Wine 10, where CrossOver 25 shows 'no suitable 3D graphics'. Highball's Wine 11 engine is built from the CrossOver 26.3 tree, so that is the one to try, x64-crossover26.3-r19 or newer in an environment set to D3DMetal. Same engine family as Planet Coaster 2, which also needs Wine 11. Not run here.",
+  "knownIssues": [
+    {
+      "symptom": "Does not start on the default engine",
+      "cause": "Wine 10 lacks what the game needs, the same split CrossOver players see between versions 25 and 26 (outside reports)",
+      "fix": "Use an environment on the Wine 11 engine, newest revision, D3DMetal mode (highball-db#71)"
+    },
+    {
+      "symptom": "Black areas at some camera angles",
+      "cause": "Reported by a CrossOver 26 player on D3DMetal, not seen here",
+      "fix": "None known"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

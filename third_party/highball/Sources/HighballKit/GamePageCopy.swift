@@ -1,0 +1,263 @@
+import Foundation
+
+/// The sentences on a game's page (UX plan §3.5). Facts stated, gaps named, nothing computed
+/// that was not measured: "verified on an M4 Pro" and "your Mac is an M1 Pro", never
+/// "verified on a Mac like yours".
+public enum GamePageCopy {
+    public struct Verdict: Equatable {
+        public var headline: String
+        public var detail: String?
+    }
+
+    /// The verdict sentence for an entry (nil: no row at all), given the reader's chip.
+    public static func verdict(_ entry: GameDBEntry?, myChip: String, today: Date = Date()) -> Verdict {
+        let mine = shortChip(myChip)
+        guard let entry else {
+            return Verdict(headline: "Nobody has tested this on an \(mine) yet.",
+                           detail: "Nothing in the compatibility database for it yet. You would be the first to report it.")
+        }
+        switch entry.status {
+        case "blocked-anticheat":
+            let name = entry.anticheat?.names.first ?? "its anti-cheat"
+            return Verdict(headline: "Can't run: \(name).",
+                           detail: entry.anticheat?.note ?? "Its anti-cheat does not run on macOS.")
+        case "blocked-publisher":
+            return Verdict(headline: "Can't run: its publisher blocks macOS.",
+                           detail: "The game stops itself when it finds macOS, whatever the engine or graphics mode.")
+        case "verified-local":
+            let chip = entry.verified?.chip.map(shortChip)
+            var head = chip.map { "Verified on an \($0)." } ?? "Verified on this project's own Mac."
+            if chip == mine { head = "Verified on an \(mine), the same chip as yours." }
+            var parts: [String] = []
+            if let fps = entry.verified?.fps, let phrase = fpsPhrase(fps) {
+                parts.append(phrase)
+            }
+            if let os = entry.verified?.macos { parts.append("on macOS \(os)") }
+            var detail = parts.isEmpty ? "" : sentenceCase(parts.joined(separator: " "))
+            if let when = freshness(entry.lastVerified, today: today) {
+                detail += detail.isEmpty ? "Last confirmed \(when)." : ", last confirmed \(when)."
+            } else if !detail.isEmpty { detail += "." }
+            if let chip, chip != mine { detail += (detail.isEmpty ? "" : " ") + "Your Mac is an \(mine)." }
+            return Verdict(headline: head, detail: detail.isEmpty ? nil : detail)
+        case "reported-upstream":
+            return Verdict(headline: "Reported working upstream.",
+                           detail: "Named in the renderer's release notes as working; not verified here yet. Your Mac is an \(mine).")
+        default:
+            return Verdict(headline: "Reported by players.",
+                           detail: "Not verified by this project yet. Your Mac is an \(mine).")
+        }
+    }
+
+    /// The card for a game with a native Mac build on Steam. The Windows build stays available,
+    /// as a secondary action: it can still be the one someone wants (a port that lags behind,
+    /// an Intel-only one, mods).
+    public struct MacBuild: Equatable {
+        public var headline: String
+        public var detail: String
+        /// The row's note: the build's own requirements ("macOS 12 and M1 or later").
+        public var requirements: String?
+        public var yourMac: String
+        public var source: String
+    }
+
+    public static func macBuild(_ build: MacSteamBuild?, entry: GameDBEntry?, myChip: String, macOS: String) -> MacBuild? {
+        guard let build else { return nil }
+        let installed = build == .installed
+        let source = switch build {
+        case .installed: "Steam for Mac lists it as installed."
+        case .inDatabase: "From the compatibility database."
+        case .inAppInfo: "Steam's own data marks a Mac build that runs on current macOS."
+        case .onStore: "Steam's store page lists macOS for it."
+        }
+        return MacBuild(
+            headline: installed ? "Installed in Steam for Mac." : "There is a native Mac build on Steam.",
+            detail: installed
+                ? "Play starts the Mac build through Steam for Mac, with no Windows layer in between."
+                : "It will beat running the Windows version through any compatibility layer, and your Steam purchase already includes it.",
+            requirements: entry?.nativeMac?.available == true ? entry?.nativeMac?.note : nil,
+            yourMac: "Your Mac is an \(shortChip(myChip)) on macOS \(macOS).",
+            source: source)
+    }
+
+    /// Steam lists a Mac version that is 32-bit, which no macOS since Catalina runs, so the page
+    /// offers the Windows version alone. Said once, so the missing Mac button is not a mystery
+    /// (udance4ever's suggestion on highball#316). A database row about the Mac version decides
+    /// instead, as it does for the Mac card.
+    public static func outdatedMacBuild(appInfo: MacAppInfoBuild?, entry: GameDBEntry?) -> String? {
+        guard appInfo == .only32Bit, entry?.nativeMac == nil else { return nil }
+        return "Steam also has a Mac version of this game, but it is 32-bit and macOS has not run those since Catalina, so Highball installs the Windows version."
+    }
+
+    /// One line of "when you press Play, Highball will".
+    public struct WillDo: Equatable {
+        public var text: String
+        public var cost: String?
+        public var done: Bool
+        public init(text: String, cost: String? = nil, done: Bool = false) { self.text = text; self.cost = cost; self.done = done }
+    }
+
+    /// What Play applies, in order, from the row and the fix recipe. `applied` means the recipe
+    /// already ran in this environment, so its steps read as done.
+    /// `needsDirect3D12`: the program only has Direct3D 12 (`ProgramNeeds.wantsDirect3D12`), so a
+    /// mode without it gives way at Play (`Renderer.direct3D12TakeOver`) and the plan says so.
+    public static func willDo(_ entry: GameDBEntry?, recipe: Recipe?, applied: Bool,
+                              bottleRenderer: Renderer, explicit: Bool = false, gameOverride: Renderer? = nil,
+                              needsDirect3D12: Bool = false,
+                              osMajor: Int = ProcessInfo.processInfo.operatingSystemVersion.majorVersion) -> [WillDo] {
+        var items: [WillDo] = []
+        let rowMode = entry?.effectiveRenderer(osMajor: osMajor)
+        let direct3D12Mode = (rowMode?.servesDirect3D12 == true ? rowMode : nil) ?? .d3dmetal
+        let givesWay = needsDirect3D12 && !bottleRenderer.servesDirect3D12 && (explicit || rowMode == nil)
+        if entry?.nativeVulkan == true {
+            items.append(WillDo(text: "Let it draw with Vulkan directly; the graphics mode does not apply to this game"))
+        } else if let gameOverride {
+            items.append(WillDo(text: "Use \(plainName(gameOverride)) for this game (set by you); the environment stays on \(plainName(bottleRenderer))"))
+        } else if givesWay {
+            // The launch switches (Renderer.direct3D12TakeOver); the plan must not promise the
+            // environment's mode for a game that cannot run in it.
+            items.append(WillDo(text: explicit
+                                ? "Use \(plainName(direct3D12Mode)) for this game: it only has DirectX 12, which \(plainName(bottleRenderer)), your environment's setting, does not have. The environment keeps \(plainName(bottleRenderer)) for everything else"
+                                : "Use \(plainName(direct3D12Mode)) for this game: it only has DirectX 12, which the environment's \(plainName(bottleRenderer)) does not have"))
+        } else if explicit {
+            if let wanted = entry?.effectiveRenderer(osMajor: osMajor), wanted != bottleRenderer {
+                items.append(WillDo(text: "Use \(plainName(bottleRenderer)), your environment's setting. The database asks for \(plainName(wanted)), and an environment's own setting wins"))
+            } else {
+                items.append(WillDo(text: "Use \(plainName(bottleRenderer)), the environment's setting (set by you)"))
+            }
+        } else if let wanted = entry?.effectiveRenderer(osMajor: osMajor) {
+            items.append(WillDo(text: wanted == bottleRenderer
+                                ? "Use \(plainName(wanted)), the way it was verified"
+                                : "Use \(plainName(wanted)) for this game, the way it was verified, instead of the environment's \(wanted == bottleRenderer ? "" : plainName(bottleRenderer))"))
+        } else {
+            items.append(WillDo(text: "Use \(plainName(bottleRenderer)), the environment's setting; no verdict names a better one"))
+        }
+        if let args = entry?.effectiveLaunchArgs(osMajor: osMajor), !args.isEmpty {
+            items.append(WillDo(text: "Start it with \(args.joined(separator: " "))"))
+        }
+        if let recipe, recipe.isOptIn {
+            // Play does not touch an opt-in fix; the page says so rather than listing steps
+            // Play will not take.
+            items.append(WillDo(text: applied
+                                ? "Keep the \(recipe.title) fix you applied under Game settings"
+                                : "Leave the optional \(recipe.title) fix alone; it is under Game settings for when the notes say your Mac needs it",
+                                done: applied))
+        } else if let recipe {
+            for step in recipe.steps {
+                guard let text = describe(step) else { continue }
+                items.append(WillDo(text: text, cost: applied ? nil : step.slowHint, done: applied))
+            }
+        }
+        return items
+    }
+
+    /// The row's renderer when only the environment's explicit setting keeps it from applying and
+    /// no per-game choice exists yet. The game page offers it for this game alone, so the reader
+    /// is never left with a plan that names two graphics modes (2026-09-11 walkthrough).
+    public static func rowRendererHeldBack(_ entry: GameDBEntry?, bottleRenderer: Renderer, explicit: Bool, gameOverride: Renderer?,
+                                           needsDirect3D12: Bool = false,
+                                           osMajor: Int = ProcessInfo.processInfo.operatingSystemVersion.majorVersion) -> Renderer? {
+        guard explicit, gameOverride == nil, entry?.nativeVulkan != true,
+              let wanted = entry?.effectiveRenderer(osMajor: osMajor), wanted != bottleRenderer else { return nil }
+        // Nothing is held back from a program that only has Direct3D 12: Play already gives it
+        // the row's mode when the environment's has no Direct3D 12 (Renderer.direct3D12TakeOver).
+        if needsDirect3D12, !bottleRenderer.servesDirect3D12, wanted.servesDirect3D12 { return nil }
+        return wanted
+    }
+
+    /// The row's fps field is a figure followed by where it was read: "about 34 in the prologue
+    /// ride at 1280x720". The sentence keeps both, puts "frames per second" after the figure, and
+    /// stops at the first full stop so the verdict stays one sentence. A field that starts with
+    /// no figure ("menu renders, DXVK") is used as it is; a paragraph stitched in by mistake is
+    /// cut the same way (2026-09-11, Assetto Corsa).
+    public static func fpsPhrase(_ fps: String) -> String? {
+        var t = fps.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let stop = t.range(of: ". ") { t = String(t[..<stop.lowerBound]) }
+        if t.hasSuffix(".") { t.removeLast() }
+        guard !t.isEmpty else { return nil }
+        let figure = "^(?i:about )?[0-9]+(?:\\.[0-9]+)?(?:\\s*(?:-|–|to)\\s*[0-9]+(?:\\.[0-9]+)?)?"
+        guard let r = t.range(of: figure, options: .regularExpression) else { return t }
+        let rest = String(t[r.upperBound...])
+        if rest.lowercased().hasPrefix(" fps") { return t }
+        return String(t[r]) + " frames per second" + rest
+    }
+
+    // MARK: helpers
+
+    public static func plainName(_ r: Renderer) -> String {
+        switch r {
+        case .dxmt: return "DXMT (DirectX 11 on Metal)"
+        case .d3dmetal: return "Apple's DirectX 12 support"
+        case .dxvk: return "DXVK (Vulkan on Metal)"
+        case .wined3d: return "Wine's own Direct3D"
+        case .vkd3d: return "vkd3d-proton (DirectX 12 through Vulkan)"
+        }
+    }
+
+    /// "Apple M1 Pro" -> "M1 Pro"; anything else unchanged.
+    public static func shortChip(_ chip: String) -> String {
+        let t = chip.trimmingCharacters(in: .whitespaces)
+        return t.hasPrefix("Apple ") ? String(t.dropFirst(6)) : t
+    }
+
+    /// "today", "yesterday", "12 days ago", or "on 2026-08-25" past two months.
+    static func freshness(_ ymd: String?, today: Date) -> String? {
+        guard let ymd else { return nil }
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.timeZone = TimeZone(identifier: "UTC")
+        guard let d = f.date(from: ymd) else { return nil }
+        let days = Int(today.timeIntervalSince(d) / 86_400)
+        switch days {
+        case ..<1: return "today"
+        case 1: return "yesterday"
+        case 2...60: return "\(days) days ago"
+        default: return "on \(ymd)"
+        }
+    }
+
+    static func sentenceCase(_ s: String) -> String {
+        guard let first = s.first else { return s }
+        return first.uppercased() + s.dropFirst()
+    }
+
+    static func describe(_ step: Recipe.Step) -> String? {
+        switch step {
+        case let .installer(_, _, _, label, _, _): return "Install \(label)"
+        case let .winetricks(verbs, _): return "Install \(verbs.joined(separator: ", "))"
+        case let .registry(_, name, _, _): return "Set the Windows registry value \(name)"
+        case let .environment(name, _): return "Set \(name) for this game"
+        case let .renderer(r): return "Switch the environment's graphics mode to \(plainName(r))"
+        case let .sync(m): return "Set the environment's sync mode to \(m.rawValue)"
+        case let .winver(v): return "Report Windows \(v.rawValue) to the game"
+        case let .file(path, _): return "Write \(URL(fileURLWithPath: path).lastPathComponent)"
+        case let .copy(from, _, _): return "Give the game its own \(URL(fileURLWithPath: from).lastPathComponent) from the engine"
+        case .pin: return nil
+        case let .note(text): return text
+        case let .dllOverride(v): return "Set the Windows library override \(v)"
+        case let .dxvkConfig(exe, _): return "Configure DXVK for \(exe)"
+        }
+    }
+}
+
+extension GamePageCopy {
+    /// The consequence sentence of the D3DMetal ask, from the row: "will not start" only when
+    /// no other renderer is recorded as working, "runs faster with it" when one is.
+    public static func d3dMetalAsk(title: String, entry: GameDBEntry?) -> String {
+        // Asked because the environment (or a pinned program) is set to D3DMetal, not because
+        // the row needs it (#61): say where the setting came from and that the default runs.
+        guard entry?.effectiveRenderer() == .d3dmetal else {
+            return "The environment \(title) runs in is set to D3DMetal, which needs Apple's licence accepted for its engine. Turning it on means accepting that licence, which allows non-commercial use; nothing downloads and nothing is sent to Apple. Playing with DXMT, Highball's default, works for most games."
+        }
+        let consequence = otherWorkingRenderer(entry).map {
+            "Without it, \(title) still runs on \(plainName($0)), which was recorded as working, but slower."
+        } ?? "The database records no other graphics mode as working for \(title), so without it Highball has nothing else to try."
+        return "Highball already includes it. Turning it on means accepting Apple's licence, which allows non-commercial use. \(consequence) Nothing to download and nothing sent to Apple."
+    }
+
+    /// A graphics mode other than D3DMetal that the row recorded as working, if any.
+    public static func otherWorkingRenderer(_ entry: GameDBEntry?) -> Renderer? {
+        guard let results = entry?.rendererResults else { return nil }
+        for key in ["dxmt", "vkd3d", "dxvk", "wined3d"] where results[key]?.verdict == "works" {
+            if let r = Renderer(rawValue: key) { return r }
+        }
+        return nil
+    }
+}

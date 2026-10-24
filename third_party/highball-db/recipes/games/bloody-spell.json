@@ -1,0 +1,25 @@
+{
+  "id": "bloody-spell",
+  "kind": "game",
+  "title": "Bloody Spell",
+  "requires": [
+    "steam",
+    "corefonts"
+  ],
+  "renderer": null,
+  "steps": [
+    {
+      "type": "registry",
+      "key": "HKCU\\Software\\Wine\\AppDefaults\\BloodySpell.exe\\DllOverrides",
+      "name": "mfplat",
+      "valueType": "REG_SZ",
+      "data": ""
+    },
+    {
+      "type": "note",
+      "text": "The game's videos (the opening one and the one after the difficulty selection) freeze it a few seconds in: Wine's media pipeline deadlocks on them, on every graphics mode. With Media Foundation's platform library disabled for BloodySpell.exe only, the game no longer hangs, the intro still plays, and it goes in game (confirmed by the reporter of highball-db#316 with the same override set by hand). Microsoft's core fonts come along because the title screen's text does not render without them. Nothing else in the environment changes."
+    }
+  ],
+  "knownIssues": [],
+  "lastVerified": null
+}

@@ -1,0 +1,24 @@
+{
+  "id": "bloody-spell",
+  "title": "Bloody Spell",
+  "steam_appid": 992300,
+  "status": "community",
+  "renderer": "d3dmetal",
+  "anticheat": null,
+  "provenance": "Reported by udance4ever (highball-db#316, 2026-10-04 and 2026-10-05), Apple M1, macOS 27.0.1, Highball 0.10.4 beta and 0.10.6 beta, engine x64-sikarugir10.0_6-r19 then r21, D3DMetal. First rated 2 of 5 (hangs after the difficulty selection on D3DMetal, DXMT and DXVK alike) in an older environment, then 5 of 5 after installing the game into a fresh environment, in game at about 28 fps at 1920x1080 per the Metal HUD in their screenshot. Not verified by the maintainer. On 2026-10-05 the same player confirmed that turning Media Foundation off for BloodySpell.exe gets past the freeze, rated 3 of 5 (playable with that workaround).",
+  "notes": "Playable with the recipe. Reaches play on D3DMetal on the default engine, about 28 fps at 1920x1080 on an M1 in the reporter's screenshot. Without the recipe its videos freeze it a few seconds in (the opening one, the one after the difficulty selection), on every graphics mode, with Wine's media pipeline deadlocked in the log. The recipe turns Media Foundation off for BloodySpell.exe only: the reporter then saw the intro play and got in game. It also installs Microsoft's core fonts, which the title screen's text needs. A DualSense controller was read without Steam Input on one run and only with it on the next.",
+  "knownIssues": [
+    {
+      "symptom": "Title screen text missing",
+      "cause": "the game's fonts fall back to ones the environment does not ship",
+      "fix": "Microsoft's core fonts, which the recipe installs"
+    },
+    {
+      "symptom": "Freezes a few seconds into a video (the opening one, or the one after the difficulty selection), on every graphics mode",
+      "cause": "the video deadlocks Wine's media pipeline (GStreamer caps assertion, then winegstreamer's media_source critical section waiting forever)",
+      "fix": "the recipe turns Media Foundation off for BloodySpell.exe (confirmed by the reporter, highball-db#316)"
+    }
+  ],
+  "launchArgs": null,
+  "lastVerified": null
+}

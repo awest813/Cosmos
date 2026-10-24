@@ -1,0 +1,92 @@
+{
+  "id": "rockstar",
+  "kind": "launcher",
+  "title": "Rockstar Games Launcher",
+  "renderer": "dxmt",
+  "engine": "x64-crossover26.3-r15",
+  "steps": [
+    {
+      "type": "note",
+      "text": "Asks for the Wine 11 engine r15 or newer since 2026-10-03 (was r9). On r11 to r14 the Rockstar Games Launcher installer stops at once, and an environment already on an older revision is not moved on its own, so raising the pin makes Play offer the newest revision to those environments. Everything installed stays."
+    },
+    {
+      "type": "sync",
+      "sync": "none"
+    },
+    {
+      "type": "registry",
+      "key": "HKLM\\System\\CurrentControlSet\\Control",
+      "name": "ServicesPipeTimeout",
+      "valueType": "REG_SZ",
+      "data": "60000"
+    },
+    {
+      "type": "registry",
+      "key": "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\Rockstar-Games-Launcher.exe",
+      "name": "GlobalFlag",
+      "valueType": "REG_DWORD",
+      "data": "16"
+    },
+    {
+      "type": "environment",
+      "name": "DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN",
+      "value": "1",
+      "note": "The launcher's sign-in is a Chromium browser whose GPU process draws into the browser process's window. DXMT refuses such cross-process swapchains unless told the driver supports them; Highball's Wine 11 engine (build 15+) does."
+    },
+    {
+      "type": "installer",
+      "url": "https://gamedownloads.rockstargames.com/public/installer/Rockstar-Games-Launcher.exe",
+      "sha256": null,
+      "arguments": [],
+      "label": "Rockstar-Launcher-Setup"
+    },
+    {
+      "type": "pin",
+      "pin": {
+        "id": "6B1F0D2A-0000-4000-8000-000000000006",
+        "name": "Rockstar Launcher",
+        "path": "Program Files/Rockstar Games/Launcher/Launcher.exe",
+        "arguments": [],
+        "environment": {},
+        "renderer": "dxvk"
+      }
+    },
+    {
+      "type": "note",
+      "text": "Second-most-reported broken launcher on Whisky's tracker (freezes on logo). The launcher needs the Social Club redistributable which its installer bundles. If it freezes on the logo, try renderer d3dmetal and winetricks vcrun2019."
+    },
+    {
+      "type": "note",
+      "text": "Needs Highball's Wine 11 engine (the CrossOver 26.3 tree, x64-crossover26.3-r5 or later): on the Wine 10 engine the launcher's embedded browser dies on a missing user32 export (IsWindowArranged) and the sign-in never shows. Highball offers the engine before installing; accepting it re-runs the Windows setup of the environment once. Verified 2026-09-05 on an M1 Pro, macOS 26.6.2, DXMT: the Sign In renders and is interactive."
+    }
+  ],
+  "knownIssues": [
+    {
+      "symptom": "The 'Rockstar Games - Sign In' window opens but stays empty on the first launch right after installing; stopping the environment and launching again shows the sign-in",
+      "cause": "verified 2026-09-18 on an M1 Pro, macOS 26.6.2, engine x64-crossover26.3-r9, fresh environment: the launcher's first run applies a self-update and restarts itself through its Windows service, and Windows services inherit the environment the Wine server was booted with, which on a fresh environment is a setup step without a graphics overlay (services.exe and the restarted launcher had no WINEDLLPATH_PREPEND while the launch that started them did). The restarted launcher's browser then ran on wined3d and drew nothing.",
+      "fix": "Highball 0.9.28 restarts the environment before a launch when its services would hand the program a different stack and nothing else is running. On older versions, Stop the environment (or quit the launcher from its tray icon) and press Play again."
+    },
+    {
+      "symptom": "Installer sticks forever at 'Preparing to Install...'; if bypassed, the launcher shows 'The Rockstar Games Launcher failed to initialize!'",
+      "cause": "verified 2026-08-26: the installer misses its service handshake and waits forever (files, VC++ and the service actually land), then Launcher.exe fails init after localisation on every renderer. CodeWeavers ships Rockstar fixes inside their Wine; this engine does not have them yet. Re-checked 2026-09-02 on macOS 26.6.2 (25G83), M1 Pro, fresh bottle with ServicesPipeTimeout=60000 present before the session started: identical. The installer's own log (ProgramData\\Rockstar Games\\Launcher\\installer_log.txt) shows both VC++ redists exit 0, 'RockstarService.exe install' exit 0, the uninstall registry keys written, then nothing; it never starts the service (sc query: STOPPED, exit 1077 never started). A manual 'sc start \"Rockstar Service\"' reaches RUNNING with the service logging its handshake subsystem up, and the installer stays parked at 'Preparing to Install...' regardless (12 minutes, twice). Re-tested 2026-09-02 on macOS 26.6.2: same install-time deadlock (the installer never requests the service start). On CrossOver 26.3's Wine the install completes and the service runs; the launcher then fails on its Direct3D 10.1 + Direct2D device, not on CEF: wined3d has no feature level, DXVK builds for macOS cannot serve it, D3DMetal ships no d3d10core, and DXMT 0.80 aborts in SwapDeviceContextState. With that method stubbed the launcher window appears, so the graphics half is a DXMT fix.",
+      "fix": "none at the app level. Tracked upstream at Sikarugir-App/Sikarugir#258. Highball ships a fixed engine as soon as one exists."
+    },
+    {
+      "symptom": "Sign in or create account fails with 'Sorry, we are unable to handle your request at this time' and a code (#1.000.7 signing in, #1.500.7 creating an account)",
+      "cause": "The Mac's clock. Rockstar's sign-in refuses a request whose clock is off, and the launcher reports it as a service error. Found 2026-09-08 on an M1 Pro whose date was right but whose time zone was not: sign-in and sign-up were refused for four days from the launcher, from Safari on the same Mac, and over a VPN and a phone hotspot, while the same account signed in from a phone on the same connection. Setting the Mac to take its time zone from its location fixed it, and the launcher signed in on the next attempt with no other change (auth status 200). A second cause, confirmed 2026-10-24 by a player in Turkey (highball#477, M1 Max, macOS 27.0.1, Wine 11 r27): Wine names the Windows time zone by taking the first one in its list with the Mac's offset, so a Mac set to Europe/Istanbul reports Arab Standard Time (Riyadh) and Rockstar refuses the sign in, while the website works in a Mac browser.",
+      "fix": "Set the Mac's clock: System Settings > General > Date & Time, with 'Set time zone automatically using your current location' on. Then sign in again. If it still refuses, the account itself is fine on another device, so create or reset it at socialclub.rockstargames.com and retry. For the Turkey case, with the environment stopped, delete the seven UTC+3 zones listed before Turkey Standard Time (Arab, Arabic, Belarus, E. Africa, Jordan, Russian, Syria) under HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones in the environment's registry, which makes Wine report Turkey Standard Time. An engine update brings them back, so redo it after one. A fix in the engine is planned."
+    },
+    {
+      "symptom": "On Wine 11 engines r11 to r14 the installer stops right after it starts with 'An error has occurred. Please make sure all instances of the Rockstar Games Launcher have been closed' and its language page stays blank (highball-db#272, 2026-10-02).",
+      "cause": "measured on an M4, macOS 27.0: engine patch 0011 (r11) wrote the Windows error code back twice on every window callback, so GetLastError() returned a heap pointer after the first display call; the installer reads it right after it measures the display. r7 to r10 and the Wine 10 engine do not have it.",
+      "fix": "engine x64-crossover26.3-r15 (Highball 0.10.3): the installer reaches its language page with a clean log there."
+    }
+  ],
+  "lastVerified": {
+    "date": "2026-09-18",
+    "engine": "x64-crossover26.3-r15",
+    "macos": "26.6.2",
+    "chip": "Apple M1 Pro",
+    "result": "Fresh environment through the recipe on the Wine 11 engine: installer, service and launcher run, and the 'Rockstar Games - Sign In' window renders and is interactive under the pin's DXVK once the environment's services carry the launch stack (first launch after install stayed empty until then, see the known issue). Earlier: signed in end to end on 2026-09-08 and started Grand Theft Auto V Enhanced. Bundled Wine 10 engine: the browser dies on a missing user32 export, no sign-in."
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "mirrors-edge-catalyst",
+  "kind": "game",
+  "title": "Mirror's Edge Catalyst",
+  "requires": [
+    "steam",
+    "ea-app"
+  ],
+  "renderer": null,
+  "engine": "x64-crossover26.3-r15",
+  "steps": [
+    {
+      "type": "note",
+      "text": "The Steam copy runs through the EA app, which Steam installs on the game's first start and which only installs on the Wine 11 engine (highball-db#318). This recipe asks for that engine and installs the EA app first; sign in to it once, then start the game from Steam. The game itself has not been verified here yet."
+    }
+  ],
+  "knownIssues": [],
+  "lastVerified": null
+}
