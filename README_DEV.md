@@ -271,7 +271,7 @@ Shared ports cannot resolve to `d3dmetal`. See [docs/PORTS.md](docs/PORTS.md).
 See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md),
 [docs/LICENSING.md](docs/LICENSING.md), and [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md).
 
-Cosmos is **LGPL-3.0-or-later** — see [LICENSE](LICENSE).
+Cosmos is **GPL-3.0-or-later** — see [LICENSE](LICENSE). Wine and DXMT Latest stay LGPL.
 
 | Script | Purpose |
 | --- | --- |

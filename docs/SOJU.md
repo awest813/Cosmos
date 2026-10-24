@@ -1,6 +1,6 @@
 # Store launch fixes
 
-[Soju](https://github.com/BCD1210/soju) is a GPL-3.0 launcher for Battle.net, Steam, Epic, and GOG on Apple Silicon. Cosmos does not include Soju's source, and it does not build or ship CodeWeavers' Wine. The behaviors below are Cosmos's own implementation of the launch facts Soju documented.
+[Soju](https://github.com/BCD1210/soju) is a GPL-3.0 launcher for Battle.net, Steam, Epic, and GOG on Apple Silicon. Cosmos is GPL-3.0-or-later, so Soju's scripts may be combined later. Cosmos does not build or ship CodeWeavers' Wine. The behaviors below are still Cosmos's own implementation of the launch facts Soju documented.
 
 Apple's Game Porting Toolkit is still a separate download. Games and store clients stay with their publishers.
 
@@ -64,4 +64,4 @@ The Battle.net agent checks the signature of `Battle.net.exe` using a relative p
 
 ## License boundary
 
-Soju is GPL-3.0. Combining its scripts with Cosmos would pull Cosmos under GPL-3.0. Cosmos stays LGPL-3.0-or-later. Do not copy Soju's source, hash lists, or CodeWeavers engine into this repository. D3DMetal remains a personal download from Apple.
+Soju is GPL-3.0. Cosmos is GPL-3.0-or-later, so Soju's scripts may be added with their copyright notices kept. This repository does not yet contain that source. CodeWeavers' application and engine stay out, and D3DMetal remains a personal download from Apple.

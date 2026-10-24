@@ -4,8 +4,9 @@
 and run Windows games on Linux. Cosmos **v0 profiles** ([PROFILE_FORMAT.md](PROFILE_FORMAT.md))
 are the macOS equivalent: known-good launch settings, not full installers yet.
 
-Use Lutris scripts as **recipe inspiration**; do not copy GPL installer YAML into
-this LGPL repo without checking each file's license.
+Lutris installer YAML is GPL-3.0 and may be combined with Cosmos. Keep the
+upstream copyright and license notice with any copied script. Profiles in this
+repo are still Cosmos YAML, not a full Lutris installer runner.
 
 ## Field mapping
 

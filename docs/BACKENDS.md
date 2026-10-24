@@ -72,11 +72,11 @@ both on).
 
 ## Store launchers
 
-Battle.net, Epic, and GOG need a few launch fixes that are easy to miss. On Apple Silicon, Cosmos can advertise AVX to Rosetta (`COSMOS_ROSETTA_AVX`). Battle.net, Epic, and GOG get `WINE_SIMULATE_WRITECOPY=1` so the login page can draw (`COSMOS_WINE_WRITECOPY`). D3DMetal needs its Metal library, Windows shims, and unix symlinks installed together; a copied `.so` is replaced with a symlink. Wine is started directly so `DYLD_*` reaches the game. See [SOJU.md](SOJU.md). Soju is GPL-3.0, and its source is not included. D3DMetal is still a personal download from Apple.
+Battle.net, Epic, and GOG need a few launch fixes that are easy to miss. On Apple Silicon, Cosmos can advertise AVX to Rosetta (`COSMOS_ROSETTA_AVX`). Battle.net, Epic, and GOG get `WINE_SIMULATE_WRITECOPY=1` so the login page can draw (`COSMOS_WINE_WRITECOPY`). D3DMetal needs its Metal library, Windows shims, and unix symlinks installed together; a copied `.so` is replaced with a symlink. Wine is started directly so `DYLD_*` reaches the game. See [SOJU.md](SOJU.md). Soju is GPL-3.0. Cosmos is GPL-3.0-or-later; this behavior is still original Cosmos code. D3DMetal is still a personal download from Apple.
 
 ## OpenGL 3.2
 
-WineD3D and some SDL3 programs need an OpenGL 3.2 context from Wine's Mac driver. Cosmos can flip one check in `winemac.so` when the byte at Moonshine's offset is still the original conditional jump. A different Wine build is left unchanged. Programs also start with the executable's folder as the working directory. `COSMOS_WINEDEBUG_PRESET=moonshine` records `fixme-all,err+all,warn+module`; the default preset stays `-all,err+all`. See [MOONSHINE.md](MOONSHINE.md). Moonshine and Whisky are GPL-3.0, and their source is not included.
+WineD3D and some SDL3 programs need an OpenGL 3.2 context from Wine's Mac driver. Cosmos can flip one check in `winemac.so` when the byte at Moonshine's offset is still the original conditional jump. A different Wine build is left unchanged. Programs also start with the executable's folder as the working directory. `COSMOS_WINEDEBUG_PRESET=moonshine` records `fixme-all,err+all,warn+module`; the default preset stays `-all,err+all`. See [MOONSHINE.md](MOONSHINE.md). Moonshine and Whisky are GPL-3.0. Cosmos is GPL-3.0-or-later; this behavior is still original Cosmos code.
 
 ## How backends are selected today
 

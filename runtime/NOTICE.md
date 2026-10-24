@@ -1,6 +1,6 @@
 # Cosmos Runtime — Third-Party Notices
 
-**Cosmos application:** LGPL-3.0-or-later (see `LICENSE`).
+**Cosmos application:** GPL-3.0-or-later (see `LICENSE`).
 
 Cosmos may download or bundle the following runtime components. See
 `docs/LICENSING.md` and `docs/LGPL_IMPACT.md`.

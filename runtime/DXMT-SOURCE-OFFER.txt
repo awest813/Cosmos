@@ -18,5 +18,5 @@ version shown by:
 
 with the release tag at the URL above (for example, v0.81).
 
-Cosmos itself is LGPL-3.0-or-later licensed (see LICENSE). Third-party runtime
+Cosmos itself is GPL-3.0-or-later licensed (see LICENSE). Third-party runtime
 components retain their own licenses — see runtime/NOTICE.md and docs/LICENSING.md.

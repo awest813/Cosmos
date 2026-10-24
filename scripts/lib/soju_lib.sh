@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Store-launcher fixes documented by Soju (https://github.com/BCD1210/soju).
 #
-# Soju is GPL-3.0. This file does not include its source. It reimplements four
-# facts about launching Battle.net, Epic, and GOG on Apple Silicon:
+# Soju is GPL-3.0. Cosmos is GPL-3.0-or-later. This file is still original
+# Cosmos code. It reimplements these facts about launching Battle.net, Epic,
+# and GOG on Apple Silicon:
 #   - Rosetta must advertise AVX or some loaders wait forever
 #   - Battle.net's login page needs Wine's writecopy simulation
 #   - D3DMetal engages only when its Metal library, Windows shims, and unix

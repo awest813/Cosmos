@@ -156,7 +156,7 @@ write_info_plist() {
     <key>LSMinimumSystemVersion</key>
     <string>$(xml_escape "${min_system_version}")</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026 Allen West. Licensed under LGPL-3.0-or-later.</string>
+    <string>Copyright © 2026 Allen West. Licensed under GPL-3.0-or-later.</string>
 </dict>
 </plist>
 EOF

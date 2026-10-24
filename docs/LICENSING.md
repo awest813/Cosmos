@@ -1,8 +1,11 @@
 # Cosmos Licensing & Third-Party Components
 
-Cosmos itself is [LGPL-3.0-or-later licensed](../LICENSE). Bundled or downloaded
+Cosmos itself is [GPL-3.0-or-later licensed](../LICENSE). Bundled or downloaded
 runtimes have their own terms — this document is the checklist before shipping or
-upgrading dependencies.
+upgrading dependencies. GPL-3.0 code from Whisky, Moonshine, Soju, Lutris, and
+umu-protonfixes may be combined into Cosmos. Keep each file's copyright and
+license notice. Wine, DXMT, and the trees in `third_party/` stay on their own
+licenses. Apple's D3DMetal and the CrossOver application stay out.
 
 > **Practical guide:** [LGPL_IMPACT.md](LGPL_IMPACT.md) — Cosmos LGPL obligations,
 > runtime stack, DXMT channel gate, and distribution checklist.
@@ -45,8 +48,8 @@ upgrading dependencies.
   - Include `runtime/NOTICE.md` and `runtime/WINE-SOURCE-OFFER.txt`.
   - Corresponding source: [WineHQ git](https://gitlab.winehq.org/wine/wine) for the
     pinned major version.
-- Cosmos (LGPL-3.0+) invokes Wine as a **separate binary** at runtime. Wine and
-  Cosmos are both LGPL family — see [LGPL_IMPACT.md](LGPL_IMPACT.md).
+- Cosmos (GPL-3.0-or-later) invokes Wine as a **separate binary** at runtime.
+  Wine stays LGPL-2.1-or-later — see [LGPL_IMPACT.md](LGPL_IMPACT.md).
 
 ## DXVK-macOS (Gcenx)
 
@@ -127,10 +130,11 @@ upgrading dependencies.
 
 | Project | License | Use in Cosmos |
 | --- | --- | --- |
-| [Whisky](https://github.com/Whisky-App/Whisky) | GPL-3 | **Cannot merge** — GPL-3 forces GPL on combined works; UX reference only |
-| [Moonshine](https://github.com/ybmeng/moonshine) | GPL-3.0 | Behavior only. Cosmos reimplements the OpenGL byte check, crash note, log preset, and launch directory. Do not copy Moonshine or Whisky source |
-| [Soju](https://github.com/BCD1210/soju) | GPL-3.0 | Behavior only. Cosmos reimplements AVX advertising, the Battle.net login-page switch, the D3DMetal symlink layout, and the Battle.net signature seed. Do not copy Soju's scripts or CodeWeavers' engine |
-| [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3 | Architecture reference only — do not copy GPL source |
+| [Whisky](https://github.com/Whisky-App/Whisky) | GPL-3.0 | May be combined. The current OpenGL, log, and launch-folder behavior is still original Cosmos code |
+| [Moonshine](https://github.com/ybmeng/moonshine) | GPL-3.0 | May be combined. Same OpenGL check, crash note, log preset, and launch directory, reimplemented in Cosmos |
+| [Soju](https://github.com/BCD1210/soju) | GPL-3.0 | May be combined. AVX, the login-page switch, the D3DMetal layout, and the Battle.net signature seed are reimplemented in Cosmos. Do not copy CodeWeavers' engine |
+| [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3.0 | May be combined. Keep upstream copyright notices with any copied files |
+| [Lutris](https://github.com/lutris/lutris) | GPL-3.0 | Installer scripts may be combined. Profiles are still Cosmos YAML, not a full installer runner |
 | [macos-wine-steam / Merlot](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; safe to compare scripts |
 | [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Optional detection cross-check; VDF parsing patterns in `steam_lib.sh` |
 | [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) | MIT | Vendored `third_party/steam-on-m1-wine/` (wrapper + assets); launch/prefix integration in `steam_lib.sh` |

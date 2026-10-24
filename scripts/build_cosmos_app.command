@@ -101,7 +101,7 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<EOF
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026 Allen West. Licensed under LGPL-3.0-or-later.</string>
+    <string>Copyright © 2026 Allen West. Licensed under GPL-3.0-or-later.</string>
 </dict>
 </plist>
 EOF

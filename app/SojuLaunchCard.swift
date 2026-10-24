@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Battle.net, Epic, and GOG launch fixes.
-/// Cosmos implements them itself. Soju is GPL-3.0 and is not included.
+/// Original Cosmos code. Soju is GPL-3.0 and is not copied into this file.
 struct SojuLaunchCard: View {
     var rosettaAvx: String
     var wineWritecopy: String

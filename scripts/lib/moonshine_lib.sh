@@ -2,7 +2,8 @@
 # Moonshine-style launch behavior, written for Cosmos.
 #
 # Moonshine (https://github.com/ybmeng/moonshine) and Whisky are GPL-3.0.
-# This file does not include their source. It reimplements three behaviors:
+# Cosmos is GPL-3.0-or-later. This file is still original Cosmos code.
+# It reimplements three behaviors:
 #   - flip one OpenGL 3.2 check in Wine's Mac driver only when that byte matches
 #   - record why a launch ended, including an uncaught signal
 #   - start a program with its own folder as the working directory

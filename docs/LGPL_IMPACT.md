@@ -1,19 +1,18 @@
 # LGPL and Cosmos
 
-Cosmos is licensed under the **GNU Lesser General Public License v3.0 or later
-(LGPL-3.0+)**. See [LICENSE](../LICENSE).
+Cosmos itself is **GPL-3.0-or-later**. See [LICENSE](../LICENSE). It was
+LGPL-3.0-or-later; that license allows a modified version to be conveyed under
+the GPL. This file still covers the **LGPL** pieces Cosmos downloads or invokes.
 
-This aligns the project with its core **LGPL Wine** runtime and optional **LGPL
-DXMT** channel, while keeping vendored MIT third-party trees under their original
-licenses.
+Vendored MIT trees in `third_party/` stay MIT.
 
-## What LGPL means for Cosmos
+## What the license means
 
 | Audience | Impact |
 | --- | --- |
 | **Users** | Run, study, and share Cosmos freely. No fee for personal use. |
-| **Modifiers** | If you **distribute** a modified Cosmos, provide corresponding source under LGPL-3.0+. |
-| **Proprietary apps** | LGPL allows linking proprietary programs to LGPL **libraries** under specific rules; Cosmos as a whole is an LGPL application — consult counsel before embedding in closed products. |
+| **Modifiers** | If you **distribute** a modified Cosmos, provide corresponding source under GPL-3.0-or-later. |
+| **Proprietary apps** | A GPL application is not a drop-in library for a closed product. Wine and DXMT Latest remain LGPL and keep their own obligations when you redistribute those binaries. |
 
 Cosmos is **not** MIT. Third-party MIT components in `third_party/` remain MIT
 with their LICENSE files preserved.
@@ -22,7 +21,7 @@ with their LICENSE files preserved.
 
 | Component | License | Notes |
 | --- | --- | --- |
-| **Cosmos** (this repo) | **LGPL-3.0+** | Scripts, SwiftUI app, recipes, profiles |
+| **Cosmos** (this repo) | **GPL-3.0-or-later** | Scripts, SwiftUI app, recipes, profiles |
 | **Wine** (Gcenx) | LGPL-2.1+ | Downloaded runtime — source offer: `WINE-SOURCE-OFFER.txt` |
 | **DXMT 0.80** (Pinned) | MIT | Default channel |
 | **DXMT 0.81+** (Latest) | LGPL-3.0+ | `COSMOS_ALLOW_LGPL=1` (default) |
@@ -38,26 +37,24 @@ export COSMOS_ALLOW_LGPL=0   # refuse DXMT > 0.80
 export COSMOS_ALLOW_LGPL=1   # allow Latest channel (default)
 ```
 
-This is separate from Cosmos's own LGPL license — it gates an **optional MIT vs
-LGPL third-party** graphics library.
+This flag is not Cosmos's own license. It gates an **optional MIT vs LGPL
+third-party** graphics library.
 
-## What LGPL Cosmos still cannot absorb
+## What GPL still does not absorb
 
-| Upstream | License | Why |
+| Upstream | License | Why it stays out |
 | --- | --- | --- |
-| **Whisky**, **Heroic** | GPL-3.0 | GPL-3 code cannot be combined into an LGPL-3 work without the combined work becoming GPL-3 |
-| **protonfixes / umu-protonfixes** | GPL-3.0 | Port ideas to YAML/recipes — do not copy Python scripts |
-| **CrossOver app** | Proprietary | Hints only via CosmosDB |
-
-LGPL Cosmos **can** more directly integrate other **LGPL** runtime pieces (Wine,
-DXMT Latest, winetricks if bundled in future) without the old MIT/LGPL split
-friction.
+| **CrossOver application** | Proprietary | Hints only via CosmosDB |
+| **CodeWeavers Wine engine builds** | Mixed; the app around them is proprietary | Use published LGPL Wine source, or Gcenx builds. Do not ship their binaries |
+| **Apple D3DMetal / GPTK** | Apple proprietary | User download only. A shared port cannot include it |
+| **Sikarugir tree** | No LICENSE file in the repository | Do not copy. Ports in Cosmos are original code |
+| **Whisky, Moonshine, Soju, Lutris, Heroic, protonfixes** | GPL-3.0 | May be combined. Keep copyright notices. Current Cosmos files are still original code |
 
 ## Distribution checklist
 
 When shipping Cosmos or an offline runtime bundle:
 
-- [ ] Include [LICENSE](../LICENSE) (LGPL-3.0+)
+- [ ] Include [LICENSE](../LICENSE) (GPL-3.0-or-later)
 - [ ] Include `runtime/NOTICE.md`
 - [ ] Include `runtime/WINE-SOURCE-OFFER.txt`
 - [ ] Include `runtime/DXMT-SOURCE-OFFER.txt` if DXMT ≥0.81

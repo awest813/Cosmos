@@ -250,7 +250,7 @@ port_write_info_plist() {
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026 Allen West. A Cosmos port. Licensed under LGPL-3.0-or-later. D3DMetal is not included.</string>
+    <string>Copyright © 2026 Allen West. A Cosmos port. Licensed under GPL-3.0-or-later. D3DMetal is not included.</string>
 </dict>
 </plist>
 EOF

@@ -16,5 +16,5 @@ ship with Cosmos:
   - Provide corresponding source and license notices with distributions.
   - Prefer upstream Wine merges when available (~95% of CrossOver Wine work).
 
-Cosmos itself is LGPL-3.0-or-later licensed. See LICENSE, docs/LGPL_IMPACT.md,
+Cosmos itself is GPL-3.0-or-later licensed. See LICENSE, docs/LGPL_IMPACT.md,
 and docs/LICENSING.md.

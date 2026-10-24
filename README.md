@@ -4,7 +4,7 @@
 
 Cosmos is a Whisky- and Lutris-style launcher: it downloads Wine, keeps isolated bottles, translates DirectX via Metal (DXMT by default), and builds Dock-friendly `.app` launchers. On Apple Silicon it also builds Sikarugir-style **ports** — one Windows program wrapped as a Mac app, with D3DMetal kept off anything you share. No Terminal required for the happy path.
 
-Licensed under [LGPL-3.0-or-later](LICENSE).
+Licensed under [GPL-3.0-or-later](LICENSE).
 
 | | |
 |---|---|
@@ -351,8 +351,8 @@ Removes `/Applications/Cosmos Apps`, Wine prefixes, and downloaded runtimes. Doe
 | [docs/COSMOSDB.md](docs/COSMOSDB.md) | Compatibility database & reports |
 | [docs/STORE_IMPORT.md](docs/STORE_IMPORT.md) | Non-Steam import workflows |
 | [docs/PORTS.md](docs/PORTS.md) | Apple Silicon wine ports (Sikarugir-style wrappers) |
-| [docs/MOONSHINE.md](docs/MOONSHINE.md) | OpenGL 3.2 check, crash notes, and the GPL boundary with Moonshine |
-| [docs/SOJU.md](docs/SOJU.md) | Battle.net, Epic, and GOG launch fixes, and the GPL boundary with Soju |
+| [docs/MOONSHINE.md](docs/MOONSHINE.md) | OpenGL 3.2 check, crash notes, and Moonshine |
+| [docs/SOJU.md](docs/SOJU.md) | Battle.net, Epic, and GOG launch fixes, and Soju |
 | [docs/LICENSING.md](docs/LICENSING.md) | Third-party licenses (Wine, DXMT, winetricks, GPTK) |
 | [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md) | Practical LGPL impact (Wine, DXMT channels, offline bundles) |
 
@@ -366,4 +366,4 @@ Copyright © 2026 **Allen West**. Cosmos builds on the macOS Wine ecosystem and 
 - Wine builds: [Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds)
 - DXMT and other integrated open-source projects — see [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md)
 
-**License:** Cosmos is **[LGPL-3.0-or-later](LICENSE)**. The runtime downloads **LGPL Wine** and may use **LGPL DXMT** on the Latest channel (`COSMOS_ALLOW_LGPL=1` by default; Pinned DXMT 0.80 is MIT). Offline bundles include `LICENSE`, `runtime/NOTICE.md`, and source offers — see [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md). GPTK/D3DMetal is not redistributed — obtain it from [developer.apple.com](https://developer.apple.com/download/all/).
+**License:** Cosmos is **[GPL-3.0-or-later](LICENSE)**. The runtime downloads **LGPL Wine** and may use **LGPL DXMT** on the Latest channel (`COSMOS_ALLOW_LGPL=1` by default; Pinned DXMT 0.80 is MIT). Offline bundles include `LICENSE`, `runtime/NOTICE.md`, and source offers — see [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md). GPTK/D3DMetal is not redistributed — obtain it from [developer.apple.com](https://developer.apple.com/download/all/).

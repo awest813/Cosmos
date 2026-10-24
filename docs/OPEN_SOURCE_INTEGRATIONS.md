@@ -196,8 +196,9 @@ ported into curated YAML profiles. See [CAULDRON.md](CAULDRON.md).
 | AppleGamingWiki `crossover` column | CC BY-SA | Runtime API hints; `crossover_proxy` in `cosmosdb_lib.sh` |
 | MacGamingDB `CROSSOVER` playMethod | Community API | Review counts + notes; map `DXMT`/`D3D_METAL` layers to backends |
 
-Whisky (GPL-3) built on CrossOver 22.1.1 — **cannot merge** into LGPL Cosmos
-(GPL-3 forces GPL on combined works); UX reference only. See [LICENSING.md](LICENSING.md).
+Whisky (GPL-3.0) may be combined into GPL-3.0-or-later Cosmos. Keep upstream
+copyright notices with any copied files. The CrossOver application it was built
+around stays proprietary. See [LICENSING.md](LICENSING.md).
 
 ## 6. License hygiene
 

@@ -46,9 +46,10 @@ grow into a coherent product.
   the knobs. See [BACKENDS.md](BACKENDS.md).
 - **Known-good defaults are the magic.** Like Proton, Cosmos's value is as much in
   curated per-game settings as in the runtime. See [PROFILE_FORMAT.md](PROFILE_FORMAT.md).
-- **Respect licenses.** Bundle open-source pieces where licenses allow; let users
-  point Cosmos at their own Apple GPTK install. Do **not** redistribute Apple
-  proprietary D3DMetal files.
+- **Respect licenses.** Cosmos is GPL-3.0-or-later, so other GPL-3.0 launchers
+  may be combined when their notices stay intact. Let users point Cosmos at
+  their own Apple GPTK install. Do **not** redistribute Apple proprietary
+  D3DMetal files.
 
 ## Release milestones
 

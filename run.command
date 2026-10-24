@@ -1720,7 +1720,7 @@ show_status() {
   if [[ -n "${RUNTIME_MANIFEST_VERSION:-}" ]]; then
     echo "  Runtime manifest: ${RUNTIME_MANIFEST_VERSION} (DXMT ${DXMT_VERSION}, Wine ${WINE_VERSION})"
     [[ -n "${COSMOS_RUNTIME_DIR:-}" ]] && echo "  Runtime cache: ${COSMOS_RUNTIME_DIR}"
-    echo "  Cosmos: LGPL-3.0+   Runtime: Wine LGPL-2.1+ | DXMT ${DXMT_VERSION} (MIT≤0.80, LGPL above)"
+    echo "  Cosmos: GPL-3.0-or-later   Runtime: Wine LGPL-2.1+ | DXMT ${DXMT_VERSION} (MIT≤0.80, LGPL above)"
     echo "  COSMOS_ALLOW_LGPL=${COSMOS_ALLOW_LGPL:-1}   Notices: LICENSE, runtime/NOTICE.md"
   fi
   echo ""

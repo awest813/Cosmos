@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// OpenGL 3.2 check and Wine log detail.
-/// Cosmos implements this itself. Moonshine and Whisky are GPL-3.0 and are not included.
+/// Original Cosmos code. Moonshine and Whisky are GPL-3.0 and are not copied into this file.
 struct MoonshineGraphicsCard: View {
     var preset: String
     var status: OpenGLPatchStatus

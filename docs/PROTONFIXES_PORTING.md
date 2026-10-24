@@ -8,12 +8,13 @@ when improving Cosmos profiles and recipes.
 
 | Source | License | Cosmos policy |
 | --- | --- | --- |
-| umu-protonfixes / protonfixes | GPL-3.0 | Read fix **ideas**; reimplement as YAML + `.recipe` |
+| umu-protonfixes / protonfixes | GPL-3.0 | May be copied with copyright notices, or reimplemented as YAML + `.recipe` |
 | UMU database API | GPL-3.0 data | Runtime lookup via `cosmosdb.command lookup <appid> umu` |
 | macos-wine-steam configs | MIT | Safe to import via `scripts/import_macos_wine_steam.sh` |
 
-**Never** copy Python fix scripts into this LGPL repository (GPL-3 scripts are
-incompatible for direct import).
+GPL-3.0 Python fix scripts may be added. Keep the upstream copyright header on
+each copied file. A Cosmos recipe is enough when the fix is a single verb or
+environment variable.
 
 ## Workflow
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Cosmos repair engine (roadmap 0.5) — apply dependency and fix recipes.
-# Cosmos is LGPL-3.0+ (LICENSE). Dependencies invoke winetricks (LGPL) externally.
+# Cosmos is GPL-3.0-or-later (LICENSE). Dependencies invoke winetricks (LGPL) externally.
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 RECIPE_LIB="${SCRIPT_DIR}/scripts/lib/recipe_lib.sh"

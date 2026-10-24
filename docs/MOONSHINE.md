@@ -1,6 +1,6 @@
 # OpenGL fix and launch logs
 
-[Moonshine](https://github.com/ybmeng/moonshine) is a GPL-3.0 fork of Whisky. Cosmos does not include Moonshine or Whisky source. The behaviors below are Cosmos's own implementation of the same ideas: an OpenGL 3.2 check, a crash note, a more detailed Wine log, and launching a program from its own folder.
+[Moonshine](https://github.com/ybmeng/moonshine) is a GPL-3.0 fork of Whisky. Cosmos is GPL-3.0-or-later, so that source may be combined later. The behaviors below are still Cosmos's own implementation: an OpenGL 3.2 check, a crash note, a more detailed Wine log, and launching a program from its own folder.
 
 ## OpenGL 3.2
 
@@ -26,7 +26,7 @@ Wine install never fails because this check does not match.
 ./run.command --opengl-revert
 ```
 
-The dashboard card is **OpenGL (Moonshine)** under Performance & Graphics. The same check also runs at the end of a Wine install when the mode is `auto` or `on`.
+The dashboard section is **OpenGL 3.2** under Performance & Graphics. The same check also runs at the end of a Wine install when the mode is `auto` or `on`.
 
 ## Logs
 
@@ -47,4 +47,4 @@ Profile games, standalone games, and installers start with the executable's fold
 
 ## License boundary
 
-Moonshine and Whisky are GPL-3.0. Combining their Swift source with Cosmos would pull Cosmos under GPL-3.0. Cosmos keeps its LGPL-3.0-or-later license. Do not copy Moonshine or Whisky sources into this repository. The offset above is a fact about a Wine binary, not a copy of Moonshine's installer.
+Moonshine and Whisky are GPL-3.0. Cosmos is GPL-3.0-or-later, so their source may be added with their copyright notices kept. This repository does not yet contain that source. The offset above is a fact about a Wine binary. D3DMetal is still not included.
