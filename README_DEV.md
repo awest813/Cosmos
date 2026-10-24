@@ -248,6 +248,20 @@ To auto-detect games inside a bottle, point detection at its prefix:
 WINEPREFIX="$(./bottle.command path steam)" ./detect_steam_games.command --list
 ```
 
+## Ports (Apple Silicon)
+
+A port is one Windows program opened as a Mac app. Definitions live in
+`~/Library/Application Support/Cosmos/Ports/<slug>/port.conf`. `port.command`
+builds `~/Applications/Cosmos Ports/<Name>.app`. The graphics resolver is
+`scripts/lib/port_lib.sh` (kept in sync with `app/WinePort.swift`). Launch sets
+`COSMOS_PORT=1` and `COSMOS_SKIP_STEAM=1`, then calls `run.command --game`.
+Shared ports cannot resolve to `d3dmetal`. See [docs/PORTS.md](docs/PORTS.md).
+
+```bash
+./port.command create --name "Notepad" --exe /path/to/notepad.exe
+./port.command build notepad
+```
+
 ## Integration tooling (0.4–0.7 preview)
 
 See [docs/OPEN_SOURCE_INTEGRATIONS.md](docs/OPEN_SOURCE_INTEGRATIONS.md),
@@ -292,6 +306,8 @@ logs, reset the bottle, install/uninstall) are available from one window.
   first and falling back to the repository checkout during development.
 - `app/Bottle.swift` - the `Bottle` model and `BottleStore` (reads the bottles
   directory + `bottle.conf` for the dashboard's Bottles section).
+- `app/WinePort.swift` / `app/WinePortUI.swift` - Apple Silicon port model and
+  the Ports tab. Mutations go through `port.command`.
 - `app/GameProfile.swift` / `app/Recipe.swift` / `app/CosmosPaths.swift` -
   curated YAML profiles and repair recipes for the dashboard UI.
 - `app/CosmosLogoView.swift` - the drawn Cosmos logo mark and brand colors.

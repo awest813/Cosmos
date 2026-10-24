@@ -62,6 +62,14 @@ game's `.conf` launcher config (see [PROFILE_FORMAT.md](PROFILE_FORMAT.md)).
 > Use a **separate bottle per backend** so DXMT, WineD3D, and GPTK DLLs do not
 > accumulate in the same prefix `system32`.
 
+## Ports
+
+Apple Silicon **ports** ([PORTS.md](PORTS.md)) turn the same backends into a
+Sikarugir-style switch list for one Windows program: DXMT, D9VK, CNC-DDRAW, and
+WineD3D on by default; DXVK and D3DMetal optional. D3DMetal is personal-only.
+The switches resolve to one `COSMOS_BACKEND` (`spockd3d9` when DXMT and D9VK are
+both on).
+
 ## How backends are selected today
 
 `run.command` exposes the backend as a first-class selector via the

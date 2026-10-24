@@ -14,6 +14,11 @@ upgrading dependencies.
   and set `GPTK_PATH` (see [BACKENDS.md](BACKENDS.md)).
 - Cosmos may copy user-supplied DLLs into a prefix at launch; that is user-directed
   use, not redistribution by Cosmos.
+- **Ports you share cannot enable D3DMetal.** `port.command` refuses
+  `--distribution share --d3dmetal 1`, and `run.command` refuses a shared port
+  whose resolved backend is `d3dmetal`. A personal port may point at your own
+  GPTK install. The built `.app` never contains D3DMetal binaries. See
+  [PORTS.md](PORTS.md).
 
 ## DXMT
 

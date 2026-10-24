@@ -24,7 +24,7 @@ APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
 ICON_SRC="${REPO_ROOT}/app/cosmos/AppIcon.icns"
 SCRIPTS_TO_BUNDLE=(
   run.command setup.command install_cosmos.command uninstall.command
-  detect_steam_games.command bottle.command
+  detect_steam_games.command bottle.command port.command
   repair.command profile.command cosmosdb.command import_game.command
   scripts/install_steamwebhelper_wrapper.command
 )
@@ -115,7 +115,7 @@ else
 fi
 
 mkdir -p "${APP_BUNDLE}/Contents/Resources/docs"
-for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md; do
+for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md PORTS.md; do
   if [[ -f "${REPO_ROOT}/docs/${doc}" ]]; then
     cp "${REPO_ROOT}/docs/${doc}" "${APP_BUNDLE}/Contents/Resources/docs/${doc}"
   fi

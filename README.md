@@ -1,8 +1,8 @@
 # Cosmos
 
-**Play Windows Steam games on Mac — with one-click launchers, curated profiles, and a graphical dashboard.**
+**Play Windows games on Mac — bottles, a game library, and Apple Silicon ports that open like Mac apps.**
 
-Cosmos is a macOS game compatibility layer: it downloads Wine, sets up a Steam bottle, translates DirectX via Metal (DXMT by default), detects your library, and builds Dock-friendly `.app` launchers. No Terminal required for the happy path.
+Cosmos is a Whisky- and Lutris-style launcher: it downloads Wine, keeps isolated bottles, translates DirectX via Metal (DXMT by default), and builds Dock-friendly `.app` launchers. On Apple Silicon it also builds Sikarugir-style **ports** — one Windows program wrapped as a Mac app, with D3DMetal kept off anything you share. No Terminal required for the happy path.
 
 Licensed under [LGPL-3.0-or-later](LICENSE).
 
@@ -10,7 +10,7 @@ Licensed under [LGPL-3.0-or-later](LICENSE).
 |---|---|
 | **Platform** | Apple Silicon (M1–M4) and Intel Macs (x86_64) |
 | **macOS** | 11+ for scripts · **13+** for the desktop app (15 Sequoia tested) |
-| **Status** | Milestone **0.7.1** — **149** curated profiles, repair engine, CosmosDB, Intel + Apple Silicon, parsed error recovery; Phases A–E of [user gaps plan](docs/PLAN.md) complete |
+| **Status** | Milestone **0.8.0** — Apple Silicon ports, **149** curated profiles, repair engine, CosmosDB, Intel + Apple Silicon launchers; Phases A–E of [user gaps plan](docs/PLAN.md) complete |
 | **Developers** | See [README_DEV.md](README_DEV.md) for scripts, env vars, and architecture |
 
 > **Upgrading from Merlot?** Your Wine prefix and saved profiles are reused. `MERLOT_*` environment variables still work; `uninstall.command` also removes the legacy `Merlot Apps` folder.
@@ -45,6 +45,7 @@ Licensed under [LGPL-3.0-or-later](LICENSE).
 - **CosmosDB** — compatibility hints from ProtonDB, AppleGamingWiki, MacGamingDB, and community reports
 - **Multiple graphics backends** — DXMT (default), Apple GPTK/D3DMetal, DXVK, WineD3D
 - **Isolated bottles** — separate Wine prefixes with independent settings
+- **Apple Silicon ports** — wrap one Windows program as a Mac app (macOS 14.6+). DXMT, D9VK, WineD3D, and CNC-DDRAW by default; DXVK and personal-only D3DMetal as switches. See [docs/PORTS.md](docs/PORTS.md)
 - **Store import** — standalone EXE/MSI, GOG, itch.io, Battle.net, Epic (via Legendary)
 
 ---
@@ -117,7 +118,7 @@ After Steam starts, you can close Terminal — Steam runs detached by default (`
 
 ## The dashboard
 
-Cosmos.app is a single-window launcher with a sidebar (saved games) and a main panel organized into sections (**⌘1–4** to switch once Steam is ready):
+Cosmos.app is a single-window launcher with a sidebar (saved games) and a main panel organized into sections (**⌘1–5** to switch once Steam is ready):
 
 | Section | What you can do |
 |---------|-----------------|
@@ -125,6 +126,7 @@ Cosmos.app is a single-window launcher with a sidebar (saved games) and a main p
 | **Games** | Curated YAML profiles, compatibility lookup & reports, repair & dependencies |
 | **Tools** | Maintenance (detect, build/sync launchers, logs, reset), non-Steam game import |
 | **Bottles** | Create isolated prefixes, switch backends, launch Steam per bottle |
+| **Ports** | Wrap a Windows program as an Apple Silicon Mac app (⌘5). D3DMetal stays personal |
 
 **Sidebar** — search saved games; **Favorites** (star a title) and **Recent** sections; filter chips (All / Favorites / Recent) for large libraries. New Steam installs surface in the status summary with a one-tap sync. Context menu to launch, reveal config, or copy executable path.
 
@@ -164,6 +166,7 @@ If macOS blocks a script: right-click → **Open** → confirm.
 |--------|---------|
 | `run.command` | Wine prefix, Steam install, game launch |
 | `bottle.command` | Isolated bottles (create, set, launch, reset) |
+| `port.command` | Apple Silicon ports — create, build, and open a wrapped Windows program |
 | `detect_steam_games.command` | Scan Steam library; `--install` (full) or `--sync` (incremental) |
 | `install_cosmos.command` | Install `/Applications/Cosmos Apps` bundles |
 | `profile.command` | Apply curated YAML game profiles |
@@ -345,6 +348,7 @@ Removes `/Applications/Cosmos Apps`, Wine prefixes, and downloaded runtimes. Doe
 | [docs/PROFILE_FORMAT.md](docs/PROFILE_FORMAT.md) | YAML profile schema |
 | [docs/COSMOSDB.md](docs/COSMOSDB.md) | Compatibility database & reports |
 | [docs/STORE_IMPORT.md](docs/STORE_IMPORT.md) | Non-Steam import workflows |
+| [docs/PORTS.md](docs/PORTS.md) | Apple Silicon wine ports (Sikarugir-style wrappers) |
 | [docs/LICENSING.md](docs/LICENSING.md) | Third-party licenses (Wine, DXMT, winetricks, GPTK) |
 | [docs/LGPL_IMPACT.md](docs/LGPL_IMPACT.md) | Practical LGPL impact (Wine, DXMT channels, offline bundles) |
 

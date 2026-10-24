@@ -79,7 +79,7 @@ Nothing here is greenfield — Cosmos is a refactor-and-grow, not a rewrite.
 | Profile | `cosmos_configs/*.conf` (env-var presets per game) | **Partial** — flat shell configs, no schema/ratings/recipes yet |
 | Runtime | `run.command` (Wine download, prefix init, Steam install, Rosetta + macOS checks) | **Partial** — single hardcoded Steam bottle |
 | Graphics | `run.command` DXMT default + opt-in `GPTK_PATH` (D3DMetal) | **Partial** — two backends, env-driven, no per-game switch UI |
-| Launcher | `detect_steam_games.command` (auto-detect) + `install_cosmos.command` + `app/cosmos/CosmosLauncher` (`.app` generator) | **Partial** — auto-detects Steam games (multi-library, StateFlags filtering), generates `.app`s with Steam artwork icons |
+| Launcher | `detect_steam_games.command` (auto-detect) + `install_cosmos.command` + `app/cosmos/CosmosLauncher` (`.app` generator) + `port.command` (Apple Silicon wrappers) | **Partial** — Steam `.app`s plus Sikarugir-style ports for one Windows program |
 
 Key existing primitives worth preserving as Cosmos grows:
 

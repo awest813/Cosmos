@@ -24,6 +24,7 @@ UNIT_TESTS=(
   scripts/test_sync_gog.sh
   scripts/test_import_gog_json.sh
   scripts/test_profile_lib.sh
+  scripts/test_port_lib.sh
   scripts/test_sync_lib.sh
   scripts/test_gptk_lib.sh
   scripts/test_spockd3d9_lib.sh

@@ -1548,6 +1548,17 @@ prepare_steam_bottle() {
       die "Unhandled backend: ${RESOLVED_BACKEND}"
       ;;
   esac
+
+  # Apple Silicon ports (Sikarugir-style wrappers). Personal D3DMetal is
+  # allowed; a port marked for sharing must not resolve to D3DMetal.
+  if [[ "${COSMOS_PORT:-0}" == "1" && -f "${SCRIPT_DIR}/scripts/lib/port_lib.sh" ]]; then
+    # shellcheck source=scripts/lib/port_lib.sh
+    source "${SCRIPT_DIR}/scripts/lib/port_lib.sh"
+    if ! port_guard_shared_d3dmetal; then
+      die "$(port_shared_d3dmetal_error)"
+    fi
+    port_apply_cnc_ddraw
+  fi
 }
 
 finish_steam_setup() {

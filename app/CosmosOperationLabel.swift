@@ -12,6 +12,14 @@ enum CosmosOperationLabel {
         case "profile.command": return "Updating game settings…"
         case "repair.command": return "Checking and repairing your game environment…"
         case "bottle.command": return "Updating Windows environment…"
+        case "port.command":
+            switch arguments.first {
+            case "launch": return "Opening your port…"
+            case "build": return "Making a Mac app…"
+            case "create": return "Creating a port…"
+            case "delete": return "Removing a port…"
+            default: return "Updating ports…"
+            }
         case "cosmosdb.command": return "Checking compatibility…"
         case "run.command":
             switch arguments.first {

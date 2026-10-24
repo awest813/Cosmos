@@ -36,6 +36,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
     case library = "Games"
     case tools = "Tools"
     case bottles = "Bottles"
+    case ports = "Ports"
 
     var id: String { rawValue }
 
@@ -45,6 +46,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .library: return "gamecontroller.fill"
         case .tools: return "wrench.and.screwdriver.fill"
         case .bottles: return "cylinder.split.1x2.fill"
+        case .ports: return "macwindow.on.rectangle"
         }
     }
 
@@ -54,6 +56,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         case .library: return "Your games, profiles, and fixes"
         case .tools: return "Add games, run checkups, and cleanup"
         case .bottles: return "Separate Windows setups for tricky games"
+        case .ports: return "Windows programs that open like Mac apps"
         }
     }
 }

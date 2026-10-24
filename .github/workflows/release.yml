@@ -1,7 +1,7 @@
 name: Release
 
 on:
-  # Automatic path: pushing a version tag (v0.7.1, matching VERSION).
+  # Automatic path: pushing a version tag (v0.8.0, matching VERSION).
   push:
     tags:
       - "v*"

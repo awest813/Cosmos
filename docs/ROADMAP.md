@@ -175,6 +175,18 @@ success criterion — if that sentence isn't true, the release isn't done.
 
 > User-facing gaps Phases A–E from [PLAN.md](PLAN.md) are complete on `main`. Phase F (signed release, full auto-update, console mode) remains for 1.0.
 
+### 0.8 — Apple Silicon ports *(in progress)*
+
+Combines the Cosmos library and bottles (Whisky / Lutris style) with
+Sikarugir-style wrappers ([cosmosNEW](https://github.com/awest813/cosmosNEW)):
+a Windows program that opens as a Mac app on Apple Silicon.
+
+- [x] `port.command` — create, validate, build, launch, delete
+- [x] Renderer stack: DXMT, D9VK, CNC-DDRAW, WineD3D on; DXVK and D3DMetal optional
+- [x] Shared ports cannot use D3DMetal; the built app does not embed GPTK
+- [x] Dashboard **Ports** tab
+- **Success:** On an Apple Silicon Mac, a user wraps one Windows `.exe` as a double-clickable app without putting D3DMetal in a port they share.
+
 ### 1.0 — Cosmos Runtime
 - Stable bundled Wine runtime (patched wine-mono/wine-gecko, DXMT + D3DMetal
   integration paths, DXVK/MoltenVK option, winetricks-style dependency system,

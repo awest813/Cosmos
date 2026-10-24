@@ -91,6 +91,7 @@ struct ContentView: View {
     @State private var pendingBlockedLaunch: SavedProfile?
 
     @State private var bottles: [Bottle] = []
+    @State private var ports: [WinePort] = []
     @State private var selectedBottleID: String?
     @State private var showNewBottleSheet = false
     @State private var showBottleResetConfirmation = false
@@ -933,7 +934,7 @@ struct ContentView: View {
     /// Advanced tabs show when the user opts in, or whenever an advanced tab is
     /// the active section (e.g. opened from a menu command or a deep link).
     private var advancedTabsVisible: Bool {
-        showAdvancedTabs || dashboardSection == .tools || dashboardSection == .bottles
+        showAdvancedTabs || dashboardSection == .tools || dashboardSection == .bottles || dashboardSection == .ports
     }
 
     private var visibleDashboardSections: [DashboardSection] {
@@ -951,21 +952,21 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 Text(dashboardSection.subtitle)
                 Text("·")
-                Text(advancedTabsVisible ? "⌘1–4 to switch" : "Advanced shows Tools & Bottles")
+                Text(advancedTabsVisible ? "⌘1–5 to switch" : "Advanced shows Tools, Bottles, and Ports")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
         }
     }
 
-    /// Small chip that reveals or hides the advanced Tools/Bottles tabs.
+    /// Small chip that reveals or hides the advanced Tools, Bottles, and Ports tabs.
     private var advancedTabsToggle: some View {
         Button {
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                 if advancedTabsVisible {
                     showAdvancedTabs = false
                     // Don't strand the user on a tab that is about to hide.
-                    if dashboardSection == .tools || dashboardSection == .bottles {
+                    if dashboardSection == .tools || dashboardSection == .bottles || dashboardSection == .ports {
                         dashboardSection = .launch
                     }
                 } else {
@@ -980,10 +981,10 @@ struct ContentView: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
-        .help(advancedTabsVisible ? "Hide advanced tabs" : "Show Tools and Bottles tabs")
+        .help(advancedTabsVisible ? "Hide advanced tabs" : "Show Tools, Bottles, and Ports tabs")
         .accessibilityLabel(advancedTabsVisible ? "Hide Advanced" : "Advanced")
         .accessibilityValue(advancedTabsVisible ? "Expanded" : "Collapsed")
-        .accessibilityHint("Shows or hides the Tools and Bottles tabs")
+        .accessibilityHint("Shows or hides the Tools, Bottles, and Ports tabs")
     }
 
     @ViewBuilder
@@ -1028,6 +1029,28 @@ struct ContentView: View {
             storeExpansionSection
         case .bottles:
             bottlesSection
+        case .ports:
+            PortsDashboard(
+                ports: ports,
+                bottleNames: bottles.map(\.name),
+                isRunning: isRunning,
+                onCreate: { draft in
+                    runCommand(script: "port.command", arguments: draft.commandArguments)
+                },
+                onLaunch: { port in
+                    runCommand(
+                        script: "port.command",
+                        arguments: ["launch", port.id],
+                        intent: .gameLaunch
+                    )
+                },
+                onBuild: { port in
+                    runCommand(script: "port.command", arguments: ["build", port.id])
+                },
+                onDelete: { port in
+                    runCommand(script: "port.command", arguments: ["delete", port.id, "--force"])
+                }
+            )
         }
     }
 
@@ -1051,6 +1074,7 @@ struct ContentView: View {
         case .library: return "Your Games"
         case .tools: return "Tools & Imports"
         case .bottles: return "Windows Environments"
+        case .ports: return "Mac Apps from Windows Programs"
         }
     }
 
@@ -1178,6 +1202,7 @@ struct ContentView: View {
             case .library: return "Your collection, ready to explore."
             case .tools: return "Add games, check your setup, and get help."
             case .bottles: return "Keep games with different requirements in separate Windows environments."
+            case .ports: return "Wrap a Windows program so it opens like a Mac app on Apple Silicon."
             }
         }
         if !isSetupComplete, selectedProfile == nil, selectedBottle == nil {
@@ -2215,7 +2240,7 @@ struct ContentView: View {
         switch section {
         case .launch:
             dashboardSection = .launch
-        case .library, .tools, .bottles:
+        case .library, .tools, .bottles, .ports:
             guard isSteamReady else { return }
             dashboardSection = section
         }
@@ -5059,6 +5084,7 @@ struct ContentView: View {
         profiles = SavedProfileStore.load()
         profilePreferences = ProfilePreferencesStore.prune(validProfileIDs: Set(profiles.map(\.id)))
         bottles = BottleStore.load()
+        ports = WinePortStore.load()
         reloadGraphicsSettings()
         gameProfiles = GameProfileStore.load()
         dependencyRecipes = RecipeStore.loadDependencies()
