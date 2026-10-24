@@ -16,6 +16,7 @@ enum SettingLabels {
         case "GPTK_PATH": return "Game Porting Toolkit path"
         case "SPOCK_D3D9_PATH": return "SpockD3D9 path"
         case "COSMOS_SYNC_MODE": return "Thread sync mode"
+        case "COSMOS_WINEDEBUG_PRESET": return "Wine log detail"
         default:
             return key
                 .replacingOccurrences(of: "_", with: " ")

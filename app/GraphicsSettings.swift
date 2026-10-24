@@ -8,6 +8,7 @@ struct GraphicsSettings: Equatable {
     var dxmtChannel: String
     var metalFXEnabled: Bool
     var moltenvkPreset: String
+    var wineDebugPreset: String
 
     static let defaults = GraphicsSettings(
         syncMode: "off",
@@ -15,12 +16,14 @@ struct GraphicsSettings: Equatable {
         spockD3D9Path: "",
         dxmtChannel: "stable",
         metalFXEnabled: false,
-        moltenvkPreset: "default"
+        moltenvkPreset: "default",
+        wineDebugPreset: "cosmos"
     )
 
     static let syncModeOptions = ["off", "esync", "msync"]
     static let dxmtChannelOptions = ["stable", "latest"]
     static let moltenvkPresetOptions = ["default", "performance", "compatibility"]
+    static let wineDebugPresetOptions = ["cosmos", "moonshine"]
 
     var syncModeLabel: String {
         switch syncMode {
@@ -37,6 +40,16 @@ struct GraphicsSettings: Equatable {
     var spockD3D9Configured: Bool {
         !spockD3D9Path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
+}
+
+struct OpenGLPatchStatus: Equatable {
+    var status: String
+    var path: String
+    var offset: String
+    var byte: String
+    var message: String
+
+    static let empty = OpenGLPatchStatus(status: "", path: "", offset: "", byte: "", message: "")
 }
 
 struct SpockD3D9ValidationResult: Equatable {
@@ -99,7 +112,30 @@ enum GraphicsSettingsStore {
            GraphicsSettings.moltenvkPresetOptions.contains(preset) {
             settings.moltenvkPreset = preset
         }
+        if let wineDebug = stored["COSMOS_WINEDEBUG_PRESET"],
+           GraphicsSettings.wineDebugPresetOptions.contains(wineDebug) {
+            settings.wineDebugPreset = wineDebug
+        }
         return settings
+    }
+
+    static func parseOpenGLStatus(_ output: String) -> OpenGLPatchStatus {
+        var status = OpenGLPatchStatus.empty
+        for line in output.split(whereSeparator: \.isNewline) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard let eq = trimmed.firstIndex(of: "=") else { continue }
+            let key = String(trimmed[..<eq])
+            let value = String(trimmed[trimmed.index(after: eq)...])
+            switch key {
+            case "status": status.status = value
+            case "path": status.path = value
+            case "offset": status.offset = value
+            case "byte": status.byte = value
+            case "message": status.message = value
+            default: break
+            }
+        }
+        return status
     }
 
     static func loadSteam() -> GraphicsSettings {

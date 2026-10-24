@@ -193,7 +193,11 @@ enable_spockd3d9_env() {
   log "Enabling SpockD3D9 for D3D9 (DXMT still handles D3D10/11)"
   export WINEDLLOVERRIDES="$(spockd3d9_merge_overrides "${WINEDLLOVERRIDES:-}")"
   export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS="${MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS:-2}"
-  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  if declare -F moonshine_winedebug_default >/dev/null 2>&1; then
+    export WINEDEBUG="${WINEDEBUG:-$(moonshine_winedebug_default)}"
+  else
+    export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  fi
   if declare -F runtime_prepare_moltenvk_env >/dev/null 2>&1; then
     runtime_prepare_moltenvk_env || echo "Note: MoltenVK auto-fetch failed; ensure Vulkan/MoltenVK is available for SpockD3D9."
   fi

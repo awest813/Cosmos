@@ -185,6 +185,7 @@ a Windows program that opens as a Mac app on Apple Silicon.
 - [x] Renderer stack: DXMT, D9VK, CNC-DDRAW, WineD3D on; DXVK and D3DMetal optional
 - [x] Shared ports cannot use D3DMetal; the built app does not embed GPTK
 - [x] Dashboard **Ports** tab
+- [x] Moonshine-style OpenGL 3.2 check, launch folder, and optional detailed Wine logs (no GPL source)
 - **Success:** On an Apple Silicon Mac, a user wraps one Windows `.exe` as a double-clickable app without putting D3DMetal in a port they share.
 
 ### 1.0 — Cosmos Runtime

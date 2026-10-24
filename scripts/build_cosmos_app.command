@@ -115,7 +115,7 @@ else
 fi
 
 mkdir -p "${APP_BUNDLE}/Contents/Resources/docs"
-for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md PORTS.md; do
+for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md PORTS.md MOONSHINE.md; do
   if [[ -f "${REPO_ROOT}/docs/${doc}" ]]; then
     cp "${REPO_ROOT}/docs/${doc}" "${APP_BUNDLE}/Contents/Resources/docs/${doc}"
   fi

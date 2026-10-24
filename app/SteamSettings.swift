@@ -187,6 +187,14 @@ enum SteamSettingsStore {
             guard GraphicsSettings.moltenvkPresetOptions.contains(value) else {
                 throw SteamSettingsError.invalidValue("COSMOS_MVK_PRESET must be default, performance, or compatibility")
             }
+        case "COSMOS_WINEDEBUG_PRESET":
+            guard GraphicsSettings.wineDebugPresetOptions.contains(value) else {
+                throw SteamSettingsError.invalidValue("COSMOS_WINEDEBUG_PRESET must be cosmos or moonshine")
+            }
+        case "COSMOS_OPENGL_PATCH":
+            guard value == "auto" || value == "on" || value == "off" || value == "0" || value == "1" else {
+                throw SteamSettingsError.invalidValue("COSMOS_OPENGL_PATCH must be auto, on, or off")
+            }
         case "GPTK_PATH", "SPOCK_D3D9_PATH":
             break
         case "WINEPREFIX", "COSMOS_BOTTLE":

@@ -28,6 +28,7 @@ struct ContentView: View {
     @State private var showGameTools = false
     @State private var activeOperationTitle = "Working…"
     @State private var showAdvancedGraphics = false
+    @State private var openGLStatus = OpenGLPatchStatus.empty
     @State private var showD3D9Guidance = false
     @State private var wineRuntime = WineRuntimeStore.load()
     @State private var showDownloads = false
@@ -2781,6 +2782,10 @@ struct ContentView: View {
 
                 gptkSetupCard
 
+                Divider()
+
+                moonshineGraphicsCard
+
                 DisclosureGroup(isExpanded: $showAdvancedGraphics) {
                     VStack(alignment: .leading, spacing: 14) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -2930,6 +2935,31 @@ struct ContentView: View {
                 Label("Guide", systemImage: "book")
             }
             .buttonStyle(.bordered)
+        }
+    }
+
+    private var moonshineGraphicsCard: some View {
+        MoonshineGraphicsCard(
+            preset: graphicsSettings.wineDebugPreset,
+            status: openGLStatus,
+            isRunning: isRunning,
+            onPresetChange: { applyGraphicsSetting(key: "COSMOS_WINEDEBUG_PRESET", value: $0) },
+            onCheck: { runOpenGLCommand("--opengl-status") },
+            onApply: { runOpenGLCommand("--opengl-patch") },
+            onUndo: { runOpenGLCommand("--opengl-revert") },
+            onGuide: {
+                openRepositoryDoc(
+                    relativePath: "docs/MOONSHINE.md",
+                    bundleName: "MOONSHINE.md",
+                    fallbackMessage: "See docs/MOONSHINE.md in the Cosmos repository."
+                )
+            }
+        )
+    }
+
+    private func runOpenGLCommand(_ flag: String) {
+        runCommand(script: "run.command", arguments: [flag]) { _, _ in
+            openGLStatus = GraphicsSettingsStore.parseOpenGLStatus(output)
         }
     }
 

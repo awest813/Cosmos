@@ -57,6 +57,8 @@ https://www.reddit.com/r/macgaming/comments/1r8vsnj/how_to_play_windows_steam_ga
   - `run.command --reset-bottle [--force]` deletes the Wine prefix (and its alias symlink) so the next launch recreates it and reinstalls Steam. Without `--force` it prompts for confirmation when run interactively, and refuses (rather than guessing) when stdin is not a TTY. Wine and DXMT downloads are preserved.
 - Wine logging:
   - defaults `WINEDEBUG` to `-all,err+all` unless already set by the caller
+  - `COSMOS_WINEDEBUG_PRESET=moonshine` uses `fixme-all,err+all,warn+module` instead (an explicit `WINEDEBUG` still wins)
+  - `run.command --opengl-status`, `--opengl-patch`, and `--opengl-revert` check or flip one OpenGL 3.2 byte in `winemac.so` only when it still matches. See [docs/MOONSHINE.md](docs/MOONSHINE.md)
 - Writes registry values inside the prefix:
   - `HKCU\\Software\\Wine\\Mac Driver\\RetinaMode` controlled by `WINE_RETINA_MODE` (`0`/`1`)
   - `HKCU\\Software\\Wine\\Version` controlled by `WINDOWS_VERSION` (`winxp|win7|win8|win10|win11`; empty removes the override and restores Wine's default)

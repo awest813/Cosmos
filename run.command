@@ -25,6 +25,10 @@ if [[ -f "${SCRIPT_DIR}/scripts/lib/wine_lib.sh" ]]; then
   # shellcheck source=scripts/lib/wine_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/wine_lib.sh"
 fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/moonshine_lib.sh" ]]; then
+  # shellcheck source=scripts/lib/moonshine_lib.sh
+  source "${SCRIPT_DIR}/scripts/lib/moonshine_lib.sh"
+fi
 if [[ -f "${SCRIPT_DIR}/scripts/lib/sync_lib.sh" ]]; then
   # shellcheck source=scripts/lib/sync_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/sync_lib.sh"
@@ -159,6 +163,14 @@ sanitize_steam_settings() {
   case "${COSMOS_MVK_PRESET:-default}" in
     default|performance|compatibility) ;;
     *) COSMOS_MVK_PRESET="default" ;;
+  esac
+  case "${COSMOS_WINEDEBUG_PRESET:-cosmos}" in
+    cosmos|moonshine) ;;
+    *) COSMOS_WINEDEBUG_PRESET="cosmos" ;;
+  esac
+  case "${COSMOS_OPENGL_PATCH:-auto}" in
+    auto|on|off|0|1) ;;
+    *) COSMOS_OPENGL_PATCH="auto" ;;
   esac
 }
 
@@ -295,6 +307,9 @@ Actions:
   --install-rosetta        Install Rosetta 2 on Apple Silicon if missing, then exit.
   --compat-check <appid>   Print the curated compatibility status for a Steam
                            App ID (warns if broken/blocked), then exit.
+  --opengl-status          Show the OpenGL 3.2 check in Wine's Mac driver (key=value), then exit.
+  --opengl-patch           Flip that check when the byte still matches, then exit.
+  --opengl-revert          Restore the OpenGL check, then exit.
   --validate-gptk <path>   Validate a user-supplied GPTK install (key=value), then exit.
   --validate-spockd3d9 <path>  Validate a SpockD3D9 PE d3d9.dll folder (key=value), then exit.
   --build-spockd3d9 [--arch x86|x64|both]  Build SpockD3D9 PE d3d9.dll into Runtime, then exit.
@@ -447,6 +462,13 @@ parse_arguments() {
         die "The --runtime-status flag does not accept additional arguments."
       fi
       COSMOS_LAUNCH_MODE="runtime-status"
+      return 0
+      ;;
+    --opengl-status|--opengl-patch|--opengl-revert)
+      if (($# > 1)); then
+        die "The $1 flag does not accept additional arguments."
+      fi
+      COSMOS_LAUNCH_MODE="${1#--}"
       return 0
       ;;
     --install-rosetta)
@@ -626,24 +648,23 @@ ensure_wine_installed() {
     WINE_APP="$(wine_resolve_app)"
     WINE_ROOT="$(wine_default_root)"
     echo "Wine already installed at ${WINE_APP}. Skipping."
-    return
-  fi
-  if [[ -x "${WINE_BIN}" ]]; then
+  elif [[ -x "${WINE_BIN}" ]]; then
     echo "Wine already installed at ${WINE_APP}. Skipping."
-    return
-  fi
-
-  if declare -F runtime_try_offline_stack >/dev/null 2>&1; then
-    if runtime_try_offline_stack; then
-      [[ -x "${WINE_BIN}" ]] && return 0
+  else
+    if declare -F runtime_try_offline_stack >/dev/null 2>&1; then
+      runtime_try_offline_stack || true
+    fi
+    if [[ ! -x "${WINE_BIN}" ]]; then
+      mkdir -p "${WINE_ROOT}"
+      if ! curl -L --fail --retry 5 --retry-delay 1 "${WINE_URL}" | tar xJf - -C "${WINE_ROOT}"; then
+        die "Wine download failed. Check your network connection and try again."
+      fi
+      [[ -x "${WINE_BIN}" ]] || die "Wine binary not found after extraction: ${WINE_BIN}"
     fi
   fi
-
-  mkdir -p "${WINE_ROOT}"
-  if ! curl -L --fail --retry 5 --retry-delay 1 "${WINE_URL}" | tar xJf - -C "${WINE_ROOT}"; then
-    die "Wine download failed. Check your network connection and try again."
+  if declare -F moonshine_opengl_auto >/dev/null 2>&1; then
+    moonshine_opengl_auto || true
   fi
-  [[ -x "${WINE_BIN}" ]] || die "Wine binary not found after extraction: ${WINE_BIN}"
 }
 
 ensure_wineprefix_alias() {
@@ -1028,7 +1049,7 @@ enable_dxmt_env() {
   esac
 
   export DXMT_LOG_LEVEL="${DXMT_LOG_LEVEL:-error}"
-  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  export WINEDEBUG="${WINEDEBUG:-$(moonshine_winedebug_default)}"
 }
 
 # Validate COSMOS_BACKEND and resolve 'recommended' to a concrete backend,
@@ -1082,7 +1103,7 @@ ensure_gptk_installed() {
 enable_gptk_env() {
   log "Enabling GPTK via WINEDLLOVERRIDES"
   export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,d3d12,d3d12core,dxgi=n}"
-  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  export WINEDEBUG="${WINEDEBUG:-$(moonshine_winedebug_default)}"
   echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
 }
 
@@ -1134,7 +1155,7 @@ ensure_dxvk_installed() {
 enable_dxvk_env() {
   log "Enabling DXVK via WINEDLLOVERRIDES (experimental)"
   export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,dxgi=n}"
-  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  export WINEDEBUG="${WINEDEBUG:-$(moonshine_winedebug_default)}"
   echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
   echo "Note: DXVK needs a Vulkan driver (MoltenVK) on macOS. If games fail to"
   echo "start, install MoltenVK or switch to the dxmt / d3dmetal backend."
@@ -1146,7 +1167,7 @@ enable_wined3d_env() {
   # prefix are ignored. WineD3D maps Direct3D to OpenGL: broadest compatibility,
   # slowest performance. Best used in a dedicated bottle.
   export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-d3d9,d3d10core,d3d11,d3d12,d3d12core,dxgi=b}"
-  export WINEDEBUG="${WINEDEBUG:--all,err+all}"
+  export WINEDEBUG="${WINEDEBUG:-$(moonshine_winedebug_default)}"
   echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"
 }
 
@@ -1194,6 +1215,7 @@ run_launch_cmd() {
       attempt=$((attempt + 1))
     done
     echo "${label} still failed after ${attempts} attempt(s) (status ${status})."
+    moonshine_report_exit "${label}" "${status}" || true
     return "${status}"
   fi
 
@@ -1243,6 +1265,7 @@ run_launch_cmd() {
     attempt=$((attempt + 1))
   done
   echo "${label} could not start after ${attempts} attempt(s) (status ${status}). See ${COSMOS_LAUNCH_LOG}."
+  moonshine_report_exit "${label}" "${status}" || true
   return "${status}"
 }
 
@@ -1453,7 +1476,7 @@ launch_standalone_game() {
     (( ${#extra_args[@]} > 0 )) && game_cmd+=("${extra_args[@]}")
   fi
 
-  run_launch_cmd "Game" 1 "${game_cmd[@]}"
+  moonshine_with_program_dir "${game_exe}" run_launch_cmd "Game" 1 "${game_cmd[@]}"
 }
 
 run_installer() {
@@ -1471,9 +1494,9 @@ run_installer() {
     extra_args=(${COSMOS_INSTALLER_ARGS})
   fi
   if printf '%s' "${abs}" | grep -qi '\.msi$'; then
-    "${WINE_BIN}" msiexec /i "${abs}" ${extra_args[@]+"${extra_args[@]}"}
+    moonshine_with_program_dir "${abs}" "${WINE_BIN}" msiexec /i "${abs}" ${extra_args[@]+"${extra_args[@]}"}
   else
-    "${WINE_BIN}" "${abs}" ${extra_args[@]+"${extra_args[@]}"}
+    moonshine_with_program_dir "${abs}" "${WINE_BIN}" "${abs}" ${extra_args[@]+"${extra_args[@]}"}
   fi
 }
 
@@ -1496,7 +1519,7 @@ launch_profile() {
     profile_cmd+=("${PROFILE_ARGS[@]}")
   fi
 
-  run_launch_cmd "Profile" 1 "${profile_cmd[@]}"
+  moonshine_with_program_dir "${profile_executable}" run_launch_cmd "Profile" 1 "${profile_cmd[@]}"
 }
 
 prepare_steam_bottle() {
@@ -1726,6 +1749,15 @@ main() {
   if [[ "${COSMOS_LAUNCH_MODE}" == "runtime-status" ]]; then
     wine_runtime_status_lines
     return
+  fi
+  if [[ "${COSMOS_LAUNCH_MODE}" == "opengl-status" || "${COSMOS_LAUNCH_MODE}" == "opengl-patch" || "${COSMOS_LAUNCH_MODE}" == "opengl-revert" ]]; then
+    declare -F moonshine_opengl_status >/dev/null 2>&1 || die "OpenGL fix is unavailable (moonshine_lib.sh not loaded)."
+    case "${COSMOS_LAUNCH_MODE}" in
+      opengl-status) moonshine_opengl_status ;;
+      opengl-patch) moonshine_opengl_apply ;;
+      opengl-revert) moonshine_opengl_revert ;;
+    esac
+    return $?
   fi
   if [[ "${COSMOS_LAUNCH_MODE}" == "check-update" ]]; then
     "${SCRIPT_DIR}/scripts/check_updates.sh"

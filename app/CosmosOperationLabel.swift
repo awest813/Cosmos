@@ -34,6 +34,9 @@ enum CosmosOperationLabel {
             case "--logs": return "Opening logs…"
             case "--compat-check": return "Checking compatibility…"
             case "--status", "--verify-steam": return "Checking your setup…"
+            case "--opengl-status": return "Checking the OpenGL fix…"
+            case "--opengl-patch": return "Applying the OpenGL fix…"
+            case "--opengl-revert": return "Removing the OpenGL fix…"
             default: return "Updating Cosmos…"
             }
         default: return "Working…"
