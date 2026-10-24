@@ -25,16 +25,18 @@ struct PortsDashboard: View {
             caption: "Turn a Windows program into a Mac app on Apple Silicon. DXMT and D9VK are on by default. D3DMetal is optional and stays on this Mac — it cannot be part of a port you share."
         ) {
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Spacer(minLength: 0)
-                    Button {
-                        showCreateSheet = true
-                    } label: {
-                        Label("New Port", systemImage: "plus.circle.fill")
+                if !ports.isEmpty {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Button {
+                            showCreateSheet = true
+                        } label: {
+                            Label("New Port", systemImage: "plus.circle.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isRunning)
+                        .help("Wrap a Windows program as a Mac app")
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(isRunning)
-                    .help("Wrap a Windows program as a Mac app")
                 }
 
                 if ports.isEmpty {
@@ -170,34 +172,40 @@ struct PortsDashboard: View {
                     message: "Game Porting Toolkit stays on this Mac. Cosmos does not include it, and this port cannot be shared with D3DMetal on."
                 )
             }
-            HStack(spacing: 10) {
-                Button {
-                    onLaunch(port)
-                } label: {
-                    Label("Open", systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.cosmosPrimary)
-                .disabled(isRunning)
-                Button {
-                    onBuild(port)
-                } label: {
-                    Label("Make Mac App", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
-                .help("Builds an app in ~/Applications/Cosmos Ports")
-                Button(role: .destructive) {
-                    pendingDelete = port
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { portActions(port) }
+                VStack(alignment: .leading, spacing: 8) { portActions(port) }
             }
         }
         .padding(CosmosSpacing.cardPadding)
         .cosmosCard()
+    }
+
+    @ViewBuilder
+    private func portActions(_ port: WinePort) -> some View {
+        Button {
+            onLaunch(port)
+        } label: {
+            Label("Open", systemImage: "play.fill")
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(Color.cosmosPrimary)
+        .disabled(isRunning)
+        Button {
+            onBuild(port)
+        } label: {
+            Label("Make Mac App", systemImage: "square.and.arrow.down")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
+        .help("Builds an app in ~/Applications/Cosmos Ports")
+        Button(role: .destructive) {
+            pendingDelete = port
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
     }
 }
 
@@ -242,16 +250,25 @@ private struct NewPortSheet: View {
                         Text("A port I can share").tag("share")
                     }
                     Picker("Windows version", selection: $draft.windows) {
-                        ForEach(BottleStore.windowsOptions, id: \.self) { Text($0).tag($0) }
+                        ForEach(BottleStore.windowsOptions, id: \.self) { version in
+                            Text(SettingLabels.windowsDisplayName(version)).tag(version)
+                        }
                     }
                     Toggle("Retina mode", isOn: $draft.retina)
-                    Toggle("DXMT — DirectX 10/11 on Metal", isOn: $draft.renderers.dxmt)
-                    Toggle("D9VK — DirectX 8/9 on Vulkan", isOn: $draft.renderers.d9vk)
-                    Toggle("WineD3D — older DirectX", isOn: $draft.renderers.wineD3D)
-                    Toggle("CNC-DDRAW — classic DirectDraw", isOn: $draft.renderers.cncDDraw)
-                    Toggle("DXVK — DirectX 10/11 on Vulkan", isOn: $draft.renderers.dxvk)
-                    Toggle("D3DMetal — DirectX 11/12", isOn: $draft.renderers.d3dmetal)
-                        .disabled(draft.distribution == "share" || isRunning)
+                    Section("Graphics") {
+                        Toggle("DXMT — DirectX 10 and 11 on Metal", isOn: $draft.renderers.dxmt)
+                        Toggle("D9VK — DirectX 8 and 9 on Vulkan", isOn: $draft.renderers.d9vk)
+                        Toggle("WineD3D — older DirectX", isOn: $draft.renderers.wineD3D)
+                        Toggle("CNC-DDRAW — classic DirectDraw", isOn: $draft.renderers.cncDDraw)
+                        Toggle("DXVK — DirectX 10 and 11 on Vulkan", isOn: $draft.renderers.dxvk)
+                        Toggle("D3DMetal — DirectX 11 and 12", isOn: $draft.renderers.d3dmetal)
+                            .disabled(draft.distribution == "share" || isRunning)
+                        if draft.distribution == "share" {
+                            Text("A shared port cannot include D3DMetal. Apple's license keeps that on this Mac.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 .formStyle(.grouped)
                 .disabled(isRunning)
@@ -266,6 +283,7 @@ private struct NewPortSheet: View {
                     HStack {
                         TextField("ddraw.dll folder (optional)", text: $draft.cncDDrawPath)
                             .textFieldStyle(.roundedBorder)
+                            .disabled(isRunning)
                         Button("Browse") { browseForDirectory(into: \.cncDDrawPath, message: "Select the folder that contains ddraw.dll") }
                             .disabled(isRunning)
                     }
@@ -274,6 +292,7 @@ private struct NewPortSheet: View {
                     HStack {
                         TextField("Game Porting Toolkit folder", text: $draft.gptkPath)
                             .textFieldStyle(.roundedBorder)
+                            .disabled(isRunning)
                         Button("Browse") { browseForDirectory(into: \.gptkPath, message: "Select your Game Porting Toolkit install") }
                             .disabled(isRunning)
                     }
@@ -310,7 +329,8 @@ private struct NewPortSheet: View {
             }
             .padding(20)
         }
-        .frame(width: 540, height: 640)
+        .frame(width: 560)
+        .frame(minHeight: 520, maxHeight: 680)
         .background(Color.cosmosContentBackground)
         .onAppear { nameFocused = true }
     }

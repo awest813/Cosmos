@@ -30,6 +30,22 @@ struct GraphicsSettings: Equatable {
     static let wineDebugPresetOptions = ["cosmos", "moonshine"]
     static let sojuModeOptions = ["auto", "on", "off"]
 
+    static func syncModeTitle(_ mode: String) -> String {
+        switch mode {
+        case "esync": return "Esync"
+        case "msync": return "Msync"
+        default: return "Off"
+        }
+    }
+
+    static func syncModeLabel(for mode: String) -> String {
+        switch mode {
+        case "esync": return "Lower CPU overhead for multiplayer."
+        case "msync": return "Newer Wine sync. Experimental on macOS."
+        default: return "Wine's usual setting."
+        }
+    }
+
     static func normalizedSojuMode(_ value: String) -> String? {
         switch value {
         case "auto": return "auto"
@@ -39,13 +55,32 @@ struct GraphicsSettings: Equatable {
         }
     }
 
-    var syncModeLabel: String {
-        switch syncMode {
-        case "esync": return "esync — lower CPU overhead for multiplayer"
-        case "msync": return "msync — newer Wine sync (experimental on macOS)"
-        default: return "off — Wine default"
+    var rosettaAvxCaption: String { Self.rosettaAvxCaption(for: rosettaAvx) }
+    var wineWritecopyCaption: String { Self.wineWritecopyCaption(for: wineWritecopy) }
+
+    static func rosettaAvxCaption(for mode: String) -> String {
+        switch mode {
+        case "on":
+            return "On for every launch, including Intel."
+        case "off":
+            return "Rosetta's CPU report stays unchanged."
+        default:
+            return "On for Apple Silicon. Diablo II: Resurrected waits at launch without it. Intel Macs are unchanged."
         }
     }
+
+    static func wineWritecopyCaption(for mode: String) -> String {
+        switch mode {
+        case "on":
+            return "On for every launch, including Steam."
+        case "off":
+            return "The login page uses Wine's usual memory setting."
+        default:
+            return "On for Battle.net, Epic, and GOG, so the login page can draw. Steam is unchanged."
+        }
+    }
+
+    var syncModeLabel: String { Self.syncModeLabel(for: syncMode) }
 
     var gptkConfigured: Bool {
         !gptkPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -59,8 +94,53 @@ struct GraphicsSettings: Equatable {
 struct SojuCommandStatus: Equatable {
     var layout: String
     var message: String
+    var copiedSo: Bool
+
+    init(layout: String, message: String, copiedSo: Bool = false) {
+        self.layout = layout
+        self.message = message
+        self.copiedSo = copiedSo
+    }
 
     static let empty = SojuCommandStatus(layout: "", message: "")
+
+    var headline: String {
+        switch layout {
+        case "complete": return "Installed"
+        case "partial": return "Incomplete"
+        case "missing": return "Not installed"
+        case "error": return "Could not update"
+        default: return ""
+        }
+    }
+
+    /// Plain-language status for the graphics page. The raw script line stays in `message`.
+    var detail: String {
+        switch layout {
+        case "complete":
+            return "DirectX 12 can use D3DMetal in this Wine install."
+        case "partial":
+            if copiedSo {
+                return "A D3DMetal library was saved as a normal file. Install the layout again so Wine can load it."
+            }
+            if message.localizedCaseInsensitiveContains("d3d11.dll") {
+                return "The Apple download is missing DirectX libraries. Nothing was changed."
+            }
+            return "D3DMetal is only partly installed. The Metal library, the Windows libraries, and the links between them are all required."
+        case "missing":
+            if message.localizedCaseInsensitiveContains("download") {
+                return "Download Game Porting Toolkit from Apple, then point Cosmos at that folder."
+            }
+            if message.localizedCaseInsensitiveContains("found") {
+                return "Game Porting Toolkit was found. Install the layout when you want DirectX 12."
+            }
+            return "D3DMetal is not installed in this Wine yet."
+        case "error":
+            return message.isEmpty ? "The D3DMetal layout could not be updated." : message
+        default:
+            return message
+        }
+    }
 }
 
 struct OpenGLPatchStatus: Equatable {
@@ -71,6 +151,35 @@ struct OpenGLPatchStatus: Equatable {
     var message: String
 
     static let empty = OpenGLPatchStatus(status: "", path: "", offset: "", byte: "", message: "")
+
+    var headline: String {
+        switch status {
+        case "patched": return "On"
+        case "unpatched": return "Available"
+        case "mismatch": return "Left unchanged"
+        case "missing": return "Wine not found"
+        case "error": return "Could not update"
+        default: return ""
+        }
+    }
+
+    /// Plain-language status for the graphics page. The raw script line stays in `message`.
+    var detail: String {
+        switch status {
+        case "patched":
+            return "Games that need an OpenGL 3.2 window can open one."
+        case "unpatched":
+            return "This Wine build can take the fix. Apply it when a game cannot open a window."
+        case "mismatch":
+            return "This Wine build is different, so Cosmos left it alone."
+        case "missing":
+            return "Install Wine, then check again."
+        case "error":
+            return message.isEmpty ? "The OpenGL check could not be updated." : message
+        default:
+            return message
+        }
+    }
 }
 
 struct SpockD3D9ValidationResult: Equatable {
@@ -175,6 +284,7 @@ enum GraphicsSettingsStore {
             switch key {
             case "layout": status.layout = value
             case "message": status.message = value
+            case "copied_so": status.copiedSo = value == "1"
             default: break
             }
         }

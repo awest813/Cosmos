@@ -30,8 +30,8 @@ final class BottleUITests: XCTestCase {
             "WINE_RETINA_MODE": "1",
         ])
         XCTAssertEqual(bottle.backendDisplayName, "DXMT")
-        XCTAssertTrue(bottle.cardDetailLine.contains("win10"))
-        XCTAssertTrue(bottle.cardDetailLine.contains("esync"))
+        XCTAssertTrue(bottle.cardDetailLine.contains("Windows 10"))
+        XCTAssertTrue(bottle.cardDetailLine.contains("Esync"))
         XCTAssertTrue(bottle.cardDetailLine.contains("Retina"))
     }
 

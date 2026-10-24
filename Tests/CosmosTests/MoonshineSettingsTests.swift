@@ -26,6 +26,11 @@ final class MoonshineSettingsTests: XCTestCase {
         XCTAssertEqual(status.offset, "207355")
         XCTAssertEqual(status.byte, "74")
         XCTAssertTrue(status.message.contains("original jump"))
+        XCTAssertEqual(status.headline, "Available")
+        XCTAssertTrue(status.detail.contains("can take the fix"))
+        XCTAssertEqual(OpenGLPatchStatus(status: "patched", path: "", offset: "", byte: "", message: "").headline, "On")
+        XCTAssertEqual(OpenGLPatchStatus(status: "mismatch", path: "", offset: "", byte: "", message: "").headline, "Left unchanged")
+        XCTAssertTrue(OpenGLPatchStatus(status: "mismatch", path: "", offset: "", byte: "", message: "").detail.contains("left it alone"))
     }
 
     func testWineLogLabel() {

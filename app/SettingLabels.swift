@@ -60,7 +60,15 @@ enum SettingLabels {
     }
 
     static func windowsDisplayName(_ version: String) -> String {
-        version.isEmpty ? "Wine default" : version
+        switch version {
+        case "": return "Wine default"
+        case "winxp": return "Windows XP"
+        case "win7": return "Windows 7"
+        case "win8": return "Windows 8"
+        case "win10": return "Windows 10"
+        case "win11": return "Windows 11"
+        default: return version
+        }
     }
 
     static func savedMessage(for key: String, appliesToSteam: Bool = true) -> String {

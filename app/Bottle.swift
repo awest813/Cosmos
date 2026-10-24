@@ -17,7 +17,7 @@ struct Bottle: Identifiable, Hashable {
     var windowsVersion: String { settings["WINDOWS_VERSION"] ?? "" }
 
     var windowsDisplay: String {
-        windowsVersion.isEmpty ? "Wine default" : windowsVersion
+        SettingLabels.windowsDisplayName(windowsVersion)
     }
     var retinaEnabled: Bool { settings["WINE_RETINA_MODE"] == "1" }
     var syncMode: String {

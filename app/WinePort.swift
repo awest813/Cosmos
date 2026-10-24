@@ -140,10 +140,21 @@ struct WinePort: Identifiable, Hashable {
         bottle.isEmpty ? "Main environment" : bottle
     }
 
+    var graphicsLabel: String {
+        switch primaryBackend {
+        case "d3dmetal": return "D3DMetal"
+        case "spockd3d9": return "DXMT + D9VK"
+        case "dxmt": return "DXMT"
+        case "dxvk": return "DXVK"
+        case "wined3d": return "WineD3D"
+        default: return primaryBackend.isEmpty ? "" : SettingLabels.backendDisplayName(primaryBackend)
+        }
+    }
+
     var cardDetail: String {
-        var parts = [distributionLabel, windowsVersion]
-        if !primaryBackend.isEmpty {
-            parts.append(SettingLabels.backendDisplayName(primaryBackend))
+        var parts = [distributionLabel, SettingLabels.windowsDisplayName(windowsVersion)]
+        if !graphicsLabel.isEmpty {
+            parts.append(graphicsLabel)
         }
         return parts.joined(separator: " · ")
     }

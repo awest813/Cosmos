@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// OpenGL 3.2 check and Wine log detail inspired by Moonshine.
+/// OpenGL 3.2 check and Wine log detail.
 /// Cosmos implements this itself. Moonshine and Whisky are GPL-3.0 and are not included.
 struct MoonshineGraphicsCard: View {
     var preset: String
@@ -12,12 +12,12 @@ struct MoonshineGraphicsCard: View {
     var onUndo: () -> Void
     var onGuide: () -> Void
 
+    @State private var pendingApply = false
+    @State private var pendingUndo = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("OpenGL (Moonshine)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.cosmosPrimary)
-            Text("SDL3 and some older games need an OpenGL 3.2 context. Cosmos flips one check in Wine's Mac driver only when that byte still matches. A different Wine build is left alone.")
+            Text("Some games need an OpenGL 3.2 window. Cosmos can turn that on in Wine when this Wine build still has the original check. A different build is left alone.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -36,54 +36,100 @@ struct MoonshineGraphicsCard: View {
                 .accessibilityLabel("Wine log detail")
                 .accessibilityValue(preset == "moonshine" ? "Detailed" : "Quiet")
                 Text(preset == "moonshine"
-                    ? "Detailed records Wine warnings and module loads, so a crash is easier to read."
-                    : "Quiet keeps the log to errors. This is the Cosmos default.")
+                    ? "Detailed records Wine warnings and which libraries loaded, so a crash is easier to read."
+                    : "Quiet keeps the log to errors. This is the usual Cosmos setting.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if !status.message.isEmpty {
-                Text(status.message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("opengl-status-message")
+            if !status.headline.isEmpty || !status.detail.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    if !status.headline.isEmpty {
+                        Text(status.headline)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(statusTint)
+                    }
+                    if !status.detail.isEmpty {
+                        Text(status.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("opengl-status-message")
             }
-            if !status.path.isEmpty {
-                Text(status.path)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .truncationMode(.middle)
-            }
 
-            HStack(spacing: 8) {
-                Button(action: onCheck) {
-                    Label("Check OpenGL fix", systemImage: "checkmark.shield")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
-
-                Button(action: onApply) {
-                    Label("Apply OpenGL fix", systemImage: "wand.and.stars")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.cosmosPrimary)
-                .disabled(isRunning)
-
-                Button(action: onUndo) {
-                    Label("Undo OpenGL fix", systemImage: "arrow.uturn.backward")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
-
-                Button(action: onGuide) {
-                    Label("Guide", systemImage: "book")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { actionButtons }
+                VStack(alignment: .leading, spacing: 8) { actionButtons }
             }
         }
+        .confirmationDialog(
+            "Turn on OpenGL 3.2?",
+            isPresented: $pendingApply,
+            titleVisibility: .visible
+        ) {
+            Button("Apply") { onApply() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Cosmos changes one check in Wine's Mac driver, and only when that check still matches. You can undo it.")
+        }
+        .confirmationDialog(
+            "Restore the original OpenGL check?",
+            isPresented: $pendingUndo,
+            titleVisibility: .visible
+        ) {
+            Button("Restore", role: .destructive) { onUndo() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Wine goes back to the check it shipped with. Games that need OpenGL 3.2 may fail to open a window again.")
+        }
+    }
+
+    private var statusTint: Color {
+        switch status.status {
+        case "patched": return Color.cosmosSuccess
+        case "mismatch", "error": return Color.cosmosWarning
+        default: return Color.cosmosPrimary
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        Button {
+            onCheck()
+        } label: {
+            Label("Check", systemImage: "checkmark.shield")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
+        .help("See whether this Wine build can take the OpenGL 3.2 fix")
+
+        Button {
+            pendingApply = true
+        } label: {
+            Label("Apply", systemImage: "wand.and.stars")
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(Color.cosmosPrimary)
+        .disabled(isRunning)
+        .help("Turn on OpenGL 3.2 when the check still matches")
+
+        Button {
+            pendingUndo = true
+        } label: {
+            Label("Undo", systemImage: "arrow.uturn.backward")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
+        .help("Restore Wine's original OpenGL check")
+
+        Button(action: onGuide) {
+            Label("Guide", systemImage: "book")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
     }
 }

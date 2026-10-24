@@ -28,6 +28,8 @@ struct ContentView: View {
     @State private var showGameTools = false
     @State private var activeOperationTitle = "Working…"
     @State private var showAdvancedGraphics = false
+    @State private var showOpenGLFix = false
+    @State private var showStoreLaunch = false
     @State private var openGLStatus = OpenGLPatchStatus.empty
     @State private var sojuStatus = SojuCommandStatus.empty
     @State private var showD3D9Guidance = false
@@ -2743,7 +2745,7 @@ struct ContentView: View {
         CosmosSection(
             title: "Performance & Graphics",
             systemImage: "speedometer",
-            caption: "Fine-tune graphics and speed. The defaults work for most games."
+            caption: "The defaults work for most games. OpenGL and store logins are folded up below."
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 DisclosureGroup(isExpanded: $showD3D9Guidance) {
@@ -2762,13 +2764,13 @@ struct ContentView: View {
                         .textCase(.uppercase)
                     Picker("Thread sync", selection: syncModeBinding) {
                         ForEach(GraphicsSettings.syncModeOptions, id: \.self) { mode in
-                            Text(mode).tag(mode)
+                            Text(GraphicsSettings.syncModeTitle(mode)).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
                     .disabled(isRunning)
                     .accessibilityLabel("Thread sync mode")
-                    .accessibilityValue(graphicsSettings.syncMode)
+                    .accessibilityValue(GraphicsSettings.syncModeTitle(graphicsSettings.syncMode))
                     Text(graphicsSettings.syncModeLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -2785,11 +2787,33 @@ struct ContentView: View {
 
                 Divider()
 
-                moonshineGraphicsCard
+                DisclosureGroup(isExpanded: $showOpenGLFix) {
+                    moonshineGraphicsCard
+                        .padding(.top, 8)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("OpenGL 3.2", systemImage: "cube.transparent")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.cosmosPrimary)
+                        Text("For games that cannot open a graphics window")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
-                Divider()
-
-                sojuLaunchCard
+                DisclosureGroup(isExpanded: $showStoreLaunch) {
+                    sojuLaunchCard
+                        .padding(.top, 8)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Battle.net, Epic, and GOG", systemImage: "bag")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.cosmosPrimary)
+                        Text("Sign-in, Apple Silicon, and DirectX 12")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 DisclosureGroup(isExpanded: $showAdvancedGraphics) {
                     VStack(alignment: .leading, spacing: 14) {
@@ -4457,7 +4481,7 @@ struct ContentView: View {
                     .frame(maxWidth: 160, alignment: .leading)
                     .disabled(isRunning)
                     .accessibilityLabel("Windows version")
-                    .accessibilityValue(bottle.windowsVersion.isEmpty ? "Wine default" : bottle.windowsVersion)
+                    .accessibilityValue(bottle.windowsDisplay)
                 }
             }
 
@@ -4473,12 +4497,18 @@ struct ContentView: View {
                     .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
                     .textCase(.uppercase)
                 Picker("Thread sync", selection: bottleSyncBinding(for: bottle)) {
-                    ForEach(GraphicsSettings.syncModeOptions, id: \.self) { Text($0).tag($0) }
+                    ForEach(GraphicsSettings.syncModeOptions, id: \.self) { mode in
+                        Text(GraphicsSettings.syncModeTitle(mode)).tag(mode)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .disabled(isRunning)
                 .accessibilityLabel("Thread sync mode")
-                .accessibilityValue(bottle.syncMode)
+                .accessibilityValue(GraphicsSettings.syncModeTitle(bottle.syncMode))
+                Text(GraphicsSettings.syncModeLabel(for: bottle.syncMode))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(alignment: .top, spacing: 24) {

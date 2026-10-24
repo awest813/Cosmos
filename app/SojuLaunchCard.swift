@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Battle.net, Epic, and GOG launch fixes documented by Soju.
+/// Battle.net, Epic, and GOG launch fixes.
 /// Cosmos implements them itself. Soju is GPL-3.0 and is not included.
 struct SojuLaunchCard: View {
     var rosettaAvx: String
@@ -15,12 +15,12 @@ struct SojuLaunchCard: View {
     var onSeedBattleNet: () -> Void
     var onGuide: () -> Void
 
+    @State private var pendingInstall = false
+    @State private var pendingUndo = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Store launch (Soju)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.cosmosPrimary)
-            Text("Battle.net, Epic, and GOG need Rosetta to advertise AVX, a writable login page, and Apple's D3DMetal installed as a Metal library plus Windows shims plus unix symlinks. Cosmos applies those fixes itself. Download the Game Porting Toolkit from Apple; it is not included.")
+        VStack(alignment: .leading, spacing: 12) {
+            Text("These stores need a few launch settings. AVX is for Apple Silicon. The login page is for Battle.net, Epic, and GOG. D3DMetal still comes from your own Apple download.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -28,10 +28,8 @@ struct SojuLaunchCard: View {
             modePicker(
                 title: "AVX on Apple Silicon",
                 selection: rosettaAvx,
-                accessibilityLabel: "AVX advertising",
-                caption: rosettaAvx == "off"
-                    ? "Off leaves Rosetta's CPU report unchanged."
-                    : "Auto turns this on for Apple Silicon. Diablo II: Resurrected waits forever without it.",
+                accessibilityLabel: "AVX on Apple Silicon",
+                caption: GraphicsSettings.rosettaAvxCaption(for: rosettaAvx),
                 onChange: onAvxChange
             )
 
@@ -39,55 +37,110 @@ struct SojuLaunchCard: View {
                 title: "Store login page",
                 selection: wineWritecopy,
                 accessibilityLabel: "Store login page",
-                caption: wineWritecopy == "on"
-                    ? "On for every launch. Battle.net's login page stays blank without it."
-                    : "Auto turns this on for Battle.net, Epic, and GOG. Steam stays on the usual setting.",
+                caption: GraphicsSettings.wineWritecopyCaption(for: wineWritecopy),
                 onChange: onWritecopyChange
             )
 
-            if !status.message.isEmpty {
-                Text(status.message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("soju-status-message")
+            if !status.headline.isEmpty || !status.detail.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    if !status.headline.isEmpty {
+                        Text(status.headline)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(statusTint)
+                    }
+                    if !status.detail.isEmpty {
+                        Text(status.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("soju-status-message")
             }
 
-            HStack(spacing: 8) {
-                Button(action: onCheckLayout) {
-                    Label("Check D3DMetal layout", systemImage: "checkmark.shield")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
-
-                Button(action: onInstallLayout) {
-                    Label("Install D3DMetal layout", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.cosmosPrimary)
-                .disabled(isRunning)
-
-                Button(action: onUndoLayout) {
-                    Label("Undo layout", systemImage: "arrow.uturn.backward")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { layoutButtons }
+                VStack(alignment: .leading, spacing: 8) { layoutButtons }
             }
 
-            HStack(spacing: 8) {
-                Button(action: onSeedBattleNet) {
-                    Label("Seed Battle.net", systemImage: "signature")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
-
-                Button(action: onGuide) {
-                    Label("Guide", systemImage: "book")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isRunning)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { otherButtons }
+                VStack(alignment: .leading, spacing: 8) { otherButtons }
             }
         }
+        .confirmationDialog(
+            "Install the D3DMetal layout?",
+            isPresented: $pendingInstall,
+            titleVisibility: .visible
+        ) {
+            Button("Install") { onInstallLayout() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Cosmos copies Apple's Direct3D libraries into this Wine install and links them to D3DMetal. Wine's originals are saved so you can undo. An incomplete download is left untouched.")
+        }
+        .confirmationDialog(
+            "Remove the D3DMetal layout?",
+            isPresented: $pendingUndo,
+            titleVisibility: .visible
+        ) {
+            Button("Restore", role: .destructive) { onUndoLayout() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Wine's original Direct3D libraries come back, and the D3DMetal copies are removed from the Wine install.")
+        }
+    }
+
+    private var statusTint: Color {
+        switch status.layout {
+        case "complete": return Color.cosmosSuccess
+        case "partial", "error": return Color.cosmosWarning
+        default: return Color.cosmosPrimary
+        }
+    }
+
+    @ViewBuilder
+    private var layoutButtons: some View {
+        Button(action: onCheckLayout) {
+            Label("Check layout", systemImage: "checkmark.shield")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
+        .help("See whether D3DMetal's three pieces are installed")
+
+        Button {
+            pendingInstall = true
+        } label: {
+            Label("Install layout", systemImage: "square.and.arrow.down")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
+        .help("Install D3DMetal into Wine. Your Apple download is required.")
+
+        Button {
+            pendingUndo = true
+        } label: {
+            Label("Undo", systemImage: "arrow.uturn.backward")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
+        .help("Restore Wine's original Direct3D libraries")
+    }
+
+    @ViewBuilder
+    private var otherButtons: some View {
+        Button(action: onSeedBattleNet) {
+            Label("Update Battle.net", systemImage: "arrow.triangle.2.circlepath")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
+        .help("Copy Battle.net into each versioned folder so sign-in is accepted")
+
+        Button(action: onGuide) {
+            Label("Guide", systemImage: "book")
+        }
+        .buttonStyle(.bordered)
+        .disabled(isRunning)
     }
 
     private func modePicker(
@@ -110,6 +163,7 @@ struct SojuLaunchCard: View {
             .pickerStyle(.segmented)
             .disabled(isRunning)
             .accessibilityLabel(accessibilityLabel)
+            .accessibilityValue(selection == "on" ? "On" : (selection == "off" ? "Off" : "Auto"))
             Text(caption)
                 .font(.caption)
                 .foregroundStyle(.secondary)

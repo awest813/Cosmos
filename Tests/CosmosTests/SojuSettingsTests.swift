@@ -14,6 +14,16 @@ final class SojuSettingsTests: XCTestCase {
         let invalid = GraphicsSettingsStore.load(from: ["COSMOS_ROSETTA_AVX": "bogus"])
         XCTAssertEqual(invalid.rosettaAvx, "auto")
         XCTAssertEqual(GraphicsSettings.sojuModeOptions, ["auto", "on", "off"])
+        XCTAssertTrue(GraphicsSettings.rosettaAvxCaption(for: "on").contains("every launch"))
+        XCTAssertTrue(GraphicsSettings.rosettaAvxCaption(for: "auto").contains("Apple Silicon"))
+        XCTAssertTrue(GraphicsSettings.wineWritecopyCaption(for: "auto").contains("Steam is unchanged"))
+        XCTAssertEqual(SojuCommandStatus(layout: "complete", message: "").headline, "Installed")
+        XCTAssertTrue(SojuCommandStatus(layout: "complete", message: "").detail.contains("DirectX 12"))
+        XCTAssertEqual(SojuCommandStatus(layout: "partial", message: "").headline, "Incomplete")
+        XCTAssertTrue(SojuCommandStatus(layout: "partial", message: "", copiedSo: true).detail.contains("normal file"))
+        XCTAssertEqual(GraphicsSettings.syncModeTitle("esync"), "Esync")
+        XCTAssertEqual(SettingLabels.windowsDisplayName("win10"), "Windows 10")
+        XCTAssertEqual(SettingLabels.windowsDisplayName(""), "Wine default")
     }
 
     func testParseSojuStatus() {
@@ -26,7 +36,9 @@ final class SojuSettingsTests: XCTestCase {
         """
         let status = GraphicsSettingsStore.parseSojuStatus(output)
         XCTAssertEqual(status.layout, "partial")
+        XCTAssertTrue(status.copiedSo)
         XCTAssertTrue(status.message.contains("symlink"))
+        XCTAssertTrue(status.detail.contains("normal file"))
     }
 
     func testSojuSettingLabels() {

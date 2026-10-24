@@ -50,7 +50,7 @@ extension Bottle {
     var cardDetailLine: String {
         var parts: [String] = [windowsDisplay]
         if syncMode != "off" {
-            parts.append(syncMode)
+            parts.append(GraphicsSettings.syncModeTitle(syncMode))
         }
         if retinaEnabled {
             parts.append("Retina")

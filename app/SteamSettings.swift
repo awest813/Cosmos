@@ -67,7 +67,7 @@ struct SteamSettings: Equatable {
     }
 
     var windowsDisplay: String {
-        windowsVersion.isEmpty ? "Wine default" : windowsVersion
+        SettingLabels.windowsDisplayName(windowsVersion)
     }
 }
 

@@ -107,6 +107,7 @@ final class WinePortTests: XCTestCase {
         XCTAssertEqual(ports.first?.renderers, PortRenderers(
             dxmt: true, d3dmetal: false, dxvk: false, d9vk: true, cncDDraw: true, wineD3D: true
         ))
+        XCTAssertEqual(ports.first?.cardDetail, "This Mac · Windows 10 · DXMT + D9VK")
     }
 
     func testPortOperationLabels() {
