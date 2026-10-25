@@ -12,4 +12,4 @@ fi
 
 swift build -c release "$@"
 echo "CLI: ${ROOT}/third_party/highball/.build/release/highball"
-echo "App: swift build -c release --product HighballApp"
+echo "App: ${ROOT}/third_party/highball/.build/release/HighballApp"

@@ -30,6 +30,7 @@ struct ContentView: View {
     @State private var showAdvancedGraphics = false
     @State private var showOpenGLFix = false
     @State private var showStoreLaunch = false
+    @State private var showIncludedLaunchers = false
     @State private var openGLStatus = OpenGLPatchStatus.empty
     @State private var sojuStatus = SojuCommandStatus.empty
     @State private var showD3D9Guidance = false
@@ -912,6 +913,7 @@ struct ContentView: View {
                         } else {
                             newUserMaintenanceSection
                         }
+                        includedLaunchersDisclosure
                     }
                     consoleSection
                 }
@@ -1014,6 +1016,7 @@ struct ContentView: View {
                 Label("Steam & Graphics Settings", systemImage: "slider.horizontal.3")
                     .font(.headline)
             }
+            includedLaunchersDisclosure
         case .library:
             if let selectedProfile { selectedGameExperience(selectedProfile) }
             gameLibrarySection
@@ -1029,6 +1032,7 @@ struct ContentView: View {
                     .font(.headline)
             }
         case .tools:
+            includedLaunchersSection
             maintenanceGrid
             storeExpansionSection
         case .bottles:
@@ -1204,7 +1208,7 @@ struct ContentView: View {
             switch dashboardSection {
             case .launch: return "Pick a game and play. Your settings are ready when you need them."
             case .library: return "Your collection, ready to explore."
-            case .tools: return "Add games, check your setup, and get help."
+            case .tools: return "Add games, check your setup, or open Highball and Vermut."
             case .bottles: return "Keep games with different requirements in separate Windows environments."
             case .ports: return "Wrap a Windows program so it opens like a Mac app on Apple Silicon."
             }
@@ -5004,6 +5008,80 @@ struct ContentView: View {
             bundleName: "MULTIPLAYER.md",
             fallbackMessage: "Multiplayer guide not found. See docs/MULTIPLAYER.md in the Cosmos repository."
         )
+    }
+
+    private var includedLauncherAvailability: [String: IncludedLauncherAvailability] {
+        Dictionary(uniqueKeysWithValues: IncludedLaunchers.all.map { launcher in
+            let source = includedLauncherSourceURL(launcher)
+            return (
+                launcher.id,
+                IncludedLauncherAvailability(
+                    hasSource: source != nil,
+                    canBuild: source != nil && resolveScript(launcher.buildScript) != nil
+                )
+            )
+        })
+    }
+
+    private func includedLauncherSourceURL(_ launcher: IncludedLauncher) -> URL? {
+        guard let root = repositoryRootURL else { return nil }
+        let url = root.appendingPathComponent(launcher.sourceFolder, isDirectory: true)
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return nil
+        }
+        return url
+    }
+
+    private var includedLaunchersSection: some View {
+        CosmosSection(
+            title: IncludedLaunchers.title,
+            systemImage: "square.stack.3d.up.fill",
+            caption: IncludedLaunchers.caption
+        ) {
+            includedLauncherCards
+        }
+    }
+
+    private var includedLaunchersDisclosure: some View {
+        DisclosureGroup(isExpanded: $showIncludedLaunchers) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(IncludedLaunchers.caption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                includedLauncherCards
+            }
+            .padding(.top, CosmosSpacing.sectionInner)
+        } label: {
+            Label(IncludedLaunchers.title, systemImage: "square.stack.3d.up.fill")
+                .font(.headline)
+        }
+    }
+
+    private var includedLauncherCards: some View {
+        IncludedLaunchersCards(
+            isRunning: isRunning,
+            availability: includedLauncherAvailability,
+            onGuide: openIncludedLauncherGuide,
+            onReveal: revealIncludedLauncher,
+            onBuild: { launcher in
+                runCommand(script: launcher.buildScript)
+            }
+        )
+    }
+
+    private func openIncludedLauncherGuide(_ launcher: IncludedLauncher) {
+        openRepositoryDoc(
+            relativePath: launcher.guideRelativePath,
+            bundleName: launcher.guideBundleName,
+            fallbackMessage: launcher.guideFallback
+        )
+    }
+
+    private func revealIncludedLauncher(_ launcher: IncludedLauncher) {
+        guard let url = includedLauncherSourceURL(launcher) else { return }
+        revealInFinder(url)
     }
 
     private func openRepositoryDoc(relativePath: String, bundleName: String, fallbackMessage: String) {

@@ -21,6 +21,8 @@ enum CosmosOperationLabel {
             default: return "Updating ports…"
             }
         case "cosmosdb.command": return "Checking compatibility…"
+        case "scripts/build_highball.command": return "Building Highball…"
+        case "scripts/build_vermut.command": return "Building Vermut…"
         case "run.command":
             switch arguments.first {
             case "--download-component": return "Downloading components…"

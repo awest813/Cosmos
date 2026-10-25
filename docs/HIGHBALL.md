@@ -11,15 +11,19 @@ compatibility database it reads.
 | `third_party/highball-db` | CC0-1.0 | `2b5c876308a39268189b12f391d07c34c5fb7c3e` |
 
 The Swift app, CLI, engine manifests, patches, tests, and scripts are the
-upstream files. Cosmos's own dashboard is unchanged. Build Highball on its own,
-on macOS 14 or later:
+upstream files. Highball stays its own app. The dashboard lists it with Vermut
+under **Highball and Vermut**, where you can open this guide, show the folder,
+and build. Building from the dashboard uses a checkout of this project. An
+installed Cosmos.app opens this guide. The Highball source stays in the project
+folder. Build on macOS 14 or later:
 
 ```bash
 scripts/build_highball.command
 ```
 
 That runs `swift build -c release` in `third_party/highball`. The CLI is
-`third_party/highball/.build/release/highball`. Recipes resolve to
+`third_party/highball/.build/release/highball`. The app is
+`third_party/highball/.build/release/HighballApp`. Recipes resolve to
 `third_party/highball-db` when you run commands from the Highball directory.
 
 ```bash

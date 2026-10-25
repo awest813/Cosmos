@@ -11,14 +11,18 @@ launcher for Windows game stores. Cosmos vendors the **v1.2.0** source at
 | License | MIT. Copyright (c) 2026 Vermut Contributors. See `third_party/vermut/LICENSE` |
 
 The Swift app, core library, tests, brand assets, and scripts are the
-upstream files. Cosmos’s own dashboard is unchanged. Build Vermut on macOS 14
-or later:
+upstream files. Vermut stays its own app. The dashboard lists it with Highball
+under **Highball and Vermut**, where you can open this guide, show the folder,
+and build. Building from the dashboard uses a checkout of this project. An
+installed Cosmos.app opens this guide. The Vermut source stays in the project
+folder. Build on macOS 14 or later:
 
 ```bash
 scripts/build_vermut.command
 ```
 
-That runs `swift build -c release` in `third_party/vermut`.
+That runs `swift build -c release` in `third_party/vermut`. The app is
+`third_party/vermut/.build/release/Vermut`.
 
 ## What 1.2.0 adds
 

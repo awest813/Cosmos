@@ -49,8 +49,8 @@ Licensed under [GPL-3.0-or-later](LICENSE).
 - **OpenGL 3.2 fix** — flip one check in Wine's Mac driver when that byte still matches, keep a detailed Wine log preset, and start programs from their own folder. Moonshine's GPL source is not included. See [docs/MOONSHINE.md](docs/MOONSHINE.md)
 - **Store launch fixes** — AVX for Apple Silicon, Battle.net's login page, the three-part D3DMetal layout, and a Battle.net signature seed. Soju's GPL source is not included. See [docs/SOJU.md](docs/SOJU.md)
 - **Store import** — standalone EXE/MSI, GOG, itch.io, Battle.net, Epic (via Legendary)
-- **Highball** — the GPL-3.0 Apple Silicon launcher and its CC0 compatibility database are vendored under `third_party/`. Build with `scripts/build_highball.command` on macOS 14+. See [docs/HIGHBALL.md](docs/HIGHBALL.md)
-- **Vermut 1.2.0** — the MIT store launcher (DXMT versions, Gcenx Wine 11.18, per-game settings, custom bottles) is vendored at `third_party/vermut`. Build with `scripts/build_vermut.command`. See [docs/VERMUT.md](docs/VERMUT.md)
+- **Highball** — the GPL-3.0 Apple Silicon launcher and its CC0 compatibility database are included under `third_party/`. The dashboard can open the guide and build it on macOS 14+. See [docs/HIGHBALL.md](docs/HIGHBALL.md)
+- **Vermut 1.2.0** — the MIT store launcher (DXMT versions, Gcenx Wine 11.18, per-game settings, custom bottles) is included at `third_party/vermut`. The dashboard can open the guide and build it. See [docs/VERMUT.md](docs/VERMUT.md)
 
 ---
 
@@ -128,7 +128,7 @@ Cosmos.app is a single-window launcher with a sidebar (saved games) and a main p
 |---------|-----------------|
 | **Launch** | Quick Launch (Steam + selected profile), Steam Wine settings (backend, Windows version, Retina) |
 | **Games** | Curated YAML profiles, compatibility lookup & reports, repair & dependencies |
-| **Tools** | Maintenance (detect, build/sync launchers, logs, reset), non-Steam game import |
+| **Tools** | Highball and Vermut, maintenance, non-Steam game import |
 | **Bottles** | Create isolated prefixes, switch backends, launch Steam per bottle |
 | **Ports** | Wrap a Windows program as an Apple Silicon Mac app (⌘5). D3DMetal stays personal |
 
@@ -176,6 +176,8 @@ If macOS blocks a script: right-click → **Open** → confirm.
 | `profile.command` | Apply curated YAML game profiles |
 | `repair.command` | Diagnose logs, install deps, apply fixes |
 | `import_game.command` | Add non-Steam games (GOG, itch, Battle.net, Epic) |
+| `scripts/build_highball.command` | Build the included Highball app and CLI (macOS 14+) |
+| `scripts/build_vermut.command` | Build the included Vermut app (macOS 14+) |
 | `cosmosdb.command` | Compatibility lookup, sync, local reports |
 | `uninstall.command` | Remove Cosmos apps, prefixes, runtimes (interactive) |
 

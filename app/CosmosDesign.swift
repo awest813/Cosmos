@@ -54,7 +54,7 @@ enum DashboardSection: String, CaseIterable, Identifiable {
         switch self {
         case .launch: return "Play your games and adjust settings"
         case .library: return "Your games, profiles, and fixes"
-        case .tools: return "Add games, run checkups, and cleanup"
+        case .tools: return "Add games, check your setup, and open Highball and Vermut"
         case .bottles: return "Separate Windows setups for tricky games"
         case .ports: return "Windows programs that open like Mac apps"
         }
