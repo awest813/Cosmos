@@ -17,7 +17,8 @@ queue for the Sikarugir-first installation/filesystem work:
 - [x] Complete named-environment clones with staged exclusive publication; use a
   clone as restoration into a new name. In-place restore/version history is future work.
 - [x] SHA-256-verified Range/ETag downloads and curated CC0 recipe review plans.
-- [ ] Broader uninstall cleanup policy and game-specific compatibility validation.
+- [x] Named-environment reset/delete use scoped shutdown and protected cleanup.
+- [ ] Broader per-game uninstall policy and game-specific compatibility validation.
 
 Implementation details and limitations: [UPSTREAM_IMPLEMENTATION.md](UPSTREAM_IMPLEMENTATION.md).
 

@@ -29,3 +29,13 @@ SpockD3D9 rendering and interactive accessibility require actual macOS testing.
 Runtime versions were not upgraded. The pre-existing unpinned DXMT Latest 0.81
 URL is unavailable; use pinned 0.80. Broader uninstall policy, automatic version
 history, cloud saves and additional installer task models remain future work.
+
+
+Named-environment lifecycle follow-up: reset/delete now share scoped process
+control, refuse linked roots/mounted folders, verify target identity after shutdown,
+and detach the selected tree before protected non-following removal. On failure,
+remaining files stay at the reported hidden `.cleanup-*` path; partial removal
+cannot be rolled back. Nine fixtures cover external link preservation, uncertain
+activity, changed identities, failure recovery, CLI confirmation and reset scope.
+Per-game uninstaller cleanup remains future work. Clone is also available in
+Bottles details, including environments without a registered port.

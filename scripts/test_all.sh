@@ -76,6 +76,7 @@ if command -v python3 >/dev/null 2>&1; then
   python3 scripts/test_audit_diagnostics.py
   python3 scripts/test_prefix_processes.py
   python3 scripts/test_environment_clone.py
+  python3 scripts/test_environment_cleanup.py
   python3 scripts/test_component_download.py
   python3 scripts/test_upstream_recipes.py
   python3 scripts/test_game_test_preflight.py

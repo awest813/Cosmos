@@ -184,3 +184,9 @@ port edits. Reports include the configured logical path and resolved host file.
 Advanced Tools offers Review Upstream Recipe. This produces a review plan with
 engine/OS requirements and matching dependency recipes; it never auto-applies
 upstream changes or labels upstream game results as Cosmos-tested.
+
+
+Environment lifecycle follow-up: Bottles details now offer Clone Environment
+before a game port exists. Reset/Delete confirmations explain stopping Wine,
+inside-prefix game loss, preserved external links and ports, and cloning first.
+Cleanup failures report a remaining-data path instead of hiding a partial removal.

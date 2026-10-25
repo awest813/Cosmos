@@ -25,7 +25,7 @@ for script in check_updates.sh install_update.sh terminal_wrap.sh install_progra
   [[ -x "${ROOT}/scripts/${script}" ]] || fail "missing scripts/${script}"
 done
 [[ -f "${ROOT}/scripts/lib/release_lib.sh" ]] || fail "missing scripts/lib/release_lib.sh"
-for helper in wine_filesystem.sh wine_filesystem.py runtime_integrity.py prefix_processes.py environment_clone.py component_download.py upstream_recipes.py; do
+for helper in wine_filesystem.sh wine_filesystem.py runtime_integrity.py prefix_processes.py environment_clone.py environment_cleanup.py component_download.py upstream_recipes.py; do
   [[ -f "${ROOT}/scripts/lib/${helper}" ]] || fail "missing scripts/lib/${helper}"
 done
 [[ -f "${ROOT}/scripts/fixtures/github_release_latest.json" ]] || fail "missing release fixture"
@@ -42,7 +42,7 @@ done
 pass "in-app update + terminal trackers present"
 
 if [[ -d "${APP_BUNDLE}" ]]; then
-  for helper in wine_filesystem.sh wine_filesystem.py runtime_integrity.py prefix_processes.py environment_clone.py component_download.py upstream_recipes.py; do
+  for helper in wine_filesystem.sh wine_filesystem.py runtime_integrity.py prefix_processes.py environment_clone.py environment_cleanup.py component_download.py upstream_recipes.py; do
     [[ -f "${RESOURCES}/scripts/lib/${helper}" ]] || fail "bundle missing filesystem helper ${helper}"
   done
   for data in highball-recipes.json HIGHBALL-RECIPES-LICENSE.txt; do

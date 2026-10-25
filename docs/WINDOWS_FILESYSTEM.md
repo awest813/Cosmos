@@ -102,3 +102,20 @@ folder links stay links. Those external folders are **not backed up**. Save the
 game first. Existing destinations are refused and partial copies are not published.
 Use a new port targeting the clone; existing ports and app shortcuts retain their
 original environment. There is no in-place restore or automatic snapshot history.
+
+## Reset and deletion
+
+Bottles offers Clone Environment before a port exists. Clone before resetting if
+Windows files, settings or saves inside the prefix need to be preserved.
+
+Reset/delete require the existing confirmation or CLI `--force`. Both use scoped
+Wine shutdown and refuse uncertain activity, linked bottle/prefix roots and
+nested mounted folders. The selected tree is detached to a hidden `.cleanup-*`
+sibling before Python's protected non-following removal. Ordinary drive/user
+symlinks are removed as links; their external folders stay. Failure reports the
+remaining tree's exact recovery path. That tree may already be partially removed;
+this is not an undo feature. Unmount nested volumes and close Wine before retrying.
+
+Reset keeps settings, logs and installer records. Delete removes the named
+environment. Both keep port definitions/app shortcuts and external game folders;
+reinstall games after reset, or edit/remove ports referencing a deleted environment.

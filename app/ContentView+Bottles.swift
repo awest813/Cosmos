@@ -70,7 +70,7 @@ extension ContentView {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Deletes the bottle's Wine prefix (Steam and games inside it). Its settings and logs are kept; the next launch recreates the prefix.")
+            Text("Save your game first. Cosmos stops this environment, then deletes its Windows files and games. Settings and logs stay. Linked Mac folders and port definitions stay; reinstall games before using those ports. Clone the environment first if you need a backup.")
         }
         .confirmationDialog("Delete this bottle?", isPresented: $showBottleDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Bottle", role: .destructive) {
@@ -80,7 +80,7 @@ extension ContentView {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Removes the bottle entirely — its prefix, settings, and logs. This cannot be undone.")
+            Text("Save your game first. Cosmos stops this environment, then removes its Windows files, settings and logs. Linked Mac folders and port definitions stay. Edit or remove affected ports afterward. Clone first if you need a backup; deletion cannot be undone.")
         }
     }
 
@@ -148,6 +148,14 @@ extension ContentView {
             }
 
             Divider()
+            Button {
+                storeImportRequest = .cloneEnvironment(source: bottle.name)
+            } label: {
+                Label("Clone Environment…", systemImage: "square.on.square")
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRunning)
+            .help("Copy this environment to a new name before changing or resetting it. External linked folders are not copied.")
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Graphics backend")

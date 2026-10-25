@@ -291,7 +291,7 @@ cmd_reset() {
   local name="${1:-}" force="${2:-}"
   require_bottle "${name}"
   local pfx; pfx="$(bottle_dir "${name}")/prefix"
-  [[ -d "${pfx}" ]] || { echo "Bottle '${name}' has no prefix to reset."; return; }
+  [[ -e "${pfx}" || -L "${pfx}" ]] || { echo "Bottle '${name}' has no prefix to reset."; return; }
   if [[ "${force}" != "--force" && "${COSMOS_FORCE:-0}" != "1" ]]; then
     if [[ -t 0 ]]; then
       confirm "Delete the prefix for bottle '${name}'? (settings/logs kept)" || { echo "Aborted."; return; }
@@ -299,8 +299,7 @@ cmd_reset() {
       die "Refusing to reset non-interactively. Pass --force (or COSMOS_FORCE=1)."
     fi
   fi
-  rm -rf "${pfx}"
-  echo "Reset bottle '${name}'. The next launch recreates the prefix."
+  python3 "${SCRIPT_DIR}/scripts/lib/environment_cleanup.py" reset "${name}" --bottles-root "${BOTTLES_DIR}"
 }
 
 cmd_delete() {
@@ -314,8 +313,7 @@ cmd_delete() {
       die "Refusing to delete non-interactively. Pass --force (or COSMOS_FORCE=1)."
     fi
   fi
-  rm -rf "${dir}"
-  echo "Deleted bottle '${name}'."
+  python3 "${SCRIPT_DIR}/scripts/lib/environment_cleanup.py" delete "${name}" --bottles-root "${BOTTLES_DIR}"
 }
 
 main() {

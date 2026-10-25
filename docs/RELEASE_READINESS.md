@@ -109,3 +109,10 @@ and curated recipe review. See [UPSTREAM_IMPLEMENTATION.md](UPSTREAM_IMPLEMENTAT
 for boundaries and verification. Real SimCity 3000 Unlimited installation/gameplay,
 32-bit runtime behavior, SpockD3D9 rendering and interactive accessibility remain
 manual release gates; fixture success does not establish game compatibility.
+
+
+Reset/delete follow-up adds scoped shutdown, non-following cleanup, mount/link
+refusal and actionable partial-removal recovery. Existing confirmations remain;
+port definitions and linked external folders are preserved. Bottles details exposes
+Clone Environment before registration. Fixtures run on Linux and macOS CI; no
+actual user environment is removed by validation.
