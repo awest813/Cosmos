@@ -46,7 +46,11 @@ final class PortsRenderingTests: XCTestCase {
             )
             try capture(
                 StoreImportSheet(request: .classicGame(resuming: true), onCancel: {}, onSubmit: { _ in nil }),
-                name: "finish-installation", size: NSSize(width: 460, height: 440), scheme: .light, directory: directory
+                name: "finish-installation", size: NSSize(width: 520, height: 640), scheme: .light, directory: directory
+            )
+            try capture(
+                StoreImportSheet(request: .classicGame(), onCancel: {}, onSubmit: { _ in nil }),
+                name: "install-windows-game", size: NSSize(width: 520, height: 640), scheme: .dark, directory: directory
             )
             let unavailable = PortsDashboard(
                 ports: [], bottleNames: [], isRunning: false,

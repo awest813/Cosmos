@@ -15,12 +15,23 @@ enum StoreImportValidation {
 
         if request.script == "scripts/install_program.command" {
             if !request.baseArguments.contains("resume"),
-               !path.hasPrefix("/") || !path.lowercased().hasSuffix(".exe") {
-                return "Choose the installer .exe on your Mac, or enter its full path starting with /."
+               !path.hasPrefix("/") || !(path.lowercased().hasSuffix(".exe") || path.lowercased().hasSuffix(".msi")) {
+                return "Choose an installer .exe or .msi on your Mac, or enter its full path starting with /."
             }
             if trimmed(.displayName).isEmpty { return "Enter the game title." }
             if !WinePortDraft.isValidPortName(trimmed(.displayName)) {
                 return "Enter a game title without / or :."
+            }
+            let folder = trimmed(.installDirectory)
+            if !folder.isEmpty && (!folder.hasPrefix("/") && !folder.hasPrefix("drive_c/")) {
+                return "Choose an installation folder, or use an absolute Mac path or drive_c/... path."
+            }
+            if folder.contains("\n") || (folder.hasPrefix("drive_c/") && folder.split(separator: "/").contains("..")) {
+                return "The installation folder must stay inside drive_c and contain no line breaks."
+            }
+            let game = trimmed(.gameExecutable)
+            if !game.isEmpty && !game.lowercased().hasSuffix(".exe") {
+                return "Choose the installed game .exe, rather than its installer or folder."
             }
             return nil
         }

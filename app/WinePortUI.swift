@@ -140,7 +140,7 @@ struct PortsDashboard: View {
     private var installationActions: some View {
         if let onInstall {
             Button(action: onInstall) {
-                Label("Install Classic Game", systemImage: "shippingbox.fill")
+                Label("Install Windows Game", systemImage: "shippingbox.fill")
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.cosmosPrimary)

@@ -10,10 +10,12 @@ SimCity gameplay remain unverified. Wine downloads during normal first setup.
 
 ## In Cosmos
 
-1. Open **Ports → Install Classic Game**. The same action is under **Advanced →
+1. Open **Ports → Install Windows Game**. The same action is under **Advanced →
    Tools → Add Non-Steam Games**. Steam setup is optional.
 2. Choose the installer EXE and enter **SimCity 3000 Unlimited** as the title.
-3. Terminal opens. Choose a folder for the installed game. The workflow prints
+3. Optionally choose the installation folder in the app, enable **Create a Mac
+   app shortcut**, or turn off **Launch game after installation** to register only.
+   Terminal opens and asks for a folder if you left it blank. The workflow prints
    its Windows destination: a `C:` path inside the environment, or `Z:` for an
    external Mac folder.
 4. Select that same destination in the Windows installer, leave its Launch Game
@@ -21,7 +23,9 @@ SimCity gameplay remain unverified. Wine downloads during normal first setup.
    `.bin` files beside the installer if present.
 5. Choose the installed game EXE. It is often `Apps/SC3U.exe`; confirm the actual
    filename for your edition. Select the game rather than setup/uninstall.
-6. Cosmos detects its architecture, creates a port, and launches that game EXE.
+6. Cosmos detects its architecture, creates a port, and launches that game EXE
+   if the launch option is enabled. A requested shortcut appears in
+   `~/Applications/Cosmos Ports`.
    Use the Ports tab to launch it again later.
 
 The dedicated environment is `game-simcity-3000-unlimited`: WoW64 for 32-bit
@@ -56,6 +60,8 @@ If setup completed but game selection was interrupted, use **Ports → Finish
 Installation** and enter the same game title. The chosen installation folder is
 saved with the environment; the installer is not run again. A disconnected or
 moved folder produces an explanation instead of silently creating a replacement.
+You can choose a moved folder and the installed game EXE directly in this sheet;
+both fields are optional when continuing with the saved destination/chooser.
 In Terminal, resume with:
 
 ```bash
@@ -70,3 +76,8 @@ preserved; open one with `./port.command launch simcity-3000-unlimited`.
 
 Confirm the menu, opening/creating a city, save/load, exit, and relaunch before
 calling it playable. A successful launch handoff does not confirm gameplay.
+
+Other Windows games may use an `.msi` installer. Install Windows Game accepts
+EXE and MSI files; MSI runs through Wine's `msiexec`. A valid container/header
+does not establish that a particular installer or game works. Modern games may
+need a different graphics stack, which can be selected using Edit Port.

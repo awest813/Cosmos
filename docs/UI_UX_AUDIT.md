@@ -1,5 +1,15 @@
 # UI/UX audit and polish
 
+## Windows installation follow-up — October 25, 2026
+
+The installer sheet now accepts EXE/MSI files and an optional installation-folder
+picker, with separate choices for a Mac app shortcut and launching after setup.
+Finish Installation can choose a replacement folder and the installed game EXE.
+Optional fields do not block submission; longer installer forms scroll within a
+bounded sheet. Other import sheets retain their existing sizing. The title now
+reads Install Windows Game. Header checks reject unsupported EXEs/DLLs and invalid
+MSI containers before creating an environment; Wine handles the actual installer.
+
 ## Sikarugir-first candidate audit — October 24, 2026
 
 Source review found and addressed three gaps in the Ports/installer journey:

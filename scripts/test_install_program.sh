@@ -121,4 +121,31 @@ if "${workflow}" resume --name "Wrong Folder" --bottle game-resume-simcity \
 fi
 [[ ! -e "${COSMOS_SUPPORT_DIR}/Ports/wrong-folder" ]] || fail "wrong folder registered a game"
 
-echo 'OK: installer -> chosen folder -> installed game, dedicated environment, failure and resume checks passed'
+# MSI containers use the same isolated install/register flow. Wine's msiexec
+# dispatch remains in run.command; this fixture only checks workflow sequencing.
+msi="${tmp}/Game Setup.MSI"
+printf '\320\317\021\340\241\261\032\341fixture' > "${msi}"
+export TEST_GAME_DIR="${tmp}/MSI Game Folder"
+before="$(wc -l < "${TEST_EVENTS}")"
+"${workflow}" install "${msi}" --name "MSI Game" --install-dir "${TEST_GAME_DIR}" \
+  --game-exe Apps/SC3U.exe --no-launch --make-app >"${tmp}/msi.log"
+[[ "$(wc -l < "${TEST_EVENTS}")" == $((before + 1)) ]] || fail "MSI/no-launch must run installer only"
+[[ -f "${COSMOS_SUPPORT_DIR}/Ports/msi-game/port.conf" ]] || fail "MSI game not registered"
+[[ -x "${COSMOS_PORTS_OUTPUT}/MSI Game.app/Contents/MacOS/launcher" ]] || fail "make-app option did not create a launcher"
+printf 'not an MSI' > "${tmp}/invalid.msi"
+if "${workflow}" install "${tmp}/invalid.msi" --name "Invalid MSI" --install-dir "${TEST_GAME_DIR}" >/dev/null 2>&1; then
+  fail "invalid MSI accepted"
+fi
+[[ ! -e "${COSMOS_SUPPORT_DIR}/Bottles/game-invalid-msi" ]] || fail "invalid installer created an environment"
+cp "${TEST_GAME_FIXTURE}" "${tmp}/installer-dll.exe"
+python3 - "${tmp}/installer-dll.exe" <<'PY'
+import sys
+from pathlib import Path
+p=Path(sys.argv[1]); data=bytearray(p.read_bytes()); data[151] |= 0x20; p.write_bytes(data)
+PY
+if "${workflow}" install "${tmp}/installer-dll.exe" --name "Installer DLL" --install-dir "${TEST_GAME_DIR}" >/dev/null 2>&1; then
+  fail "DLL accepted as installer"
+fi
+[[ ! -e "${COSMOS_SUPPORT_DIR}/Bottles/game-installer-dll" ]] || fail "invalid EXE created an environment"
+
+echo 'OK: EXE/MSI installer -> chosen folder -> installed game, shortcut, failure and resume checks passed'

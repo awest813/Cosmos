@@ -2,6 +2,37 @@ import XCTest
 @testable import Cosmos
 
 final class StoreImportValidationTests: XCTestCase {
+    func testWindowsInstallerOptionsPreservePathsAndDoNotRequireOptionalFields() {
+        let request = StoreImportRequest.classicGame()
+        XCTAssertFalse(request.fields.first { $0.id == .installDirectory }!.isRequired)
+        XCTAssertTrue(request.fields.first { $0.id == .installDirectory }!.choosesDirectory)
+        let values: [StoreImportRequest.FieldKind: String] = [
+            .path: "/Downloads/Game Setup.MSI", .displayName: "My Windows Game",
+            .installDirectory: "/Games/My Windows Game", .makeMacApp: "1", .launchAfterInstall: "0"
+        ]
+        XCTAssertNil(StoreImportValidation.validate(request: request, values: values))
+        XCTAssertEqual(request.installerArguments(values: values), [
+            "install", "/Downloads/Game Setup.MSI", "--name", "My Windows Game",
+            "--install-dir", "/Games/My Windows Game", "--make-app", "--no-launch"
+        ])
+        XCTAssertNil(StoreImportValidation.validate(request: request, values: [.path: "/Downloads/game.exe", .displayName: "Game"]))
+        XCTAssertNotNil(StoreImportValidation.validate(request: request, values: [.path: "/Downloads/game.exe", .displayName: "Game", .installDirectory: "drive_c/../outside"]))
+    }
+
+    func testResumeCanSupplyFolderAndInstalledExeWithoutRerunningInstaller() {
+        let request = StoreImportRequest.classicGame(resuming: true)
+        let values: [StoreImportRequest.FieldKind: String] = [
+            .displayName: "SimCity 3000 Unlimited", .installDirectory: "/Games/SimCity",
+            .gameExecutable: "/Games/SimCity/Apps/SC3U.exe"
+        ]
+        XCTAssertNil(StoreImportValidation.validate(request: request, values: values))
+        XCTAssertEqual(request.installerArguments(values: values), [
+            "resume", "--name", "SimCity 3000 Unlimited", "--install-dir", "/Games/SimCity",
+            "--game-exe", "/Games/SimCity/Apps/SC3U.exe"
+        ])
+        XCTAssertNotNil(StoreImportValidation.validate(request: request, values: [.displayName: "Game", .gameExecutable: "/Games/setup.msi"]))
+    }
+
     func testResumeNeedsSameGameTitleWithoutInstaller() {
         let request = StoreImportRequest.classicGame(resuming: true)
         XCTAssertEqual(request.baseArguments, ["resume"])

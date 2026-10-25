@@ -23,9 +23,9 @@ APPLESCRIPT
 
 usage() {
   cat <<'EOF'
-Install a classic Windows game into a folder, then open its installed EXE.
+Install a Windows game into a folder, then open its installed EXE.
 
-  install_program.command install <installer.exe> --name <title> [options]
+  install_program.command install <installer.exe|installer.msi> --name <title> [options]
   install_program.command prepare --name <title> [--install-dir <folder>]
   install_program.command resume --name <title> [options]
 
@@ -52,7 +52,7 @@ main() {
     *) die "Use install, prepare, or resume. See --help." ;;
   esac
   if [[ "${mode}" == install ]]; then
-    [[ $# -gt 0 && "$1" != --* ]] || die "install requires an installer EXE."
+    [[ $# -gt 0 && "$1" != --* ]] || die "install requires an EXE or MSI installer."
     installer="$1"; shift
   fi
   while (($#)); do
@@ -85,8 +85,11 @@ main() {
   [[ ! -e "${ports}/${slug}" ]] || die "A port named ${slug} already exists. Open it from Ports or use port.command launch ${slug}."
   if [[ "${mode}" == install ]]; then
     [[ -f "${installer}" ]] || die "Installer not found: ${installer}"
-    [[ "$(printf '%s' "${installer}" | tr '[:upper:]' '[:lower:]')" == *.exe ]] || die "Choose the Windows installer .exe."
-    import_exe_has_pe_header "${installer}" || die "The installer does not have a Windows executable header."
+    case "$(printf '%s' "${installer}" | tr '[:upper:]' '[:lower:]')" in
+      *.exe) [[ -n "$(port_detect_program_arch "${installer}" || true)" ]] || die "Choose an x86/x64 Windows installer EXE, not a DLL." ;;
+      *.msi) [[ "$(od -An -tx1 -N8 "${installer}" | tr -d '[:space:]')" == d0cf11e0a1b11ae1 ]] || die "The MSI does not have a Windows Installer container header." ;;
+      *) die "Choose a Windows installer .exe or .msi." ;;
+    esac
     installer="$(cd -- "$(dirname -- "${installer}")" && pwd -P)/$(basename -- "${installer}")"
   fi
   if [[ ! -e "${bottles}/${bottle}" ]]; then

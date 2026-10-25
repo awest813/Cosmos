@@ -209,7 +209,7 @@ extension ContentView {
                 spacing: CosmosSpacing.gridGap
             ) {
                 storeActionButton(
-                    title: "Install Classic Game",
+                    title: "Install Windows Game",
                     subtitle: "Installer → folder → game EXE",
                     systemImage: "shippingbox.fill",
                     script: "scripts/install_program.command",
@@ -447,6 +447,11 @@ extension ContentView {
     ) {
         func trimmed(_ kind: StoreImportRequest.FieldKind) -> String {
             (values[kind] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        if request.script == "scripts/install_program.command" {
+            runInTerminal(script: request.script, arguments: request.installerArguments(values: values))
+            return
         }
 
         var args = request.baseArguments

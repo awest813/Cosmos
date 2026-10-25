@@ -39,6 +39,12 @@ branch's Ports and split-dashboard architecture.
 
 ## Evidence and release gates
 
+The Windows installation sheet now supports EXE/MSI setup files, an optional
+destination folder, Mac-app creation and launch control. Recovery accepts the
+installed EXE/folder directly. Fixtures cover MSI routing to the installer helper,
+registration without launch, shortcut generation and early rejection of invalid
+MSI/DLL inputs. Native tests cover argument propagation and optional fields.
+
 Ports now also supports editing existing definitions without reinstalling.
 CLI updates and the native Edit sheet share creation validation; staged saves
 retain original settings on invalid input or write failure. Shell fixtures cover
