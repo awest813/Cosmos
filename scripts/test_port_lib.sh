@@ -140,6 +140,8 @@ cat > "${fake}/run.command" <<'EOF'
 #!/bin/bash
 printf 'backend=%s\nskip=%s\nport=%s\ngame=%s\n' \
   "${COSMOS_BACKEND}" "${COSMOS_SKIP_STEAM}" "${COSMOS_PORT}" "$2"
+printf 'program=%s\n' "${COSMOS_PROGRAM_ARCH:-}"
+printf 'arg=<%s>\n' "$@"
 EOF
 chmod +x "${fake}/run.command"
 
@@ -205,14 +207,35 @@ fi
   --exe "${exe}" \
   --slug old-game \
   --program-arch win32 \
-  --args "--windowed" >/dev/null
+  --args '--windowed --save "two words" --empty "" *.sav' >/dev/null
 old_show="$("${ROOT}/port.command" show old-game)"
 printf '%s\n' "${old_show}" | grep -q "Program:       32-bit" || fail "32-bit program: ${old_show}"
-printf '%s\n' "${old_show}" | grep -q "Arguments:     --windowed" || fail "launch arguments: ${old_show}"
+printf '%s\n' "${old_show}" | grep -Fq 'Arguments:     --windowed --save "two words"' || fail "launch arguments must retain quotes: ${old_show}"
 COSMOS_PORT_RUNTIME_ROOT="${fake}" "${ROOT}/port.command" build old-game --output "${tmpdir}/apps" >/dev/null
 old_env="${tmpdir}/apps/Old Game.app/Contents/Resources/port.env"
 grep -q "COSMOS_PROGRAM_ARCH=win32" "${old_env}" || fail "port env should record the 32-bit program"
 grep -q "PORT_ARGS=--windowed" "${old_env}" || fail "port env should record launch arguments"
+
+# Exercise both the built app and CLI, without Wine or macOS. Literal glob
+# arguments must survive even when the runtime directory contains matches.
+touch "${fake}/expanded.sav"
+old_out="$("${tmpdir}/apps/Old Game.app/Contents/MacOS/launcher")"
+printf '%s\n' "${old_out}" | grep -Fxq 'program=win32' || fail "built app program architecture"
+printf '%s\n' "${old_out}" | grep -Fxq 'arg=<two words>' || fail "quoted argument split in built launcher"
+printf '%s\n' "${old_out}" | grep -Fxq 'arg=<>' || fail "empty argument lost in built launcher"
+printf '%s\n' "${old_out}" | grep -Fxq 'arg=<*.sav>' || fail "glob expanded in built launcher"
+mkdir -p "${fake}/scripts/lib"
+cp "${ROOT}/scripts/lib/port_lib.sh" "${ROOT}/scripts/lib/prefix_arch.sh" "${fake}/scripts/lib/"
+cli_out="$(SCRIPT_DIR="${fake}" COSMOS_PROGRAM_ARCH=win64 "${ROOT}/port.command" launch old-game)"
+printf '%s\n' "${cli_out}" | grep -Fxq 'program=win32' || fail "CLI ignored port program architecture"
+printf '%s\n' "${cli_out}" | grep -Fxq 'arg=<two words>' || fail "CLI split quoted arguments"
+printf '%s\n' "${cli_out}" | grep -Fxq 'arg=<*.sav>' || fail "CLI expanded a literal glob"
+
+if (port_exec_program "${fake}/run.command" "${exe}" '--save "unterminated') >"${tmpdir}/bad-args.log" 2>&1; then
+  fail "malformed arguments should fail before launching"
+fi
+grep -q 'Invalid port launch arguments' "${tmpdir}/bad-args.log" || fail "malformed arguments need a useful error"
+if grep -q '^backend=' "${tmpdir}/bad-args.log"; then fail "malformed arguments launched the game"; fi
 
 "${ROOT}/port.command" delete notepad --force >/dev/null
 [[ ! -d "${COSMOS_SUPPORT_DIR}/Ports/notepad" ]] || fail "delete should remove the port definition"

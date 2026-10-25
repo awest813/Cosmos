@@ -158,7 +158,8 @@ port_get_setting() {
 port_set_setting() {
   local conf="$1" key="$2" val="$3"
   local tmp found=0 line dir
-  val="${val//\"/}"
+  # Definitions are read as data by port_get_setting/BottleStore, never sourced.
+  # Preserve quotes in arguments and paths; port_write_env shell-escapes them.
   val="${val//$'\n'/}"
   dir="$(dirname -- "${conf}")"
   mkdir -p "${dir}"
@@ -258,10 +259,41 @@ port_write_info_plist() {
 EOF
 }
 
+port_exec_program() {
+  local run="$1" exe="$2" text="${3:-}" tmp arg
+  local -a extra=()
+  if [[ -n "${text}" ]]; then
+    command -v python3 >/dev/null 2>&1 || {
+      echo "Python 3 is required to read port launch arguments." >&2
+      return 1
+    }
+    tmp="$(mktemp "${TMPDIR:-/tmp}/cosmos-port-args.XXXXXX")" || return 1
+    if ! python3 -c '
+import shlex, sys
+try:
+    args = shlex.split(sys.argv[1])
+except ValueError as error:
+    print(f"Invalid port launch arguments: {error}", file=sys.stderr)
+    sys.exit(1)
+for arg in args:
+    sys.stdout.buffer.write(arg.encode("utf-8") + b"\0")
+' "${text}" > "${tmp}"
+    then
+      rm -f "${tmp}"
+      return 1
+    fi
+    while IFS= read -r -d '' arg; do extra+=("${arg}"); done < "${tmp}"
+    rm -f "${tmp}"
+  fi
+  exec /bin/bash "${run}" --game "${exe}" ${extra[@]+"${extra[@]}"}
+}
+
 port_write_launcher() {
   local destination="$1"
-  cat > "${destination}" <<'EOF'
-#!/bin/bash
+  {
+  printf '%s\n' '#!/bin/bash'
+  declare -f port_exec_program
+  cat <<'EOF'
 # Cosmos port launcher. Apple Silicon (arm64), macOS 14.6 or later.
 set -euo pipefail
 if [[ "${COSMOS_PORT_SKIP_ARCH:-0}" != "1" ]]; then
@@ -283,14 +315,12 @@ if [[ -z "${RUN}" ]]; then
   echo "Cosmos runtime not found. Install Cosmos, or rebuild this port." >&2
   exit 1
 fi
+COSMOS_ROOT="$(cd "$(dirname "${RUN}")" && pwd)"
+export COSMOS_ROOT SCRIPT_DIR="${COSMOS_ROOT}"
 cd "${COSMOS_ROOT}"
-extra=()
-if [[ -n "${PORT_ARGS:-}" ]]; then
-  # shellcheck disable=SC2206
-  extra=(${PORT_ARGS})
-fi
-exec /bin/bash "${RUN}" --game "${GAME_EXE_PATH}" ${extra[@]+"${extra[@]}"}
+port_exec_program "${RUN}" "${GAME_EXE_PATH}" "${PORT_ARGS:-}"
 EOF
+  } > "${destination}"
   chmod +x "${destination}"
 }
 

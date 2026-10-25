@@ -42,6 +42,17 @@ def file_sha256(path):
         return None
 
 
+def prefix_architecture(prefix):
+    try:
+        with (prefix / 'system.reg').open(encoding='utf-8', errors='replace') as stream:
+            for line in stream.read(4096).splitlines():
+                if line in ('#arch=win32', '#arch=win64'):
+                    return line.removeprefix('#arch=')
+    except OSError:
+        pass
+    return 'unknown'
+
+
 def inspect(exe, prefix, wine, backend, spock_root=None, moltenvk=None):
     exe, prefix, wine = Path(exe).expanduser(), Path(prefix).expanduser(), Path(wine).expanduser()
     checks = []
@@ -53,6 +64,10 @@ def inspect(exe, prefix, wine, backend, spock_root=None, moltenvk=None):
     check('game_executable', kind is not None and not kind[1], str(exe))
     check('wine_executable', wine.is_file() and os.access(wine, os.X_OK), str(wine))
     check('initialized_prefix', (prefix / 'system.reg').is_file(), str(prefix))
+    prefix_arch = prefix_architecture(prefix)
+    check('prefix_architecture', not (prefix_arch == 'win32' and kind and kind[0] == 'x64'),
+          '32-bit prefix; 64-bit games require a 64-bit/WoW64 prefix' if prefix_arch == 'win32'
+          else f'Prefix architecture: {prefix_arch}; runtime WoW64 support is not verified')
     dll = None
     if backend == 'spockd3d9':
         arch = kind[0] if kind else None
@@ -69,6 +84,8 @@ def inspect(exe, prefix, wine, backend, spock_root=None, moltenvk=None):
               str(moltenvk) if moltenvk else 'Supply --moltenvk with the library used by this Wine runtime')
     local_dll = exe.parent / 'd3d9.dll'
     warnings = ['Passing these file checks does not prove runtime loading, rendering, or compatibility.']
+    if kind and kind[0] == 'x86' and prefix_arch != 'win32':
+        warnings.append('This 32-bit game needs a Wine runtime with WoW64 support. A 64-bit Mac or Wine binary alone does not establish 32-bit game support. Use the matching x86 graphics DLL; do not force WINEARCH=win32 on a WoW64-only runtime.')
     if local_dll.is_file():
         warnings.append('The game folder contains d3d9.dll. It may take precedence over the prefix DLL; record its origin and verify the loaded module.')
     return {
@@ -76,7 +93,7 @@ def inspect(exe, prefix, wine, backend, spock_root=None, moltenvk=None):
         'created_at': datetime.now(timezone.utc).isoformat(),
         'host': {'architecture': platform.machine(), 'macos': platform.mac_ver()[0]},
         'game_executable': str(exe), 'game_architecture': kind[0] if kind else 'unknown',
-        'prefix': str(prefix), 'backend_requested': backend,
+        'prefix': str(prefix), 'prefix_architecture': prefix_arch, 'backend_requested': backend,
         'spock_sha256': file_sha256(dll),
         'preflight_passed': all(item['passed'] for item in checks),
         'game_result': 'untested', 'checks': checks, 'warnings': warnings,

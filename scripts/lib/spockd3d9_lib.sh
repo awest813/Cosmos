@@ -62,7 +62,7 @@ spockd3d9_pe_ok() {
   local description
   description="$(file -b "${path}")" || return 1
   case "${arch}" in
-    x86) printf '%s' "${description}" | grep -Eq 'PE32 executable .*\(DLL\).*Intel 80386' ;;
+    x86) printf '%s' "${description}" | grep -Eq 'PE32 executable .*\(DLL\).*Intel (80386|i386)' ;;
     x64) printf '%s' "${description}" | grep -Eq 'PE32\+ executable .*\(DLL\).*x86-64' ;;
     *) return 1 ;;
   esac
@@ -166,7 +166,17 @@ spockd3d9_install_into_prefix() {
   local sys32="${prefix}/drive_c/windows/system32"
   local syswow="${prefix}/drive_c/windows/syswow64"
   [[ -d "${sys32}" ]] || return 1
+  COSMOS_SPOCK_X86_INSTALLED=0
+  COSMOS_SPOCK_X64_INSTALLED=0
   arch="$(prefix_arch_normalize "${COSMOS_PREFIX_ARCH:-wow64}")" || return 1
+  # The registry records the existing physical layout. Changing a bottle's
+  # creation preference cannot convert it or change which DLL system32 needs.
+  if grep -Eq '^#arch=win32[[:space:]]*$' "${prefix}/system.reg" 2>/dev/null; then
+    arch=win32
+  elif [[ "${arch}" == win32 ]] && grep -Eq '^#arch=win64[[:space:]]*$' "${prefix}/system.reg" 2>/dev/null; then
+    echo "This is an existing 64-bit prefix. Select wow64/win64, or create a separate 32-bit environment." >&2
+    return 1
+  fi
   program=""
   if [[ -n "${COSMOS_PROGRAM_ARCH:-}" ]]; then
     program="$(program_arch_normalize "${COSMOS_PROGRAM_ARCH}")" || return 1
@@ -182,11 +192,13 @@ spockd3d9_install_into_prefix() {
       fi
       [[ -n "${x64}" ]] || return 1
       cp -f "${x64}" "${sys32}/d3d9.dll"
+      COSMOS_SPOCK_X64_INSTALLED=1
       echo "Copied 64-bit SpockD3D9 d3d9.dll to system32."
       ;;
     win32)
       [[ -n "${x86}" ]] || return 1
       cp -f "${x86}" "${sys32}/d3d9.dll"
+      COSMOS_SPOCK_X86_INSTALLED=1
       echo "Copied 32-bit SpockD3D9 d3d9.dll to system32."
       ;;
     *)
@@ -195,12 +207,14 @@ spockd3d9_install_into_prefix() {
       fi
       if [[ -n "${x64}" ]]; then
         cp -f "${x64}" "${sys32}/d3d9.dll"
+        COSMOS_SPOCK_X64_INSTALLED=1
         echo "Copied 64-bit SpockD3D9 d3d9.dll to system32."
         copied=$((copied + 1))
       fi
       if [[ -n "${x86}" ]]; then
         mkdir -p "${syswow}"
         cp -f "${x86}" "${syswow}/d3d9.dll"
+        COSMOS_SPOCK_X86_INSTALLED=1
         echo "Copied 32-bit SpockD3D9 d3d9.dll to syswow64."
         copied=$((copied + 1))
       elif [[ "${program}" == "win32" || -z "${program}" ]]; then
@@ -238,12 +252,25 @@ spockd3d9_merge_overrides() {
     done
     [[ -z "${kept}" ]] || result="${result}${result:+;}${kept}=${order}"
   done
-  printf '%s' "${result}${result:+;}d3d9=n,b"
+  printf '%s' "${result}${result:+;}d3d9=${2:-n,b}"
 }
 
 enable_spockd3d9_env() {
   log "Enabling SpockD3D9 for D3D9 (DXMT still handles D3D10/11)"
-  export WINEDLLOVERRIDES="$(spockd3d9_merge_overrides "${WINEDLLOVERRIDES:-}")"
+  local order="n,b" program="${COSMOS_PROGRAM_ARCH:-}"
+  case "${program}" in
+    win32|x86|32) [[ "${COSMOS_SPOCK_X86_INSTALLED:-0}" == 1 ]] || order=b ;;
+    win64|x64|64) [[ "${COSMOS_SPOCK_X64_INSTALLED:-0}" == 1 ]] || order=b ;;
+    *)
+      # With no known game architecture, a partial build must not load an old
+      # native DLL left by a different backend in the shared prefix.
+      [[ "${COSMOS_SPOCK_X86_INSTALLED:-0}" == 1 && "${COSMOS_SPOCK_X64_INSTALLED:-0}" == 1 ]] || order=b
+      ;;
+  esac
+  if [[ "${order}" == b ]]; then
+    echo "Using WineD3D for DirectX 9 on this launch: matching SpockD3D9 DLL coverage is incomplete."
+  fi
+  export WINEDLLOVERRIDES="$(spockd3d9_merge_overrides "${WINEDLLOVERRIDES:-}" "${order}")"
   export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS="${MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS:-2}"
   if declare -F moonshine_winedebug_default >/dev/null 2>&1; then
     export WINEDEBUG="${WINEDEBUG:-$(moonshine_winedebug_default)}"

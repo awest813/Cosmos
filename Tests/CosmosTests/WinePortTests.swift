@@ -131,6 +131,22 @@ final class WinePortTests: XCTestCase {
         XCTAssertEqual(flag(args, "--args"), "--windowed")
     }
 
+    func testPortsDirectoryMatchesCLIOverrides() {
+        let originalSupport = ProcessInfo.processInfo.environment["COSMOS_SUPPORT_DIR"]
+        let originalPorts = ProcessInfo.processInfo.environment["COSMOS_PORTS_DIR"]
+        defer {
+            if let originalSupport { setenv("COSMOS_SUPPORT_DIR", originalSupport, 1) }
+            else { unsetenv("COSMOS_SUPPORT_DIR") }
+            if let originalPorts { setenv("COSMOS_PORTS_DIR", originalPorts, 1) }
+            else { unsetenv("COSMOS_PORTS_DIR") }
+        }
+        unsetenv("COSMOS_PORTS_DIR")
+        setenv("COSMOS_SUPPORT_DIR", "/tmp/cosmos-custom-support", 1)
+        XCTAssertEqual(WinePortStore.portsDirectoryURL.path, "/tmp/cosmos-custom-support/Ports")
+        setenv("COSMOS_PORTS_DIR", "/tmp/cosmos-custom-ports", 1)
+        XCTAssertEqual(WinePortStore.portsDirectoryURL.path, "/tmp/cosmos-custom-ports")
+    }
+
     func testPortOperationLabels() {
         XCTAssertEqual(
             CosmosOperationLabel.title(script: "port.command", arguments: ["launch", "notepad"]),

@@ -39,7 +39,25 @@ class PreflightTests(unittest.TestCase):
             self.assertEqual(report['game_result'], 'untested')
             self.assertIsNone(report['observations']['backend_loaded'])
             (exe.parent/'d3d9.dll').touch()
-            self.assertEqual(len(preflight.inspect(exe, root, wine, 'recommended')['warnings']), 2)
+            self.assertTrue(any('game folder' in warning for warning in
+                                preflight.inspect(exe, root, wine, 'recommended')['warnings']))
+
+    def test_32_bit_game_and_prefix_architecture(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            exe, wine = root/'game.exe', root/'wine'
+            make_pe(exe)
+            wine.touch(); wine.chmod(0o755)
+            (root/'system.reg').write_text('WINE REGISTRY Version 2\n#arch=win64\n')
+            report = preflight.inspect(exe, root, wine, 'wined3d')
+            self.assertTrue(report['preflight_passed'])
+            self.assertTrue(any('WoW64 support' in warning for warning in report['warnings']))
+            (root/'system.reg').write_text('WINE REGISTRY Version 2\r\n#arch=win32\r\n')
+            self.assertTrue(preflight.inspect(exe, root, wine, 'wined3d')['preflight_passed'])
+            make_pe(exe, machine=0x8664)
+            report = preflight.inspect(exe, root, wine, 'wined3d')
+            self.assertFalse(report['preflight_passed'])
+            self.assertEqual(report['prefix_architecture'], 'win32')
 
     def test_missing_or_invalid_files_block(self):
         with tempfile.TemporaryDirectory() as folder:

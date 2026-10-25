@@ -37,6 +37,10 @@ grow into a coherent product.
 
 ## Guiding principles
 
+Current release work prioritizes Sikarugir-style Ports, UI/UX, 32-bit programs,
+and SpockD3D9. Track the final validation gates in
+[RELEASE_READINESS.md](RELEASE_READINESS.md).
+
 - **Make the boring path work first.** Steam launching reliably with zero Terminal
   use beats a half-built store/cloud/database.
 - **Don't start with the custom runtime.** That is the swamp. Build the layers

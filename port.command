@@ -341,6 +341,7 @@ cmd_launch() {
   fi
   export COSMOS_BACKEND="${backend}"
   export COSMOS_SKIP_STEAM=1
+  export COSMOS_PROGRAM_ARCH="${PORT_PROGRAM_ARCH}"
   export WINDOWS_VERSION="${PORT_WINDOWS}"
   export WINE_RETINA_MODE="${PORT_RETINA}"
   if [[ -n "${PORT_BOTTLE}" ]]; then
@@ -348,13 +349,8 @@ cmd_launch() {
   else
     unset COSMOS_BOTTLE || true
   fi
-  local -a extra=()
-  if [[ -n "${PORT_ARGS}" ]]; then
-    # shellcheck disable=SC2206
-    extra=(${PORT_ARGS})
-  fi
   log "Opening ${PORT_NAME} with ${backend}"
-  exec "${SCRIPT_DIR}/run.command" --game "${PORT_EXE}" ${extra[@]+"${extra[@]}"}
+  port_exec_program "${SCRIPT_DIR}/run.command" "${PORT_EXE}" "${PORT_ARGS}"
 }
 
 cmd_delete() {

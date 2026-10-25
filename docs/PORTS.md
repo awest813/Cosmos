@@ -67,3 +67,26 @@ built, DirectX 9 stays on WineD3D. A bottle can instead be 64-bit only
 
 Tests that create or build a port on Linux or an Intel Mac set
 `COSMOS_PORT_SKIP_ARCH=1`. That flag does not make the port run there.
+
+## Launch and setup details
+
+Both dashboard/CLI launches and generated apps pass the saved program architecture
+to the graphics setup. Launch arguments support quoted values and empty arguments:
+`--save "folder with spaces/save.dat" --label ""`. Wildcards and shell variables
+stay literal; arguments are parsed as data and never executed as shell commands.
+Malformed quotes stop the launch with an error. Parsing nonempty arguments requires
+Python 3, already used by the Cosmos helper scripts.
+
+When a selected program's Spock architecture is unavailable, the launch forces
+WineD3D's builtin D3D9 DLL, preserving DXMT for DirectX 10/11. An old native DLL
+left in the prefix by another backend cannot silently override that fallback.
+For a launch without a known program architecture, both Spock DLLs are required
+to prefer native D3D9. Build both from Graphics settings to cover Steam games.
+
+The installer respects an existing win32 prefix's registry marker rather than a
+changed creation preference. A win32 preference cannot replace a DLL in an
+existing win64 prefix; select the matching layout or create another environment.
+
+The Ports screen uses `COSMOS_PORTS_DIR`, or `COSMOS_SUPPORT_DIR/Ports`, matching
+the CLI. Launch, build, and creation wait while a Terminal operation is pending.
+See [release readiness](RELEASE_READINESS.md) for the current validation limits.

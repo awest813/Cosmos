@@ -170,8 +170,10 @@ struct WinePort: Identifiable, Hashable {
 
 enum WinePortStore {
     static var portsDirectoryURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Cosmos/Ports", isDirectory: true)
+        if let override = ProcessInfo.processInfo.environment["COSMOS_PORTS_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        return CosmosPaths.supportDirectory.appendingPathComponent("Ports", isDirectory: true)
     }
 
     static func load() -> [WinePort] {

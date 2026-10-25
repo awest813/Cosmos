@@ -180,7 +180,7 @@ extension ContentView {
             PortsDashboard(
                 ports: ports,
                 bottleNames: bottles.map(\.name),
-                isRunning: isRunning,
+                isRunning: isRunning || pendingTerminalJobID != nil,
                 onCreate: { draft in
                     runCommand(script: "port.command", arguments: draft.commandArguments)
                 },
