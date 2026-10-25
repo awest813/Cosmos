@@ -80,9 +80,12 @@ struct PortsDashboard: View {
                 }
             }
         }
+        .onAppear {
+            if selectedID == nil { selectedID = ports.first?.id }
+        }
         .onChange(of: ports) { updated in
-            if let selectedID, !updated.contains(where: { $0.id == selectedID }) {
-                self.selectedID = nil
+            if selectedID == nil || !updated.contains(where: { $0.id == selectedID }) {
+                selectedID = updated.first?.id
             }
         }
         .sheet(isPresented: $showCreateSheet) {
@@ -222,7 +225,7 @@ struct PortsDashboard: View {
     }
 }
 
-private struct NewPortSheet: View {
+struct NewPortSheet: View {
     let bottleNames: [String]
     let isRunning: Bool
     var onCancel: () -> Void

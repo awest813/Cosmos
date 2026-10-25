@@ -31,7 +31,17 @@ jobs:
         run: swift build -c release
 
       - name: Unit tests (Swift)
+        env:
+          COSMOS_UI_SMOKE_OUTPUT_DIR: ${{ github.workspace }}/build/ui-smoke
         run: swift test
+
+      - name: Native UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmos-native-ui
+          path: build/ui-smoke/*.png
+          if-no-files-found: warn
 
   bundle-smoke:
     name: Bundle + release audit (macOS)
