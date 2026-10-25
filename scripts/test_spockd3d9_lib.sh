@@ -119,4 +119,11 @@ if COSMOS_PREFIX_ARCH=win32 spockd3d9_install_into_prefix "${tmpdir}/spock" "${p
   fail "win32 preference must not overwrite an existing win64 system32"
 fi
 
+if (
+  cp() { return 1; }
+  COSMOS_PREFIX_ARCH=wow64 spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}"
+) >/dev/null 2>&1; then
+  fail "copy failures must fail installation even when called in a conditional"
+fi
+
 printf 'OK: Spock path, PE architecture, and override-merge tests passed\n'

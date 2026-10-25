@@ -141,6 +141,7 @@ cat > "${fake}/run.command" <<'EOF'
 printf 'backend=%s\nskip=%s\nport=%s\ngame=%s\n' \
   "${COSMOS_BACKEND}" "${COSMOS_SKIP_STEAM}" "${COSMOS_PORT}" "$2"
 printf 'program=%s\n' "${COSMOS_PROGRAM_ARCH:-}"
+printf 'bottle=%s\n' "${COSMOS_BOTTLE:-}"
 printf 'arg=<%s>\n' "$@"
 EOF
 chmod +x "${fake}/run.command"
@@ -167,6 +168,8 @@ printf '%s\n' "${launch_out}" | grep -q "backend=spockd3d9" || fail "launch back
 printf '%s\n' "${launch_out}" | grep -q "skip=1" || fail "launch skip steam: ${launch_out}"
 printf '%s\n' "${launch_out}" | grep -q "port=1" || fail "launch port flag: ${launch_out}"
 printf '%s\n' "${launch_out}" | grep -Fq "game=${stored_exe}" || fail "launch game path: ${launch_out}"
+default_out="$(COSMOS_BOTTLE=unrelated "${app}/Contents/MacOS/launcher")"
+printf '%s\n' "${default_out}" | grep -Fxq 'bottle=' || fail "main-environment port inherited an unrelated bottle"
 
 set +e
 blocked="$(env -u COSMOS_PORT_SKIP_ARCH "${app}/Contents/MacOS/launcher" 2>&1)"

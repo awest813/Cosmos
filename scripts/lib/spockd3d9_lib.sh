@@ -191,13 +191,13 @@ spockd3d9_install_into_prefix() {
         return 0
       fi
       [[ -n "${x64}" ]] || return 1
-      cp -f "${x64}" "${sys32}/d3d9.dll"
+      cp -f "${x64}" "${sys32}/d3d9.dll" || return 1
       COSMOS_SPOCK_X64_INSTALLED=1
       echo "Copied 64-bit SpockD3D9 d3d9.dll to system32."
       ;;
     win32)
       [[ -n "${x86}" ]] || return 1
-      cp -f "${x86}" "${sys32}/d3d9.dll"
+      cp -f "${x86}" "${sys32}/d3d9.dll" || return 1
       COSMOS_SPOCK_X86_INSTALLED=1
       echo "Copied 32-bit SpockD3D9 d3d9.dll to system32."
       ;;
@@ -206,14 +206,14 @@ spockd3d9_install_into_prefix() {
         return 1
       fi
       if [[ -n "${x64}" ]]; then
-        cp -f "${x64}" "${sys32}/d3d9.dll"
+        cp -f "${x64}" "${sys32}/d3d9.dll" || return 1
         COSMOS_SPOCK_X64_INSTALLED=1
         echo "Copied 64-bit SpockD3D9 d3d9.dll to system32."
         copied=$((copied + 1))
       fi
       if [[ -n "${x86}" ]]; then
-        mkdir -p "${syswow}"
-        cp -f "${x86}" "${syswow}/d3d9.dll"
+        mkdir -p "${syswow}" || return 1
+        cp -f "${x86}" "${syswow}/d3d9.dll" || return 1
         COSMOS_SPOCK_X86_INSTALLED=1
         echo "Copied 32-bit SpockD3D9 d3d9.dll to syswow64."
         copied=$((copied + 1))

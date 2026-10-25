@@ -346,6 +346,8 @@ port_write_env() {
     printf 'export WINE_RETINA_MODE=%q\n' "${PORT_RETINA:-0}"
     if [[ -n "${PORT_BOTTLE:-}" ]]; then
       printf 'export COSMOS_BOTTLE=%q\n' "${PORT_BOTTLE}"
+    else
+      printf 'unset COSMOS_BOTTLE\n'
     fi
     if [[ -n "${PORT_CNC_DDRAW_PATH:-}" ]]; then
       printf 'export CNC_DDRAW_PATH=%q\n' "${PORT_CNC_DDRAW_PATH}"
