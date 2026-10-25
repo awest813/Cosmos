@@ -135,7 +135,9 @@ licenses. Apple's D3DMetal and the CrossOver application stay out.
 | [Soju](https://github.com/BCD1210/soju) | GPL-3.0 | May be combined. AVX, the login-page switch, the D3DMetal layout, and the Battle.net signature seed are reimplemented in Cosmos. Do not copy CodeWeavers' engine |
 | [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3.0 | May be combined. Keep upstream copyright notices with any copied files |
 | [Lutris](https://github.com/lutris/lutris) | GPL-3.0 | Installer scripts may be combined. Profiles are still Cosmos YAML, not a full installer runner |
-| [Highball](https://github.com/gauthierpiarrette/highball) | GPL-3.0 | Vendored at `third_party/highball` (commit `bbada878`). Its CC0 database is `third_party/highball-db`. Apple's GPTK license text is not included |
+| [Highball](https://github.com/gauthierpiarrette/highball) | GPL-3.0 | Vendored at `third_party/highball` (commit `bbada878`). `third_party/highball-db` has CC0 curated data/recipes, ODbL-1.0 derived predictions and MIT-derived anti-cheat data; preserve the separate notices. Apple's GPTK license text is not included |
+| [Sikarugir](https://github.com/Sikarugir-App/Sikarugir) | Component-specific | Main README separates LGPL Configure sources from newer Creator/Launcher components. Only verified [FOSS sources](https://github.com/Sikarugir-App/Sikarugir-foss-sources) have the reviewed LGPL-2.1 grant; do not treat the distribution as uniformly LGPL |
+| [Bottles](https://github.com/bottlesdevs/Bottles) | GPL-3.0 | Backup/versioning architecture reference; Linux/GTK/FVS dependencies require adaptation |
 | [Vermut](https://github.com/Contessafry/Vermut) 1.2.0 | MIT | Vendored at `third_party/vermut` (commit `3ad9649`). Copyright (c) 2026 Vermut Contributors. The release DMG is not included |
 | [macos-wine-steam / Merlot](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; safe to compare scripts |
 | [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Optional detection cross-check; VDF parsing patterns in `steam_lib.sh` |

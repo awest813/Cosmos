@@ -1,7 +1,12 @@
 # Open Source Integrations
 
-How Cosmos uses external permissive-LGPL (or external-tool) projects across the
+How Cosmos uses permissive, LGPL, GPLv3 and external-tool projects across the
 integration priorities.
+
+For the October 25, 2026 source-level comparison of Whisky, Moonshine, Soju,
+Highball, Vermut, Sikarugir, Heroic, Lutris and Bottles, see
+[UPSTREAM_REUSE_REVIEW.md](UPSTREAM_REUSE_REVIEW.md). It distinguishes existing
+integration from vendored-only code and ranks the next adaptations.
 
 > **Phased adoption plan:** see [ADOPTION_PLAN.md](ADOPTION_PLAN.md) for
 > winemactricks-json, wineregdiff, VDF libraries, UMU API, profile seeding,

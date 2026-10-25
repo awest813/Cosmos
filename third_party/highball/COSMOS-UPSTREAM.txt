@@ -11,7 +11,9 @@ from this directory:
 
 The CLI is .build/release/highball. The app target is HighballApp.
 Recipes and the compatibility database are the sibling checkout
-../highball-db (CC0). See docs/HIGHBALL.md in the Cosmos repository root.
+../highball-db (CC0 curated recipes/data, ODbL-1.0 db/derived predictions,
+and MIT-derived anti-cheat data with its separate notice). See docs/HIGHBALL.md
+in the Cosmos repository root.
 
 Apple's Game Porting Toolkit license text is not in this copy. spike/d3dmetal-license.txt
 was omitted. Highball already falls back to telling you to read License.pdf from

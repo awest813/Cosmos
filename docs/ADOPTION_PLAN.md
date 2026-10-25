@@ -8,6 +8,20 @@ milestone **0.7 (CosmosDB)** and **1.0 (Cosmos Runtime)** in
 
 ## Current baseline
 
+The [October 2026 launcher review](UPSTREAM_REUSE_REVIEW.md) adds this concrete
+queue for the Sikarugir-first installation/filesystem work:
+
+- [ ] Adapt Highball's read-only Wine junction handling to Cosmos drive mappings.
+- [ ] Add architecture-aware runtime integrity diagnostics, reviewing the newer
+  upstream fix for a missing x86 builtin when its x64 counterpart remains.
+- [ ] Adapt Vermut's prefix-owned, bounded process stop and non-following cleanup.
+- [ ] Add complete-environment clone/restore using Soju/Bottles patterns after
+  scoped process control is available.
+- [ ] Add validated Range/ETag component-download resume and curated recipe adapters.
+
+Highball DB data is not uniformly CC0: derived predictions are ODbL and anti-cheat
+data retains its MIT notice. Preserve those boundaries in future imports.
+
 | Area | Status today | Remaining gap |
 | --- | --- | --- |
 | Repair / recipes | winemactricks import, regdiff, UMU-aware diagnose | Cellar recipe mining; more JSON catalog growth |

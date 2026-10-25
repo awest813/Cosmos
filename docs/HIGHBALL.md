@@ -1,14 +1,15 @@
 # Highball
 
 [Highball](https://github.com/gauthierpiarrette/highball) is a GPL-3.0 Apple
-Silicon launcher. Cosmos vendors that source, plus the CC0
+Silicon launcher. Cosmos vendors that source, plus the
 [highball-db](https://github.com/gauthierpiarrette/highball-db) recipes and
-compatibility database it reads.
+compatibility database it reads. Curated recipes/data are CC0; derived predictions
+are ODbL and anti-cheat data retains its MIT notice.
 
 | Tree | License | Upstream commit |
 | --- | --- | --- |
 | `third_party/highball` | GPL-3.0 | `bbada878d142521a3267f0818a09cd62111b5789` |
-| `third_party/highball-db` | CC0-1.0 | `2b5c876308a39268189b12f391d07c34c5fb7c3e` |
+| `third_party/highball-db` | CC0-1.0 curated data/recipes; ODbL-1.0 `db/derived`; MIT-derived anti-cheat data | `2b5c876308a39268189b12f391d07c34c5fb7c3e` |
 
 The Swift app, CLI, engine manifests, patches, tests, and scripts are the
 upstream files. Highball stays its own app. The dashboard lists it with Vermut
