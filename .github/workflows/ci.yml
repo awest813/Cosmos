@@ -43,6 +43,25 @@ jobs:
           path: build/ui-smoke/*.png
           if-no-files-found: warn
 
+      - name: Build installable preview
+        env:
+          COSMOS_BUILD_ARCHS: arm64
+          OUTPUT_DIR: build/preview
+        run: |
+          test ! -e build/offline-runtime/cosmos-runtime-offline.tar.xz
+          scripts/build_cosmos_app.command
+          test ! -e build/preview/Cosmos.app/Contents/Resources/runtime/cosmos-runtime-offline.tar.xz
+          APP_BUNDLE=build/preview/Cosmos.app COSMOS_EXPECTED_APP_ARCHS=arm64 scripts/audit_release.sh
+          ditto -c -k --sequesterRsrc --keepParent build/preview/Cosmos.app build/Cosmos-arm64-preview.zip
+          unzip -tq build/Cosmos-arm64-preview.zip
+
+      - name: Apple Silicon preview app
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmos-arm64-preview
+          path: build/Cosmos-arm64-preview.zip
+          if-no-files-found: error
+
   bundle-smoke:
     name: Bundle + release audit (macOS)
     runs-on: macos-15

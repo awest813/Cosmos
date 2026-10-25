@@ -4,6 +4,10 @@ The workflow is ready for an installer EXE you already have. The installer and
 game have not been run in this Linux workspace; gameplay remains untested.
 Like Ports, this guided flow targets Apple Silicon and macOS 14.6 or later.
 
+PR CI produces a `cosmos-arm64-preview` artifact containing an ad-hoc signed
+Cosmos app. This is a development preview; public-release notarization and real
+SimCity gameplay remain unverified. Wine downloads during normal first setup.
+
 ## In Cosmos
 
 1. Open **Tools → Add Non-Steam Games → Install Classic Game**. Use Advanced to
