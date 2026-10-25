@@ -39,6 +39,16 @@ branch's Ports and split-dashboard architecture.
 
 ## Evidence and release gates
 
+Installation state now records preparation, setup started/failed, waiting for an
+EXE, and registration. The native Ports page lists unfinished records and prefills
+Finish/Retry with the saved title, installer and environment. Registered ports
+and invalid metadata are excluded. Continuing preserves the saved-folder guard
+for disconnected drives. Game selection offers up to 40 filtered x86/x64 EXEs
+within six folder levels, requires confirmation, and always offers Browse;
+common helper/redist files and DLLs are excluded. Shell fixtures cover discovery,
+cancellation and resumption without rerunning setup. Native tests cover discovery
+of pending records and preserving the environment in continuation arguments.
+
 The Windows installation sheet now supports EXE/MSI setup files, an optional
 destination folder, Mac-app creation and launch control. Recovery accepts the
 installed EXE/folder directly. Fixtures cover MSI routing to the installer helper,

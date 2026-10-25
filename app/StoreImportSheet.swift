@@ -12,6 +12,7 @@ struct StoreImportRequest: Identifiable {
         case gameExecutable
         case makeMacApp
         case launchAfterInstall
+        case installationBottle
     }
 
     struct Field: Identifiable {
@@ -32,8 +33,9 @@ struct StoreImportRequest: Identifiable {
     let script: String
     let baseArguments: [String]
     let forceTerminal: Bool
+    var initialValues: [FieldKind: String] = [:]
 
-    static func classicGame(resuming: Bool = false) -> StoreImportRequest {
+    static func classicGame(resuming: Bool = false, installation: PendingGameInstallation? = nil) -> StoreImportRequest {
         var fields: [Field] = []
         if !resuming {
             fields.append(.init(id: .path, label: "Installer EXE or MSI", placeholder: "/Users/you/Downloads/setup_game.exe", allowsFilePicker: true))
@@ -43,10 +45,10 @@ struct StoreImportRequest: Identifiable {
         if resuming {
             fields.append(.init(id: .gameExecutable, label: "Installed game EXE (optional)", placeholder: "Choose after continuing if left blank", allowsFilePicker: true, isRequired: false))
         }
-        return StoreImportRequest(
+        var request = StoreImportRequest(
             title: resuming ? "Finish Game Installation" : "Install Windows Game",
             message: resuming
-                ? "Enter the same title used during setup. Terminal reopens the saved installation folder so you can select the installed game EXE. Setup will not run again. Uses the default game environment."
+                ? "Use the same title as setup. Terminal reopens the saved installation folder so you can select the installed game EXE. Setup will not run again. A listed installation keeps its saved environment."
                 : "Choose an EXE or MSI installer and enter the game title. Setup runs in a dedicated Windows environment. After setup finishes, select the installed game EXE. WineD3D is the starting graphics setting; you can change it in Edit Port.",
             fields: fields,
             submitLabel: resuming ? "Continue in Terminal" : "Install in Terminal",
@@ -54,6 +56,15 @@ struct StoreImportRequest: Identifiable {
             baseArguments: [resuming ? "resume" : "install"],
             forceTerminal: true
         )
+        if let installation {
+            request.initialValues = [.displayName: installation.name, .path: installation.installer, .installationBottle: installation.bottle]
+            // Resume uses the saved folder so disconnected drives retain the
+            // helper's missing-folder guard instead of an explicit mkdir.
+            if !resuming, FileManager.default.fileExists(atPath: installation.folder) {
+                request.initialValues[.installDirectory] = installation.folder
+            }
+        }
+        return request
     }
 
     func installerArguments(values: [FieldKind: String]) -> [String] {
@@ -61,7 +72,7 @@ struct StoreImportRequest: Identifiable {
         var arguments = baseArguments
         if !baseArguments.contains("resume") { arguments.append(value(.path)) }
         arguments += ["--name", value(.displayName)]
-        for (kind, flag) in [(FieldKind.installDirectory, "--install-dir"), (.gameExecutable, "--game-exe")] {
+        for (kind, flag) in [(FieldKind.installDirectory, "--install-dir"), (.gameExecutable, "--game-exe"), (.installationBottle, "--bottle")] {
             let text = value(kind)
             if !text.isEmpty { arguments += [flag, text] }
         }
@@ -77,12 +88,22 @@ struct StoreImportSheet: View {
     /// Return `nil` to close the sheet, or an error message to show inline.
     var onSubmit: (_ values: [StoreImportRequest.FieldKind: String]) -> String?
 
-    @State private var values: [StoreImportRequest.FieldKind: String] = [:]
+    @State private var values: [StoreImportRequest.FieldKind: String]
     @State private var errorMessage: String?
     @State private var isSubmitting = false
     @State private var makeMacApp = false
     @State private var launchAfterInstall = true
     @FocusState private var focusedField: StoreImportRequest.FieldKind?
+
+    init(
+        request: StoreImportRequest, onCancel: @escaping () -> Void,
+        onSubmit: @escaping ([StoreImportRequest.FieldKind: String]) -> String?
+    ) {
+        self.request = request
+        self.onCancel = onCancel
+        self.onSubmit = onSubmit
+        _values = State(initialValue: request.initialValues)
+    }
 
     private var canSubmit: Bool {
         request.fields.allSatisfy { field in
@@ -114,6 +135,9 @@ struct StoreImportSheet: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if let bottle = values[.installationBottle], !bottle.isEmpty {
+                Text("Environment: \(bottle)").font(.caption).foregroundStyle(.secondary)
+            }
 
             if let errorMessage {
                 CosmosNoticeBanner(

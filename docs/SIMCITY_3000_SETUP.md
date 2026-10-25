@@ -21,7 +21,8 @@ SimCity gameplay remain unverified. Wine downloads during normal first setup.
 4. Select that same destination in the Windows installer, leave its Launch Game
    option unchecked if offered, finish setup, and close it. Keep companion setup
    `.bin` files beside the installer if present.
-5. Choose the installed game EXE. It is often `Apps/SC3U.exe`; confirm the actual
+5. Choose the installed game EXE from the detected candidates, or use **Browse
+   for another EXE**. It is often `Apps/SC3U.exe`; confirm the actual
    filename for your edition. Select the game rather than setup/uninstall.
 6. Cosmos detects its architecture, creates a port, and launches that game EXE
    if the launch option is enabled. A requested shortcut appears in
@@ -62,6 +63,11 @@ saved with the environment; the installer is not run again. A disconnected or
 moved folder produces an explanation instead of silently creating a replacement.
 You can choose a moved folder and the installed game EXE directly in this sheet;
 both fields are optional when continuing with the saved destination/chooser.
+New installations also appear under **Ports → Unfinished installations**. Finish
+Installation prefills the title and uses the saved environment; Retry Setup runs
+the installer again. Prepared environments offer Run Setup. Already registered
+ports are excluded. Older saved records without this metadata still use the
+generic Finish Installation action.
 In Terminal, resume with:
 
 ```bash

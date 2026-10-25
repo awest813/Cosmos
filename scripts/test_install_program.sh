@@ -148,4 +148,49 @@ if "${workflow}" install "${tmp}/installer-dll.exe" --name "Installer DLL" --ins
 fi
 [[ ! -e "${COSMOS_SUPPORT_DIR}/Bottles/game-installer-dll" ]] || fail "invalid EXE created an environment"
 
-echo 'OK: EXE/MSI installer -> chosen folder -> installed game, shortcut, failure and resume checks passed'
+(
+  source "${workflow}"
+  candidate_dir="${tmp}/Candidate Games"
+  mkdir -p "${candidate_dir}/Apps" "${candidate_dir}/_CommonRedist"
+  cp "${TEST_GAME_FIXTURE}" "${candidate_dir}/Apps/SC3U.exe"
+  cp "${TEST_GAME_FIXTURE}" "${candidate_dir}/AnotherGame.exe"
+  cp "${TEST_GAME_FIXTURE}" "${candidate_dir}/setup.exe"
+  cp "${TEST_GAME_FIXTURE}" "${candidate_dir}/_CommonRedist/game.exe"
+  cp "${tmp}/installer-dll.exe" "${candidate_dir}/library.exe"
+  osascript() { printf '%s\n' "$@" > "${tmp}/candidate-args"; printf 'Apps/SC3U.exe'; }
+  selected="$(pick_game "${candidate_dir}" "SimCity" "")"
+  [[ "${selected}" == "${candidate_dir}/Apps/SC3U.exe" ]] || fail "candidate selection lost nested path"
+  grep -Fxq 'AnotherGame.exe' "${tmp}/candidate-args" || fail "multiple game choices not offered"
+  if grep -Eq 'setup.exe|_CommonRedist|library.exe' "${tmp}/candidate-args"; then fail "helper/DLL candidates were offered"; fi
+  pick_path() { printf '%s' "${tmp}/manual.exe"; }
+  osascript() { printf '__COSMOS_BROWSE__'; }
+  [[ "$(pick_game "${candidate_dir}" "SimCity" "")" == "${tmp}/manual.exe" ]] || fail "Browse fallback"
+  mkdir -p "${tmp}/No Candidates"
+  [[ "$(pick_game "${tmp}/No Candidates" "SimCity" "")" == "${tmp}/manual.exe" ]] || fail "empty folder fallback"
+  osascript() { return 1; }
+  if pick_game "${candidate_dir}" "SimCity" "" > /dev/null; then fail "cancelled chooser must not select a game"; fi
+)
+
+# Interrupted selection appears as pending state, then registration completes
+# without running setup again when the same installation is resumed.
+mkdir -p "${tmp}/chooser-bin"
+cat > "${tmp}/chooser-bin/osascript" <<'EOF'
+#!/usr/bin/env bash
+[[ "${TEST_CHOOSE_CANCEL:-0}" == 0 ]] || exit 1
+printf 'Apps/SC3U.exe'
+EOF
+chmod +x "${tmp}/chooser-bin/osascript"
+export TEST_GAME_DIR="${tmp}/Detected Game"
+if PATH="${tmp}/chooser-bin:${PATH}" TEST_CHOOSE_CANCEL=1 "${workflow}" install "${installer}" \
+  --name "Detected Game" --install-dir "${TEST_GAME_DIR}" >"${tmp}/chooser-cancel.log" 2>&1; then
+  fail "cancelled selection registered a game"
+fi
+state="${COSMOS_SUPPORT_DIR}/Bottles/game-detected-game/install-detected-game.conf"
+grep -q 'INSTALL_STAGE="awaiting-game"' "${state}" || fail "pending selection stage not saved"
+grep -q 'INSTALL_NAME="Detected Game"' "${state}" || fail "pending game title not saved"
+before="$(wc -l < "${TEST_EVENTS}")"
+PATH="${tmp}/chooser-bin:${PATH}" "${workflow}" resume --name "Detected Game" --no-launch >"${tmp}/chooser-resume.log"
+[[ "$(wc -l < "${TEST_EVENTS}")" == "${before}" ]] || fail "detected resume reran setup/game"
+grep -q 'INSTALL_STAGE="registered"' "${state}" || fail "completed registration stage not saved"
+
+echo 'OK: EXE/MSI installation, detected game choices, pending state and resume checks passed'

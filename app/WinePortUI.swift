@@ -9,6 +9,8 @@ struct PortsDashboard: View {
     var onOpenDownloads: (() -> Void)? = nil
     var onInstall: (() -> Void)? = nil
     var onResumeInstall: (() -> Void)? = nil
+    var pendingInstallations: [PendingGameInstallation] = []
+    var onContinueInstallation: ((PendingGameInstallation, Bool) -> Void)? = nil
     var requiresRosetta: Bool = false
     var onUpdate: ((WinePort, WinePortDraft, @escaping (String?) -> Void) -> Void)? = nil
     var onOpenLogs: ((WinePort) -> Void)? = nil
@@ -43,6 +45,13 @@ struct PortsDashboard: View {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 10) { installationActions }
                     VStack(alignment: .leading, spacing: 8) { installationActions }
+                }
+                if !pendingInstallations.isEmpty, let onContinueInstallation {
+                    PendingGameInstallationsView(
+                        installations: pendingInstallations,
+                        isBusy: isRunning || unavailableReason != nil,
+                        onContinue: onContinueInstallation
+                    )
                 }
                 HStack {
                     if let onOpenDownloads {
@@ -311,6 +320,41 @@ struct PortsDashboard: View {
         }
         .buttonStyle(.bordered)
         .disabled(isRunning)
+    }
+}
+
+struct PendingGameInstallationsView: View {
+    let installations: [PendingGameInstallation]
+    let isBusy: Bool
+    var onContinue: (PendingGameInstallation, Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Unfinished installations").font(.headline)
+            ForEach(installations) { installation in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(installation.name).font(.subheadline.weight(.semibold))
+                    Text(installation.statusLabel).font(.caption).foregroundStyle(.secondary)
+                    Text(installation.folder).font(.caption2).foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        if installation.stage != "prepared" {
+                            Button("Finish Installation") { onContinue(installation, false) }
+                                .help("Skip setup and select the installed game EXE")
+                        }
+                        Button(installation.stage == "prepared" ? "Run Setup" : "Retry Setup") {
+                            onContinue(installation, true)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isBusy)
+                }
+                .accessibilityElement(children: .contain)
+            }
+        }
+        .padding(CosmosSpacing.cardPadding)
+        .cosmosCard()
     }
 }
 

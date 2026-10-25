@@ -21,6 +21,39 @@ end run
 APPLESCRIPT
 }
 
+pick_game() {
+  local folder="$1" name="$2" installer="$3" path rel choice count=0
+  local -a candidates=()
+  while IFS= read -r -d '' path; do
+    [[ "${path}" != "${installer}" && "${path}" != *$'\n'* ]] || continue
+    rel="${path#"${folder}/"}"
+    import_exe_is_helper "${path}" && continue
+    import_path_has_ignored_segment "${rel}" && continue
+    [[ -n "$(port_detect_program_arch "${path}" || true)" ]] || continue
+    candidates+=("${rel}")
+    count=$((count + 1))
+    [[ ${count} -lt 40 ]] || break
+  done < <(find "${folder}" -maxdepth 6 -type f -iname '*.exe' -print0 2>/dev/null)
+  if [[ ${count} -gt 0 ]]; then
+    choice="$(osascript - "${name}" "${candidates[@]}" <<'APPLESCRIPT'
+on run argv
+    set options to items 2 thru -1 of argv
+    set end of options to "Browse for another EXE…"
+    set selection to choose from list options with title "Choose the installed game" with prompt ("Select the game EXE for " & item 1 of argv & ". Setup and common helpers are filtered out. Nothing opens until you confirm.") OK button name "Use Game EXE" cancel button name "Cancel" multiple selections allowed false
+    if selection is false then error number -128
+    if item 1 of selection is "Browse for another EXE…" then return "__COSMOS_BROWSE__"
+    return item 1 of selection
+end run
+APPLESCRIPT
+)" || return 1
+    if [[ "${choice}" != __COSMOS_BROWSE__ ]]; then
+      printf '%s' "${folder}/${choice}"
+      return
+    fi
+  fi
+  pick_path file "Choose the installed game EXE for ${name}. Select the game, not setup or uninstall." "${folder}"
+}
+
 usage() {
   cat <<'EOF'
 Install a Windows game into a folder, then open its installed EXE.
@@ -108,6 +141,15 @@ main() {
   if grep -Eq '^#arch=win32[[:space:]]*$' "${prefix}/system.reg" 2>/dev/null; then
     die "This is an existing win32 prefix. Choose a separate WoW64 bottle."
   fi
+  port_set_setting "${install_state}" INSTALL_NAME "${name}"
+  port_set_setting "${install_state}" INSTALL_SLUG "${slug}"
+  port_set_setting "${install_state}" INSTALL_BOTTLE "${bottle}"
+  if [[ "${mode}" == install ]]; then
+    port_set_setting "${install_state}" INSTALLER_PATH "${installer}"
+    port_set_setting "${install_state}" INSTALL_STAGE prepared
+  elif [[ "${mode}" == resume ]]; then
+    installer="$(port_get_setting "${install_state}" INSTALLER_PATH)"
+  fi
   default_folder="${prefix}/drive_c/Games/${slug}"
   mkdir -p "${default_folder}"
   # Keep recovery tied to this game and bottle. Read as data, never source paths.
@@ -143,18 +185,24 @@ main() {
   windows_folder="${windows_folder//\//\\}"
   printf '\nGame: %s\nEnvironment: %s\nMac folder: %s\nWindows destination: %s\n' "${name}" "${bottle}" "${folder}" "${windows_folder}"
   if [[ "${mode}" == prepare ]]; then
+    port_set_setting "${install_state}" INSTALL_STAGE prepared
     echo "Prepared. No installer or game was run. Run install when the installer is available."
     return
   fi
   if [[ "${mode}" == install ]]; then
+    port_set_setting "${install_state}" INSTALL_STAGE installing
     echo "In the installer, choose the Windows destination printed above. Leave its Launch Game option unchecked if offered. Finish setup and close it before selecting the game EXE."
-    env SCRIPT_DIR="${ROOT}" COSMOS_BOTTLE="${bottle}" COSMOS_SKIP_STEAM=1 \
+    if env SCRIPT_DIR="${ROOT}" COSMOS_BOTTLE="${bottle}" COSMOS_SKIP_STEAM=1 \
       COSMOS_BACKEND=wined3d COSMOS_PREFIX_ARCH=wow64 WINDOWS_VERSION=win10 WINE_RETINA_MODE=0 COSMOS_INSTALLER_ARGS="" \
-      "${ROOT}/run.command" --run-installer "${installer}" \
-      || die "Installation did not finish successfully. No game port was created. Retry install, or use resume if setup completed."
+      "${ROOT}/run.command" --run-installer "${installer}"; then
+      port_set_setting "${install_state}" INSTALL_STAGE awaiting-game
+    else
+      port_set_setting "${install_state}" INSTALL_STAGE setup-failed
+      die "Installation did not finish successfully. No game port was created. Retry install, or use resume if setup completed."
+    fi
   fi
   if [[ -z "${game}" ]]; then
-    game="$(pick_path file "Choose the installed game EXE for ${name}, such as SC3U.exe for SimCity 3000 Unlimited. Select the game, not setup or uninstall." "${folder}")" \
+    game="$(pick_game "${folder}" "${name}" "${installer}")" \
       || die "Game selection cancelled. Installation was kept; run resume to select the game later."
   fi
   case "${game}" in
@@ -172,6 +220,7 @@ main() {
   SCRIPT_DIR="${ROOT}" "${ROOT}/port.command" create --name "${name}" --slug "${slug}" --exe "${game}" \
     --bottle "${bottle}" --program-arch "${arch}" --windows win10 --retina 0 \
     --dxmt 0 --d9vk 0 --dxvk 0 --d3dmetal 0 --cnc-ddraw 0 --wined3d 1
+  port_set_setting "${install_state}" INSTALL_STAGE registered
   if (( make_app )); then SCRIPT_DIR="${ROOT}" "${ROOT}/port.command" build "${slug}"; fi
   if (( launch )); then SCRIPT_DIR="${ROOT}" "${ROOT}/port.command" launch "${slug}"; fi
   echo "Game port registered. WineD3D is the baseline; confirm startup and gameplay on your Mac."

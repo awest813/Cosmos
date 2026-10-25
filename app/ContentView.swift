@@ -61,6 +61,7 @@ struct ContentView: View {
     @EnvironmentObject var appState: CosmosAppState
     @State var outputWasTrimmed = false
     @State var storeImportRequest: StoreImportRequest?
+    @State var pendingGameInstallations: [PendingGameInstallation] = []
     @State var pendingTerminalJobID: String?
     @State var updateAvailable = false
     @State var profilePreferences = ProfilePreferencesStore.load()

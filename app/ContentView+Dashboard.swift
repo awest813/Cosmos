@@ -191,6 +191,10 @@ extension ContentView {
                 onOpenDownloads: { showDownloads = true },
                 onInstall: { storeImportRequest = .classicGame() },
                 onResumeInstall: { storeImportRequest = .classicGame(resuming: true) },
+                pendingInstallations: pendingGameInstallations,
+                onContinueInstallation: { installation, retry in
+                    storeImportRequest = .classicGame(resuming: !retry, installation: installation)
+                },
                 requiresRosetta: wineRuntime.needsRosetta && !wineRuntime.rosettaReady,
                 onUpdate: { port, draft, completion in
                     runCommand(

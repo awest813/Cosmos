@@ -23,6 +23,10 @@ enum StoreImportValidation {
                 return "Enter a game title without / or :."
             }
             let folder = trimmed(.installDirectory)
+            let bottle = trimmed(.installationBottle)
+            if !bottle.isEmpty && !BottleStore.isValidName(bottle) {
+                return "The saved installation environment name is invalid."
+            }
             if !folder.isEmpty && (!folder.hasPrefix("/") && !folder.hasPrefix("drive_c/")) {
                 return "Choose an installation folder, or use an absolute Mac path or drive_c/... path."
             }

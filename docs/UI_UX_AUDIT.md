@@ -2,6 +2,12 @@
 
 ## Windows installation follow-up — October 25, 2026
 
+Ports now lists unfinished installations with their saved title, folder and
+status. Finish Installation skips setup; Retry Setup reruns it. Prepared records
+offer Run Setup. Continuation forms prefill the title/installer and display the
+saved environment. Registered ports are excluded. The post-setup chooser offers
+filtered EXE candidates with an explicit confirmation and a Browse fallback.
+
 The installer sheet now accepts EXE/MSI files and an optional installation-folder
 picker, with separate choices for a Mac app shortcut and launching after setup.
 Finish Installation can choose a replacement folder and the installed game EXE.
