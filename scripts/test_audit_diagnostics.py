@@ -48,7 +48,9 @@ class AuditDiagnosticsTests(unittest.TestCase):
         game = target / 'Game.exe'; game.write_bytes(b'fixture')
         stub = self.stub('Current?', r'\??\C:\Versions\One')
         before = read_attribute(stub, 'user.WINEREPARSE')
-        self.assertEqual(host_path(self.prefix, r'C:\Current\game.EXE'), game)
+        # APFS may accept the requested case directly; Linux resolves spelling.
+        # Both must identify the same installed file.
+        self.assertTrue(os.path.samefile(host_path(self.prefix, r'C:\Current\game.EXE'), game))
         self.assertEqual(host_path(self.prefix, 'drive_c/Current/Game.exe'), game)
         self.assertTrue(stub.is_dir()); self.assertFalse(stub.is_symlink())
         self.assertFalse((self.drive / 'Current').exists())

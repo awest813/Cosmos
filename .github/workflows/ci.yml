@@ -46,9 +46,11 @@ jobs:
       - name: macOS filesystem and process contracts
         if: always()
         run: |
-          python3 scripts/test_audit_diagnostics.py
-          python3 scripts/test_prefix_processes.py
-          python3 scripts/test_environment_clone.py
+          status=0
+          python3 scripts/test_audit_diagnostics.py || status=1
+          python3 scripts/test_prefix_processes.py || status=1
+          python3 scripts/test_environment_clone.py || status=1
+          exit "$status"
 
       - name: Build installable preview
         env:
