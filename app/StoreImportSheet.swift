@@ -23,6 +23,7 @@ struct StoreImportRequest: Identifiable {
         var isRequired: Bool = true
         var choosesDirectory: Bool = false
         var help: String? = nil
+        var isEditable: Bool = true
     }
 
     let id = UUID()
@@ -44,6 +45,10 @@ struct StoreImportRequest: Identifiable {
         fields.append(.init(id: .installDirectory, label: "Installation folder (optional)", placeholder: "Choose in Terminal if left blank", allowsFilePicker: true, isRequired: false, choosesDirectory: true, help: "Use this same destination in the Windows installer. Recovery reuses the saved folder when left blank."))
         if resuming {
             fields.append(.init(id: .gameExecutable, label: "Installed game EXE (optional)", placeholder: "Choose after continuing if left blank", allowsFilePicker: true, isRequired: false))
+        }
+        if installation != nil, let index = fields.firstIndex(where: { $0.id == .displayName }) {
+            fields[index].isEditable = false
+            fields[index].help = "This title identifies the saved installation. Rename the port with Edit after registration."
         }
         var request = StoreImportRequest(
             title: resuming ? "Finish Game Installation" : "Install Windows Game",
@@ -159,7 +164,7 @@ struct StoreImportSheet: View {
                                 .textFieldStyle(.roundedBorder)
                                 .focused($focusedField, equals: field.id)
                                 .accessibilityLabel(field.label)
-                                .disabled(isSubmitting)
+                                .disabled(isSubmitting || !field.isEditable)
                             if field.allowsFilePicker {
                                 Button("Choose…") {
                                     pickFile(for: field.id)

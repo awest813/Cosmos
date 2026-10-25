@@ -64,6 +64,7 @@ final class PendingGameInstallationTests: XCTestCase {
         let pending = PendingGameInstallation(id: "custom/simcity", name: "SimCity 3000 Unlimited", slug: "simcity", bottle: "custom", folder: "/Disconnected/SimCity", installer: "/Downloads/Setup.exe", stage: "awaiting-game")
         let request = StoreImportRequest.classicGame(resuming: true, installation: pending)
         XCTAssertEqual(request.initialValues[.displayName], pending.name)
+        XCTAssertEqual(request.fields.first { $0.id == .displayName }?.isEditable, false)
         XCTAssertNil(request.initialValues[.installDirectory])
         XCTAssertNil(StoreImportValidation.validate(request: request, values: request.initialValues))
         XCTAssertEqual(request.installerArguments(values: request.initialValues), [
