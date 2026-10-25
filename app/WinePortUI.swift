@@ -11,6 +11,7 @@ struct PortsDashboard: View {
     var onResumeInstall: (() -> Void)? = nil
     var requiresRosetta: Bool = false
     var onUpdate: ((WinePort, WinePortDraft, @escaping (String?) -> Void) -> Void)? = nil
+    var onOpenLogs: ((WinePort) -> Void)? = nil
     var onCreate: (WinePortDraft, @escaping (String?) -> Void) -> Void
     var onLaunch: (WinePort) -> Void
     var onBuild: (WinePort) -> Void
@@ -20,6 +21,7 @@ struct PortsDashboard: View {
     @State private var showCreateSheet = false
     @State private var pendingDelete: WinePort?
     @State private var editingPort: WinePort?
+    @State private var fileCheck: PortFileCheck?
 
     private var selectedPort: WinePort? {
         ports.first { $0.id == selectedID }
@@ -92,10 +94,12 @@ struct PortsDashboard: View {
             if selectedID == nil { selectedID = ports.first?.id }
         }
         .onChange(of: ports) { updated in
+            fileCheck = nil
             if selectedID == nil || !updated.contains(where: { $0.id == selectedID }) {
                 selectedID = updated.first?.id
             }
         }
+        .onChange(of: selectedID) { _ in fileCheck = nil }
         .sheet(isPresented: $showCreateSheet) {
             NewPortSheet(
                 bottleNames: bottleNames,
@@ -231,9 +235,46 @@ struct PortsDashboard: View {
                 HStack(spacing: 10) { portActions(port) }
                 VStack(alignment: .leading, spacing: 8) { portActions(port) }
             }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { recoveryActions(port) }
+                VStack(alignment: .leading, spacing: 8) { recoveryActions(port) }
+            }
+            if let fileCheck {
+                PortFileCheckView(port: port, check: fileCheck)
+                    .id(fileCheck.report(for: port))
+            }
         }
         .padding(CosmosSpacing.cardPadding)
         .cosmosCard()
+    }
+
+    @ViewBuilder
+    private func recoveryActions(_ port: WinePort) -> some View {
+        Button {
+            fileCheck = PortFileCheck.inspect(port)
+        } label: {
+            Label("Check Game Files", systemImage: "checkmark.doc")
+        }
+        .buttonStyle(.bordered)
+        .help("Check the game EXE, saved architecture and environment without running Wine")
+        Button {
+            let check = PortFileCheck.inspect(port)
+            fileCheck = check
+            if let url = check.gameURL, FileManager.default.fileExists(atPath: url.path) {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+        } label: {
+            Label("Show Game Files", systemImage: "folder")
+        }
+        .buttonStyle(.bordered)
+        if let onOpenLogs {
+            Button { onOpenLogs(port) } label: {
+                Label("Open Launch Log", systemImage: "doc.text")
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRunning)
+            .help("Open the launch log for this port's environment")
+        }
     }
 
     @ViewBuilder
@@ -270,6 +311,34 @@ struct PortsDashboard: View {
         }
         .buttonStyle(.bordered)
         .disabled(isRunning)
+    }
+}
+
+struct PortFileCheckView: View {
+    let port: WinePort
+    let check: PortFileCheck
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Game file checks").font(.headline)
+            ForEach(check.findings) { finding in
+                Label(finding.message, systemImage: finding.passed ? "checkmark.circle" : "exclamationmark.triangle")
+                    .foregroundStyle(finding.passed ? Color.secondary : Color.cosmosWarning)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("These checks do not run the game or verify Wine, graphics, or gameplay.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button(copied ? "Details Copied" : "Copy Check Details") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(check.report(for: port), forType: .string)
+                copied = true
+            }
+            .buttonStyle(.bordered)
+        }
+        .font(.subheadline)
+        .accessibilityElement(children: .contain)
     }
 }
 

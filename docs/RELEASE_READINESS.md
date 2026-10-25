@@ -47,6 +47,12 @@ retention, failed writes, launching the edited definition, and rebuilding an app
 Native tests cover draft loading/clearing and capture the Edit sheet. Interactive
 edit/retry and the resulting real-game launch remain part of the UI/game gates.
 
+Port recovery now includes local game-file checks, Finder reveal and the selected
+port's launch log. File checks report missing games/environments, EXE bitness
+mismatches and x64 games in win32 prefixes; reports explicitly retain an untested
+gameplay status. Tests verify checks do not create/change files. The native
+Bottles list respects the same support/bottle-directory overrides as the CLI.
+
 Shell regression tests cover port creation/build/launch with a fake runtime,
 program-architecture propagation, arguments containing spaces and empty values,
 literal wildcards, malformed quotes, Spock DLL placement and fallback overrides,

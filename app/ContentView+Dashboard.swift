@@ -198,6 +198,12 @@ extension ContentView {
                         onCompletion: { succeeded, message in completion(succeeded ? nil : message) }
                     )
                 },
+                onOpenLogs: { port in
+                    runCommand(
+                        script: "run.command", arguments: ["--logs"],
+                        environment: ["COSMOS_BOTTLE": port.bottle]
+                    )
+                },
                 onCreate: { draft, completion in
                     runCommand(
                         script: "port.command", arguments: draft.commandArguments,

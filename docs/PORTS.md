@@ -68,6 +68,23 @@ architecture unless explicitly overridden; conflicting bitness is rejected.
 Definitions are staged and replaced atomically, retaining extension metadata and
 the previous built-app location. Updating a definition does not run Wine.
 
+## If a port does not open
+
+Select it in Ports and use **Check Game Files**. This reads local files to check
+the installed EXE, its saved bitness, environment initialization and a conflicting
+32-bit prefix. Missing files and mismatches point back to Edit. **Show Game Files**
+reveals the EXE in Finder; if it is missing, the checks explain the problem.
+**Open Launch Log** uses this port's environment even if a different bottle is
+selected elsewhere. Log files are shared by games in the same environment.
+
+**Copy Check Details** copies paths and findings for troubleshooting. It explicitly
+records gameplay as untested. Passing file checks does not establish Wine/WoW64
+support, the loaded renderer, or game compatibility. No Wine process, download,
+prefix initialization or repair is triggered by Check Game Files.
+
+Custom `COSMOS_SUPPORT_DIR` and `COSMOS_BOTTLES_DIR` locations now match between
+the native Bottles list, port file checks and shell commands.
+
 `build` writes `~/Applications/Cosmos Ports/<Name>.app`. The app's launcher
 checks for arm64, then runs Cosmos `run.command --game` with `COSMOS_SKIP_STEAM=1`
 so a non-Steam program does not wait on Steam. Pass `--bottle` when the program

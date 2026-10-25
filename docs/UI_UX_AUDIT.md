@@ -28,6 +28,14 @@ CLI update keeps the port ID and writes the full definition atomically; it
 preserves installed files and unrelated metadata. Renderer/architecture failures
 and a simulated final-write failure leave the original definition unchanged.
 
+Recovery follow-up: port details expose Check Game Files, Show Game Files and
+Open Launch Log with a narrow-width fallback. Findings explain missing EXEs,
+architecture conflicts and uninitialized environments, and can be copied without
+claiming gameplay compatibility. Checks remain usable during a background job
+because they read local files only. The command-based log action keeps the busy
+guard and explicitly uses this port's environment. The Bottles list now honors
+custom data-directory settings rather than silently showing the default folder.
+
 Reviewed the native SwiftUI shell, shared design components, library toolbar, and search interactions on September 7, 2026.
 
 ## Findings addressed

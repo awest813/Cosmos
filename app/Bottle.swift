@@ -42,8 +42,10 @@ struct Bottle: Identifiable, Hashable {
 
 enum BottleStore {
     static var bottlesDirectoryURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Cosmos/Bottles", isDirectory: true)
+        if let override = ProcessInfo.processInfo.environment["COSMOS_BOTTLES_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        return CosmosPaths.supportDirectory.appendingPathComponent("Bottles", isDirectory: true)
     }
 
     static func load() -> [Bottle] {

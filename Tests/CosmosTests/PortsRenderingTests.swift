@@ -26,7 +26,7 @@ final class PortsRenderingTests: XCTestCase {
                 let dashboard = PortsDashboard(
                     ports: [port], bottleNames: ["Classic Games"], isRunning: false,
                     onOpenDownloads: {}, onInstall: {}, onResumeInstall: {},
-                    onUpdate: { _, _, done in done(nil) }, onCreate: { _, done in done(nil) },
+                    onUpdate: { _, _, done in done(nil) }, onOpenLogs: { _ in }, onCreate: { _, done in done(nil) },
                     onLaunch: { _ in }, onBuild: { _ in }, onDelete: { _ in }
                 )
                 try capture(
@@ -67,6 +67,10 @@ final class PortsRenderingTests: XCTestCase {
             try capture(
                 NewPortSheet(bottleNames: [], isRunning: false, initialDraft: WinePortDraft(port: port), isEditing: true, onCancel: {}, onCreate: { _, done in done(nil) }),
                 name: "edit-port", size: NSSize(width: 560, height: 640), scheme: .dark, directory: directory
+            )
+            try capture(
+                PortFileCheckView(port: port, check: PortFileCheck.inspect(port, mainPrefix: directory.appendingPathComponent("missing-prefix"), bottlesDirectory: directory)).padding(20),
+                name: "port-file-check", size: NSSize(width: 520, height: 400), scheme: .light, directory: directory
             )
         }
     }
