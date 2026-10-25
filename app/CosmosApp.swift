@@ -61,7 +61,7 @@ private struct CosmosCommands: Commands {
             .keyboardShortcut("r", modifiers: .command)
         }
 
-        // Dashboard tabs mirror the in-app tab bar (⌘1–5).
+        // Main bar is Launch, Games, Ports. Bottles and Tools follow (⌘1–5).
         CommandMenu("Dashboard") {
             Button("Launch") {
                 NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.launch)
@@ -72,8 +72,8 @@ private struct CosmosCommands: Commands {
             }
             .keyboardShortcut("2", modifiers: .command)
             .disabled(!appState.isSteamReady)
-            Button("Tools") {
-                NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.tools)
+            Button("Ports") {
+                NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.ports)
             }
             .keyboardShortcut("3", modifiers: .command)
             .disabled(!appState.isSteamReady)
@@ -82,8 +82,8 @@ private struct CosmosCommands: Commands {
             }
             .keyboardShortcut("4", modifiers: .command)
             .disabled(!appState.isSteamReady)
-            Button("Ports") {
-                NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.ports)
+            Button("Tools") {
+                NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.tools)
             }
             .keyboardShortcut("5", modifiers: .command)
             .disabled(!appState.isSteamReady)

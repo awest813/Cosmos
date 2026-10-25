@@ -18,7 +18,7 @@ Cosmos does not bundle Sikarugir, Wineskin, or D3DMetal.
 | Graphics | One backend for the whole bottle | Sikarugir-style switches that stay on together. DXMT and SpockD3D9 launch side by side |
 | Machines | Apple Silicon and Intel | **Apple Silicon only**, macOS **14.6+** |
 
-The dashboard **Ports** tab (⌘5, under Advanced) creates, opens, and builds ports
+The dashboard **Ports** tab (⌘3, on the main tab bar) creates, opens, and builds ports
 after Steam setup. The same actions work from `port.command` before you care
 about the menu.
 

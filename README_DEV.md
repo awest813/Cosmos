@@ -304,7 +304,7 @@ logs, reset the bottle, install/uninstall) are available from one window.
 ### Sources
 
 - `app/CosmosApp.swift` - `@main` entry point / window scene.
-- `app/ContentView.swift` - the dashboard UI. It shells out to `run.command`,
+- `app/ContentView.swift` and `app/ContentView+*.swift` - the dashboard UI, split into the shell plus Sidebar, Dashboard, Launch, Library, Tools, Bottles, and Runtime. It shells out to `run.command`,
   `install_cosmos.command`, `uninstall.command`, `detect_steam_games.command`,
   and `bottle.command`, resolving each script from the app bundle's `Resources/`
   first and falling back to the repository checkout during development.

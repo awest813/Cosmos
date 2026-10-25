@@ -30,7 +30,8 @@ enum CosmosSpacing {
 
 // MARK: - Section navigation
 
-/// Post-setup dashboard areas — reduces scroll fatigue by showing one focus area at a time.
+/// Post-setup dashboard areas. Launch, Games, and Ports are the main bar.
+/// Bottles and Tools open from Advanced.
 enum DashboardSection: String, CaseIterable, Identifiable {
     case launch = "Launch"
     case library = "Games"

@@ -128,9 +128,9 @@ Cosmos.app is a single-window launcher with a sidebar (saved games) and a main p
 |---------|-----------------|
 | **Launch** | Quick Launch (Steam + selected profile), Steam Wine settings (backend, Windows version, Retina) |
 | **Games** | Curated YAML profiles, compatibility lookup & reports, repair & dependencies |
-| **Tools** | Highball and Vermut, maintenance, non-Steam game import |
-| **Bottles** | Create isolated prefixes, switch backends, launch Steam per bottle |
-| **Ports** | Wrap a Windows program as an Apple Silicon Mac app (⌘5). D3DMetal stays personal |
+| **Ports** | On the main tab bar (⌘3). Wrap a Windows program as an Apple Silicon Mac app. DXMT and SpockD3D9 stay on together. D3DMetal stays personal |
+| **Bottles** | Behind Advanced (⌘4). Create isolated prefixes, switch backends, launch Steam per bottle |
+| **Tools** | Behind Advanced (⌘5). Highball and Vermut, maintenance, non-Steam game import |
 
 **Sidebar** — search saved games; **Favorites** (star a title) and **Recent** sections; filter chips (All / Favorites / Recent) for large libraries. New Steam installs surface in the status summary with a one-tap sync. Context menu to launch, reveal config, or copy executable path.
 
