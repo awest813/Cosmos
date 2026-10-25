@@ -191,6 +191,8 @@ a Windows program that opens as a Mac app on Apple Silicon.
 - [x] Highball GPL-3.0 app, CLI, engine manifests, and the CC0 highball-db checkout vendored under `third_party/` (Apple's GPTK license text omitted)
 - [x] Vermut 1.2.0 MIT source vendored at `third_party/vermut` (release DMG omitted)
 - [x] Dashboard **Highball and Vermut** — open their guides, reveal their folders, and build them from a checkout on macOS 14+
+- [x] Sikarugir-style stack stays on together: DXMT for DirectX 10/11, SpockD3D9 for DirectX 9, WineD3D for the rest
+- [x] 32-bit programs run inside the 64-bit prefix (`wow64`). Bottles can be 64-bit only or 32-bit only. Port sheet has launch arguments and a 32-bit program switch
 - **Success:** On an Apple Silicon Mac, a user wraps one Windows `.exe` as a double-clickable app without putting D3DMetal in a port they share.
 
 ### 1.0 — Cosmos Runtime

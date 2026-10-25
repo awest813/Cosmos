@@ -45,6 +45,10 @@ if [[ -f "${SCRIPT_DIR}/scripts/lib/graphics_lib.sh" ]]; then
   # shellcheck source=scripts/lib/graphics_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/graphics_lib.sh"
 fi
+if [[ -f "${SCRIPT_DIR}/scripts/lib/prefix_arch.sh" ]]; then
+  # shellcheck source=scripts/lib/prefix_arch.sh
+  source "${SCRIPT_DIR}/scripts/lib/prefix_arch.sh"
+fi
 if [[ -f "${SCRIPT_DIR}/scripts/lib/spockd3d9_lib.sh" ]]; then
   # shellcheck source=scripts/lib/spockd3d9_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/spockd3d9_lib.sh"
@@ -741,8 +745,19 @@ ensure_wine_prefix() {
   log "Ensuring Wine prefix for Steam"
   if [[ -f "${WINEPREFIX}/system.reg" ]]; then
     echo "Wine prefix already initialized at ${WINEPREFIX} — aligning with current Wine."
+    if [[ -n "${COSMOS_PREFIX_ARCH:-}" ]] && declare -F prefix_arch_label >/dev/null 2>&1; then
+      echo "This prefix keeps its layout ($(prefix_arch_label "${COSMOS_PREFIX_ARCH}")). Reset it before a different layout can apply."
+    fi
     "${WINE_BIN}" wineboot -u >/dev/null 2>&1 || true
     return
+  fi
+  if declare -F prefix_arch_export_winearch >/dev/null 2>&1; then
+    prefix_arch_export_winearch "${COSMOS_PREFIX_ARCH:-}" \
+      || die "COSMOS_PREFIX_ARCH must be wow64, win64, or win32."
+    echo "New prefix: $(prefix_arch_label "${COSMOS_PREFIX_ARCH:-wow64}") (WINEARCH=${WINEARCH:-unset})."
+    if [[ "${COSMOS_PREFIX_ARCH:-wow64}" == "win32" ]]; then
+      echo "32-bit-only is the older layout. Apple Silicon usually runs 32-bit programs inside a 64-bit prefix."
+    fi
   fi
   "${WINE_BIN}" wineboot --init
 }

@@ -53,7 +53,7 @@ enum SettingLabels {
         case "wined3d":
             return "Wine's built-in D3D → OpenGL. Slowest, broadest compatibility."
         case "spockd3d9":
-            return "Experimental D3D9 → Vulkan plus DXMT for D3D10/11. Requires SPOCK_D3D9_PATH."
+            return "DXMT stays on for DirectX 10 and 11. SpockD3D9 translates DirectX 9, including 32-bit programs when the x86 DLL is built. Requires SPOCK_D3D9_PATH."
         default:
             return nil
         }
@@ -69,6 +69,34 @@ enum SettingLabels {
         case "win11": return "Windows 11"
         default: return version
         }
+    }
+
+    /// Bottle prefix layout. Empty matches the Apple Silicon default (WoW64).
+    static let prefixArchOptions = ["wow64", "win64", "win32"]
+
+    static func prefixArchDisplayName(_ value: String) -> String {
+        switch value {
+        case "win64": return "64-bit only"
+        case "win32": return "32-bit only"
+        default: return "64-bit and 32-bit"
+        }
+    }
+
+    static func prefixArchCaption(_ value: String) -> String {
+        switch value {
+        case "win64":
+            return "64-bit programs only. Pick 64-bit and 32-bit when a game is 32-bit."
+        case "win32":
+            return "A 32-bit-only environment. On Apple Silicon, 32-bit programs usually run inside the 64-bit environment instead."
+        default:
+            return "32-bit programs run inside this 64-bit environment. SpockD3D9 can cover DirectX 9 for both."
+        }
+    }
+
+    static let programArchOptions = ["win64", "win32"]
+
+    static func programArchDisplayName(_ value: String) -> String {
+        value == "win32" ? "32-bit" : "64-bit"
     }
 
     static func savedMessage(for key: String, appliesToSteam: Bool = true) -> String {

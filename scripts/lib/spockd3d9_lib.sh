@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 # SpockD3D9 PE d3d9.dll helpers — experimental D3D9 → Vulkan path for Wine on macOS.
+# DXMT stays responsible for DirectX 10 and 11. This file only places d3d9.dll.
+# 32-bit programs on Apple Silicon read syswow64 (Sikarugir / WoW64).
+
+if [[ -z "${_COSMOS_PREFIX_ARCH_LOADED:-}" ]]; then
+  _spock_arch_lib="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/prefix_arch.sh"
+  if [[ -f "${_spock_arch_lib}" ]]; then
+    # shellcheck source=scripts/lib/prefix_arch.sh
+    source "${_spock_arch_lib}"
+  fi
+  unset _spock_arch_lib
+fi
 
 spockd3d9_default_root() {
   local base="${COSMOS_RUNTIME_DIR:-}"
@@ -140,26 +151,67 @@ ensure_spockd3d9_installed() {
   spockd3d9_validate_path "${root}" >/dev/null \
     || die "SPOCK_D3D9_PATH=${root} does not contain valid SpockD3D9 d3d9.dll files."
 
-  local target32="${WINEPREFIX}/drive_c/windows/syswow64"
-  local target64="${WINEPREFIX}/drive_c/windows/system32"
-  [[ -d "${target64}" ]] || die "Prefix system32 not found (is the prefix initialized?): ${target64}"
+  spockd3d9_install_into_prefix "${root}" "${WINEPREFIX}" \
+    || die "SpockD3D9 could not be installed for this environment. Build the matching DLL with ./scripts/build-pe-d3d9.sh --arch x86, --arch x64, or --arch both."
+}
 
-  local x86="" x64="" copied=0
+# Place d3d9.dll for COSMOS_PREFIX_ARCH and, when set, COSMOS_PROGRAM_ARCH.
+# wow64 copies 64-bit into system32 and 32-bit into syswow64.
+# win64 copies 64-bit only. win32 copies 32-bit into system32.
+# A missing 32-bit DLL warns and leaves DirectX 9 on WineD3D. Returns 1 only
+# when the DLL this environment needs is absent.
+spockd3d9_install_into_prefix() {
+  local root="$1" prefix="$2"
+  local arch program x86="" x64="" copied=0
+  local sys32="${prefix}/drive_c/windows/system32"
+  local syswow="${prefix}/drive_c/windows/syswow64"
+  [[ -d "${sys32}" ]] || return 1
+  arch="$(prefix_arch_normalize "${COSMOS_PREFIX_ARCH:-wow64}")" || return 1
+  program=""
+  if [[ -n "${COSMOS_PROGRAM_ARCH:-}" ]]; then
+    program="$(program_arch_normalize "${COSMOS_PROGRAM_ARCH}")" || return 1
+  fi
   x86="$(spockd3d9_find_arch_dll "${root}" x86 || true)"
   x64="$(spockd3d9_find_arch_dll "${root}" x64 || true)"
 
-  if [[ -n "${x86}" ]]; then
-    mkdir -p "${target32}"
-    cp -f "${x86}" "${target32}/d3d9.dll"
-    copied=$((copied + 1))
-    echo "Copied 32-bit SpockD3D9 d3d9.dll to syswow64."
-  fi
-  if [[ -n "${x64}" ]]; then
-    cp -f "${x64}" "${target64}/d3d9.dll"
-    copied=$((copied + 1))
-    echo "Copied 64-bit SpockD3D9 d3d9.dll to system32."
-  fi
-  (( copied > 0 )) || die "No SpockD3D9 d3d9.dll files found under ${root}."
+  case "${arch}" in
+    win64)
+      if [[ "${program}" == "win32" ]]; then
+        echo "This environment is 64-bit only, so this 32-bit program keeps WineD3D for DirectX 9."
+        return 0
+      fi
+      [[ -n "${x64}" ]] || return 1
+      cp -f "${x64}" "${sys32}/d3d9.dll"
+      echo "Copied 64-bit SpockD3D9 d3d9.dll to system32."
+      ;;
+    win32)
+      [[ -n "${x86}" ]] || return 1
+      cp -f "${x86}" "${sys32}/d3d9.dll"
+      echo "Copied 32-bit SpockD3D9 d3d9.dll to system32."
+      ;;
+    *)
+      if [[ "${program}" == "win64" && -z "${x64}" ]]; then
+        return 1
+      fi
+      if [[ -n "${x64}" ]]; then
+        cp -f "${x64}" "${sys32}/d3d9.dll"
+        echo "Copied 64-bit SpockD3D9 d3d9.dll to system32."
+        copied=$((copied + 1))
+      fi
+      if [[ -n "${x86}" ]]; then
+        mkdir -p "${syswow}"
+        cp -f "${x86}" "${syswow}/d3d9.dll"
+        echo "Copied 32-bit SpockD3D9 d3d9.dll to syswow64."
+        copied=$((copied + 1))
+      elif [[ "${program}" == "win32" || -z "${program}" ]]; then
+        echo "32-bit programs will use WineD3D for DirectX 9 until the 32-bit SpockD3D9 DLL is built (--arch x86)."
+      fi
+      if [[ "${program}" == "win32" ]]; then
+        return 0
+      fi
+      [[ "${copied}" -gt 0 ]] || return 1
+      ;;
+  esac
 }
 
 # Replace only D3D9's load order, including when it shares a group with other DLLs.

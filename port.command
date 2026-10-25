@@ -9,6 +9,10 @@ set -euo pipefail
 # It is refused for a port you share, and it is never bundled.
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+if [[ -f "${SCRIPT_DIR}/scripts/lib/prefix_arch.sh" ]]; then
+  # shellcheck source=scripts/lib/prefix_arch.sh
+  source "${SCRIPT_DIR}/scripts/lib/prefix_arch.sh"
+fi
 # shellcheck source=scripts/lib/port_lib.sh
 source "${SCRIPT_DIR}/scripts/lib/port_lib.sh"
 
@@ -37,10 +41,12 @@ Commands:
       --windows <ver>           winxp | win7 | win8 | win10 (default) | win11
       --retina <0|1>            Default 0.
       --args <text>             Extra arguments passed to the program.
+      --program-arch <arch>     win64 (default) | win32. 32-bit programs run
+                                inside the 64-bit prefix on Apple Silicon.
       --dxmt <0|1>              DirectX 10/11 → Metal. Default 1.
       --d3dmetal <0|1>          DirectX 11/12 → Metal. Personal ports only. Default 0.
       --dxvk <0|1>              DirectX 10/11 → Vulkan. Default 0.
-      --d9vk <0|1>              DirectX 8/9 → Vulkan. Default 1.
+      --d9vk <0|1>              SpockD3D9 for DirectX 8/9, beside DXMT. Default 1.
       --cnc-ddraw <0|1>         Classic DirectDraw. Default 1.
       --wined3d <0|1>           DirectX 7 and below. Default 1.
       --cnc-ddraw-path <path>   Folder containing ddraw.dll (not bundled).
@@ -99,7 +105,7 @@ cmd_list() {
 
 cmd_create() {
   local name="" exe="" slug="" bottle="" distribution="personal" windows="win10"
-  local retina="0" args="" dxmt="1" d3dmetal="0" dxvk="0" d9vk="1" cnc="1" wined3d="1"
+  local retina="0" args="" program_arch="win64" dxmt="1" d3dmetal="0" dxvk="0" d9vk="1" cnc="1" wined3d="1"
   local cnc_path="" gptk_path=""
   port_require_apple_silicon || exit 1
   while (($#)); do
@@ -112,6 +118,7 @@ cmd_create() {
       --windows) windows="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --retina) retina="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --args) args="$(take_opt "$1" "${2:-}")"; shift 2 ;;
+      --program-arch) program_arch="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --dxmt) dxmt="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --d3dmetal) d3dmetal="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --dxvk) dxvk="$(take_opt "$1" "${2:-}")"; shift 2 ;;
@@ -144,6 +151,8 @@ cmd_create() {
   cnc="$(port_normalize_flag "${cnc}")" || die "--cnc-ddraw must be 0 or 1."
   wined3d="$(port_normalize_flag "${wined3d}")" || die "--wined3d must be 0 or 1."
   retina="$(port_normalize_flag "${retina}")" || die "--retina must be 0 or 1."
+  program_arch="$(program_arch_normalize "${program_arch}")" || die "--program-arch must be win64 or win32."
+  [[ "${args}" != *$'\n'* ]] || die "Launch arguments must be a single line."
 
   if [[ "${distribution}" == "share" && "${d3dmetal}" == "1" ]]; then
     die "$(port_shared_d3dmetal_error)"
@@ -190,6 +199,7 @@ cmd_create() {
   port_set_setting "${conf}" PORT_SLUG "${slug}"
   port_set_setting "${conf}" PORT_EXE "${exe}"
   port_set_setting "${conf}" PORT_ARGS "${args}"
+  port_set_setting "${conf}" PORT_PROGRAM_ARCH "${program_arch}"
   port_set_setting "${conf}" PORT_BOTTLE "${bottle}"
   port_set_setting "${conf}" PORT_WINDOWS "${windows}"
   port_set_setting "${conf}" PORT_RETINA "${retina}"
@@ -228,6 +238,7 @@ cmd_show() {
   if [[ -n "${PORT_ARGS}" ]]; then
     echo "Arguments:     ${PORT_ARGS}"
   fi
+  echo "Program:       $(program_arch_label "${PORT_PROGRAM_ARCH:-win64}")"
   if [[ -n "${PORT_BOTTLE}" ]]; then
     echo "Bottle:        ${PORT_BOTTLE}"
   else

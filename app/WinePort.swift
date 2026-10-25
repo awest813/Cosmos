@@ -93,7 +93,7 @@ enum PortStack {
             case "d3dmetal":
                 text = "Opens with D3DMetal for DirectX 11 and 12. This stays on your Mac."
             case "spockd3d9":
-                text = "Opens with DXMT for DirectX 10/11 and D9VK for DirectX 8/9. WineD3D covers older DirectX."
+                text = "DXMT stays on for DirectX 10 and 11. SpockD3D9 handles DirectX 8 and 9, including 32-bit programs. WineD3D covers what those two do not."
             case "dxmt":
                 text = "Opens with DXMT for DirectX 10/11. DirectX 9 uses WineD3D."
             case "dxvk":
@@ -123,6 +123,11 @@ struct WinePort: Identifiable, Hashable {
         let value = settings["PORT_DISTRIBUTION"] ?? ""
         return value.isEmpty ? "personal" : value
     }
+    var programArch: String {
+        let value = settings["PORT_PROGRAM_ARCH"] ?? ""
+        return value == "win32" ? "win32" : "win64"
+    }
+    var arguments: String { settings["PORT_ARGS"] ?? "" }
     var windowsVersion: String {
         let value = settings["PORT_WINDOWS"] ?? ""
         return value.isEmpty ? "win10" : value
@@ -143,7 +148,7 @@ struct WinePort: Identifiable, Hashable {
     var graphicsLabel: String {
         switch primaryBackend {
         case "d3dmetal": return "D3DMetal"
-        case "spockd3d9": return "DXMT + D9VK"
+        case "spockd3d9": return "DXMT + SpockD3D9"
         case "dxmt": return "DXMT"
         case "dxvk": return "DXVK"
         case "wined3d": return "WineD3D"
@@ -153,6 +158,9 @@ struct WinePort: Identifiable, Hashable {
 
     var cardDetail: String {
         var parts = [distributionLabel, SettingLabels.windowsDisplayName(windowsVersion)]
+        if programArch == "win32" {
+            parts.append("32-bit")
+        }
         if !graphicsLabel.isEmpty {
             parts.append(graphicsLabel)
         }
@@ -203,6 +211,8 @@ struct WinePortDraft: Equatable {
     var distribution: String
     var windows: String
     var retina: Bool
+    var arguments: String
+    var programArch: String
     var renderers: PortRenderers
     var cncDDrawPath: String
     var gptkPath: String
@@ -214,6 +224,8 @@ struct WinePortDraft: Equatable {
         distribution: "personal",
         windows: "win10",
         retina: false,
+        arguments: "",
+        programArch: "win64",
         renderers: .appleSiliconDefaults,
         cncDDrawPath: "",
         gptkPath: ""
@@ -256,6 +268,7 @@ struct WinePortDraft: Equatable {
             "--distribution", distribution,
             "--windows", windows,
             "--retina", retina ? "1" : "0",
+            "--program-arch", programArch == "win32" ? "win32" : "win64",
             "--dxmt", renderers.dxmt ? "1" : "0",
             "--d3dmetal", renderers.d3dmetal ? "1" : "0",
             "--dxvk", renderers.dxvk ? "1" : "0",
@@ -263,6 +276,10 @@ struct WinePortDraft: Equatable {
             "--cnc-ddraw", renderers.cncDDraw ? "1" : "0",
             "--wined3d", renderers.wineD3D ? "1" : "0",
         ]
+        let trimmedArgs = arguments.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedArgs.isEmpty {
+            args += ["--args", trimmedArgs]
+        }
         let trimmedBottle = bottle.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedBottle.isEmpty {
             args += ["--bottle", trimmedBottle]

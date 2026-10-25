@@ -186,6 +186,7 @@ port_load_conf() {
   PORT_SLUG="$(port_get_setting "${conf}" PORT_SLUG)"
   PORT_EXE="$(port_get_setting "${conf}" PORT_EXE)"
   PORT_ARGS="$(port_get_setting "${conf}" PORT_ARGS)"
+  PORT_PROGRAM_ARCH="$(port_get_setting "${conf}" PORT_PROGRAM_ARCH)"
   PORT_BOTTLE="$(port_get_setting "${conf}" PORT_BOTTLE)"
   PORT_WINDOWS="$(port_get_setting "${conf}" PORT_WINDOWS)"
   PORT_RETINA="$(port_get_setting "${conf}" PORT_RETINA)"
@@ -203,11 +204,12 @@ port_load_conf() {
   PORT_GPTK_PATH="$(port_get_setting "${conf}" PORT_GPTK_PATH)"
   PORT_BUILT_APP="$(port_get_setting "${conf}" PORT_BUILT_APP)"
   [[ -n "${PORT_DISTRIBUTION}" ]] || PORT_DISTRIBUTION="personal"
+  [[ -n "${PORT_PROGRAM_ARCH}" ]] || PORT_PROGRAM_ARCH="win64"
   [[ -n "${PORT_WINDOWS}" ]] || PORT_WINDOWS="win10"
   [[ -n "${PORT_RETINA}" ]] || PORT_RETINA="0"
   [[ -n "${PORT_PLATFORM}" ]] || PORT_PLATFORM="apple-silicon"
   [[ -n "${PORT_MIN_MACOS}" ]] || PORT_MIN_MACOS="14.6"
-  export PORT_SCHEMA PORT_NAME PORT_SLUG PORT_EXE PORT_ARGS PORT_BOTTLE
+  export PORT_SCHEMA PORT_NAME PORT_SLUG PORT_EXE PORT_ARGS PORT_PROGRAM_ARCH PORT_BOTTLE
   export PORT_WINDOWS PORT_RETINA PORT_DISTRIBUTION PORT_PLATFORM PORT_MIN_MACOS
   export PORT_PRIMARY PORT_RENDER_DXMT PORT_RENDER_D3DMETAL PORT_RENDER_DXVK
   export PORT_RENDER_D9VK PORT_RENDER_CNC_DDRAW PORT_RENDER_WINED3D
@@ -309,6 +311,7 @@ port_write_env() {
     printf 'export COSMOS_SKIP_STEAM=1\n'
     printf 'export GAME_EXE_PATH=%q\n' "${PORT_EXE}"
     printf 'export PORT_ARGS=%q\n' "${PORT_ARGS:-}"
+    printf 'export COSMOS_PROGRAM_ARCH=%q\n' "${PORT_PROGRAM_ARCH:-win64}"
     printf 'export WINDOWS_VERSION=%q\n' "${PORT_WINDOWS:-win10}"
     printf 'export WINE_RETINA_MODE=%q\n' "${PORT_RETINA:-0}"
     if [[ -n "${PORT_BOTTLE:-}" ]]; then

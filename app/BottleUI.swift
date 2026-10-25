@@ -55,6 +55,7 @@ extension Bottle {
         if retinaEnabled {
             parts.append("Retina")
         }
+        parts.append(SettingLabels.prefixArchDisplayName(prefixArch))
         return parts.joined(separator: " · ")
     }
 

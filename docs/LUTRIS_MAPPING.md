@@ -16,7 +16,7 @@ repo are still Cosmos YAML, not a full Lutris installer runner.
 | `game: exe` | `exe_path` (standalone) or Steam `steam_appid` | Steam games launch via `-applaunch` |
 | `game: args` | `settings.env.STEAM_GAME_ARGS` or profile notes | Forwarded by `run.command` |
 | `game: prefix` | Bottle / `WINEPREFIX` | Use `COSMOS_BOTTLE` or default prefix |
-| `game: arch` | (bottle) | `win32` vs `win64` prefix — future bottle flag |
+| `game: arch` | `COSMOS_PREFIX_ARCH` / `PORT_PROGRAM_ARCH` | `wow64` (default, 32-bit programs inside the 64-bit prefix), `win64`, or `win32` |
 | `wine: overrides` | `fixes: dll_override` (planned) | e.g. `ddraw.dll=n` |
 | `wine: dxvk` / runner | `recommended_backend` | `dxmt`, `d3dmetal`, `dxvk`, `wined3d` |
 | `installer: wineexec` | `dependencies` + manual install notes | Map to winetricks verbs |

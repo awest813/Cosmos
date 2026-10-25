@@ -33,6 +33,12 @@ final class BottleUITests: XCTestCase {
         XCTAssertTrue(bottle.cardDetailLine.contains("Windows 10"))
         XCTAssertTrue(bottle.cardDetailLine.contains("Esync"))
         XCTAssertTrue(bottle.cardDetailLine.contains("Retina"))
+        XCTAssertTrue(bottle.cardDetailLine.contains("64-bit and 32-bit"))
+        XCTAssertEqual(SettingLabels.prefixArchDisplayName("win32"), "32-bit only")
+        XCTAssertEqual(
+            sampleBottle(settings: ["COSMOS_PREFIX_ARCH": "win64"]).prefixArch,
+            "win64"
+        )
     }
 
     func testConfigURL() {

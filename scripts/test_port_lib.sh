@@ -132,6 +132,7 @@ printf '%s' "${share_out}" | grep -q "D3DMetal" || fail "share create error: ${s
 show="$("${ROOT}/port.command" show notepad)"
 printf '%s\n' "${show}" | grep -q "spockd3d9" || fail "show should report spockd3d9: ${show}"
 printf '%s\n' "${show}" | grep -q "apple-silicon" || fail "show should report apple-silicon"
+printf '%s\n' "${show}" | grep -q "Program:       64-bit" || fail "default program should be 64-bit: ${show}"
 
 fake="${tmpdir}/runtime"
 mkdir -p "${fake}"
@@ -198,6 +199,20 @@ fi
 if grep -q "d3dmetal" "${share_env}"; then
   fail "shared port env should not enable d3dmetal: $(cat "${share_env}")"
 fi
+
+"${ROOT}/port.command" create \
+  --name "Old Game" \
+  --exe "${exe}" \
+  --slug old-game \
+  --program-arch win32 \
+  --args "--windowed" >/dev/null
+old_show="$("${ROOT}/port.command" show old-game)"
+printf '%s\n' "${old_show}" | grep -q "Program:       32-bit" || fail "32-bit program: ${old_show}"
+printf '%s\n' "${old_show}" | grep -q "Arguments:     --windowed" || fail "launch arguments: ${old_show}"
+COSMOS_PORT_RUNTIME_ROOT="${fake}" "${ROOT}/port.command" build old-game --output "${tmpdir}/apps" >/dev/null
+old_env="${tmpdir}/apps/Old Game.app/Contents/Resources/port.env"
+grep -q "COSMOS_PROGRAM_ARCH=win32" "${old_env}" || fail "port env should record the 32-bit program"
+grep -q "PORT_ARGS=--windowed" "${old_env}" || fail "port env should record launch arguments"
 
 "${ROOT}/port.command" delete notepad --force >/dev/null
 [[ ! -d "${COSMOS_SUPPORT_DIR}/Ports/notepad" ]] || fail "delete should remove the port definition"

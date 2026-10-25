@@ -254,10 +254,25 @@ private struct NewPortSheet: View {
                             Text(SettingLabels.windowsDisplayName(version)).tag(version)
                         }
                     }
+                    Picker("This program", selection: $draft.programArch) {
+                        ForEach(SettingLabels.programArchOptions, id: \.self) { arch in
+                            Text(SettingLabels.programArchDisplayName(arch)).tag(arch)
+                        }
+                    }
+                    TextField("Launch arguments", text: $draft.arguments)
+                        .textFieldStyle(.roundedBorder)
+                    Text(draft.programArch == "win32"
+                        ? "32-bit programs run inside the 64-bit environment. SpockD3D9 uses the 32-bit DirectX 9 DLL when it is built."
+                        : "Leave launch arguments empty unless the program needs them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Toggle("Retina mode", isOn: $draft.retina)
                     Section("Graphics") {
+                        Text("These stay on together. DXMT covers DirectX 10 and 11. SpockD3D9 covers DirectX 9. WineD3D covers the rest.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         Toggle("DXMT — DirectX 10 and 11 on Metal", isOn: $draft.renderers.dxmt)
-                        Toggle("D9VK — DirectX 8 and 9 on Vulkan", isOn: $draft.renderers.d9vk)
+                        Toggle("SpockD3D9 — DirectX 8 and 9, including 32-bit", isOn: $draft.renderers.d9vk)
                         Toggle("WineD3D — older DirectX", isOn: $draft.renderers.wineD3D)
                         Toggle("CNC-DDRAW — classic DirectDraw", isOn: $draft.renderers.cncDDraw)
                         Toggle("DXVK — DirectX 10 and 11 on Vulkan", isOn: $draft.renderers.dxvk)

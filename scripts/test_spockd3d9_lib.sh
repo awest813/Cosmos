@@ -54,4 +54,40 @@ spockd3d9_validate_path "${tmpdir}/spock" >/dev/null || fail "64-bit-only builds
 [[ "$(spockd3d9_merge_overrides 'd3d9,dxgi=b;d3d11=n;d3d9=n')" == 'dxgi=b;d3d11=n;d3d9=n,b' ]] || fail "remove conflicting D3D9 entries"
 [[ "$(spockd3d9_merge_overrides '*D3D9.dll=b;dinput8=n,b')" == 'dinput8=n,b;d3d9=n,b' ]] || fail "normalize D3D9 spelling"
 
+export COSMOS_SKIP_PE_CHECK=1
+mkdir -p "${tmpdir}/spock/x86"
+printf 'MZ\n' > "${tmpdir}/spock/x86/d3d9.dll"
+[[ -f "${tmpdir}/spock/x64/d3d9.dll" ]] || printf 'MZ\n' > "${tmpdir}/spock/x64/d3d9.dll"
+prefix="${tmpdir}/prefix"
+mkdir -p "${prefix}/drive_c/windows/system32"
+unset COSMOS_PREFIX_ARCH COSMOS_PROGRAM_ARCH
+spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" >/dev/null \
+  || fail "wow64 should install the DLLs that exist"
+[[ -f "${prefix}/drive_c/windows/system32/d3d9.dll" ]] || fail "wow64 should copy the 64-bit DLL"
+[[ -f "${prefix}/drive_c/windows/syswow64/d3d9.dll" ]] || fail "wow64 should copy the 32-bit DLL into syswow64"
+
+rm -rf "${prefix}/drive_c"
+mkdir -p "${prefix}/drive_c/windows/system32"
+COSMOS_PREFIX_ARCH=win64 COSMOS_PROGRAM_ARCH=win32 \
+  spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" \
+  | grep -q "64-bit only" || fail "64-bit-only prefix should leave a 32-bit program on WineD3D"
+[[ ! -f "${prefix}/drive_c/windows/syswow64/d3d9.dll" ]] || fail "64-bit-only prefix should not create syswow64"
+
+rm -rf "${prefix}/drive_c"
+mkdir -p "${prefix}/drive_c/windows/system32"
+COSMOS_PREFIX_ARCH=win32 spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" >/dev/null \
+  || fail "32-bit-only prefix should install the x86 DLL"
+[[ -f "${prefix}/drive_c/windows/system32/d3d9.dll" ]] || fail "32-bit DLL should land in system32"
+[[ ! -d "${prefix}/drive_c/windows/syswow64" ]] || fail "32-bit-only prefix has no syswow64 folder"
+
+rm -f "${tmpdir}/spock/x86/d3d9.dll"
+rm -rf "${prefix}/drive_c"
+mkdir -p "${prefix}/drive_c/windows/system32"
+if COSMOS_PREFIX_ARCH=win32 spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}"; then
+  fail "32-bit-only prefix should fail when the 32-bit DLL is missing"
+fi
+COSMOS_PREFIX_ARCH=wow64 COSMOS_PROGRAM_ARCH=win32 \
+  spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" \
+  | grep -q "WineD3D" || fail "missing 32-bit DLL should say WineD3D remains"
+
 printf 'OK: Spock path, PE architecture, and override-merge tests passed\n'

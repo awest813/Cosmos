@@ -15,6 +15,11 @@ struct Bottle: Identifiable, Hashable {
     var backend: String { settings["COSMOS_BACKEND"] ?? "recommended" }
     var wineVersion: String { settings["WINE_VERSION"] ?? "default" }
     var windowsVersion: String { settings["WINDOWS_VERSION"] ?? "" }
+    /// wow64 (default), win64, or win32. Empty means the Apple Silicon default.
+    var prefixArch: String {
+        let value = settings["COSMOS_PREFIX_ARCH"] ?? ""
+        return SettingLabels.prefixArchOptions.contains(value) ? value : "wow64"
+    }
 
     var windowsDisplay: String {
         SettingLabels.windowsDisplayName(windowsVersion)

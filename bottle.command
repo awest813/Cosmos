@@ -16,6 +16,10 @@ set -euo pipefail
 # launch <name>` is the convenient front door.
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+if [[ -f "${SCRIPT_DIR}/scripts/lib/prefix_arch.sh" ]]; then
+  # shellcheck source=scripts/lib/prefix_arch.sh
+  source "${SCRIPT_DIR}/scripts/lib/prefix_arch.sh"
+fi
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
 BOTTLES_DIR="${COSMOS_BOTTLES_DIR:-${COSMOS_SUPPORT_DIR}/Bottles}"
 
@@ -37,6 +41,8 @@ Commands:
       --wine <version>          Pin a Wine version (e.g. 11.8).
       --windows <ver>           winxp | win7 | win8 | win10 | win11.
       --backend <backend>       recommended | dxmt | d3dmetal | dxvk | wined3d | spockd3d9.
+      --arch <layout>           wow64 (default) | win64 | win32.
+                                wow64 runs 32-bit programs inside the 64-bit prefix.
       --retina <0|1>            Enable/disable Wine RetinaMode.
   info <name>                   Show a bottle's settings and status.
   set <name> <KEY> <VALUE>      Set/replace a setting (e.g. COSMOS_BACKEND dxmt).
@@ -100,7 +106,11 @@ validate_setting() {
     COSMOS_MVK_PRESET)
       [[ " default performance compatibility " == *" ${val} "* ]] || die "COSMOS_MVK_PRESET must be default, performance, or compatibility."
       ;;
-    WINEPREFIX|COSMOS_BOTTLE)
+    COSMOS_PREFIX_ARCH)
+      prefix_arch_normalize "${val}" >/dev/null \
+        || die "COSMOS_PREFIX_ARCH must be wow64, win64, or win32."
+      ;;
+    WINEPREFIX|COSMOS_BOTTLE|WINEARCH)
       die "${key} is managed by Cosmos and cannot be set on a bottle."
       ;;
     *) : ;;
@@ -175,12 +185,13 @@ cmd_list() {
 }
 
 cmd_create() {
-  local name="" wine="" windows="" backend="" retina=""
+  local name="" wine="" windows="" backend="" retina="" arch=""
   while (($#)); do
     case "$1" in
       --wine) wine="${2:-}"; shift 2 ;;
       --windows) windows="${2:-}"; shift 2 ;;
       --backend) backend="${2:-}"; shift 2 ;;
+      --arch) arch="${2:-}"; shift 2 ;;
       --retina) retina="${2:-}"; shift 2 ;;
       --*) die "Unknown create option: $1" ;;
       *) [[ -z "${name}" ]] || die "Unexpected argument: $1"; name="$1"; shift ;;
@@ -190,6 +201,9 @@ cmd_create() {
   [[ -n "${windows}" ]] && validate_setting WINDOWS_VERSION "${windows}"
   [[ -n "${backend}" ]] && validate_setting COSMOS_BACKEND "${backend}"
   [[ -n "${retina}" ]]  && validate_setting WINE_RETINA_MODE "${retina}"
+  if [[ -n "${arch}" ]]; then
+    arch="$(prefix_arch_normalize "${arch}")" || die "--arch must be wow64, win64, or win32."
+  fi
 
   local dir; dir="$(bottle_dir "${name}")"
   [[ -e "${dir}" ]] && die "Bottle already exists: ${name}"
@@ -200,6 +214,7 @@ cmd_create() {
   [[ -n "${wine}" ]]    && set_setting "${dir}" WINE_VERSION "${wine}"
   [[ -n "${windows}" ]] && set_setting "${dir}" WINDOWS_VERSION "${windows}"
   [[ -n "${backend}" ]] && set_setting "${dir}" COSMOS_BACKEND "${backend}"
+  [[ -n "${arch}" ]]    && set_setting "${dir}" COSMOS_PREFIX_ARCH "${arch}"
   [[ -n "${retina}" ]]  && set_setting "${dir}" WINE_RETINA_MODE "${retina}"
 
   log "Created bottle '${name}' at ${dir}"
@@ -226,6 +241,9 @@ cmd_set() {
   require_bottle "${name}"
   [[ -n "${key}" ]] || die "Usage: bottle.command set <name> <KEY> <VALUE>"
   validate_setting "${key}" "${val}"
+  if [[ "${key}" == "COSMOS_PREFIX_ARCH" ]]; then
+    val="$(prefix_arch_normalize "${val}")"
+  fi
   set_setting "$(bottle_dir "${name}")" "${key}" "${val}"
   echo "Set ${key}=\"${val}\" on bottle '${name}'."
 }

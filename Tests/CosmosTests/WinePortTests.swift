@@ -62,6 +62,8 @@ final class WinePortTests: XCTestCase {
         XCTAssertEqual(flag(args, "--d3dmetal"), "0")
         XCTAssertEqual(flag(args, "--dxmt"), "1")
         XCTAssertEqual(flag(args, "--d9vk"), "1")
+        XCTAssertEqual(flag(args, "--program-arch"), "win64")
+        XCTAssertFalse(args.contains("--args"))
         XCTAssertEqual(flag(args, "--cnc-ddraw"), "1")
         XCTAssertFalse(args.contains("--bottle"))
         XCTAssertFalse(args.contains("--gptk-path"))
@@ -107,7 +109,19 @@ final class WinePortTests: XCTestCase {
         XCTAssertEqual(ports.first?.renderers, PortRenderers(
             dxmt: true, d3dmetal: false, dxvk: false, d9vk: true, cncDDraw: true, wineD3D: true
         ))
-        XCTAssertEqual(ports.first?.cardDetail, "This Mac · Windows 10 · DXMT + D9VK")
+        XCTAssertEqual(ports.first?.cardDetail, "This Mac · Windows 10 · DXMT + SpockD3D9")
+        XCTAssertEqual(ports.first?.programArch, "win64")
+    }
+
+    func testLaunchArgumentsAnd32BitProgram() {
+        var draft = WinePortDraft.empty
+        draft.name = "Old Game"
+        draft.exe = "/tmp/game.exe"
+        draft.arguments = "--windowed"
+        draft.programArch = "win32"
+        let args = draft.commandArguments
+        XCTAssertEqual(flag(args, "--program-arch"), "win32")
+        XCTAssertEqual(flag(args, "--args"), "--windowed")
     }
 
     func testPortOperationLabels() {

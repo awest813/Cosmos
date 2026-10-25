@@ -105,6 +105,7 @@ struct ContentView: View {
     @State private var newBottleBackend = "recommended"
     @State private var newBottleWindows = "win10"
     @State private var newBottleRetina = false
+    @State private var newBottleArch = "wow64"
     @FocusState private var newBottleNameFocused: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -4317,6 +4318,7 @@ struct ContentView: View {
                         newBottleBackend = "recommended"
                         newBottleWindows = "win10"
                         newBottleRetina = false
+                        newBottleArch = "wow64"
                         showNewBottleSheet = true
                     } label: {
                         Label("New Bottle", systemImage: "plus.circle.fill")
@@ -4337,6 +4339,7 @@ struct ContentView: View {
                             newBottleBackend = "recommended"
                             newBottleWindows = "win10"
                             newBottleRetina = false
+                        newBottleArch = "wow64"
                             showNewBottleSheet = true
                         })]
                     )
@@ -4487,6 +4490,28 @@ struct ContentView: View {
                     .accessibilityLabel("Windows version")
                     .accessibilityValue(bottle.windowsDisplay)
                 }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Programs")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cosmosPrimary.opacity(0.7))
+                        .textCase(.uppercase)
+                    Picker("Programs", selection: prefixArchBinding(for: bottle)) {
+                        ForEach(SettingLabels.prefixArchOptions, id: \.self) { arch in
+                            Text(SettingLabels.prefixArchDisplayName(arch)).tag(arch)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(maxWidth: 200, alignment: .leading)
+                    .disabled(isRunning)
+                    .accessibilityLabel("Program layout")
+                    .accessibilityValue(SettingLabels.prefixArchDisplayName(bottle.prefixArch))
+                    Text(SettingLabels.prefixArchCaption(bottle.prefixArch))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Toggle(isOn: retinaBinding(for: bottle)) {
@@ -4601,9 +4626,20 @@ struct ContentView: View {
                 }
                 .disabled(isRunning)
                 Picker("Windows version", selection: $newBottleWindows) {
-                    ForEach(BottleStore.windowsOptions, id: \.self) { Text($0).tag($0) }
+                    ForEach(BottleStore.windowsOptions, id: \.self) { version in
+                        Text(SettingLabels.windowsDisplayName(version)).tag(version)
+                    }
                 }
                 .disabled(isRunning)
+                Picker("Programs", selection: $newBottleArch) {
+                    ForEach(SettingLabels.prefixArchOptions, id: \.self) { arch in
+                        Text(SettingLabels.prefixArchDisplayName(arch)).tag(arch)
+                    }
+                }
+                .disabled(isRunning)
+                Text(SettingLabels.prefixArchCaption(newBottleArch))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle("Enable Retina mode", isOn: $newBottleRetina)
                     .disabled(isRunning)
             }
@@ -4656,6 +4692,16 @@ struct ContentView: View {
         )
     }
 
+    private func prefixArchBinding(for bottle: Bottle) -> Binding<String> {
+        Binding(
+            get: { selectedBottle?.prefixArch ?? bottle.prefixArch },
+            set: { newValue in
+                guard newValue != bottle.prefixArch else { return }
+                runCommand(script: "bottle.command", arguments: ["set", bottle.name, "COSMOS_PREFIX_ARCH", newValue])
+            }
+        )
+    }
+
     private func retinaBinding(for bottle: Bottle) -> Binding<Bool> {
         Binding(
             get: { selectedBottle?.retinaEnabled ?? bottle.retinaEnabled },
@@ -4686,6 +4732,7 @@ struct ContentView: View {
             "create", name,
             "--backend", newBottleBackend,
             "--windows", newBottleWindows,
+            "--arch", newBottleArch,
             "--retina", newBottleRetina ? "1" : "0",
         ]
         selectedBottleID = name
