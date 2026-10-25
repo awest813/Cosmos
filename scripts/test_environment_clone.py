@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from xattr_fixtures import read_attribute, set_attribute
 from pathlib import Path
 from lib.environment_clone import clone
 
@@ -50,10 +51,10 @@ class EnvironmentCloneTests(unittest.TestCase):
 
     def test_regular_copy_preserves_reparse_xattrs(self):
         stub = self.prefix / 'drive_c/Link?'; stub.mkdir()
-        try: os.setxattr(stub, 'user.WINEREPARSE', b'fixture attribute')
+        try: set_attribute(stub, 'user.WINEREPARSE', b'fixture attribute')
         except OSError as error: self.skipTest(str(error))
         copied = self.copy(copier=shutil.copy2)
-        self.assertEqual(os.getxattr(copied / 'prefix/drive_c/Link?', 'user.WINEREPARSE'), b'fixture attribute')
+        self.assertEqual(read_attribute(copied / 'prefix/drive_c/Link?', 'user.WINEREPARSE'), b'fixture attribute')
 
     def test_running_source_is_refused_before_copy(self):
         with self.assertRaises(ValueError):

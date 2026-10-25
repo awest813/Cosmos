@@ -44,6 +44,7 @@ jobs:
           if-no-files-found: warn
 
       - name: macOS filesystem and process contracts
+        if: always()
         run: |
           python3 scripts/test_audit_diagnostics.py
           python3 scripts/test_prefix_processes.py

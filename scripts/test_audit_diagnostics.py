@@ -3,6 +3,7 @@ import os
 import struct
 import tempfile
 import unittest
+from xattr_fixtures import read_attribute, set_attribute
 from pathlib import Path
 from lib.wine_filesystem import decode_reparse, host_path
 from lib.runtime_integrity import diagnose
@@ -30,7 +31,7 @@ class AuditDiagnosticsTests(unittest.TestCase):
         path = self.drive / name
         path.mkdir(parents=True)
         try:
-            os.setxattr(path, 'user.WINEREPARSE', reparse(target, relative, junction), follow_symlinks=False)
+            set_attribute(path, 'user.WINEREPARSE', reparse(target, relative, junction))
         except OSError as error:
             self.skipTest(f'Fixture volume has no user xattrs: {error}')
         return path
@@ -46,14 +47,14 @@ class AuditDiagnosticsTests(unittest.TestCase):
         target = self.drive / 'Versions' / 'One'; target.mkdir(parents=True)
         game = target / 'Game.exe'; game.write_bytes(b'fixture')
         stub = self.stub('Current?', r'\??\C:\Versions\One')
-        before = os.getxattr(stub, 'user.WINEREPARSE')
+        before = read_attribute(stub, 'user.WINEREPARSE')
         self.assertEqual(host_path(self.prefix, r'C:\Current\game.EXE'), game)
         self.assertEqual(host_path(self.prefix, 'drive_c/Current/Game.exe'), game)
         self.assertTrue(stub.is_dir()); self.assertFalse(stub.is_symlink())
         self.assertFalse((self.drive / 'Current').exists())
-        self.assertEqual(os.getxattr(stub, 'user.WINEREPARSE'), before)
+        self.assertEqual(read_attribute(stub, 'user.WINEREPARSE'), before)
         updated = self.drive / 'Versions' / 'Two'; updated.mkdir()
-        os.setxattr(stub, 'user.WINEREPARSE', reparse(r'\??\C:\Versions\Two'))
+        set_attribute(stub, 'user.WINEREPARSE', reparse(r'\??\C:\Versions\Two'))
         self.assertEqual(host_path(self.prefix, r'C:\Current\Game.exe'), updated / 'Game.exe')
 
     def test_relative_link_and_remapped_drive(self):

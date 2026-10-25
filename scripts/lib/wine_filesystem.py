@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import struct
+import ctypes
 from pathlib import Path
 
 # Reparse buffer layout/read-only stub following adapted from Highball's
@@ -41,13 +42,37 @@ def decode_reparse(data):
     return target, relative
 
 
+def read_attribute(path, name):
+    if sys.platform != 'darwin':
+        return os.getxattr(path, name, follow_symlinks=False)
+    # Python's os xattr bindings are Linux-only. Darwin uses a six-argument
+    # getxattr and XATTR_NOFOLLOW; never follow a Mac symlink to read its target.
+    library = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True)
+    reader = library.getxattr
+    reader.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32, ctypes.c_int]
+    reader.restype = ctypes.c_ssize_t
+    arguments = (os.fsencode(path), os.fsencode(name))
+    size = reader(*arguments, None, 0, 0, 1)
+    if size < 0:
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(path))
+    if size > 16384:
+        raise ValueError('Wine junction attribute exceeds the supported size')
+    buffer = ctypes.create_string_buffer(size)
+    count = reader(*arguments, buffer, size, 0, 1)
+    if count < 0:
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(path))
+    return buffer.raw[:count]
+
+
 def read_reparse(path):
     try:
-        data = os.getxattr(path, 'user.WINEREPARSE', follow_symlinks=False)
+        data = read_attribute(path, 'user.WINEREPARSE')
     except OSError as error:
         import errno
-        if error.errno in (errno.ENOENT, errno.ENOTDIR, errno.ENODATA,
-                           getattr(errno, 'ENOATTR', errno.ENODATA), errno.ENOTSUP):
+        if error.errno in (errno.ENOENT, errno.ENOTDIR, getattr(errno, 'ENODATA', -1),
+                           getattr(errno, 'ENOATTR', -1), errno.ENOTSUP):
             return None
         raise
     return decode_reparse(data)

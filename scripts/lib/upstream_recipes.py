@@ -83,9 +83,11 @@ def main():
         else:
             print(f"{result['title']} — upstream recipe review\nCosmos game status: UNTESTED\nSource: {result['source_url']}")
             print('Requirements: ' + ', '.join(result['requirements']))
+            print('Suggested renderer: ' + (result['renderer'] or 'not specified'))
             print('Matching Cosmos dependency recipes: ' + (', '.join(result['cosmos_dependency_recipes']) or 'none'))
             print('Upstream verification (different engines/OS may be required): ' + json.dumps(result['upstream_verification']))
             print('Steps requiring manual review: ' + json.dumps(result['manual_steps']))
+            print('Known upstream issues: ' + json.dumps(result['known_issues']))
             for note in result['notes']: print(note)
         return 0
     except (OSError, ValueError, KeyError) as error:

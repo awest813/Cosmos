@@ -12,6 +12,10 @@ enum StoreImportValidation {
         let path = trimmed(.path)
         let slug = trimmed(.battlenetSlug)
         let epic = trimmed(.epicAppName)
+        if request.script == "profile.command", request.baseArguments.first == "upstream-recipe" {
+            return path.range(of: "^[A-Za-z0-9][A-Za-z0-9._-]*$", options: .regularExpression) != nil
+                ? nil : "Enter a recipe id such as xact. List available ids with profile.command upstream-recipes."
+        }
         if request.script == "bottle.command", request.baseArguments.first == "clone" {
             return BottleStore.isValidName(trimmed(.displayName)) ? nil : "Use an environment name with letters, numbers, dots, underscores or hyphens."
         }

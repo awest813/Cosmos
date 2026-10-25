@@ -10,6 +10,7 @@ import errno
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -46,7 +47,21 @@ def copy_file(source, destination):
         library = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True)
         if library.clonefile(os.fsencode(source), os.fsencode(destination), 0) == 0:
             return destination
+        copy_metadata(source, destination, include_data=True)
+        return destination
     return shutil.copy2(source, destination, follow_symlinks=False)
+
+
+def copy_metadata(source, destination, include_data=False):
+    if sys.platform != 'darwin':
+        return
+    library = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True)
+    copy = library.copyfile
+    copy.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_uint32]
+    # COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR, optionally COPYFILE_DATA.
+    if copy(os.fsencode(source), os.fsencode(destination), None, 15 if include_data else 7):
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(source))
 
 
 def publish_exclusively(source, destination):
@@ -82,6 +97,13 @@ def clone(root, source_name, destination_name, stopper=stop, idle_check=idle, co
     stage = Path(tempfile.mkdtemp(prefix='.clone-', dir=root))
     try:
         shutil.copytree(source, stage, symlinks=True, copy_function=copier, dirs_exist_ok=True)
+        # shutil.copystat does not copy Darwin xattrs. Include directory stubs
+        # as well as regular files, without visiting linked external folders.
+        if sys.platform == 'darwin':
+            for directory, directories, files in os.walk(stage, followlinks=False):
+                for path in [Path(directory)] + [Path(directory) / name for name in files]:
+                    if not path.is_symlink():
+                        copy_metadata(source / path.relative_to(stage), path)
         (stage / 'prefix').mkdir(exist_ok=True)
         old_prefix = str(source / 'prefix')
         new_prefix = str(destination / 'prefix')
@@ -127,7 +149,7 @@ def main():
         destination = clone(args.bottles_root, args.source, args.name)
         print(f'Cloned environment: {destination}. External drive folders remain linked; create a port using the new environment to launch its games.')
         return 0
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(f'Error: Environment clone failed: {error}', file=sys.stderr)
         return 1
 

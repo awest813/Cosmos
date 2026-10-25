@@ -55,7 +55,7 @@ final class PortFileCheckTests: XCTestCase {
         let before = try FileManager.default.subpathsOfDirectory(atPath: root.path).sorted()
         let port = WinePort(id: "simcity", settings: settings("drive_c/Game/SC3U.exe"), directory: root)
         let check = PortFileCheck.inspect(port, mainPrefix: prefix, bottlesDirectory: root.appendingPathComponent("unused"))
-        XCTAssertTrue(check.findings.allSatisfy(\.passed))
+        XCTAssertTrue(check.findings.allSatisfy(\.passed), check.report(for: port))
         XCTAssertEqual(check.gameURL?.path, prefix.appendingPathComponent("drive_c/Game/SC3U.exe").path)
         XCTAssertTrue(check.report(for: port).contains("gameplay NOT TESTED"))
         XCTAssertTrue(check.report(for: port).contains("WoW64 support"))
