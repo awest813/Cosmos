@@ -78,6 +78,13 @@ final class WinePortTests: XCTestCase {
         draft.gptkPath = "/Users/me/GPTK"
         XCTAssertEqual(draft.validationError, PortStackError.sharedD3DMetalMessage)
         XCTAssertFalse(draft.commandArguments.contains("--gptk-path"))
+
+        draft.renderers.d3dmetal = false
+        XCTAssertEqual(
+            draft.validationError,
+            "A Game Porting Toolkit path is only saved on a personal port."
+        )
+        XCTAssertFalse(draft.commandArguments.contains("--gptk-path"))
     }
 
     func testLoadPortConf() throws {

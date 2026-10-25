@@ -251,11 +251,13 @@ struct WinePortDraft: Equatable {
         if !trimmedBottle.isEmpty && !BottleStore.isValidName(trimmedBottle) {
             return "That bottle name is not valid."
         }
-        if distribution == "share" && !gptkPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "A Game Porting Toolkit path stays on a personal port."
-        }
+        // Same order as port.command create: the shared-port D3DMetal license
+        // error wins when both that switch and a GPTK path are set.
         if case .failure(let error) = PortStack.resolve(renderers, distribution: distribution) {
             return error.message
+        }
+        if distribution == "share" && !gptkPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "A Game Porting Toolkit path is only saved on a personal port."
         }
         return nil
     }
