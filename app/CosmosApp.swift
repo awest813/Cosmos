@@ -71,22 +71,18 @@ private struct CosmosCommands: Commands {
                 NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.library)
             }
             .keyboardShortcut("2", modifiers: .command)
-            .disabled(!appState.isSteamReady)
             Button("Ports") {
                 NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.ports)
             }
             .keyboardShortcut("3", modifiers: .command)
-            .disabled(!appState.isSteamReady)
             Button("Bottles") {
                 NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.bottles)
             }
             .keyboardShortcut("4", modifiers: .command)
-            .disabled(!appState.isSteamReady)
             Button("Tools") {
                 NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.tools)
             }
             .keyboardShortcut("5", modifiers: .command)
-            .disabled(!appState.isSteamReady)
         }
 
         // Steam prefix, graphics, and bottles.
@@ -103,16 +99,13 @@ private struct CosmosCommands: Commands {
             Button("Performance & Graphics…") {
                 NotificationCenter.default.post(name: .cosmosOpenPerformanceGraphics, object: nil)
             }
-            .disabled(!appState.isSteamReady)
             Divider()
             Button("Bottles…") {
                 NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.bottles)
             }
-            .disabled(!appState.isSteamReady)
             Button("Ports…") {
                 NotificationCenter.default.post(name: .cosmosSelectSection, object: DashboardSection.ports)
             }
-            .disabled(!appState.isSteamReady)
             Divider()
             Button("Reveal steam.conf in Finder") {
                 NotificationCenter.default.post(name: .cosmosRevealSteamConf, object: nil)

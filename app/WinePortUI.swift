@@ -5,7 +5,10 @@ struct PortsDashboard: View {
     let ports: [WinePort]
     let bottleNames: [String]
     let isRunning: Bool
-    var onCreate: (WinePortDraft) -> Void
+    var unavailableReason: String? = nil
+    var onOpenDownloads: (() -> Void)? = nil
+    var requiresRosetta: Bool = false
+    var onCreate: (WinePortDraft, @escaping (String?) -> Void) -> Void
     var onLaunch: (WinePort) -> Void
     var onBuild: (WinePort) -> Void
     var onDelete: (WinePort) -> Void
@@ -22,11 +25,25 @@ struct PortsDashboard: View {
         CosmosSection(
             title: "Ports",
             systemImage: "macwindow.on.rectangle",
-            caption: "Turn a Windows program into a Mac app on Apple Silicon. DXMT and D9VK are on by default. D3DMetal is optional and stays on this Mac — it cannot be part of a port you share."
+            caption: "Turn a Windows program into a Mac app on Apple Silicon. DXMT and SpockD3D9 are enabled by default. D3DMetal is optional and stays on this Mac — it cannot be part of a port you share."
         ) {
             VStack(alignment: .leading, spacing: 14) {
-                if !ports.isEmpty {
-                    HStack {
+                if let unavailableReason {
+                    CosmosNoticeBanner(
+                        tint: Color.cosmosWarning, systemImage: "info.circle",
+                        title: "Ports unavailable on this Mac", message: unavailableReason
+                    )
+                }
+                HStack {
+                    if let onOpenDownloads {
+                        Button(action: onOpenDownloads) {
+                            Label("Graphics Downloads", systemImage: "arrow.down.circle")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isRunning || unavailableReason != nil)
+                        .help("Get SpockD3D9 and MoltenVK for your ports")
+                    }
+                    if !ports.isEmpty {
                         Spacer(minLength: 0)
                         Button {
                             showCreateSheet = true
@@ -34,7 +51,7 @@ struct PortsDashboard: View {
                             Label("New Port", systemImage: "plus.circle.fill")
                         }
                         .buttonStyle(.bordered)
-                        .disabled(isRunning)
+                        .disabled(isRunning || unavailableReason != nil)
                         .help("Wrap a Windows program as a Mac app")
                     }
                 }
@@ -43,8 +60,8 @@ struct PortsDashboard: View {
                     CosmosEmptyState(
                         systemImage: "macwindow.on.rectangle",
                         title: "No ports yet",
-                        message: "A port opens one Windows program like a Mac app. It uses a bottle you already have, or the main environment.",
-                        isRunning: isRunning,
+                        message: "A port opens one Windows program like a Mac app. Choose an installed Windows .exe and its environment. Steam setup is optional.",
+                        isRunning: isRunning || unavailableReason != nil,
                         actions: [(title: "Create Port", prominent: true, action: { showCreateSheet = true })]
                     )
                 } else {
@@ -73,10 +90,7 @@ struct PortsDashboard: View {
                 bottleNames: bottleNames,
                 isRunning: isRunning,
                 onCancel: { showCreateSheet = false },
-                onCreate: { draft in
-                    showCreateSheet = false
-                    onCreate(draft)
-                }
+                onCreate: onCreate
             )
         }
         .confirmationDialog(
@@ -130,8 +144,6 @@ struct PortsDashboard: View {
             .cosmosSelectableSurface(isSelected: isSelected, minHeight: 108)
         }
         .buttonStyle(CosmosButtonStyle())
-        .disabled(isRunning)
-        .opacity(isRunning ? 0.55 : 1)
         .accessibilityLabel("\(port.name), \(port.cardDetail)\(isSelected ? ", selected" : "")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -186,18 +198,19 @@ struct PortsDashboard: View {
         Button {
             onLaunch(port)
         } label: {
-            Label("Open", systemImage: "play.fill")
+            Label(requiresRosetta ? "Install Rosetta 2" : "Open", systemImage: requiresRosetta ? "cpu" : "play.fill")
         }
         .buttonStyle(.borderedProminent)
         .tint(Color.cosmosPrimary)
-        .disabled(isRunning)
+        .disabled(isRunning || unavailableReason != nil)
+        .help(requiresRosetta ? "Install Rosetta in Terminal, then open this port." : "Open this Windows program")
         Button {
             onBuild(port)
         } label: {
             Label("Make Mac App", systemImage: "square.and.arrow.down")
         }
         .buttonStyle(.bordered)
-        .disabled(isRunning)
+        .disabled(isRunning || unavailableReason != nil)
         .help("Builds an app in ~/Applications/Cosmos Ports")
         Button(role: .destructive) {
             pendingDelete = port
@@ -213,9 +226,12 @@ private struct NewPortSheet: View {
     let bottleNames: [String]
     let isRunning: Bool
     var onCancel: () -> Void
-    var onCreate: (WinePortDraft) -> Void
+    var onCreate: (WinePortDraft, @escaping (String?) -> Void) -> Void
 
     @State private var draft = WinePortDraft.empty
+    @State private var isSubmitting = false
+    @State private var creationError: String?
+    private var isBusy: Bool { isRunning || isSubmitting }
     @FocusState private var nameFocused: Bool
 
     var body: some View {
@@ -237,7 +253,7 @@ private struct NewPortSheet: View {
                         TextField("Windows program", text: $draft.exe)
                             .textFieldStyle(.roundedBorder)
                         Button("Browse") { browseForExecutable() }
-                            .disabled(isRunning)
+                            .disabled(isBusy)
                     }
                     Picker("Bottle", selection: $draft.bottle) {
                         Text("Main environment").tag("")
@@ -277,7 +293,7 @@ private struct NewPortSheet: View {
                         Toggle("CNC-DDRAW — classic DirectDraw", isOn: $draft.renderers.cncDDraw)
                         Toggle("DXVK — DirectX 10 and 11 on Vulkan", isOn: $draft.renderers.dxvk)
                         Toggle("D3DMetal — DirectX 11 and 12", isOn: $draft.renderers.d3dmetal)
-                            .disabled(draft.distribution == "share" || isRunning)
+                            .disabled(draft.distribution == "share" || isBusy)
                         if draft.distribution == "share" {
                             Text("A shared port cannot include D3DMetal. Apple's license keeps that on this Mac.")
                                 .font(.caption)
@@ -286,7 +302,12 @@ private struct NewPortSheet: View {
                     }
                 }
                 .formStyle(.grouped)
-                .disabled(isRunning)
+                .disabled(isBusy)
+                .onChange(of: draft.exe) { path in
+                    if path.hasPrefix("/"), let architecture = WindowsProgramArchitecture.detect(at: URL(fileURLWithPath: path)) {
+                        draft.programArch = architecture.rawValue
+                    }
+                }
                 .onChange(of: draft.distribution) { value in
                     if value == "share" {
                         draft.renderers.d3dmetal = false
@@ -298,18 +319,18 @@ private struct NewPortSheet: View {
                     HStack {
                         TextField("ddraw.dll folder (optional)", text: $draft.cncDDrawPath)
                             .textFieldStyle(.roundedBorder)
-                            .disabled(isRunning)
+                            .disabled(isBusy)
                         Button("Browse") { browseForDirectory(into: \.cncDDrawPath, message: "Select the folder that contains ddraw.dll") }
-                            .disabled(isRunning)
+                            .disabled(isBusy)
                     }
                 }
                 if draft.renderers.d3dmetal && draft.distribution == "personal" {
                     HStack {
                         TextField("Game Porting Toolkit folder", text: $draft.gptkPath)
                             .textFieldStyle(.roundedBorder)
-                            .disabled(isRunning)
+                            .disabled(isBusy)
                         Button("Browse") { browseForDirectory(into: \.gptkPath, message: "Select your Game Porting Toolkit install") }
-                            .disabled(isRunning)
+                            .disabled(isBusy)
                     }
                     Text("Cosmos does not download D3DMetal. This path is saved only for this Mac.")
                         .font(.caption)
@@ -321,6 +342,13 @@ private struct NewPortSheet: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                if let creationError {
+                    CosmosNoticeBanner(
+                        tint: Color.cosmosDanger, systemImage: "exclamationmark.triangle.fill",
+                        title: "Could not create port", message: creationError
+                    )
+                }
+
                 if let validationError = draft.validationError, !draft.name.isEmpty || !draft.exe.isEmpty {
                     CosmosNoticeBanner(
                         tint: Color.cosmosDanger,
@@ -331,15 +359,28 @@ private struct NewPortSheet: View {
                 }
 
                 HStack {
+                    if isSubmitting {
+                        ProgressView().controlSize(.small)
+                        Text("Creating port…").font(.caption)
+                    }
                     Spacer()
                     Button("Cancel", action: onCancel)
                         .keyboardShortcut(.cancelAction)
-                        .disabled(isRunning)
-                    Button("Create") { onCreate(draft) }
+                        .disabled(isBusy)
+                    Button("Create") {
+                        guard !isBusy else { return }
+                        creationError = nil
+                        isSubmitting = true
+                        onCreate(draft) { error in
+                            isSubmitting = false
+                            if let error { creationError = error }
+                            else { onCancel() }
+                        }
+                    }
                         .buttonStyle(.borderedProminent)
                         .tint(Color.cosmosPrimary)
                         .keyboardShortcut(.defaultAction)
-                        .disabled(draft.validationError != nil || isRunning)
+                        .disabled(draft.validationError != nil || isBusy)
                 }
             }
             .padding(20)
@@ -353,6 +394,7 @@ private struct NewPortSheet: View {
     private func browseForExecutable() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
+        panel.allowedFileTypes = ["exe"]
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         panel.message = "Select the Windows program"

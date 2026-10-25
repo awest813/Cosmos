@@ -8,6 +8,21 @@ source "${ROOT}/scripts/lib/port_lib.sh"
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
+port_macos_version_supported 14.6 || fail "macOS 14.6 should be supported"
+port_macos_version_supported 26.1 || fail "newer macOS should be supported"
+port_macos_version_supported 14.5.1 && fail "macOS 14.5 must be refused"
+port_macos_version_supported unknown && fail "unknown macOS must be refused"
+(
+  unset COSMOS_PORT_SKIP_ARCH
+  uname() { if [[ "$1" == -s ]]; then echo Darwin; else echo x86_64; fi; }
+  sysctl() { echo 1; }
+  sw_vers() { echo 14.6; }
+  port_require_apple_silicon || fail "Apple Silicon from Rosetta Terminal should be supported"
+  sw_vers() { echo 14.5; }
+  port_require_apple_silicon >/dev/null 2>&1 && fail "old macOS must fail on Apple Silicon too"
+  true
+)
+
 assert_backend() {
   local expected="$1"
   local got
@@ -102,6 +117,23 @@ export COSMOS_PORTS_OUTPUT="${tmpdir}/apps"
 exe="${tmpdir}/notepad.exe"
 printf 'MZ\n' > "${exe}"
 
+python3 - "${tmpdir}" <<'PY'
+from pathlib import Path
+import struct, sys
+root = Path(sys.argv[1])
+for arch, machine, magic, size in [('32', 0x14c, 0x10b, 224), ('64', 0x8664, 0x20b, 240)]:
+    data = bytearray(1024)
+    data[:2] = b'MZ'
+    struct.pack_into('<I', data, 60, 128)
+    data[128:132] = b'PE\0\0'
+    struct.pack_into('<HHIIIHH', data, 132, machine, 1, 0, 0, 0, size, 0x102 if arch == '32' else 0x22)
+    struct.pack_into('<H', data, 152, magic)
+    struct.pack_into('<H', data, 220, 2)
+    (root / f'game{arch}.exe').write_bytes(data)
+PY
+[[ "$(port_detect_program_arch "${tmpdir}/game32.exe")" == win32 ]] || fail "detect x86 EXE"
+[[ "$(port_detect_program_arch "${tmpdir}/game64.exe")" == win64 ]] || fail "detect x64 EXE"
+
 set +e
 arch_out="$(env -u COSMOS_PORT_SKIP_ARCH COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR}" \
   "${ROOT}/port.command" create --name "Notepad" --exe "${exe}" 2>&1)"
@@ -111,6 +143,15 @@ set -e
 printf '%s' "${arch_out}" | grep -q "Apple Silicon" || fail "arch error should mention Apple Silicon: ${arch_out}"
 
 export COSMOS_PORT_SKIP_ARCH=1
+
+"${ROOT}/port.command" create --name "Detected x86" --exe "${tmpdir}/game32.exe" >/dev/null
+detected="$("${ROOT}/port.command" show detected-x86)"
+printf '%s\n' "${detected}" | grep -q 'Program:       32-bit' || fail "create must detect x86 automatically"
+if "${ROOT}/port.command" create --name "Wrong Architecture" --exe "${tmpdir}/game32.exe" --program-arch win64 >"${tmpdir}/wrong-arch.log" 2>&1; then
+  fail "explicit architecture mismatch must fail"
+fi
+grep -q 'executable is win32' "${tmpdir}/wrong-arch.log" || fail "architecture mismatch needs actionable error"
+[[ ! -d "${COSMOS_SUPPORT_DIR}/Ports/wrong-architecture" ]] || fail "invalid creation must not leave a partial port"
 
 set +e
 missing_out="$("${ROOT}/port.command" create --name "Ghost" --exe "${exe}" --bottle "no-such-bottle" 2>&1)"

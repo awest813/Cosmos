@@ -143,9 +143,15 @@ spockd3d9_auto_build() {
 ensure_spockd3d9_installed() {
   log "Installing SpockD3D9 PE d3d9.dll into the Wine prefix (experimental)"
   spockd3d9_auto_build || true
+  COSMOS_SPOCK_X86_INSTALLED=0
+  COSMOS_SPOCK_X64_INSTALLED=0
 
   local root
   if ! root="$(spockd3d9_resolve_root)"; then
+    if [[ "${COSMOS_PORT:-0}" == 1 && ",${COSMOS_PORT_RENDERERS:-}," == *,wined3d,* ]]; then
+      echo "SpockD3D9 is not built yet. This port will use WineD3D for DirectX 9; DXMT still handles DirectX 10/11. Get Spock and MoltenVK from Graphics Downloads to test Spock later."
+      return 0
+    fi
     die "The spockd3d9 backend needs SPOCK_D3D9_PATH pointing at a folder of SpockD3D9 PE d3d9.dll files (x86 and/or x64), or set COSMOS_AUTO_SPOCK_D3D9=1 to build from source. See docs/BACKENDS.md."
   fi
   spockd3d9_validate_path "${root}" >/dev/null \
@@ -277,7 +283,7 @@ enable_spockd3d9_env() {
   else
     export WINEDEBUG="${WINEDEBUG:--all,err+all}"
   fi
-  if declare -F runtime_prepare_moltenvk_env >/dev/null 2>&1; then
+  if [[ "${order}" == "n,b" ]] && declare -F runtime_prepare_moltenvk_env >/dev/null 2>&1; then
     runtime_prepare_moltenvk_env || echo "Note: MoltenVK auto-fetch failed; ensure Vulkan/MoltenVK is available for SpockD3D9."
   fi
   echo "WINEDLLOVERRIDES=${WINEDLLOVERRIDES}"

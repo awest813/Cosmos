@@ -2,6 +2,39 @@ import XCTest
 @testable import Cosmos
 
 final class WinePortTests: XCTestCase {
+    func testPortHostRequirements() {
+        func version(_ major: Int, _ minor: Int) -> OperatingSystemVersion {
+            OperatingSystemVersion(majorVersion: major, minorVersion: minor, patchVersion: 0)
+        }
+        XCTAssertNotNil(PortHostSupport.unavailableReason(architecture: "x86_64", version: version(26, 0)))
+        XCTAssertNotNil(PortHostSupport.unavailableReason(architecture: "arm64", version: version(13, 6)))
+        XCTAssertNotNil(PortHostSupport.unavailableReason(architecture: "arm64", version: version(14, 5)))
+        XCTAssertNil(PortHostSupport.unavailableReason(architecture: "arm64", version: version(14, 6)))
+        XCTAssertNil(PortHostSupport.unavailableReason(architecture: "arm64", version: version(26, 0)))
+    }
+
+    func testDetectsWindowsExecutableArchitectureWithoutLaunching() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("Game With Spaces.exe")
+        var bytes = [UInt8](repeating: 0, count: 256)
+        bytes[0] = 0x4d; bytes[1] = 0x5a; bytes[60] = 128
+        bytes[128] = 0x50; bytes[129] = 0x45
+        bytes[132] = 0x4c; bytes[133] = 0x01
+        try Data(bytes).write(to: url)
+        XCTAssertEqual(WindowsProgramArchitecture.detect(at: url), .win32)
+        bytes[132] = 0x64; bytes[133] = 0x86
+        try Data(bytes).write(to: url)
+        XCTAssertEqual(WindowsProgramArchitecture.detect(at: url), .win64)
+        bytes[151] = 0x20 // DLL flag: not a program.
+        try Data(bytes).write(to: url)
+        XCTAssertNil(WindowsProgramArchitecture.detect(at: url))
+        try Data([0x4d, 0x5a]).write(to: url)
+        XCTAssertNil(WindowsProgramArchitecture.detect(at: url))
+        XCTAssertNil(WindowsProgramArchitecture.detect(at: root.appendingPathComponent("missing.exe")))
+    }
+
     func testDefaultStackMatchesSikarugirAppleSiliconDefaults() throws {
         let backend = PortStack.resolve(.appleSiliconDefaults, distribution: "personal")
         XCTAssertEqual(try backend.get(), "spockd3d9")

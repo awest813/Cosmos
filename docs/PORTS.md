@@ -19,8 +19,8 @@ Cosmos does not bundle Sikarugir, Wineskin, or D3DMetal.
 | Machines | Apple Silicon and Intel | **Apple Silicon only**, macOS **14.6+** |
 
 The dashboard **Ports** tab (⌘3, on the main tab bar) creates, opens, and builds ports
-after Steam setup. The same actions work from `port.command` before you care
-about the menu.
+from the first launch. Steam setup is optional. The same actions work from
+`port.command`.
 
 ## Graphics stack
 
@@ -69,6 +69,27 @@ Tests that create or build a port on Linux or an Intel Mac set
 `COSMOS_PORT_SKIP_ARCH=1`. That flag does not make the port run there.
 
 ## Launch and setup details
+
+The program picker detects x86/x64 PE executable headers and selects 32-bit or
+64-bit automatically. CLI creation also detects an existing executable when
+`--program-arch` is omitted and rejects a conflicting explicit choice. For
+missing or prefix-relative paths, choose the program architecture yourself.
+These header checks do not establish runtime or graphics compatibility.
+
+Ports require Apple Silicon and macOS 14.6 or later. The dashboard explains an
+unsupported host before enabling Create/Open/Make Mac App, while existing
+definitions remain browsable. CLI and generated apps enforce the same minimum;
+an Apple Silicon Mac running a Rosetta Terminal is recognized correctly.
+
+If creation fails, the form retains its fields and shows the error so you can
+correct it and retry. It closes only after creation succeeds.
+
+Use **Graphics Downloads** to get Spock and MoltenVK. On a fresh installation,
+ports that have WineD3D enabled can open before Spock is built: DirectX 9 uses
+WineD3D and DXMT continues to handle DirectX 10/11. This fallback does not fetch
+MoltenVK. An explicitly configured invalid Spock folder still needs correction.
+If Rosetta is missing, the port's action reads **Install Rosetta 2** and opens
+the normal installation in Terminal; open the port after that completes.
 
 Both dashboard/CLI launches and generated apps pass the saved program architecture
 to the graphics setup. Launch arguments support quoted values and empty arguments:

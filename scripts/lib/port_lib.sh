@@ -128,17 +128,46 @@ port_renderers_csv() {
   printf '%s' "${out}"
 }
 
+port_macos_version_supported() {
+  local version="${1:-}" major minor
+  [[ "${version}" =~ ^([0-9]+)(\.([0-9]+))?(\.[0-9]+)?$ ]] || return 1
+  major="${BASH_REMATCH[1]}"
+  minor="${BASH_REMATCH[3]:-0}"
+  (( 10#${major} > 14 || (10#${major} == 14 && 10#${minor} >= 6) ))
+}
+
 port_require_apple_silicon() {
-  local os arch
+  local os arch version
   if [[ "${COSMOS_PORT_SKIP_ARCH:-0}" == "1" ]]; then
     return 0
   fi
   os="$(uname -s)"
   arch="$(uname -m)"
+  # A Rosetta Terminal reports x86_64 on an Apple Silicon host.
+  if [[ "${os}" == Darwin && "${arch}" != arm64 && "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" == 1 ]]; then
+    arch=arm64
+  fi
   if [[ "${os}" != "Darwin" || "${arch}" != "arm64" ]]; then
     printf 'Error: %s\n' "Cosmos ports are for Apple Silicon Macs (macOS 14.6 or later). This machine is ${os} ${arch}." >&2
     return 1
   fi
+  version="$(sw_vers -productVersion 2>/dev/null || true)"
+  if ! port_macos_version_supported "${version}"; then
+    printf 'Error: Ports require macOS 14.6 or later (detected %s).\n' "${version:-unknown}" >&2
+    return 1
+  fi
+}
+
+port_detect_program_arch() {
+  local description
+  [[ -f "$1" ]] || return 1
+  description="$(file -b "$1" 2>/dev/null)" || return 1
+  case "${description}" in
+    *\(DLL\)*) return 1 ;;
+    *PE32+*x86-64*) printf 'win64' ;;
+    *PE32*Intel*80386*|*PE32*Intel*i386*) printf 'win32' ;;
+    *) return 1 ;;
+  esac
 }
 
 port_get_setting() {
@@ -293,15 +322,11 @@ port_write_launcher() {
   {
   printf '%s\n' '#!/bin/bash'
   declare -f port_exec_program
+  declare -f port_macos_version_supported port_require_apple_silicon
   cat <<'EOF'
 # Cosmos port launcher. Apple Silicon (arm64), macOS 14.6 or later.
 set -euo pipefail
-if [[ "${COSMOS_PORT_SKIP_ARCH:-0}" != "1" ]]; then
-  if [[ "$(uname -s)" != "Darwin" || "$(uname -m)" != "arm64" ]]; then
-    echo "This Cosmos port runs on Apple Silicon Macs (arm64)." >&2
-    exit 1
-  fi
-fi
+port_require_apple_silicon || exit 1
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck disable=SC1091
 source "${HERE}/Resources/port.env"

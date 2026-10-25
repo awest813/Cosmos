@@ -109,13 +109,7 @@ extension ContentView {
     }
 
     func focusDashboardSection(_ section: DashboardSection) {
-        switch section {
-        case .launch:
-            dashboardSection = .launch
-        case .library, .tools, .bottles, .ports:
-            guard isSteamReady else { return }
-            dashboardSection = section
-        }
+        dashboardSection = section
     }
 
     func focusBottlesSection() {

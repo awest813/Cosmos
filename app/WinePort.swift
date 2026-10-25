@@ -1,5 +1,42 @@
 import Foundation
 
+enum PortHostSupport {
+    static func unavailableReason(architecture: String, version: OperatingSystemVersion) -> String? {
+        guard architecture == "arm64" else {
+            return "Ports require an Apple Silicon Mac. You can browse existing definitions; Cosmos bottles and games also support Intel."
+        }
+        guard version.majorVersion > 14 || (version.majorVersion == 14 && version.minorVersion >= 6) else {
+            return "Ports require macOS 14.6 or later. Update macOS before creating or opening a port."
+        }
+        return nil
+    }
+}
+
+enum WindowsProgramArchitecture: String {
+    case win32, win64
+
+    /// Read only the DOS and COFF headers; do not load or execute the program.
+    static func detect(at url: URL) -> WindowsProgramArchitecture? {
+        guard let file = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? file.close() }
+        guard let dos = try? file.read(upToCount: 64), dos.count == 64,
+              dos[0] == 0x4d, dos[1] == 0x5a else { return nil }
+        var offset: UInt64 = 0
+        for byte in 0..<4 { offset |= UInt64(dos[60 + byte]) << (byte * 8) }
+        guard offset >= 64 else { return nil }
+        do { try file.seek(toOffset: offset) } catch { return nil }
+        guard let coff = try? file.read(upToCount: 24), coff.count == 24,
+              Array(coff.prefix(4)) == [0x50, 0x45, 0, 0] else { return nil }
+        let flags = UInt16(coff[22]) | (UInt16(coff[23]) << 8)
+        guard flags & 0x2000 == 0 else { return nil } // A DLL is not the program.
+        switch UInt16(coff[4]) | (UInt16(coff[5]) << 8) {
+        case 0x14c: return .win32
+        case 0x8664: return .win64
+        default: return nil
+        }
+    }
+}
+
 /// Apple Silicon wine port. One Windows program opened like a Mac app.
 ///
 /// The renderer rules match `scripts/lib/port_lib.sh` (Sikarugir / cosmosNEW
@@ -93,7 +130,7 @@ enum PortStack {
             case "d3dmetal":
                 text = "Opens with D3DMetal for DirectX 11 and 12. This stays on your Mac."
             case "spockd3d9":
-                text = "DXMT stays on for DirectX 10 and 11. SpockD3D9 handles DirectX 8 and 9, including 32-bit programs. WineD3D covers what those two do not."
+                text = "DXMT stays on for DirectX 10 and 11. SpockD3D9 adds DirectX 9, including 32-bit programs, and needs matching DLLs plus MoltenVK. Until the DLLs are built, ports with WineD3D enabled use it for DirectX 9."
             case "dxmt":
                 text = "Opens with DXMT for DirectX 10/11. DirectX 9 uses WineD3D."
             case "dxvk":

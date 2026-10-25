@@ -126,4 +126,25 @@ if (
   fail "copy failures must fail installation even when called in a conditional"
 fi
 
+# A fresh default port can use its enabled WineD3D fallback before Spock exists.
+# This must neither prefer an old native DLL nor fetch unused MoltenVK.
+(
+  die() { echo "$*" >&2; exit 1; }
+  runtime_prepare_moltenvk_env() { touch "${tmpdir}/moltenvk-requested"; }
+  unset SPOCK_D3D9_PATH COSMOS_AUTO_SPOCK_D3D9
+  COSMOS_RUNTIME_DIR="${tmpdir}/not-installed"
+  COSMOS_PORT=1
+  COSMOS_PORT_RENDERERS='dxmt,d9vk,wined3d'
+  ensure_spockd3d9_installed >/dev/null
+  enable_spockd3d9_env >/dev/null
+  [[ "${WINEDLLOVERRIDES}" == *'d3d9=b' ]] || fail "fresh port should force WineD3D"
+  [[ ! -f "${tmpdir}/moltenvk-requested" ]] || fail "WineD3D fallback must not download MoltenVK"
+  if (COSMOS_PORT_RENDERERS='dxmt,d9vk'; ensure_spockd3d9_installed) >/dev/null 2>&1; then
+    fail "missing Spock must fail if port did not enable WineD3D"
+  fi
+  if (SPOCK_D3D9_PATH="${tmpdir}/invalid-explicit-path"; ensure_spockd3d9_installed) >/dev/null 2>&1; then
+    fail "invalid explicit Spock path must report an error"
+  fi
+)
+
 printf 'OK: Spock path, PE architecture, and override-merge tests passed\n'

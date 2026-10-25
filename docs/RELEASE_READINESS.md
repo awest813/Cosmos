@@ -19,6 +19,18 @@ branch's Ports and split-dashboard architecture.
   Terminal work disables port mutations and launch actions.
 - Read-only game preflight records prefix architecture, rejects x64 games in
   win32 prefixes, and explains that x86/WoW64 runtime support needs actual testing.
+- Ports, Bottles, and import navigation are available before Steam setup. Ports
+  links to graphics downloads; existing Spock folder selection can open Graphics
+  settings before Steam is installed. Rosetta installation uses Terminal before
+  port launch, with an explicit action label.
+- Executable selection and CLI creation detect x86/x64 headers, with explicit
+  architecture mismatches rejected. Apple Silicon/macOS 14.6 requirements are
+  checked by the dashboard, CLI, and generated apps, including Rosetta Terminal.
+- Failed creation retains the form and displays the error for retry. Port
+  selection stays available during jobs; creation/build/launch remain guarded.
+- Fresh ports with WineD3D enabled can launch before Spock is built, with builtin
+  D3D9 selected and no unnecessary MoltenVK request. Explicit invalid Spock paths
+  still produce an error.
 
 ## Evidence and release gates
 
@@ -34,7 +46,7 @@ commit and artifact:
 | --- | --- |
 | Automated code checks | Full shell suite, debug/release Swift builds, and XCTest, including Ports directory overrides |
 | Packaging | Built app release audit, expected architecture, and DMG smoke checks on macOS |
-| UI/UX | Ports and Graphics at minimum window size, light/dark, keyboard-only, VoiceOver and Reduce Motion; failed operation/retry and a pending Terminal job |
+| UI/UX | Ports/Graphics before Steam setup; first port with/without Rosetta and Spock; minimum window size, light/dark, keyboard-only, VoiceOver and Reduce Motion; failed creation/retry and a pending Terminal job |
 | 32-bit baseline | Actual x86 game in the intended WoW64 runtime: launch, menu, gameplay, save/load, exit/relaunch |
 | Spock | Same game/settings against WineD3D, recording exact runtime/DLL versions and the loaded renderer; test missing-x86 fallback too |
 | Distribution | Developer ID signature/notarization and fresh install/update verification for a public release |

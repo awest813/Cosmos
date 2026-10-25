@@ -41,7 +41,7 @@ Commands:
       --windows <ver>           winxp | win7 | win8 | win10 (default) | win11
       --retina <0|1>            Default 0.
       --args <text>             Extra arguments passed to the program.
-      --program-arch <arch>     win64 (default) | win32. 32-bit programs run
+      --program-arch <arch>     win64 | win32. Detects existing EXEs; otherwise win64.
                                 inside the 64-bit prefix on Apple Silicon.
       --dxmt <0|1>              DirectX 10/11 → Metal. Default 1.
       --d3dmetal <0|1>          DirectX 11/12 → Metal. Personal ports only. Default 0.
@@ -105,7 +105,7 @@ cmd_list() {
 
 cmd_create() {
   local name="" exe="" slug="" bottle="" distribution="personal" windows="win10"
-  local retina="0" args="" program_arch="win64" dxmt="1" d3dmetal="0" dxvk="0" d9vk="1" cnc="1" wined3d="1"
+  local retina="0" args="" program_arch="" dxmt="1" d3dmetal="0" dxvk="0" d9vk="1" cnc="1" wined3d="1"
   local cnc_path="" gptk_path=""
   port_require_apple_silicon || exit 1
   while (($#)); do
@@ -151,7 +151,12 @@ cmd_create() {
   cnc="$(port_normalize_flag "${cnc}")" || die "--cnc-ddraw must be 0 or 1."
   wined3d="$(port_normalize_flag "${wined3d}")" || die "--wined3d must be 0 or 1."
   retina="$(port_normalize_flag "${retina}")" || die "--retina must be 0 or 1."
-  program_arch="$(program_arch_normalize "${program_arch}")" || die "--program-arch must be win64 or win32."
+  local detected_arch
+  detected_arch="$(port_detect_program_arch "${exe}" || true)"
+  program_arch="$(program_arch_normalize "${program_arch:-${detected_arch:-win64}}")" || die "--program-arch must be win64 or win32."
+  if [[ -n "${detected_arch}" && "${detected_arch}" != "${program_arch}" ]]; then
+    die "The executable is ${detected_arch}, but --program-arch is ${program_arch}. Choose the matching program architecture."
+  fi
   [[ "${args}" != *$'\n'* ]] || die "Launch arguments must be a single line."
 
   if [[ "${distribution}" == "share" && "${d3dmetal}" == "1" ]]; then
