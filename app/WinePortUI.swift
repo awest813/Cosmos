@@ -14,6 +14,9 @@ struct PortsDashboard: View {
     var requiresRosetta: Bool = false
     var onUpdate: ((WinePort, WinePortDraft, @escaping (String?) -> Void) -> Void)? = nil
     var onOpenLogs: ((WinePort) -> Void)? = nil
+    var onDiagnose: ((WinePort) -> Void)? = nil
+    var onStopEnvironment: ((WinePort) -> Void)? = nil
+    var onCloneEnvironment: ((WinePort) -> Void)? = nil
     var onCreate: (WinePortDraft, @escaping (String?) -> Void) -> Void
     var onLaunch: (WinePort) -> Void
     var onBuild: (WinePort) -> Void
@@ -24,6 +27,8 @@ struct PortsDashboard: View {
     @State private var pendingDelete: WinePort?
     @State private var editingPort: WinePort?
     @State private var fileCheck: PortFileCheck?
+    @State private var checkingFiles = false
+    @State private var pendingStop: WinePort?
 
     private var selectedPort: WinePort? {
         ports.first { $0.id == selectedID }
@@ -143,6 +148,17 @@ struct PortsDashboard: View {
         } message: {
             Text("Removes the port definition. A Mac app you already built stays where it is.")
         }
+        .alert("Stop this Windows environment?", isPresented: Binding(
+            get: { pendingStop != nil }, set: { if !$0 { pendingStop = nil } }
+        )) {
+            Button("Stop Environment", role: .destructive) {
+                if let port = pendingStop { onStopEnvironment?(port) }
+                pendingStop = nil
+            }
+            Button("Cancel", role: .cancel) { pendingStop = nil }
+        } message: {
+            Text("Running games in this environment may lose unsaved progress. The stop action targets this environment's Wine processes.")
+        }
     }
 
     @ViewBuilder
@@ -252,6 +268,9 @@ struct PortsDashboard: View {
                 PortFileCheckView(port: port, check: fileCheck)
                     .id(fileCheck.report(for: port))
             }
+            if checkingFiles {
+                HStack { ProgressView().controlSize(.small); Text("Checking game files…").font(.caption) }
+            }
             if let prefix = port.environmentPrefixURL {
                 DisclosureGroup("Windows environment files") {
                     WineEnvironmentFilesView(layout: WineEnvironmentLayout(prefix: prefix))
@@ -266,29 +285,60 @@ struct PortsDashboard: View {
     @ViewBuilder
     private func recoveryActions(_ port: WinePort) -> some View {
         Button {
-            fileCheck = PortFileCheck.inspect(port)
+            checkFiles(port)
         } label: {
             Label("Check Game Files", systemImage: "checkmark.doc")
         }
         .buttonStyle(.bordered)
+        .disabled(checkingFiles)
         .help("Check the game EXE, saved architecture and environment without running Wine")
         Button {
-            let check = PortFileCheck.inspect(port)
-            fileCheck = check
-            if let url = check.gameURL, FileManager.default.fileExists(atPath: url.path) {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-            }
+            checkFiles(port, reveal: true)
         } label: {
             Label("Show Game Files", systemImage: "folder")
         }
         .buttonStyle(.bordered)
-        if let onOpenLogs {
-            Button { onOpenLogs(port) } label: {
-                Label("Open Launch Log", systemImage: "doc.text")
+        .disabled(checkingFiles)
+        Menu("Environment Actions") {
+            if let onOpenLogs {
+                Button { onOpenLogs(port) } label: {
+                    Label("Open Launch Log", systemImage: "doc.text")
+                }
+                .help("Open the launch log for this port's environment")
             }
-            .buttonStyle(.bordered)
-            .disabled(isRunning)
-            .help("Open the launch log for this port's environment")
+            if let onDiagnose {
+                Button { onDiagnose(port) } label: {
+                    Label("Diagnose Launch", systemImage: "stethoscope")
+                }
+                .help("Inspect this environment's log and runtime files without starting Wine")
+            }
+            if onStopEnvironment != nil {
+                Button { pendingStop = port } label: {
+                    Label("Stop Environment", systemImage: "stop.circle")
+                }
+            }
+            if let onCloneEnvironment, !port.bottle.isEmpty {
+                Button { onCloneEnvironment(port) } label: {
+                    Label("Clone Environment…", systemImage: "square.on.square")
+                }
+            }
+        }
+        .disabled(isRunning)
+    }
+
+    private func checkFiles(_ port: WinePort, reveal: Bool = false) {
+        guard !checkingFiles else { return }
+        checkingFiles = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = PortFileCheck.inspect(port)
+            DispatchQueue.main.async {
+                checkingFiles = false
+                guard selectedID == port.id, ports.first(where: { $0.id == port.id }) == port else { return }
+                fileCheck = result
+                if reveal, let url = result.gameURL, FileManager.default.fileExists(atPath: url.path) {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+            }
         }
     }
 

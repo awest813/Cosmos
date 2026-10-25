@@ -347,8 +347,10 @@ mkdir -p "${windows_prefix}/drive_c/Games"
 cp "${tmpdir}/game32.exe" "${windows_prefix}/drive_c/Games/SC3U.exe"
 WINEPREFIX="${windows_prefix}" "${ROOT}/port.command" create --name "Windows Path" --exe 'C:\games\sc3u.exe' >/dev/null
 windows_conf="${COSMOS_SUPPORT_DIR}/Ports/windows-path/port.conf"
-[[ "$(port_get_setting "${windows_conf}" PORT_EXE)" == "${windows_prefix}/drive_c/Games/SC3U.exe" ]] || fail "Windows path did not resolve actual casing"
+[[ "$(port_get_setting "${windows_conf}" PORT_EXE)" == 'C:\games\sc3u.exe' ]] || fail "logical Windows path was not retained"
 [[ "$(port_get_setting "${windows_conf}" PORT_PROGRAM_ARCH)" == win32 ]] || fail "Windows path architecture not detected"
+windows_out="$(WINEPREFIX="${windows_prefix}" SCRIPT_DIR="${fake}" "${ROOT}/port.command" launch windows-path)"
+printf '%s\n' "${windows_out}" | grep -Fxq "game=${windows_prefix}/drive_c/Games/SC3U.exe" || fail "logical Windows launch did not resolve actual casing"
 [[ ! -d "${COSMOS_SUPPORT_DIR}/Ports/notepad" ]] || fail "delete should remove the port definition"
 [[ -d "${app}" ]] || fail "delete should leave the built Mac app in place"
 

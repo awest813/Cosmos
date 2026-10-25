@@ -130,7 +130,8 @@ downloads/cloud saves and a larger Lutris-like installer task model can follow.
 Cosmos can distribute a GPLv3 combined application using compatible GPLv3 code,
 preserving upstream source, notices and obligations. MIT/LGPL components retain
 their own notices and applicable terms. Check per-file and dependency terms
-before extraction. This review imports no upstream source or binary payloads.
+before extraction. The initial review imported no code. The subsequent implementation adapts the
+patterns below with per-file attribution; see [UPSTREAM_IMPLEMENTATION.md](UPSTREAM_IMPLEMENTATION.md).
 
 Sikarugir's [main README](https://github.com/Sikarugir-App/Sikarugir/blob/9bfd1b8292747687266462ab6e2fe1561d14a730/README.md)
 distinguishes LGPL Configure from newer Creator/Launcher components. Its verified

@@ -185,12 +185,7 @@ cmd_save() {
   local detected_arch host_exe
   host_exe="$(port_host_executable "${exe}" "${bottle}")" || die "The Windows program path is invalid or its drive is not mapped."
   detected_arch="$(port_detect_program_arch "${host_exe}" || true)"
-  if [[ "${exe}" == [A-Za-z]:* ]]; then exe="${host_exe}"; fi
-  if [[ "${exe}" == drive_c/* ]]; then
-    local selected_prefix="${WINEPREFIX:-${HOME}/.wine-steam-11}"
-    [[ -z "${bottle}" ]] || selected_prefix="${BOTTLES_DIR}/${bottle}/prefix"
-    if [[ "${host_exe}" == "${selected_prefix}/"* ]]; then exe="${host_exe#"${selected_prefix}/"}"; fi
-  fi
+  # Keep Windows/drive_c paths logical: a store update may retarget a junction.
   if [[ "${mode}" == update && "${exe_changed}" == 1 && "${arch_explicit}" == 0 && -n "${detected_arch}" ]]; then
     program_arch="${detected_arch}"
   fi

@@ -157,6 +157,9 @@ if [[ -d "${REPO_ROOT}/scripts/lib" ]]; then
   cp -R "${REPO_ROOT}/scripts/lib/." "${APP_BUNDLE}/Contents/Resources/scripts/lib/"
   rm -rf "${APP_BUNDLE}/Contents/Resources/scripts/lib/__pycache__"
 fi
+mkdir -p "${APP_BUNDLE}/Contents/Resources/runtime"
+python3 "${REPO_ROOT}/scripts/lib/upstream_recipes.py" --root "${REPO_ROOT}" --build-index "${APP_BUNDLE}/Contents/Resources/runtime/highball-recipes.json"
+cp "${REPO_ROOT}/third_party/highball-db/recipes/LICENSE" "${APP_BUNDLE}/Contents/Resources/runtime/HIGHBALL-RECIPES-LICENSE.txt"
 if [[ -d "${REPO_ROOT}/third_party/steam-on-m1-wine" ]]; then
   mkdir -p "${APP_BUNDLE}/Contents/Resources/third_party"
   cp -R "${REPO_ROOT}/third_party/steam-on-m1-wine" \
@@ -177,7 +180,8 @@ if [[ -d "${REPO_ROOT}/profiles" ]]; then
   cp -R "${REPO_ROOT}/profiles" "${APP_BUNDLE}/Contents/Resources/profiles"
 fi
 if [[ -d "${REPO_ROOT}/runtime" ]]; then
-  cp -R "${REPO_ROOT}/runtime" "${APP_BUNDLE}/Contents/Resources/runtime"
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/runtime"
+  cp -R "${REPO_ROOT}/runtime/." "${APP_BUNDLE}/Contents/Resources/runtime/"
 fi
 OFFLINE_TAR="${REPO_ROOT}/build/offline-runtime/cosmos-runtime-offline.tar.xz"
 if [[ -f "${OFFLINE_TAR}" ]]; then

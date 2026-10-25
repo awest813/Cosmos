@@ -100,3 +100,12 @@ macOS CI can establish compilation and packaging checks. It cannot establish
 interactive accessibility or gameplay results. Linux shell checks cannot
 establish any native UI or GPU compatibility result. Keep unperformed gates
 explicitly pending rather than treating them as passed.
+
+## Audit implementation follow-up
+
+The upstream audit now has implemented junction reading, runtime diagnostics,
+scoped process stopping, named-environment cloning, verified resumable downloads
+and curated recipe review. See [UPSTREAM_IMPLEMENTATION.md](UPSTREAM_IMPLEMENTATION.md)
+for boundaries and verification. Real SimCity 3000 Unlimited installation/gameplay,
+32-bit runtime behavior, SpockD3D9 rendering and interactive accessibility remain
+manual release gates; fixture success does not establish game compatibility.

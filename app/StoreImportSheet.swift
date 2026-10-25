@@ -85,6 +85,15 @@ struct StoreImportRequest: Identifiable {
         if values[.launchAfterInstall] == "0" { arguments.append("--no-launch") }
         return arguments
     }
+
+    static func cloneEnvironment(source: String) -> StoreImportRequest {
+        StoreImportRequest(
+            title: "Clone Windows Environment",
+            message: "Cosmos stops Wine in \(source), then copies its Windows files, registry and settings into a new environment. Save your game first. External drive folders remain linked. Existing environments are preserved.",
+            fields: [.init(id: .displayName, label: "New environment name", placeholder: "simcity-backup")],
+            submitLabel: "Stop and Clone", script: "bottle.command", baseArguments: ["clone", source], forceTerminal: false
+        )
+    }
 }
 
 struct StoreImportSheet: View {

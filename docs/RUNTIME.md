@@ -96,3 +96,21 @@ Override tarball path: `COSMOS_OFFLINE_RUNTIME_TARBALL=/path/to/cosmos-runtime-o
 
 `scripts/build_cosmos_app.command` copies `runtime/` (manifest + NOTICE) and,
 when present, the offline tarball into the app Resources folder.
+
+## Verified component cache
+
+Online Wine, DXMT, DXVK and MoltenVK archives require an exact-URL SHA-256 pin
+from `runtime/cosmos-runtime.json`, or `COSMOS_DOWNLOAD_SHA256` for a custom URL.
+The cache is `~/Library/Application Support/Cosmos/Downloads/Components` (respects
+`COSMOS_SUPPORT_DIR`). Strong ETags enable Range/If-Range resume. Changed responses,
+invalid ranges and HTTP 416 restart; checksum failures never activate a payload.
+Validated extraction is staged beside the destination; replacement retains the
+previous component in a hidden `.previous-*` directory for manual recovery.
+Existing/offline components retain their existing installation paths.
+
+Current default pins: Wine 11.8, DXMT 0.80, DXVK 1.10.3-20230507-repack and
+MoltenVK 1.2.8. The first three were checked against release asset digests;
+MoltenVK's pin was computed from the HTTPS release archive. The manifest's
+pre-existing DXMT Latest 0.81 URL returned 404 during this audit and has no pin;
+that online channel fails with a missing-checksum message. Use pinned 0.80 until
+an actual newer release and digest pass the runtime gate. No engine was upgraded.

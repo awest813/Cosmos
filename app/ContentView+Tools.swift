@@ -225,6 +225,13 @@ extension ContentView {
                     arguments: ["list"]
                 )
                 storeActionButton(
+                    title: "Review Upstream Recipe",
+                    subtitle: "Requirements and dependency hints",
+                    systemImage: "doc.text.magnifyingglass",
+                    script: "profile.command", arguments: ["upstream-recipe"],
+                    needsPath: true, pathPrompt: "Upstream recipe id (for example xact)"
+                )
+                storeActionButton(
                     title: "Run Installer",
                     subtitle: "EXE / MSI in prefix",
                     systemImage: "arrow.down.doc.fill",
@@ -417,6 +424,13 @@ extension ContentView {
                     baseArguments: arguments,
                     forceTerminal: true
                 )
+            } else if script == "profile.command", arguments.first == "upstream-recipe" {
+                storeImportRequest = StoreImportRequest(
+                    title: "Review Upstream Recipe",
+                    message: "Review a curated Highball recipe's requirements and matching Cosmos dependencies. Upstream verification can require a different engine or macOS version; Cosmos marks it untested. Examples: xact, steam, the-sims-legacy-collection.",
+                    fields: [.init(id: .path, label: "Recipe id", placeholder: "xact")],
+                    submitLabel: "Review", script: script, baseArguments: arguments, forceTerminal: false
+                )
             } else if needsPath {
                 storeImportRequest = StoreImportRequest(
                     title: pathPrompt,
@@ -451,6 +465,15 @@ extension ContentView {
 
         if request.script == "scripts/install_program.command" {
             runInTerminal(script: request.script, arguments: request.installerArguments(values: values))
+            return
+        }
+        if request.script == "bottle.command", request.baseArguments.first == "clone" {
+            let name = trimmed(.displayName)
+            runCommand(script: request.script, arguments: request.baseArguments + ["--name", name], onSuccess: {
+                showAdvancedTabs = true
+                selectedBottleID = name
+                dashboardSection = .bottles
+            })
             return
         }
 

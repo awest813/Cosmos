@@ -2,6 +2,11 @@ import XCTest
 @testable import Cosmos
 
 final class CommandOutputParserTests: XCTestCase {
+    func testMissingWineBuiltinHasSpecificRecoverySummary() {
+        let summary = CommandOutputParser.diagnoseSummary(from: "Suggested fixes (1):\n[runtime] Wine builtin missing: shcore.dll (i386-windows).")
+        XCTAssertTrue(summary?.contains("matching Wine build") == true)
+        XCTAssertFalse(summary?.contains("apply safe fixes") == true)
+    }
     func testLastErrorMessage() {
         let output = """
         ==> Downloading Wine

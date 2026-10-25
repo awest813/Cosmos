@@ -144,3 +144,18 @@ licenses. Apple's D3DMetal and the CrossOver application stay out.
 | [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) | MIT | Vendored `third_party/steam-on-m1-wine/` (wrapper + assets); launch/prefix integration in `steam_lib.sh` |
 
 See also [OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md).
+
+## October 2026 upstream adaptations
+
+`scripts/lib/wine_filesystem.py`, `runtime_integrity.py` and
+`component_download.py` reference Highball's GPLv3 reparse, integrity and resume
+patterns at `1512223fff145eae3b4c9fb588edf86758bc756b`. Their Cosmos adaptations
+ship with Cosmos's GPL license. `environment_clone.py` records Soju's GPLv3
+complete-prefix scope at `43ed224336cdffdba9dc4b47aa858a5273eb0838`.
+`prefix_processes.py` includes Vermut's complete MIT notice and source revision.
+
+`upstream_recipes.py` adapts only the vendored highball-db `recipes/` snapshot
+`2b5c876308a39268189b12f391d07c34c5fb7c3e`. The built review index includes source
+URLs/revision per entry and its CC0 license is bundled alongside it. ODbL derived
+predictions and MIT anti-cheat data are excluded from this index. `xact.recipe`
+records its curated upstream source. Existing vendor notices remain in place.

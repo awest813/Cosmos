@@ -14,6 +14,10 @@ final class PortsRenderingTests: XCTestCase {
             _ = NSApplication.shared
             let directory = URL(fileURLWithPath: output, isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try capture(
+                StoreImportSheet(request: .cloneEnvironment(source: "game-simcity"), onCancel: {}, onSubmit: { _ in nil }),
+                name: "clone-environment", size: NSSize(width: 520, height: 400), scheme: .light, directory: directory
+            )
             let settings = [
                 "PORT_NAME": "A Very Long Classic Windows Game Title — Complete Edition",
                 "PORT_EXE": "/Users/you/Games/Classic Windows Game/game.exe",
@@ -35,7 +39,8 @@ final class PortsRenderingTests: XCTestCase {
                 let dashboard = PortsDashboard(
                     ports: [port], bottleNames: ["Classic Games"], isRunning: false,
                     onOpenDownloads: {}, onInstall: {}, onResumeInstall: {},
-                    onUpdate: { _, _, done in done(nil) }, onOpenLogs: { _ in }, onCreate: { _, done in done(nil) },
+                    onUpdate: { _, _, done in done(nil) }, onOpenLogs: { _ in }, onDiagnose: { _ in },
+                    onStopEnvironment: { _ in }, onCloneEnvironment: { _ in }, onCreate: { _, done in done(nil) },
                     onLaunch: { _ in }, onBuild: { _ in }, onDelete: { _ in }
                 )
                 try capture(

@@ -12,6 +12,9 @@ enum StoreImportValidation {
         let path = trimmed(.path)
         let slug = trimmed(.battlenetSlug)
         let epic = trimmed(.epicAppName)
+        if request.script == "bottle.command", request.baseArguments.first == "clone" {
+            return BottleStore.isValidName(trimmed(.displayName)) ? nil : "Use an environment name with letters, numbers, dots, underscores or hyphens."
+        }
 
         if request.script == "scripts/install_program.command" {
             if !request.baseArguments.contains("resume"),

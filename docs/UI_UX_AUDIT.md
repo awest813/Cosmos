@@ -172,3 +172,15 @@ Check Again completed, the success message and Back to Setup appeared, and the
 controls became available again. The fresh diagnostic log contained normal command
 completion with no AttributeGraph warnings or fatal errors. This verifies the
 tested UI flow, not game compatibility or every download provider.
+
+## Upstream implementation polish — October 25, 2026
+
+Ports groups launch logs, read-only launch diagnosis, Stop Environment and Clone
+Environment in an Environment Actions menu. Stop warns about unsaved progress;
+clone uses a new-name sheet and explains linked external folders. File checks
+run off the UI thread, show progress and discard stale results after selection or
+port edits. Reports include the configured logical path and resolved host file.
+
+Advanced Tools offers Review Upstream Recipe. This produces a review plan with
+engine/OS requirements and matching dependency recipes; it never auto-applies
+upstream changes or labels upstream game results as Cosmos-tested.

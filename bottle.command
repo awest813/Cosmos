@@ -50,6 +50,7 @@ Commands:
   launch <name> [run args...]   Launch into the bottle (runs run.command).
   logs <name>                   Show the bottle's latest launch log.
   filesystem <name>             Inspect Windows folders/drive mappings as JSON.
+  clone <source> --name <new>    Stop source Wine and clone to a new environment.
   reset <name> [--force]        Delete the prefix only (keep settings/logs).
   delete <name> [--force]       Delete the whole bottle.
 
@@ -280,6 +281,12 @@ cmd_filesystem() {
   wine_fs_inspect "$(bottle_dir "${name}")/prefix"
 }
 
+cmd_clone() {
+  local name="${1:-}"; require_bottle "${name}"; shift
+  [[ $# == 2 && "$1" == --name ]] || die "Usage: bottle.command clone <source> --name <new>"
+  python3 "${SCRIPT_DIR}/scripts/lib/environment_clone.py" "${name}" --name "$2" --bottles-root "${BOTTLES_DIR}"
+}
+
 cmd_reset() {
   local name="${1:-}" force="${2:-}"
   require_bottle "${name}"
@@ -322,6 +329,7 @@ main() {
     launch)         shift; cmd_launch "$@" ;;
     logs)           shift; cmd_logs "$@" ;;
     filesystem)     shift; cmd_filesystem "$@" ;;
+    clone)          shift; cmd_clone "$@" ;;
     reset)          shift; cmd_reset "$@" ;;
     delete)         shift; cmd_delete "$@" ;;
     ""|--help|-h|help) usage ;;

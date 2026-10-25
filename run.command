@@ -683,10 +683,15 @@ ensure_wine_installed() {
       runtime_try_offline_stack || true
     fi
     if [[ ! -x "${WINE_BIN}" ]]; then
-      mkdir -p "${WINE_ROOT}"
-      if ! curl -L --fail --retry 5 --retry-delay 1 "${WINE_URL}" | tar xJf - -C "${WINE_ROOT}"; then
+      local archive stage
+      archive="$(runtime_download_archive "${WINE_URL}")" || die "Wine download failed verification or could not be resumed. Review the URL/checksum and retry."
+      stage="$(mktemp -d "${TMPDIR:-/tmp}/cosmos-wine.XXXXXX")"
+      if ! tar xJf "${archive}" -C "${stage}" || [[ ! -x "${stage}/Wine Devel.app/Contents/Resources/wine/bin/wine" ]]; then
+        rm -rf "${stage}"
         die "Wine download failed. Check your network connection and try again."
       fi
+      runtime_activate_payload "${stage}" "${WINE_ROOT}" || die "Wine activation failed; the previous installation was preserved."
+      rm -rf "${stage}"
       [[ -x "${WINE_BIN}" ]] || die "Wine binary not found after extraction: ${WINE_BIN}"
     fi
   fi
@@ -1061,7 +1066,8 @@ ensure_dxmt_installed() {
   local tmp_dir
   tmp_dir="$(mktemp -d /tmp/dxmt.XXXXXX)"
 
-  if ! curl -L --fail --retry 5 --retry-delay 1 "${DXMT_URL}" | tar xzf - -C "${tmp_dir}"; then
+  local archive
+  if ! archive="$(runtime_download_archive "${DXMT_URL}")" || ! tar xzf "${archive}" -C "${tmp_dir}"; then
     rm -rf "${tmp_dir}"
     die "DXMT download failed. Check your network connection and try again."
   fi
@@ -1075,11 +1081,7 @@ ensure_dxmt_installed() {
 
   [[ -n "${payload_dir}" ]] || die "DXMT extraction failed: payload directories not found."
 
-  mkdir -p "${DXMT_ROOT}"
-  rm -rf "${DXMT_ROOT}/i386-windows" "${DXMT_ROOT}/x86_64-windows" "${DXMT_ROOT}/x86_64-unix"
-  cp -R "${payload_dir}/i386-windows" "${DXMT_ROOT}/"
-  cp -R "${payload_dir}/x86_64-windows" "${DXMT_ROOT}/"
-  cp -R "${payload_dir}/x86_64-unix" "${DXMT_ROOT}/"
+  runtime_activate_payload "${payload_dir}" "${DXMT_ROOT}" || die "DXMT activation failed; the previous installation was preserved."
   rm -rf "${tmp_dir}"
 }
 

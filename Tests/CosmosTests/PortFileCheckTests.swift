@@ -1,7 +1,34 @@
 import XCTest
+import Darwin
 @testable import Cosmos
 
 final class PortFileCheckTests: XCTestCase {
+    func testWindowsJunctionIsFollowedWithoutChangingThePrefix() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let drive = root.appendingPathComponent("drive_c")
+        let actual = drive.appendingPathComponent("Versions/One/Game.exe")
+        try executable(at: actual, arch: .win32)
+        let stub = drive.appendingPathComponent("Current?")
+        try FileManager.default.createDirectory(at: stub, withIntermediateDirectories: true)
+        let text = Array("\\??\\C:\\Versions\\One".data(using: .utf16LittleEndian)!)
+        var bytes: [UInt8] = [3, 0, 0, 160]
+        let size = 8 + text.count
+        bytes += [UInt8(size & 255), UInt8(size >> 8), 0, 0, 0, 0, UInt8(text.count & 255), UInt8(text.count >> 8), 0, 0, 0, 0]
+        bytes += text
+        let status = bytes.withUnsafeBytes { buffer in
+            setxattr(stub.path, "user.WINEREPARSE", buffer.baseAddress, buffer.count, 0, 0)
+        }
+        guard status == 0 else { throw XCTSkip("Fixture volume does not support Wine reparse xattrs") }
+        let before = try FileManager.default.subpathsOfDirectory(atPath: root.path).sorted()
+        let port = WinePort(id: "junction", settings: settings("drive_c/Current/Game.exe"), directory: root)
+        let check = PortFileCheck.inspect(port, mainPrefix: root)
+        XCTAssertEqual(check.gameURL?.resolvingSymlinksInPath().path, actual.resolvingSymlinksInPath().path)
+        XCTAssertEqual(check.findings.first { $0.id == "executable" }?.passed, true)
+        XCTAssertEqual(try FileManager.default.subpathsOfDirectory(atPath: root.path).sorted(), before)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: drive.appendingPathComponent("Current").path))
+    }
+
     private func executable(at url: URL, arch: WindowsProgramArchitecture) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         var bytes = [UInt8](repeating: 0, count: 256)

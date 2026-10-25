@@ -11,13 +11,15 @@ milestone **0.7 (CosmosDB)** and **1.0 (Cosmos Runtime)** in
 The [October 2026 launcher review](UPSTREAM_REUSE_REVIEW.md) adds this concrete
 queue for the Sikarugir-first installation/filesystem work:
 
-- [ ] Adapt Highball's read-only Wine junction handling to Cosmos drive mappings.
-- [ ] Add architecture-aware runtime integrity diagnostics, reviewing the newer
-  upstream fix for a missing x86 builtin when its x64 counterpart remains.
-- [ ] Adapt Vermut's prefix-owned, bounded process stop and non-following cleanup.
-- [ ] Add complete-environment clone/restore using Soju/Bottles patterns after
-  scoped process control is available.
-- [ ] Add validated Range/ETag component-download resume and curated recipe adapters.
+- [x] Read-only Wine junction/reparse resolution using actual drive mappings.
+- [x] Architecture-aware builtin diagnostics, including missing x86 with x64 present.
+- [x] Bounded prefix/runtime-owned process stop with PID birth revalidation.
+- [x] Complete named-environment clones with staged exclusive publication; use a
+  clone as restoration into a new name. In-place restore/version history is future work.
+- [x] SHA-256-verified Range/ETag downloads and curated CC0 recipe review plans.
+- [ ] Broader uninstall cleanup policy and game-specific compatibility validation.
+
+Implementation details and limitations: [UPSTREAM_IMPLEMENTATION.md](UPSTREAM_IMPLEMENTATION.md).
 
 Highball DB data is not uniformly CC0: derived predictions are ODbL and anti-cheat
 data retains its MIT notice. Preserve those boundaries in future imports.
@@ -28,7 +30,7 @@ data retains its MIT notice. Preserve those boundaries in future imports.
 | Steam detection | VDF verify + native dual-path in `steam_lib.sh` | steamlocate-rs signed helper (1.0) |
 | CosmosDB | ProtonDB, AGW, MacGamingDB, UMU, community `cosmos-db/`, badges | Scale community DB; auto-merge validated drafts |
 | Profiles | 21+ curated YAML + macos-wine-steam drafts + `seed-deps` | 100+ profiles; quarterly upstream sync |
-| Runtime | Manifest, offline DMG tarball, DXVK auto-fetch | DXVK/MoltenVK in offline bundle; checksum pins |
+| Runtime | Manifest, offline DMG tarball, DXVK auto-fetch | DXVK/MoltenVK in offline bundle; additional channel pins |
 
 Cosmos is **bash-first** with a SwiftUI dashboard. Prefer integrations that
 fit shell scripts + optional Python helpers until a native helper binary (1.0)

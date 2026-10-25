@@ -43,6 +43,12 @@ jobs:
           path: build/ui-smoke/*.png
           if-no-files-found: warn
 
+      - name: macOS filesystem and process contracts
+        run: |
+          python3 scripts/test_audit_diagnostics.py
+          python3 scripts/test_prefix_processes.py
+          python3 scripts/test_environment_clone.py
+
       - name: Build installable preview
         env:
           COSMOS_BUILD_ARCHS: arm64

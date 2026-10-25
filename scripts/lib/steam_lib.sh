@@ -618,21 +618,13 @@ steam_verify_webhelper_wrapper() {
 # --- Launch preparation (steam-on-m1-wine launch-steam.sh) ------------------
 
 steam_stop_wine_prefix() {
-  local wineserver_bin
-  wineserver_bin="$(dirname "${WINE_BIN:?WINE_BIN required}")/wineserver"
-  [[ -x "${wineserver_bin}" ]] || return 0
-  WINEPREFIX="${WINEPREFIX}" "${wineserver_bin}" -k 2>/dev/null || true
+  local helper="${SCRIPT_DIR:-}/scripts/lib/prefix_processes.py"
+  [[ -f "${helper}" ]] || return 0
+  python3 "${helper}" --prefix "${WINEPREFIX}" --binary "${WINE_BIN:?WINE_BIN required}" || return 1
 }
 
 steam_stop_lingering_processes() {
   steam_stop_wine_prefix
-  local pfx="${WINEPREFIX:?WINEPREFIX required}"
-  pkill -f "wineserver.*${pfx}" 2>/dev/null || true
-  pkill -f "wine.*${pfx}" 2>/dev/null || true
-  # Steam can auto-start during silent install and leave Chromium locks behind.
-  pkill -f "${pfx}/drive_c/Program Files \\(x86\\)/Steam" 2>/dev/null || true
-  pkill -f "${pfx}/drive_c/Program Files/Steam" 2>/dev/null || true
-  sleep 1
 }
 
 steam_clear_chromium_locks() {

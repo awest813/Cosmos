@@ -2,6 +2,13 @@ import XCTest
 @testable import Cosmos
 
 final class StoreImportValidationTests: XCTestCase {
+    func testCloneEnvironmentNameAndSourceAreKeptDistinct() {
+        let request = StoreImportRequest.cloneEnvironment(source: "original")
+        XCTAssertEqual(request.baseArguments, ["clone", "original"])
+        XCTAssertNil(StoreImportValidation.validate(request: request, values: [.displayName: "simcity-copy"]))
+        XCTAssertNotNil(StoreImportValidation.validate(request: request, values: [.displayName: "../original"]))
+        XCTAssertNotNil(StoreImportValidation.validate(request: request, values: [.displayName: "with spaces"]))
+    }
     func testWindowsInstallerOptionsPreservePathsAndDoNotRequireOptionalFields() {
         let request = StoreImportRequest.classicGame()
         XCTAssertFalse(request.fields.first { $0.id == .installDirectory }!.isRequired)

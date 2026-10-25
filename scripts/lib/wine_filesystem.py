@@ -4,7 +4,53 @@ import json
 import os
 import re
 import sys
+import struct
 from pathlib import Path
+
+# Reparse buffer layout/read-only stub following adapted from Highball's
+# WineReparsePoint.swift (GPL-3.0), by the Highball contributors.
+# https://github.com/gauthierpiarrette/highball/blob/1512223fff145eae3b4c9fb588edf86758bc756b/Sources/HighballKit/WineReparsePoint.swift
+# Cosmos additions: bounded decoding, cycle detection and actual drive mappings.
+def decode_reparse(data):
+    if len(data) < 16 or len(data) > 16384:
+        raise ValueError('Malformed Wine junction buffer')
+    tag, length = struct.unpack_from('<IH', data)
+    end = 8 + length
+    if end > len(data) or end < 16:
+        raise ValueError('Truncated Wine junction buffer')
+    offset, size = struct.unpack_from('<HH', data, 8)
+    if tag == 0xA000000C:
+        if end < 20:
+            raise ValueError('Truncated Wine symbolic link')
+        flags = struct.unpack_from('<I', data, 16)[0]
+        if flags & ~1:
+            raise ValueError('Unsupported Wine symbolic link flags')
+        base, relative = 20, bool(flags & 1)
+    elif tag == 0xA0000003:
+        base, relative = 16, False
+    else:
+        raise ValueError('Unsupported Wine reparse tag')
+    if offset % 2 or size < 2 or size % 2 or base + offset + size > end:
+        raise ValueError('Invalid Wine junction target bounds')
+    try:
+        target = data[base + offset:base + offset + size].decode('utf-16-le')
+    except UnicodeError as error:
+        raise ValueError('Invalid Wine junction target text') from error
+    if '\0' in target:
+        raise ValueError('Invalid null in Wine junction target')
+    return target, relative
+
+
+def read_reparse(path):
+    try:
+        data = os.getxattr(path, 'user.WINEREPARSE', follow_symlinks=False)
+    except OSError as error:
+        import errno
+        if error.errno in (errno.ENOENT, errno.ENOTDIR, errno.ENODATA,
+                           getattr(errno, 'ENOATTR', errno.ENODATA), errno.ENOTSUP):
+            return None
+        raise
+    return decode_reparse(data)
 
 
 def canonical(path):
@@ -38,19 +84,66 @@ def relative_parts(text):
     return parts
 
 
-def case_path(root, parts):
+def case_component(current, part, insensitive=True):
     """Prefer exact names; resolve Windows case-insensitive names unambiguously."""
-    current = root
-    for part in parts:
-        exact = current / part
-        if not os.path.lexists(exact) and current.is_dir():
-            matches = [entry for entry in current.iterdir() if entry.name.casefold() == part.casefold()]
-            if len(matches) > 1:
-                raise ValueError(f'Ambiguous Windows filename: {exact}')
-            if matches:
-                exact = matches[0]
-        current = exact
-    return current
+    exact = current / part
+    if not os.path.lexists(exact) and current.is_dir() and insensitive:
+        matches = [entry for entry in current.iterdir() if entry.name.casefold() == part.casefold()]
+        if len(matches) > 1:
+            raise ValueError(f'Ambiguous Windows filename: {exact}')
+        if matches:
+            exact = matches[0]
+    return exact
+
+
+def junction_target(prefix, parent, decoded):
+    target, relative = decoded
+    for namespace in ('\\??\\', '\\\\?\\'):
+        if target.startswith(namespace):
+            target = target[len(namespace):]
+            break
+    if not relative:
+        if not re.match(r'^[a-zA-Z]:[\\/]', target):
+            raise ValueError('Unsupported absolute Wine junction target')
+        return drive_root(prefix, target[0]).joinpath(*relative_parts(target[3:].replace('\\', '/')))
+    parent = canonical(parent)
+    if target.startswith(('\\', '/')) or re.match(r'^[a-zA-Z]:', target):
+        raise ValueError('Invalid relative Wine junction target')
+    roots = sorted(mappings(prefix).values(), key=lambda root: -len(str(root)))
+    for root in roots:
+        try:
+            before = parent.relative_to(root)
+        except ValueError:
+            continue
+        parts = relative_parts(str(before) + '/' + target.replace('\\', '/'))
+        return root.joinpath(*parts)
+    raise ValueError('Relative Wine junction is outside mapped drives')
+
+
+def follow_path(prefix, path, insensitive=True):
+    path = Path(os.path.abspath(path))
+    seen = set()
+    for _ in range(33):
+        current = Path(path.anchor)
+        parts = path.parts[1:]
+        for index, part in enumerate(parts):
+            direct = case_component(current, part, insensitive)
+            decoded = read_reparse(direct)
+            stub = direct
+            if decoded is None and not os.path.lexists(direct):
+                stub = case_component(current, part + '?', insensitive)
+                decoded = read_reparse(stub)
+            if decoded is not None:
+                state = (str(stub), parts[index + 1:])
+                if state in seen:
+                    raise ValueError('Cyclic Wine junction')
+                seen.add(state)
+                path = junction_target(prefix, current, decoded).joinpath(*parts[index + 1:])
+                break
+            current = direct
+        else:
+            return current
+    raise ValueError('Wine junction nesting exceeds 32 links')
 
 
 def host_path(prefix, text):
@@ -58,14 +151,15 @@ def host_path(prefix, text):
     if not text or '\n' in text or '\r' in text:
         raise ValueError('A single-line path is required')
     if re.match(r'^[a-zA-Z]:[\\/]', text):
-        return case_path(drive_root(prefix, text[0]), relative_parts(text[3:].replace('\\', '/')))
+        return follow_path(prefix, drive_root(prefix, text[0]).joinpath(*relative_parts(text[3:].replace('\\', '/'))))
     if re.match(r'^[a-zA-Z]:', text) or text.startswith('\\'):
         raise ValueError('Use an absolute Windows drive path, such as C:\\Games\\Game.exe')
     if text.startswith('/'):
-        return Path(os.path.abspath(text))
+        return follow_path(prefix, Path(os.path.abspath(text)), insensitive=False)
     if text.startswith('drive_c/'):
-        return case_path(prefix / 'drive_c', relative_parts(text[len('drive_c/'):]))
-    return case_path(prefix, relative_parts(text))
+        parts = relative_parts(text[len('drive_c/'):])
+        return follow_path(prefix, (prefix / 'drive_c').joinpath(*parts))
+    return follow_path(prefix, prefix.joinpath(*relative_parts(text)))
 
 
 def mappings(prefix):

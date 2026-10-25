@@ -84,3 +84,21 @@ In a 64-bit/WoW64 prefix, `system32` contains 64-bit DLLs and `syswow64` contain
 32-bit DLLs. A 32-bit-only prefix uses `system32` for 32-bit DLLs. SpockD3D9 must
 match the game's architecture. The presence of these folders does not establish
 runtime WoW64 support or game compatibility.
+
+## Junctions and environment copies
+
+The reader follows Wine's `user.WINEREPARSE` junction/symlink attributes, including
+`?` stubs, without replacing them with Mac symlinks. It validates buffer bounds,
+resolves target drives against this prefix, and rejects cycles/unmapped targets.
+Ports retain Windows paths so a later junction update resolves at the next launch.
+Check Game Files runs the same reader in the background and reports failures.
+
+`bottle.command clone source --name backup` stops only positively identified Wine
+processes belonging to the selected prefix/runtime, then copies the complete named
+environment. Registry files, drive links, xattrs, settings and installer records
+are retained. APFS clonefile is attempted before a regular copy. Absolute links
+into the old prefix and installer destinations are rebased; external drive/Mac
+folder links stay links. Those external folders are **not backed up**. Save the
+game first. Existing destinations are refused and partial copies are not published.
+Use a new port targeting the clone; existing ports and app shortcuts retain their
+original environment. There is no in-place restore or automatic snapshot history.

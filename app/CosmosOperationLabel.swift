@@ -11,8 +11,11 @@ enum CosmosOperationLabel {
         case "import_game.command": return "Importing games…"
         case "install_cosmos.command": return "Installing Cosmos launchers…"
         case "profile.command": return "Updating game settings…"
-        case "repair.command": return "Checking and repairing your game environment…"
-        case "bottle.command": return "Updating Windows environment…"
+        case "repair.command":
+            if arguments == ["apply-fix", "kill_wine"] { return "Stopping the Windows environment…" }
+            return arguments.first == "diagnose" || arguments.first == "suggest"
+                ? "Checking launch diagnostics…" : "Checking and repairing your game environment…"
+        case "bottle.command": return arguments.first == "clone" ? "Cloning the Windows environment…" : "Updating Windows environment…"
         case "port.command":
             switch arguments.first {
             case "launch": return "Opening your port…"

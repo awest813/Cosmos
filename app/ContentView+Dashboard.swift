@@ -208,6 +208,15 @@ extension ContentView {
                         environment: ["COSMOS_BOTTLE": port.bottle]
                     )
                 },
+                onDiagnose: { port in
+                    runCommand(script: "repair.command", arguments: ["diagnose"], environment: portCommandEnvironment(port), intent: .diagnose)
+                },
+                onStopEnvironment: { port in
+                    runCommand(script: "repair.command", arguments: ["apply-fix", "kill_wine"], environment: portCommandEnvironment(port))
+                },
+                onCloneEnvironment: { port in
+                    storeImportRequest = .cloneEnvironment(source: port.bottle)
+                },
                 onCreate: { draft, completion in
                     runCommand(
                         script: "port.command", arguments: draft.commandArguments,
@@ -243,6 +252,17 @@ extension ContentView {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    func portCommandEnvironment(_ port: WinePort) -> [String: String] {
+        var environment = ["COSMOS_BOTTLE": port.bottle, "COSMOS_PROGRAM_ARCH": port.programArch, "COSMOS_SKIP_STEAM": "1"]
+        if port.bottle.isEmpty {
+            environment["WINE_VERSION"] = steamSettings.wineVersion
+        } else {
+            let config = BottleStore.bottlesDirectoryURL.appendingPathComponent(port.bottle).appendingPathComponent("bottle.conf")
+            environment["WINE_VERSION"] = BottleStore.parseConf(config)["WINE_VERSION"] ?? "11.8"
+        }
+        return environment
     }
 
     var heroTitle: String {

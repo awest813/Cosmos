@@ -138,12 +138,7 @@ repair_apply_dll_override_entry() {
 
 repair_kill_wine() {
   local pfx="${WINEPREFIX:?WINEPREFIX required}"
-  if command -v wineserver >/dev/null 2>&1; then
-    wineserver -k || true
-  fi
-  pkill -f "wineserver.*${pfx}" 2>/dev/null || true
-  pkill -f "wine.*${pfx}" 2>/dev/null || true
-  echo "Sent kill signals for Wine processes tied to ${pfx}."
+  python3 "${SCRIPT_DIR}/scripts/lib/prefix_processes.py" --prefix "${pfx}"
 }
 
 repair_install_steamwebhelper_wrapper() {

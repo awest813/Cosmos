@@ -43,12 +43,13 @@ struct PortFileCheck {
             ))
         }
         let game: URL?
-        if port.exe.hasPrefix("/") {
-            game = URL(fileURLWithPath: port.exe).standardizedFileURL
-        } else if port.exe.hasPrefix("drive_c/"), let prefix {
-            let candidate = prefix.appendingPathComponent(port.exe).standardizedFileURL
-            let drive = prefix.appendingPathComponent("drive_c", isDirectory: true).standardizedFileURL.path
-            game = candidate.path.hasPrefix(drive + "/") ? candidate : nil
+        if let prefix {
+            do {
+                game = try WineFilesystemBridge.resolve(port.exe, prefix: prefix)
+            } catch {
+                game = nil
+                findings.append(Finding(id: "filesystem", passed: false, message: "\(error.localizedDescription) Use Edit to review the game path or environment mapping."))
+            }
         } else {
             game = nil
         }
@@ -87,6 +88,7 @@ struct PortFileCheck {
         Game: \(port.name)
         Port ID: \(port.id)
         Environment: \(port.bottleLabel)
+        Configured path: \(port.exe)
         Executable: \(gameURL?.path ?? port.exe)
         Prefix: \(prefixURL?.path ?? "Not resolved")
         Graphics requested: \(port.graphicsLabel)

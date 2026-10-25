@@ -97,3 +97,17 @@ repair_suggestion_is_auto_applicable fix:clear_steam_download_cache || fail "cle
 repair_suggestion_is_auto_applicable fix:fix_steam_cloud_paths || fail "fix_steam_cloud_paths should be auto-applicable"
 
 printf 'OK: repair diagnose tests passed\n'
+
+runtime_fixture="$(mktemp -d)"
+trap 'rm -rf "${runtime_fixture}"' EXIT
+mkdir -p "${runtime_fixture}/bin" "${runtime_fixture}/lib/wine/i386-windows" "${runtime_fixture}/lib/wine/x86_64-windows"
+touch "${runtime_fixture}/bin/wine" "${runtime_fixture}/lib/wine/x86_64-windows/shcore.dll"
+printf 'err:module:import_dll Library shcore.dll (needed by Game.exe) not found\n' > "${runtime_fixture}/launch.log"
+repair_diagnose_reset
+WINE_BIN="${runtime_fixture}/bin/wine" COSMOS_PROGRAM_ARCH=win32 repair_diagnose_scan_log "${runtime_fixture}/launch.log"
+diag_joined="$(printf '%s\n' "${DIAG_LINES[@]}")"
+[[ "${diag_joined}" == *'[runtime] Wine builtin missing: shcore.dll (i386-windows)'* ]] || fail "missing x86 builtin not diagnosed"
+[[ " ${DIAG_SUGGESTIONS[*]:-} " != *' dep:vcrun2015 '* ]] || fail "runtime damage incorrectly suggested VC runtime"
+repair_diagnose_reset
+COSMOS_SKIP_STEAM=1 repair_diagnose_prefix_health
+[[ " ${DIAG_SUGGESTIONS[*]:-} " != *'reinstall_steam'* ]] || fail "standalone game incorrectly requires Steam"

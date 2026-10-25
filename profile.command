@@ -62,6 +62,8 @@ Commands:
   seed-deps [--dry-run] [--appid <id>]
                                 Merge winemactricks map deps/fixes into profiles.
   anticheat-audit               Verify blocked profiles match scripts/data/anticheat-blocklist.json.
+  upstream-recipes              List curated upstream recipe ids (review only).
+  upstream-recipe <id> [--json]  Preview requirements/dependency mappings; does not apply.
   export-reg <path-or-id> [label]
                                 Snapshot WINEPREFIX/user.reg (wineregdiff workflow).
 
@@ -414,6 +416,8 @@ main() {
     port-hint) cmd_port_hint "${1:-}" ;;
     anticheat-audit) cmd_anticheat_audit ;;
     seed-deps) shift; cmd_seed_deps "$@" ;;
+    upstream-recipes) python3 "${SCRIPT_DIR}/scripts/lib/upstream_recipes.py" --root "${SCRIPT_DIR}" ;;
+    upstream-recipe) [[ $# -ge 1 ]] || die "Provide an upstream recipe id."; python3 "${SCRIPT_DIR}/scripts/lib/upstream_recipes.py" --root "${SCRIPT_DIR}" --recipe "$@" ;;
     export-reg) cmd_export_reg "${1:-}" "${2:-}" ;;
     ""|--help|-h|help) usage ;;
     *) die "Unknown command: ${cmd}" ;;
