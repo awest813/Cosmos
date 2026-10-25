@@ -130,7 +130,11 @@ enum PortStack {
             case "d3dmetal":
                 text = "Opens with D3DMetal for DirectX 11 and 12. This stays on your Mac."
             case "spockd3d9":
-                text = "DXMT stays on for DirectX 10 and 11. SpockD3D9 adds DirectX 9, including 32-bit programs, and needs matching DLLs plus MoltenVK. Until the DLLs are built, ports with WineD3D enabled use it for DirectX 9."
+                text = renderers.dxmt ? "DXMT stays on for DirectX 10 and 11. " : ""
+                text += "SpockD3D9 handles DirectX 9, including 32-bit programs, and needs matching DLLs plus MoltenVK."
+                text += renderers.wineD3D
+                    ? " Until matching DLLs are built, WineD3D handles DirectX 9."
+                    : " WineD3D fallback is off; build matching DLLs before opening this port."
             case "dxmt":
                 text = "Opens with DXMT for DirectX 10/11. DirectX 9 uses WineD3D."
             case "dxvk":
@@ -185,7 +189,7 @@ struct WinePort: Identifiable, Hashable {
     var graphicsLabel: String {
         switch primaryBackend {
         case "d3dmetal": return "D3DMetal"
-        case "spockd3d9": return "DXMT + SpockD3D9"
+        case "spockd3d9": return renderers.dxmt ? "DXMT + SpockD3D9" : "SpockD3D9"
         case "dxmt": return "DXMT"
         case "dxvk": return "DXVK"
         case "wined3d": return "WineD3D"

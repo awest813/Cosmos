@@ -10,8 +10,8 @@ SimCity gameplay remain unverified. Wine downloads during normal first setup.
 
 ## In Cosmos
 
-1. Open **Tools → Add Non-Steam Games → Install Classic Game**. Use Advanced to
-   show Tools. Steam setup is optional.
+1. Open **Ports → Install Classic Game**. The same action is under **Advanced →
+   Tools → Add Non-Steam Games**. Steam setup is optional.
 2. Choose the installer EXE and enter **SimCity 3000 Unlimited** as the title.
 3. Terminal opens. Choose a folder for the installed game. The workflow prints
    its Windows destination: a `C:` path inside the environment, or `Z:` for an
@@ -52,15 +52,19 @@ Run the guided installation:
 Optionally add `--install-dir "/path/to/SimCity 3000 Unlimited"`, or use
 `--install-dir "drive_c/Games/simcity-3000-unlimited"` for the environment's C: drive.
 
-If setup completed but game selection was interrupted, resume without reinstalling:
+If setup completed but game selection was interrupted, use **Ports → Finish
+Installation** and enter the same game title. The chosen installation folder is
+saved with the environment; the installer is not run again. A disconnected or
+moved folder produces an explanation instead of silently creating a replacement.
+In Terminal, resume with:
 
 ```bash
 ./scripts/install_program.command resume --name "SimCity 3000 Unlimited" \
-  --install-dir "drive_c/Games/simcity-3000-unlimited" \
-  --game-exe "drive_c/Games/simcity-3000-unlimited/Apps/SC3U.exe"
+  --game-exe "Apps/SC3U.exe"
 ```
 
-Use your actual folder and EXE. Add `--no-launch` to only register, or `--make-app`
+Use your actual EXE. Override the saved folder with `--install-dir` if it moved;
+for a custom `--bottle`, repeat that option in Terminal too. Add `--no-launch` to only register, or `--make-app`
 to create a Mac app in `~/Applications/Cosmos Ports` too. Existing ports are
 preserved; open one with `./port.command launch simcity-3000-unlimited`.
 

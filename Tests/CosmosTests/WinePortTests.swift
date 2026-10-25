@@ -83,6 +83,19 @@ final class WinePortTests: XCTestCase {
         XCTAssertEqual(PortStack.resolve(renderers, distribution: "personal"), .failure(.noRenderer))
     }
 
+    func testSpockOnlyDescriptionDoesNotClaimDxmtOrFallback() {
+        var renderers = PortRenderers.appleSiliconDefaults
+        renderers.dxmt = false
+        renderers.wineD3D = false
+        let summary = PortStack.launchSummary(renderers, distribution: "personal")
+        XCTAssertFalse(summary.contains("DXMT"))
+        XCTAssertTrue(summary.contains("fallback is off"))
+        renderers.wineD3D = true
+        XCTAssertTrue(PortStack.launchSummary(renderers, distribution: "personal").contains("WineD3D handles DirectX 9"))
+        let port = WinePort(id: "spock", settings: ["PORT_PRIMARY": "spockd3d9", "PORT_RENDER_D9VK": "1"], directory: URL(fileURLWithPath: "/tmp/spock"))
+        XCTAssertEqual(port.graphicsLabel, "SpockD3D9")
+    }
+
     func testCreateArgumentsUseTheAppleSiliconDefaults() {
         var draft = WinePortDraft.empty
         draft.name = "Notepad"

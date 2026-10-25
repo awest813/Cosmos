@@ -14,10 +14,14 @@ enum StoreImportValidation {
         let epic = trimmed(.epicAppName)
 
         if request.script == "scripts/install_program.command" {
-            if !path.hasPrefix("/") || !path.lowercased().hasSuffix(".exe") {
+            if !request.baseArguments.contains("resume"),
+               !path.hasPrefix("/") || !path.lowercased().hasSuffix(".exe") {
                 return "Choose the installer .exe on your Mac, or enter its full path starting with /."
             }
             if trimmed(.displayName).isEmpty { return "Enter the game title." }
+            if !WinePortDraft.isValidPortName(trimmed(.displayName)) {
+                return "Enter a game title without / or :."
+            }
             return nil
         }
 

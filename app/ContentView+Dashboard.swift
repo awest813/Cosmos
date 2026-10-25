@@ -189,6 +189,8 @@ extension ContentView {
                     version: ProcessInfo.processInfo.operatingSystemVersion
                 ),
                 onOpenDownloads: { showDownloads = true },
+                onInstall: { storeImportRequest = .classicGame() },
+                onResumeInstall: { storeImportRequest = .classicGame(resuming: true) },
                 requiresRosetta: wineRuntime.needsRosetta && !wineRuntime.rosettaReady,
                 onCreate: { draft, completion in
                     runCommand(

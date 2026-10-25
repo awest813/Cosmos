@@ -1,5 +1,26 @@
 # UI/UX audit and polish
 
+## Sikarugir-first candidate audit — October 24, 2026
+
+Source review found and addressed three gaps in the Ports/installer journey:
+
+- Installation was discoverable only under Advanced Tools. Ports now offers
+  Install Classic Game and Finish Installation directly, with stacked action
+  layouts for narrow widths and the same host/busy guards as port creation.
+- Cancelling game selection after setup lost a custom installation destination.
+  Recovery now reads the saved folder from the dedicated environment without
+  rerunning the installer. Unavailable folders stop with an actionable message;
+  moved folders can be supplied explicitly from Terminal.
+- Spock-only ports claimed DXMT was enabled, and their cards used a combined
+  renderer label. Both descriptions now reflect actual switches, including
+  whether WineD3D fallback is enabled. The New Port graphics copy describes the
+  recommended stack without claiming disabled switches stay on.
+
+Shell fixtures cover folder recovery, disconnected drives and relocation. Native
+tests cover recovery-form validation and renderer descriptions; screenshot
+captures include the new Ports actions. Real-game and interactive accessibility
+checks remain pending. Earlier entries below preserve their original evidence.
+
 Reviewed the native SwiftUI shell, shared design components, library toolbar, and search interactions on September 7, 2026.
 
 ## Findings addressed

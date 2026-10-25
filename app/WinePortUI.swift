@@ -7,6 +7,8 @@ struct PortsDashboard: View {
     let isRunning: Bool
     var unavailableReason: String? = nil
     var onOpenDownloads: (() -> Void)? = nil
+    var onInstall: (() -> Void)? = nil
+    var onResumeInstall: (() -> Void)? = nil
     var requiresRosetta: Bool = false
     var onCreate: (WinePortDraft, @escaping (String?) -> Void) -> Void
     var onLaunch: (WinePort) -> Void
@@ -34,6 +36,10 @@ struct PortsDashboard: View {
                         title: "Ports unavailable on this Mac", message: unavailableReason
                     )
                 }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) { installationActions }
+                    VStack(alignment: .leading, spacing: 8) { installationActions }
+                }
                 HStack {
                     if let onOpenDownloads {
                         Button(action: onOpenDownloads) {
@@ -60,7 +66,7 @@ struct PortsDashboard: View {
                     CosmosEmptyState(
                         systemImage: "macwindow.on.rectangle",
                         title: "No ports yet",
-                        message: "A port opens one Windows program like a Mac app. Choose an installed Windows .exe and its environment. Steam setup is optional.",
+                        message: "Install a game from its setup EXE above, or create a port for a Windows .exe already installed in an environment. Steam setup is optional.",
                         isRunning: isRunning || unavailableReason != nil,
                         actions: [(title: "Create Port", prominent: true, action: { showCreateSheet = true })]
                     )
@@ -113,6 +119,27 @@ struct PortsDashboard: View {
             Button("Cancel", role: .cancel) { pendingDelete = nil }
         } message: {
             Text("Removes the port definition. A Mac app you already built stays where it is.")
+        }
+    }
+
+    @ViewBuilder
+    private var installationActions: some View {
+        if let onInstall {
+            Button(action: onInstall) {
+                Label("Install Classic Game", systemImage: "shippingbox.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.cosmosPrimary)
+            .disabled(isRunning || unavailableReason != nil)
+            .help("Run setup, choose an installation folder, then open the installed game EXE")
+        }
+        if let onResumeInstall {
+            Button(action: onResumeInstall) {
+                Label("Finish Installation", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRunning || unavailableReason != nil)
+            .help("Select the installed game after setup completed; the installer will not run again")
         }
     }
 
@@ -287,7 +314,7 @@ struct NewPortSheet: View {
                         .foregroundStyle(.secondary)
                     Toggle("Retina mode", isOn: $draft.retina)
                     Section("Graphics") {
-                        Text("These stay on together. DXMT covers DirectX 10 and 11. SpockD3D9 covers DirectX 9. WineD3D covers the rest.")
+                        Text("The recommended stack combines DXMT for DirectX 10 and 11, SpockD3D9 for DirectX 9, and WineD3D for older games. Change the switches for this program below.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Toggle("DXMT — DirectX 10 and 11 on Metal", isOn: $draft.renderers.dxmt)

@@ -73,7 +73,7 @@ main() {
   done
   name="$(printf '%s' "${name}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
   port_validate_name "${name}" || die "Provide --name with the game title."
-  local slug support bottles ports prefix default_folder windows_folder arch conf
+  local slug support bottles ports prefix default_folder windows_folder arch conf install_state
   slug="$(port_slugify "${name}")"
   port_validate_slug "${slug}" || die "The game title does not produce a valid port name."
   bottle="${bottle:-game-${slug}}"
@@ -94,6 +94,7 @@ main() {
     SCRIPT_DIR="${ROOT}" "${ROOT}/bottle.command" create "${bottle}" --arch wow64 --backend wined3d --windows win10 --retina 0
   fi
   conf="${bottles}/${bottle}/bottle.conf"
+  install_state="${bottles}/${bottle}/install-${slug}.conf"
   [[ -f "${conf}" ]] || die "The selected bottle has no settings. Choose another bottle name."
   arch="$(port_get_setting "${conf}" COSMOS_PREFIX_ARCH)"
   [[ -z "${arch}" || "${arch}" == wow64 ]] || die "Use a WoW64 bottle for this workflow, or choose another bottle name. Existing settings were kept."
@@ -106,6 +107,13 @@ main() {
   fi
   default_folder="${prefix}/drive_c/Games/${slug}"
   mkdir -p "${default_folder}"
+  # Keep recovery tied to this game and bottle. Read as data, never source paths.
+  if [[ -z "${folder}" && "${mode}" == resume ]]; then
+    folder="$(port_get_setting "${install_state}" INSTALL_FOLDER)"
+    if [[ -n "${folder}" && ! -d "${folder}" ]]; then
+      die "The saved installation folder is unavailable: ${folder}. Reconnect its drive or use --install-dir with the actual folder."
+    fi
+  fi
   if [[ -z "${folder}" ]]; then
     if [[ "${mode}" == install ]]; then
       folder="$(pick_path folder "Choose the installation folder for ${name}. Select the same destination inside the Windows installer." "${default_folder}")" || die "Folder selection cancelled."
@@ -123,6 +131,8 @@ main() {
   mkdir -p "${folder}"
   folder="$(cd -- "${folder}" && pwd -P)"
   prefix="$(cd -- "${prefix}" && pwd -P)"
+  [[ "${folder}" != *$'\n'* ]] || die "Choose an installation folder without line breaks."
+  port_set_setting "${install_state}" INSTALL_FOLDER "${folder}"
   case "${folder}" in
     "${prefix}/drive_c"/*) windows_folder="C:\\${folder#"${prefix}/drive_c/"}" ;;
     *) windows_folder="Z:${folder}" ;;

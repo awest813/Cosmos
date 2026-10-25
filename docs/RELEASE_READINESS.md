@@ -31,6 +31,11 @@ branch's Ports and split-dashboard architecture.
 - Fresh ports with WineD3D enabled can launch before Spock is built, with builtin
   D3D9 selected and no unnecessary MoltenVK request. Explicit invalid Spock paths
   still produce an error.
+- Ports offers installation and interrupted-installation recovery directly.
+  Custom installation folders persist per game/environment; disconnected folders
+  fail with guidance, and moved folders can be supplied explicitly. Recovery
+  never reruns the installer. Spock-only renderer descriptions no longer claim
+  DXMT or WineD3D fallback is enabled when its switch is off.
 
 ## Evidence and release gates
 

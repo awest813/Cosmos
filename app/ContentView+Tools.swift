@@ -367,7 +367,9 @@ extension ContentView {
         forceTerminal: Bool = false
     ) -> some View {
         Button {
-            if needsEpicAppName {
+            if script == "scripts/install_program.command" {
+                storeImportRequest = .classicGame(resuming: arguments.contains("resume"))
+            } else if needsEpicAppName {
                 storeImportRequest = StoreImportRequest(
                     title: "Legendary app name",
                     message: "Use the App name from list-epic (e.g. Sugar), not always the store title. Requires: brew install legendary-gl",
@@ -398,21 +400,19 @@ extension ContentView {
                     title: pathPrompt,
                     message: arguments.contains("add-gog")
                         ? "GOG offline installer (.exe) opens Terminal. For an already-installed game, enter a list-gog slug or drive_c/... path — registration runs in the console below."
-                        : script == "scripts/install_program.command"
-                        ? "Choose the installer EXE and enter the game title, such as SimCity 3000 Unlimited. Terminal guides you through choosing an installation folder, running setup, selecting the installed game EXE, and opening it. Uses a dedicated environment and WineD3D."
                         : "Provide the file or folder path and a display name for the Cosmos launcher.",
                     fields: [
                         .init(
                             id: .path,
-                            label: script == "scripts/install_program.command" ? "Installer EXE" : "Path",
-                            placeholder: arguments.contains("add-gog") || script == "scripts/install_program.command"
+                            label: "Path",
+                            placeholder: arguments.contains("add-gog")
                                 ? "/Users/you/Downloads/setup_game.exe"
                                 : "/Users/you/Downloads/MyGame",
                             allowsFilePicker: true
                         ),
                         .init(id: .displayName, label: "Display name", placeholder: "Display name for launcher"),
                     ],
-                    submitLabel: arguments.contains("add-gog") ? "Import" : (script == "scripts/install_program.command" ? "Install in Terminal" : "Run in Terminal"),
+                    submitLabel: arguments.contains("add-gog") ? "Import" : "Run in Terminal",
                     script: script,
                     baseArguments: arguments,
                     forceTerminal: true

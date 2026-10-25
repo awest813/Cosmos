@@ -5,7 +5,24 @@ A user-facing gap analysis and prioritized plan for closing the distance between
 today**. This complements [ROADMAP.md](ROADMAP.md) (engineering milestones) and
 [PROTON_GAP_ANALYSIS.md](PROTON_GAP_ANALYSIS.md) (technical comparison).
 
-**Last reviewed:** 2026-06-14 · **Baseline:** `main` (Phases A–E shipped; Phase F in progress; post-0.7 polish on launch/errors/Intel)
+**Latest implementation review:** 2026-10-24 · **Baseline:** Sikarugir-first candidate
+in PR #74. The historical Steam-focused inventory below remains useful; current
+candidate priorities and evidence are tracked here and in
+[RELEASE_READINESS.md](RELEASE_READINESS.md).
+
+## Current priority gaps
+
+| Priority | Gap | Candidate status / next evidence |
+| --- | --- | --- |
+| 1 | Sikarugir-style Ports without Steam setup | Ports is available before Steam; installer and installed-EXE routes are available directly in Ports. Verify the complete journey on an Apple Silicon Mac. |
+| 1 | Setup finishes but game registration is interrupted | Finish Installation resumes selection without rerunning setup and remembers custom folders. Regression fixtures cover recovery and disconnected/moved folders. |
+| 1 | 32-bit classic games, starting with SimCity 3000 Unlimited | Dedicated WoW64/WineD3D installation, PE detection, and architecture propagation implemented. Actual installation, city creation, save/load and relaunch pending. |
+| 2 | SpockD3D9 matching x86/x64 DLLs and fallback | Placement and WineD3D fallback covered by shell fixtures; UI descriptions reflect enabled switches. Loaded-renderer comparison on a real game pending. |
+| 2 | Native UI/accessibility polish | Narrow-layout action fallback, retained drafts/errors and CI screenshots implemented. Interactive keyboard, VoiceOver, Reduce Motion and visual review pending. |
+| 3 | Downloadable app and distribution trust | PR CI builds an Apple Silicon preview. Public signed/notarized release and clean-machine validation pending. |
+
+No automated fixture result establishes game compatibility. See
+[SIMCITY_3000_SETUP.md](SIMCITY_3000_SETUP.md) for the next real-game check.
 
 ---
 

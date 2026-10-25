@@ -2,6 +2,15 @@ import XCTest
 @testable import Cosmos
 
 final class StoreImportValidationTests: XCTestCase {
+    func testResumeNeedsSameGameTitleWithoutInstaller() {
+        let request = StoreImportRequest.classicGame(resuming: true)
+        XCTAssertEqual(request.baseArguments, ["resume"])
+        XCTAssertFalse(request.fields.contains { $0.id == .path })
+        XCTAssertNil(StoreImportValidation.validate(request: request, values: [.displayName: "SimCity 3000 Unlimited"]))
+        XCTAssertNotNil(StoreImportValidation.validate(request: request, values: [.displayName: " "]))
+        XCTAssertNotNil(StoreImportValidation.validate(request: request, values: [.displayName: "Bad/Title"]))
+    }
+
     func testClassicInstallerRequiresInstallerPathAndGameTitle() {
         let request = StoreImportRequest(
             title: "Install Classic Game", message: "Installer, folder, game",

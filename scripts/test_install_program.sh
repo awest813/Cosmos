@@ -85,11 +85,29 @@ if "${workflow}" install "${installer}" --name "Resume SimCity" --install-dir "$
 fi
 [[ -f "${TEST_GAME_DIR}/Apps/SC3U.exe" ]] || fail "installation must survive failed selection"
 before="$(wc -l < "${TEST_EVENTS}")"
-"${workflow}" resume --name "Resume SimCity" --install-dir "${TEST_GAME_DIR}" \
+"${workflow}" resume --name "Resume SimCity" \
   --game-exe "Apps/SC3U.exe" --no-launch > "${tmp}/resume.log"
 [[ "$(wc -l < "${TEST_EVENTS}")" == "${before}" ]] || fail "resume/no-launch must not run setup or game"
 grep -Fq 'Windows destination: Z:' "${tmp}/resume.log" || fail "Mac folder must map through Z:"
 [[ -f "${COSMOS_SUPPORT_DIR}/Ports/resume-simcity/port.conf" ]] || fail "resume registration missing"
+
+# Recovery must not silently create an empty replacement for a disconnected drive.
+export TEST_GAME_DIR="${tmp}/Disconnected Game Drive"
+if "${workflow}" install "${installer}" --name "Disconnected" --install-dir "${TEST_GAME_DIR}" \
+  --game-exe missing.exe >"${tmp}/disconnect-install.log" 2>&1; then
+  fail "missing game must stop registration"
+fi
+mv "${TEST_GAME_DIR}" "${TEST_GAME_DIR}-offline"
+before="$(wc -l < "${TEST_EVENTS}")"
+if "${workflow}" resume --name "Disconnected" --game-exe Apps/SC3U.exe >"${tmp}/disconnect-resume.log" 2>&1; then
+  fail "unavailable saved folder must stop recovery"
+fi
+grep -Fq 'saved installation folder is unavailable' "${tmp}/disconnect-resume.log" || fail "missing folder recovery message"
+[[ ! -e "${TEST_GAME_DIR}" ]] || fail "recovery created an empty replacement folder"
+[[ "$(wc -l < "${TEST_EVENTS}")" == "${before}" ]] || fail "disconnected recovery ran an EXE"
+"${workflow}" resume --name "Disconnected" --install-dir "${TEST_GAME_DIR}-offline" \
+  --game-exe Apps/SC3U.exe --no-launch >"${tmp}/relocated.log"
+export TEST_GAME_DIR="${tmp}/Chosen Game Folder"
 
 cp "${TEST_GAME_FIXTURE}" "${TEST_GAME_DIR}/setup.exe"
 if "${workflow}" resume --name "Wrong Game" --bottle game-resume-simcity \

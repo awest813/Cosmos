@@ -25,7 +25,7 @@ final class PortsRenderingTests: XCTestCase {
             for scheme in [ColorScheme.light, .dark] {
                 let dashboard = PortsDashboard(
                     ports: [port], bottleNames: ["Classic Games"], isRunning: false,
-                    onOpenDownloads: {}, onCreate: { _, done in done(nil) },
+                    onOpenDownloads: {}, onInstall: {}, onResumeInstall: {}, onCreate: { _, done in done(nil) },
                     onLaunch: { _ in }, onBuild: { _ in }, onDelete: { _ in }
                 )
                 try capture(
@@ -34,12 +34,25 @@ final class PortsRenderingTests: XCTestCase {
                     size: NSSize(width: 640, height: 640), scheme: scheme, directory: directory
                 )
             }
+            let empty = PortsDashboard(
+                ports: [], bottleNames: [], isRunning: false,
+                onInstall: {}, onResumeInstall: {}, onCreate: { _, done in done(nil) },
+                onLaunch: { _ in }, onBuild: { _ in }, onDelete: { _ in }
+            )
+            try capture(
+                ScrollView { empty.padding(20) }, name: "ports-empty",
+                size: NSSize(width: 640, height: 640), scheme: .light, directory: directory
+            )
+            try capture(
+                StoreImportSheet(request: .classicGame(resuming: true), onCancel: {}, onSubmit: { _ in nil }),
+                name: "finish-installation", size: NSSize(width: 460, height: 440), scheme: .light, directory: directory
+            )
             let unavailable = PortsDashboard(
                 ports: [], bottleNames: [], isRunning: false,
                 unavailableReason: PortHostSupport.unavailableReason(
                     architecture: "x86_64", version: OperatingSystemVersion(majorVersion: 15, minorVersion: 0, patchVersion: 0)
                 ),
-                onOpenDownloads: {}, onCreate: { _, done in done(nil) },
+                onOpenDownloads: {}, onInstall: {}, onResumeInstall: {}, onCreate: { _, done in done(nil) },
                 onLaunch: { _ in }, onBuild: { _ in }, onDelete: { _ in }
             )
             try capture(

@@ -25,6 +25,25 @@ struct StoreImportRequest: Identifiable {
     let script: String
     let baseArguments: [String]
     let forceTerminal: Bool
+
+    static func classicGame(resuming: Bool = false) -> StoreImportRequest {
+        var fields: [Field] = []
+        if !resuming {
+            fields.append(.init(id: .path, label: "Installer EXE", placeholder: "/Users/you/Downloads/setup_game.exe", allowsFilePicker: true))
+        }
+        fields.append(.init(id: .displayName, label: "Game title", placeholder: "SimCity 3000 Unlimited"))
+        return StoreImportRequest(
+            title: resuming ? "Finish Game Installation" : "Install Classic Game",
+            message: resuming
+                ? "Enter the same title used during setup. Terminal reopens the saved installation folder so you can select the installed game EXE. Setup will not run again. Uses the default game environment."
+                : "Choose the installer EXE and enter the game title. Terminal guides you through choosing an installation folder, running setup, selecting the installed game EXE, and opening it. Uses a dedicated environment and WineD3D.",
+            fields: fields,
+            submitLabel: resuming ? "Continue in Terminal" : "Install in Terminal",
+            script: "scripts/install_program.command",
+            baseArguments: [resuming ? "resume" : "install"],
+            forceTerminal: true
+        )
+    }
 }
 
 struct StoreImportSheet: View {
