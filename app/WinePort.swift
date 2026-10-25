@@ -186,6 +186,13 @@ struct WinePort: Identifiable, Hashable {
         bottle.isEmpty ? "Main environment" : bottle
     }
 
+    var environmentPrefixURL: URL? {
+        if bottle.isEmpty { return SteamSettings.defaults.prefixURL }
+        guard BottleStore.isValidName(bottle) else { return nil }
+        return BottleStore.bottlesDirectoryURL.appendingPathComponent(bottle, isDirectory: true)
+            .appendingPathComponent("prefix", isDirectory: true)
+    }
+
     var graphicsLabel: String {
         switch primaryBackend {
         case "d3dmetal": return "D3DMetal"

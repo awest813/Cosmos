@@ -37,6 +37,13 @@ launch_profile
 [[ "${CAPTURED[3]}" == "${WINEPREFIX}/${PROFILE_EXECUTABLE}" ]]
 echo 'PASS: Windows paths never resolve to a different file in Profiles'
 
+PROFILE_EXECUTABLE='C:\gog games\test\GAME.exe'
+launch_profile
+[[ "${CAPTURED[3]}" == "${WINEPREFIX}/drive_c/GOG Games/Test/game.exe" ]]
+GAME_EXE_PATH='C:\gog games\test\GAME.exe'
+[[ "$(resolve_game_exe_path)" == "${WINEPREFIX}/drive_c/GOG Games/Test/game.exe" ]]
+echo 'PASS: Windows drive paths and case-insensitive names resolve in the selected prefix'
+
 PROFILE_EXECUTABLE="legacy.exe"
 launch_profile
 [[ "${CAPTURED[3]}" == "${PROFILE_DIRECTORY}/legacy.exe" ]]

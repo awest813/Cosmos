@@ -49,6 +49,7 @@ Commands:
   path <name>                   Print the bottle's prefix path.
   launch <name> [run args...]   Launch into the bottle (runs run.command).
   logs <name>                   Show the bottle's latest launch log.
+  filesystem <name>             Inspect Windows folders/drive mappings as JSON.
   reset <name> [--force]        Delete the prefix only (keep settings/logs).
   delete <name> [--force]       Delete the whole bottle.
 
@@ -273,6 +274,12 @@ cmd_logs() {
   fi
 }
 
+cmd_filesystem() {
+  local name="${1:-}"; require_bottle "${name}"
+  source "${SCRIPT_DIR}/scripts/lib/wine_filesystem.sh"
+  wine_fs_inspect "$(bottle_dir "${name}")/prefix"
+}
+
 cmd_reset() {
   local name="${1:-}" force="${2:-}"
   require_bottle "${name}"
@@ -314,6 +321,7 @@ main() {
     path)           shift; cmd_path "$@" ;;
     launch)         shift; cmd_launch "$@" ;;
     logs)           shift; cmd_logs "$@" ;;
+    filesystem)     shift; cmd_filesystem "$@" ;;
     reset)          shift; cmd_reset "$@" ;;
     delete)         shift; cmd_delete "$@" ;;
     ""|--help|-h|help) usage ;;

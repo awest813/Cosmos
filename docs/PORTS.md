@@ -85,6 +85,11 @@ prefix initialization or repair is triggered by Check Game Files.
 Custom `COSMOS_SUPPORT_DIR` and `COSMOS_BOTTLES_DIR` locations now match between
 the native Bottles list, port file checks and shell commands.
 
+Expand **Windows environment files** to browse C:, users/saves, program folders,
+system DLL folders and drive mappings. Windows paths such as
+`C:\Games\SimCity\SC3U.exe` are resolved in the selected environment, including
+case-insensitive filename lookup. See [WINDOWS_FILESYSTEM.md](WINDOWS_FILESYSTEM.md).
+
 `build` writes `~/Applications/Cosmos Ports/<Name>.app`. The app's launcher
 checks for arm64, then runs Cosmos `run.command --game` with `COSMOS_SKIP_STEAM=1`
 so a non-Steam program does not wait on Steam. Pass `--bottle` when the program

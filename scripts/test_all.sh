@@ -72,6 +72,7 @@ done
 
 if command -v python3 >/dev/null 2>&1; then
   log "Game test preflight"
+  python3 scripts/test_wine_filesystem.py
   python3 scripts/test_game_test_preflight.py
   log "VDF python cross-check"
   pip install -q vdf 2>/dev/null || pip install vdf

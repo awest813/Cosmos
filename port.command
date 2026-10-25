@@ -15,6 +15,7 @@ if [[ -f "${SCRIPT_DIR}/scripts/lib/prefix_arch.sh" ]]; then
 fi
 # shellcheck source=scripts/lib/port_lib.sh
 source "${SCRIPT_DIR}/scripts/lib/port_lib.sh"
+source "${SCRIPT_DIR}/scripts/lib/wine_filesystem.sh"
 
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
 PORTS_DIR="${COSMOS_PORTS_DIR:-${COSMOS_SUPPORT_DIR}/Ports}"
@@ -65,6 +66,18 @@ EOF
 }
 
 port_dir() { printf '%s' "${PORTS_DIR}/$1"; }
+
+port_host_executable() {
+  local path="$1" bottle="$2" prefix="${WINEPREFIX:-${HOME}/.wine-steam-11}"
+  if [[ -n "${bottle}" ]]; then
+    port_validate_slug "${bottle}" || return 1
+    prefix="${BOTTLES_DIR}/${bottle}/prefix"
+  fi
+  if [[ "${path}" != drive_c/* && "${path}" != [A-Za-z]:* && -f "${path}" ]]; then
+    path="$(cd -- "$(dirname -- "${path}")" && pwd)/$(basename -- "${path}")"
+  fi
+  wine_fs_host_path "${prefix}" "${path}"
+}
 
 require_port() {
   local slug="$1"
@@ -169,8 +182,15 @@ cmd_save() {
   cnc="$(port_normalize_flag "${cnc}")" || die "--cnc-ddraw must be 0 or 1."
   wined3d="$(port_normalize_flag "${wined3d}")" || die "--wined3d must be 0 or 1."
   retina="$(port_normalize_flag "${retina}")" || die "--retina must be 0 or 1."
-  local detected_arch
-  detected_arch="$(port_detect_program_arch "${exe}" || true)"
+  local detected_arch host_exe
+  host_exe="$(port_host_executable "${exe}" "${bottle}")" || die "The Windows program path is invalid or its drive is not mapped."
+  detected_arch="$(port_detect_program_arch "${host_exe}" || true)"
+  if [[ "${exe}" == [A-Za-z]:* ]]; then exe="${host_exe}"; fi
+  if [[ "${exe}" == drive_c/* ]]; then
+    local selected_prefix="${WINEPREFIX:-${HOME}/.wine-steam-11}"
+    [[ -z "${bottle}" ]] || selected_prefix="${BOTTLES_DIR}/${bottle}/prefix"
+    if [[ "${host_exe}" == "${selected_prefix}/"* ]]; then exe="${host_exe#"${selected_prefix}/"}"; fi
+  fi
   if [[ "${mode}" == update && "${exe_changed}" == 1 && "${arch_explicit}" == 0 && -n "${detected_arch}" ]]; then
     program_arch="${detected_arch}"
   fi
@@ -361,7 +381,9 @@ cmd_launch() {
   port_load_conf "${conf}"
   local backend
   backend="$(port_resolve_primary)" || exit 1
-  if [[ "${PORT_EXE}" != drive_c/* && ! -f "${PORT_EXE}" ]]; then
+  local host_exe
+  host_exe="$(port_host_executable "${PORT_EXE}" "${PORT_BOTTLE}")" || die "The game's Windows drive is not mapped in this environment."
+  if [[ ! -f "${host_exe}" ]]; then
     die "Windows program not found: ${PORT_EXE}"
   fi
   if [[ -n "${PORT_BOTTLE}" && ! -d "${BOTTLES_DIR}/${PORT_BOTTLE}" ]]; then
@@ -395,7 +417,7 @@ cmd_launch() {
     unset COSMOS_BOTTLE || true
   fi
   log "Opening ${PORT_NAME} with ${backend}"
-  port_exec_program "${SCRIPT_DIR}/run.command" "${PORT_EXE}" "${PORT_ARGS}"
+  port_exec_program "${SCRIPT_DIR}/run.command" "${host_exe}" "${PORT_ARGS}"
 }
 
 cmd_delete() {

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Helpers for import_game.command (roadmap 0.6).
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/wine_filesystem.sh"
 
 import_slugify() {
   printf '%s' "$1" \
@@ -18,22 +19,12 @@ import_safe_name() {
   printf '%s' "${name}"
 }
 
-# Convert a host path or drive_c-relative path to a Wine Z: path for launch.
+# Resolve an executable to its host path in the selected environment.
 import_resolve_exe_path() {
-  local pfx="$1" path="$2"
-  if [[ "${path}" == drive_c/* ]]; then
-    printf 'Z:\\%s' "$(printf '%s' "${path#drive_c/}" | tr '/' '\\')"
-    return 0
-  fi
-  if [[ -f "${path}" ]]; then
-    printf '%s' "${path}"
-    return 0
-  fi
-  if [[ -f "${pfx}/${path}" ]]; then
-    printf '%s' "${pfx}/${path}"
-    return 0
-  fi
-  return 1
+  local resolved
+  resolved="$(wine_fs_host_path "$1" "$2")" || return 1
+  [[ -f "${resolved}" ]] || return 1
+  printf '%s' "${resolved}"
 }
 
 # True when a basename looks like a helper binary, not the game itself.

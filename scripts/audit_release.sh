@@ -25,6 +25,9 @@ for script in check_updates.sh install_update.sh terminal_wrap.sh install_progra
   [[ -x "${ROOT}/scripts/${script}" ]] || fail "missing scripts/${script}"
 done
 [[ -f "${ROOT}/scripts/lib/release_lib.sh" ]] || fail "missing scripts/lib/release_lib.sh"
+for helper in wine_filesystem.sh wine_filesystem.py; do
+  [[ -f "${ROOT}/scripts/lib/${helper}" ]] || fail "missing scripts/lib/${helper}"
+done
 [[ -f "${ROOT}/scripts/fixtures/github_release_latest.json" ]] || fail "missing release fixture"
 pass "update + terminal helper scripts executable"
 
@@ -39,6 +42,9 @@ done
 pass "in-app update + terminal trackers present"
 
 if [[ -d "${APP_BUNDLE}" ]]; then
+  for helper in wine_filesystem.sh wine_filesystem.py; do
+    [[ -f "${RESOURCES}/scripts/lib/${helper}" ]] || fail "bundle missing filesystem helper ${helper}"
+  done
   app_binary="${APP_BUNDLE}/Contents/MacOS/Cosmos"
   [[ -x "${app_binary}" ]] || fail "bundle missing executable Contents/MacOS/Cosmos"
   for script in check_updates.sh install_update.sh terminal_wrap.sh install_program.command; do

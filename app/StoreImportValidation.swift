@@ -27,8 +27,9 @@ enum StoreImportValidation {
             if !bottle.isEmpty && !BottleStore.isValidName(bottle) {
                 return "The saved installation environment name is invalid."
             }
-            if !folder.isEmpty && (!folder.hasPrefix("/") && !folder.hasPrefix("drive_c/")) {
-                return "Choose an installation folder, or use an absolute Mac path or drive_c/... path."
+            let windowsFolder = folder.range(of: "^[A-Za-z]:[\\\\/]", options: .regularExpression) != nil
+            if !folder.isEmpty && (!folder.hasPrefix("/") && !folder.hasPrefix("drive_c/") && !windowsFolder) {
+                return "Choose a Mac folder, or use an absolute Windows drive path or drive_c/... path."
             }
             if folder.contains("\n") || (folder.hasPrefix("drive_c/") && folder.split(separator: "/").contains("..")) {
                 return "The installation folder must stay inside drive_c and contain no line breaks."

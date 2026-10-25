@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="${COSMOS_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "${ROOT}/scripts/lib/port_lib.sh"
 source "${ROOT}/scripts/lib/import_lib.sh"
+source "${ROOT}/scripts/lib/wine_filesystem.sh"
 
 die() { printf 'Error: %s\n' "$1" >&2; exit 1; }
 pick_path() {
@@ -63,7 +64,7 @@ Install a Windows game into a folder, then open its installed EXE.
   install_program.command resume --name <title> [options]
 
 Options:
-  --install-dir <folder>  Absolute Mac folder or drive_c/... inside the bottle.
+  --install-dir <folder>  Mac folder, C:\Games\..., or drive_c/... in the bottle.
                          install asks you to choose a folder when omitted.
   --game-exe <path>       Installed game EXE; otherwise choose it after setup.
   --bottle <name>         Dedicated bottle name. Default: game-<title-slug>.
@@ -169,20 +170,17 @@ main() {
   case "${folder}" in
     drive_c/*)
       [[ "/${folder}/" != */../* ]] || die "The install directory must stay inside drive_c."
-      folder="${prefix}/${folder}" ;;
+      folder="$(wine_fs_host_path "${prefix}" "${folder}")" || die "Invalid installation folder." ;;
+    [A-Za-z]:*) folder="$(wine_fs_host_path "${prefix}" "${folder}")" || die "Invalid or unmapped Windows installation folder." ;;
     /*) ;;
-    *) die "Use an absolute Mac folder or drive_c/... for --install-dir." ;;
+    *) die "Use a Mac folder, absolute Windows drive path, or drive_c/... for --install-dir." ;;
   esac
   mkdir -p "${folder}"
   folder="$(cd -- "${folder}" && pwd -P)"
   prefix="$(cd -- "${prefix}" && pwd -P)"
   [[ "${folder}" != *$'\n'* ]] || die "Choose an installation folder without line breaks."
   port_set_setting "${install_state}" INSTALL_FOLDER "${folder}"
-  case "${folder}" in
-    "${prefix}/drive_c"/*) windows_folder="C:\\${folder#"${prefix}/drive_c/"}" ;;
-    *) windows_folder="Z:${folder}" ;;
-  esac
-  windows_folder="${windows_folder//\//\\}"
+  windows_folder="$(wine_fs_windows_path "${prefix}" "${folder}")" || die "The installation folder is not reachable through a Windows drive mapping."
   printf '\nGame: %s\nEnvironment: %s\nMac folder: %s\nWindows destination: %s\n' "${name}" "${bottle}" "${folder}" "${windows_folder}"
   if [[ "${mode}" == prepare ]]; then
     port_set_setting "${install_state}" INSTALL_STAGE prepared
@@ -206,7 +204,7 @@ main() {
       || die "Game selection cancelled. Installation was kept; run resume to select the game later."
   fi
   case "${game}" in
-    drive_c/*) game="${prefix}/${game}" ;;
+    drive_c/*|[A-Za-z]:*) game="$(wine_fs_host_path "${prefix}" "${game}")" || die "The game path is invalid or its Windows drive is not mapped." ;;
     /*) ;;
     *) game="${folder}/${game}" ;;
   esac

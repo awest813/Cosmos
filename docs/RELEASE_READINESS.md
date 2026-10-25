@@ -39,6 +39,16 @@ branch's Ports and split-dashboard architecture.
 
 ## Evidence and release gates
 
+Filesystem handling now uses a shared resolver for the installer, standalone and
+profile launches, port commands and imports. It supports absolute Windows drive
+paths, unambiguous case-insensitive lookup and actual Wine drive mappings, rejects
+root escapes/drive-relative paths, and reports unmapped external destinations.
+Read-only layout inspection is available in Ports and `bottle.command filesystem`.
+Python fixtures cover mapped/remapped/broken drives and selected-prefix isolation;
+native fixtures verify folder discovery without creating/modifying data. Existing
+environments stay in place. The bundled [filesystem guide](WINDOWS_FILESYSTEM.md)
+describes the current layout and default assumptions for uninitialized prefixes.
+
 Installation state now records preparation, setup started/failed, waiting for an
 EXE, and registration. The native Ports page lists unfinished records and prefills
 Finish/Retry with the saved title, installer and environment. Registered ports

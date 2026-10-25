@@ -17,6 +17,7 @@ final class StoreImportValidationTests: XCTestCase {
         ])
         XCTAssertNil(StoreImportValidation.validate(request: request, values: [.path: "/Downloads/game.exe", .displayName: "Game"]))
         XCTAssertNotNil(StoreImportValidation.validate(request: request, values: [.path: "/Downloads/game.exe", .displayName: "Game", .installDirectory: "drive_c/../outside"]))
+        XCTAssertNil(StoreImportValidation.validate(request: request, values: [.path: "/Downloads/game.exe", .displayName: "Game", .installDirectory: "C:\\Games\\Game"]))
     }
 
     func testResumeCanSupplyFolderAndInstalledExeWithoutRerunningInstaller() {

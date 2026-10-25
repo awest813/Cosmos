@@ -2,6 +2,13 @@
 
 ## Windows installation follow-up — October 25, 2026
 
+Filesystem follow-up: port details now have a Windows environment files disclosure
+with Finder actions for the actual C: target, game/user/program folders, system
+DLL folders and drive links. Unavailable locations are labeled and their actions
+disabled. Reading this structure creates no folders. The view explains linked
+Mac folders and the system32/syswow64 distinction. Installation fields accept
+absolute Windows drive paths as well as Mac and drive_c-relative paths.
+
 Ports now lists unfinished installations with their saved title, folder and
 status. Finish Installation skips setup; Retry Setup reruns it. Prepared records
 offer Run Setup. Continuation forms prefill the title/installer and display the

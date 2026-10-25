@@ -15,7 +15,8 @@ unset SCRIPT_DIR COSMOS_BOTTLES_DIR COSMOS_PORTS_DIR COSMOS_BOTTLE WINEPREFIX
 mkdir -p "${COSMOS_ROOT}/scripts/lib"
 cp "${ROOT}/bottle.command" "${ROOT}/port.command" "${COSMOS_ROOT}/"
 cp "${ROOT}/scripts/lib/port_lib.sh" "${ROOT}/scripts/lib/prefix_arch.sh" \
-   "${ROOT}/scripts/lib/import_lib.sh" "${COSMOS_ROOT}/scripts/lib/"
+   "${ROOT}/scripts/lib/import_lib.sh" "${ROOT}/scripts/lib/wine_filesystem.sh" \
+   "${ROOT}/scripts/lib/wine_filesystem.py" "${COSMOS_ROOT}/scripts/lib/"
 cat > "${COSMOS_ROOT}/run.command" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -24,6 +25,8 @@ prefix="${COSMOS_SUPPORT_DIR}/Bottles/${COSMOS_BOTTLE}/prefix"
 if [[ "$1" == --run-installer ]]; then
   echo "installer:$2" >> "${TEST_EVENTS}"
   mkdir -p "${prefix}"
+  mkdir -p "${prefix}/dosdevices"
+  [[ -e "${prefix}/dosdevices/z:" || -L "${prefix}/dosdevices/z:" ]] || ln -s / "${prefix}/dosdevices/z:"
   printf 'WINE REGISTRY Version 2\n#arch=win64\n' > "${prefix}/system.reg"
   [[ "${TEST_INSTALL_FAIL:-0}" == 0 ]] || exit 42
   mkdir -p "${TEST_GAME_DIR}/Apps"
@@ -55,6 +58,14 @@ prefix="${COSMOS_SUPPORT_DIR}/Bottles/game-simcity-3000-unlimited/prefix"
 export TEST_GAME_DIR="${prefix}/drive_c/Games/simcity-3000-unlimited"
 "${workflow}" prepare --name "SimCity 3000 Unlimited" > "${tmp}/prepare.log"
 [[ -d "${TEST_GAME_DIR}" && ! -e "${TEST_EVENTS}" ]] || fail "prepare must not run an EXE"
+SCRIPT_DIR="${COSMOS_ROOT}" "${COSMOS_ROOT}/bottle.command" filesystem game-simcity-3000-unlimited >"${tmp}/filesystem.json"
+python3 - "${tmp}/filesystem.json" <<'PY'
+import json, sys
+report=json.load(open(sys.argv[1]))
+assert not report['initialized'] and report['default_mappings_assumed']
+assert report['locations']['games'].endswith('/drive_c/Games')
+PY
+[[ ! -e "${TEST_EVENTS}" && ! -d "${prefix}/dosdevices" ]] || fail "filesystem inspection changed the environment"
 "${workflow}" install "${installer}" --name "SimCity 3000 Unlimited" \
   --install-dir drive_c/Games/simcity-3000-unlimited \
   --game-exe drive_c/Games/simcity-3000-unlimited/Apps/SC3U.exe > "${tmp}/install.log"
@@ -194,3 +205,19 @@ PATH="${tmp}/chooser-bin:${PATH}" "${workflow}" resume --name "Detected Game" --
 grep -q 'INSTALL_STAGE="registered"' "${state}" || fail "completed registration stage not saved"
 
 echo 'OK: EXE/MSI installation, detected game choices, pending state and resume checks passed'
+
+export TEST_GAME_DIR="${COSMOS_SUPPORT_DIR}/Bottles/game-windows-folder/prefix/drive_c/Games/Windows Game"
+"${workflow}" install "${installer}" --name "Windows Folder" --install-dir 'C:\Games\Windows Game' \
+  --game-exe 'C:\games\windows game\apps\sc3u.exe' --no-launch >"${tmp}/windows-folder.log"
+grep -Fq 'Windows destination: C:\Games\Windows Game' "${tmp}/windows-folder.log" || fail "Windows folder path mapping"
+
+"${workflow}" prepare --name "Mapped Folder" >"${tmp}/mapped-prepare.log"
+mapped_prefix="${COSMOS_SUPPORT_DIR}/Bottles/game-mapped-folder/prefix"
+mkdir -p "${mapped_prefix}/dosdevices" "${tmp}/Mapped Volume"
+printf 'WINE REGISTRY Version 2\n#arch=win64\n' > "${mapped_prefix}/system.reg"
+ln -s "${tmp}/Mapped Volume" "${mapped_prefix}/dosdevices/z:"
+export TEST_GAME_DIR="${tmp}/Mapped Volume/Game"
+"${workflow}" install "${installer}" --name "Mapped Folder" --install-dir "${TEST_GAME_DIR}" \
+  --game-exe Apps/SC3U.exe --no-launch >"${tmp}/mapped-folder.log"
+grep -Fq 'Windows destination: Z:\Game' "${tmp}/mapped-folder.log" || fail "remapped Z: destination was forged from the Mac root"
+[[ "$(readlink "${mapped_prefix}/dosdevices/z:")" == "${tmp}/Mapped Volume" ]] || fail "existing drive mapping was modified"

@@ -252,6 +252,12 @@ struct PortsDashboard: View {
                 PortFileCheckView(port: port, check: fileCheck)
                     .id(fileCheck.report(for: port))
             }
+            if let prefix = port.environmentPrefixURL {
+                DisclosureGroup("Windows environment files") {
+                    WineEnvironmentFilesView(layout: WineEnvironmentLayout(prefix: prefix))
+                        .padding(.top, 8)
+                }
+            }
         }
         .padding(CosmosSpacing.cardPadding)
         .cosmosCard()
@@ -355,6 +361,45 @@ struct PendingGameInstallationsView: View {
         }
         .padding(CosmosSpacing.cardPadding)
         .cosmosCard()
+    }
+}
+
+struct WineEnvironmentFilesView: View {
+    let layout: WineEnvironmentLayout
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(layout.locations) { location in locationRow(location) }
+            if !layout.drives.isEmpty {
+                Text("Windows drive mappings").font(.headline)
+                ForEach(layout.drives) { location in locationRow(location) }
+            }
+            Text("Some Windows folders link to Mac folders. Browsing changes no files. In a 64-bit/WoW64 environment, system32 holds 64-bit DLLs and syswow64 holds 32-bit DLLs; a 32-bit-only environment uses system32 for 32-bit DLLs.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func locationRow(_ location: WineEnvironmentLayout.Location) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(location.title).font(.subheadline.weight(.medium))
+                Spacer()
+                Button {
+                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: location.url.path)
+                } label: { Image(systemName: "folder") }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Open \(location.title) in Finder")
+                .help("Open this folder in Finder")
+                .disabled(!location.isAvailable)
+            }
+            Text(location.url.path).font(.caption).foregroundStyle(.secondary)
+                .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            if !location.isAvailable {
+                Text("Not created or unavailable").font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 

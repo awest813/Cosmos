@@ -12,6 +12,10 @@ candidate priorities and evidence are tracked here and in
 
 ## Current priority gaps
 
+Filesystem work now centralizes host/Windows path resolution, respects mapped
+drives, and exposes the Windows folder structure without creating missing data.
+See [WINDOWS_FILESYSTEM.md](WINDOWS_FILESYSTEM.md). Existing prefixes stay in place.
+
 | Priority | Gap | Candidate status / next evidence |
 | --- | --- | --- |
 | 1 | Sikarugir-style Ports without Steam setup | Ports is available before Steam; installer and installed-EXE routes are available directly in Ports. Verify the complete journey on an Apple Silicon Mac. |

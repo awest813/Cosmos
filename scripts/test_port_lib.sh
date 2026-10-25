@@ -269,7 +269,8 @@ printf '%s\n' "${old_out}" | grep -Fxq 'arg=<two words>' || fail "quoted argumen
 printf '%s\n' "${old_out}" | grep -Fxq 'arg=<>' || fail "empty argument lost in built launcher"
 printf '%s\n' "${old_out}" | grep -Fxq 'arg=<*.sav>' || fail "glob expanded in built launcher"
 mkdir -p "${fake}/scripts/lib"
-cp "${ROOT}/scripts/lib/port_lib.sh" "${ROOT}/scripts/lib/prefix_arch.sh" "${fake}/scripts/lib/"
+cp "${ROOT}/scripts/lib/port_lib.sh" "${ROOT}/scripts/lib/prefix_arch.sh" \
+  "${ROOT}/scripts/lib/wine_filesystem.sh" "${ROOT}/scripts/lib/wine_filesystem.py" "${fake}/scripts/lib/"
 cli_out="$(SCRIPT_DIR="${fake}" COSMOS_PROGRAM_ARCH=win64 "${ROOT}/port.command" launch old-game)"
 printf '%s\n' "${cli_out}" | grep -Fxq 'program=win32' || fail "CLI ignored port program architecture"
 printf '%s\n' "${cli_out}" | grep -Fxq 'arg=<two words>' || fail "CLI split quoted arguments"
@@ -341,6 +342,13 @@ COSMOS_PORT_RUNTIME_ROOT="${fake}" "${ROOT}/port.command" build old-game --outpu
 grep -q 'COSMOS_BACKEND=wined3d' "${tmpdir}/apps/Classic Game.app/Contents/Resources/port.env" || fail "rebuilt app ignored edited graphics"
 
 "${ROOT}/port.command" delete notepad --force >/dev/null
+windows_prefix="${tmpdir}/windows-prefix"
+mkdir -p "${windows_prefix}/drive_c/Games"
+cp "${tmpdir}/game32.exe" "${windows_prefix}/drive_c/Games/SC3U.exe"
+WINEPREFIX="${windows_prefix}" "${ROOT}/port.command" create --name "Windows Path" --exe 'C:\games\sc3u.exe' >/dev/null
+windows_conf="${COSMOS_SUPPORT_DIR}/Ports/windows-path/port.conf"
+[[ "$(port_get_setting "${windows_conf}" PORT_EXE)" == "${windows_prefix}/drive_c/Games/SC3U.exe" ]] || fail "Windows path did not resolve actual casing"
+[[ "$(port_get_setting "${windows_conf}" PORT_PROGRAM_ARCH)" == win32 ]] || fail "Windows path architecture not detected"
 [[ ! -d "${COSMOS_SUPPORT_DIR}/Ports/notepad" ]] || fail "delete should remove the port definition"
 [[ -d "${app}" ]] || fail "delete should leave the built Mac app in place"
 

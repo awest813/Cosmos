@@ -22,6 +22,10 @@ final class PortsRenderingTests: XCTestCase {
                 "PORT_RENDER_CNC_DDRAW": "1", "PORT_RENDER_WINED3D": "1"
             ]
             let port = WinePort(id: "classic-game", settings: settings, directory: directory)
+            try capture(
+                ScrollView { WineEnvironmentFilesView(layout: WineEnvironmentLayout(prefix: directory.appendingPathComponent("missing-prefix"))).padding(20) },
+                name: "windows-environment-files", size: NSSize(width: 560, height: 640), scheme: .light, directory: directory
+            )
             let pending = PendingGameInstallation(id: "custom/simcity", name: "SimCity 3000 Unlimited", slug: "simcity", bottle: "custom", folder: "/Users/you/Games/SimCity 3000 Unlimited", installer: "/Users/you/Downloads/Setup.exe", stage: "awaiting-game")
             try capture(
                 PendingGameInstallationsView(installations: [pending], isBusy: false, onContinue: { _, _ in }).padding(20),

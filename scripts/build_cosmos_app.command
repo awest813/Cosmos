@@ -115,7 +115,7 @@ else
 fi
 
 mkdir -p "${APP_BUNDLE}/Contents/Resources/docs"
-for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md PORTS.md MOONSHINE.md SOJU.md HIGHBALL.md VERMUT.md SIMCITY_3000_SETUP.md; do
+for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md PORTS.md MOONSHINE.md SOJU.md HIGHBALL.md VERMUT.md SIMCITY_3000_SETUP.md WINDOWS_FILESYSTEM.md; do
   if [[ -f "${REPO_ROOT}/docs/${doc}" ]]; then
     cp "${REPO_ROOT}/docs/${doc}" "${APP_BUNDLE}/Contents/Resources/docs/${doc}"
   fi
@@ -155,6 +155,7 @@ cp "${REPO_ROOT}/VERSION" "${APP_BUNDLE}/Contents/Resources/VERSION"
 if [[ -d "${REPO_ROOT}/scripts/lib" ]]; then
   mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts/lib"
   cp -R "${REPO_ROOT}/scripts/lib/." "${APP_BUNDLE}/Contents/Resources/scripts/lib/"
+  rm -rf "${APP_BUNDLE}/Contents/Resources/scripts/lib/__pycache__"
 fi
 if [[ -d "${REPO_ROOT}/third_party/steam-on-m1-wine" ]]; then
   mkdir -p "${APP_BUNDLE}/Contents/Resources/third_party"

@@ -93,23 +93,27 @@ Key existing primitives worth preserving as Cosmos grows:
 - **Backend selection via `GPTK_PATH` / DXMT install** — becomes a first-class
   per-bottle / per-game `backend` enum.
 
-## Data & filesystem layout (target)
+## Data & filesystem layout
 
 ```
 ~/Library/Application Support/Cosmos/
-├── bottles/            # one dir per bottle (Wine prefix + metadata)
+├── Bottles/            # one dir per named environment
 │   └── <bottle>/
 │       ├── prefix/         # WINEPREFIX
-│       ├── bottle.yaml      # wine version, windows version, backend, env, deps
+│       ├── bottle.conf      # runtime and Windows settings
+│       ├── install-*.conf   # installer recovery state
 │       └── logs/
-├── runtimes/           # downloaded Wine builds, DXMT, etc.
-├── profiles/           # cached/installed game profiles
+├── Runtime/            # downloaded runtime components
+├── Ports/              # per-game port.conf definitions
+├── Profiles/           # launcher profiles
+├── GameProfiles/       # user-authored compatibility profiles
 └── logs/               # app-level logs
 ```
 
-> Note: today's scripts use `~/.wine-steam-11` (prefix) and store saved profiles
-> under `~/Library/Application Support/Cosmos/Profiles/` (with a fallback to the
-> legacy `Cider/Profiles/` location). The per-bottle layout above is the 0.3 target.
+The main Steam prefix remains at `~/.wine-steam-11` (or `WINEPREFIX`). Named
+environments use `Bottles/<name>/prefix`. See
+[Windows filesystem and drive mapping](WINDOWS_FILESYSTEM.md) for the actual
+Windows folder structure, override precedence, path handling and read-only tools.
 
 ## Proposed repo structure
 
