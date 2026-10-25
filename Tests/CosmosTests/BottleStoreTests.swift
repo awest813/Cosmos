@@ -19,10 +19,13 @@ final class BottleStoreTests: XCTestCase {
         let custom = root.appendingPathComponent("custom", isDirectory: true)
         setenv("COSMOS_BOTTLES_DIR", custom.path, 1)
         let environment = custom.appendingPathComponent("classic", isDirectory: true)
-        try FileManager.default.createDirectory(at: environment, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: environment.appendingPathComponent("prefix", isDirectory: true), withIntermediateDirectories: true)
         try "COSMOS_BACKEND=\"wined3d\"\n".write(to: environment.appendingPathComponent("bottle.conf"), atomically: true, encoding: .utf8)
         XCTAssertEqual(BottleStore.load().map(\.name), ["classic"])
-        XCTAssertEqual(BottleStore.load().first?.prefixURL, environment.appendingPathComponent("prefix", isDirectory: true))
+        XCTAssertEqual(
+            BottleStore.load().first?.prefixURL.resolvingSymlinksInPath().path,
+            environment.appendingPathComponent("prefix", isDirectory: true).resolvingSymlinksInPath().path
+        )
     }
 
     func testParseConfBasic() throws {
