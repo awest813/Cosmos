@@ -4,6 +4,7 @@ import Foundation
 enum CosmosOperationLabel {
     static func title(script: String, arguments: [String]) -> String {
         switch script {
+        case "scripts/install_program.command": return "Installing your Windows game…"
         case "detect_steam_games.command":
             return arguments.contains("--list") || arguments.contains("--verify")
                 ? "Checking installed games…" : "Updating your game library…"

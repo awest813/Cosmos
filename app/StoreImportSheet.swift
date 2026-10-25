@@ -141,6 +141,7 @@ struct StoreImportSheet: View {
     private func pickFile(for kind: StoreImportRequest.FieldKind) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
+        if request.script == "scripts/install_program.command" { panel.allowedFileTypes = ["exe"] }
         panel.canChooseDirectories = (kind == .path && request.baseArguments.contains("add-itch"))
         panel.allowsMultipleSelection = false
         panel.prompt = "Choose"

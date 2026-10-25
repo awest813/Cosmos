@@ -115,7 +115,7 @@ else
 fi
 
 mkdir -p "${APP_BUNDLE}/Contents/Resources/docs"
-for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md PORTS.md MOONSHINE.md SOJU.md HIGHBALL.md VERMUT.md; do
+for doc in STEAM_SETUP.md BACKENDS.md REAL_GAME_TESTING.md D3D9_EVALUATION.md PORTS.md MOONSHINE.md SOJU.md HIGHBALL.md VERMUT.md SIMCITY_3000_SETUP.md; do
   if [[ -f "${REPO_ROOT}/docs/${doc}" ]]; then
     cp "${REPO_ROOT}/docs/${doc}" "${APP_BUNDLE}/Contents/Resources/docs/${doc}"
   fi
@@ -144,7 +144,7 @@ if [[ -f "${verify_src}" ]]; then
   cp "${verify_src}" "${APP_BUNDLE}/Contents/Resources/scripts/verify_steam_detection.command"
   chmod +x "${APP_BUNDLE}/Contents/Resources/scripts/verify_steam_detection.command"
 fi
-for helper in check_updates.sh install_update.sh terminal_wrap.sh build-pe-d3d9.sh; do
+for helper in check_updates.sh install_update.sh terminal_wrap.sh build-pe-d3d9.sh install_program.command; do
   src="${REPO_ROOT}/scripts/${helper}"
   [[ -f "${src}" ]] || die "Missing helper script: ${src}"
   mkdir -p "${APP_BUNDLE}/Contents/Resources/scripts"

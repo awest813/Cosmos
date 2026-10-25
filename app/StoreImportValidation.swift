@@ -13,6 +13,14 @@ enum StoreImportValidation {
         let slug = trimmed(.battlenetSlug)
         let epic = trimmed(.epicAppName)
 
+        if request.script == "scripts/install_program.command" {
+            if !path.hasPrefix("/") || !path.lowercased().hasSuffix(".exe") {
+                return "Choose the installer .exe on your Mac, or enter its full path starting with /."
+            }
+            if trimmed(.displayName).isEmpty { return "Enter the game title." }
+            return nil
+        }
+
         if request.baseArguments.contains("add-gog") {
             if path.isEmpty {
                 return "Enter a GOG setup .exe, install folder, or slug from List GOG Games."

@@ -21,7 +21,7 @@ pass "CLI install-update flag wired"
 grep -q -- '--install' "${ROOT}/scripts/check_updates.sh" || fail "check_updates.sh missing --install"
 pass "check_updates --install flag present"
 
-for script in check_updates.sh install_update.sh terminal_wrap.sh; do
+for script in check_updates.sh install_update.sh terminal_wrap.sh install_program.command; do
   [[ -x "${ROOT}/scripts/${script}" ]] || fail "missing scripts/${script}"
 done
 [[ -f "${ROOT}/scripts/lib/release_lib.sh" ]] || fail "missing scripts/lib/release_lib.sh"
@@ -41,7 +41,7 @@ pass "in-app update + terminal trackers present"
 if [[ -d "${APP_BUNDLE}" ]]; then
   app_binary="${APP_BUNDLE}/Contents/MacOS/Cosmos"
   [[ -x "${app_binary}" ]] || fail "bundle missing executable Contents/MacOS/Cosmos"
-  for script in check_updates.sh install_update.sh terminal_wrap.sh; do
+  for script in check_updates.sh install_update.sh terminal_wrap.sh install_program.command; do
     [[ -x "${RESOURCES}/scripts/${script}" ]] || fail "bundle missing Resources/scripts/${script}"
   done
   [[ -f "${RESOURCES}/VERSION" ]] || fail "bundle missing Resources/VERSION"

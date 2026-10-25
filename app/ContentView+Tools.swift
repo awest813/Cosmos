@@ -209,6 +209,15 @@ extension ContentView {
                 spacing: CosmosSpacing.gridGap
             ) {
                 storeActionButton(
+                    title: "Install Classic Game",
+                    subtitle: "Installer → folder → game EXE",
+                    systemImage: "shippingbox.fill",
+                    script: "scripts/install_program.command",
+                    arguments: ["install"],
+                    needsStoreTitle: true,
+                    pathPrompt: "Install a classic Windows game from EXE"
+                )
+                storeActionButton(
                     title: "List Imports",
                     subtitle: "Standalone configs",
                     systemImage: "list.bullet",
@@ -389,19 +398,21 @@ extension ContentView {
                     title: pathPrompt,
                     message: arguments.contains("add-gog")
                         ? "GOG offline installer (.exe) opens Terminal. For an already-installed game, enter a list-gog slug or drive_c/... path — registration runs in the console below."
+                        : script == "scripts/install_program.command"
+                        ? "Choose the installer EXE and enter the game title, such as SimCity 3000 Unlimited. Terminal guides you through choosing an installation folder, running setup, selecting the installed game EXE, and opening it. Uses a dedicated environment and WineD3D."
                         : "Provide the file or folder path and a display name for the Cosmos launcher.",
                     fields: [
                         .init(
                             id: .path,
-                            label: "Path",
-                            placeholder: arguments.contains("add-gog")
+                            label: script == "scripts/install_program.command" ? "Installer EXE" : "Path",
+                            placeholder: arguments.contains("add-gog") || script == "scripts/install_program.command"
                                 ? "/Users/you/Downloads/setup_game.exe"
                                 : "/Users/you/Downloads/MyGame",
                             allowsFilePicker: true
                         ),
                         .init(id: .displayName, label: "Display name", placeholder: "Display name for launcher"),
                     ],
-                    submitLabel: arguments.contains("add-gog") ? "Import" : "Run in Terminal",
+                    submitLabel: arguments.contains("add-gog") ? "Import" : (script == "scripts/install_program.command" ? "Install in Terminal" : "Run in Terminal"),
                     script: script,
                     baseArguments: arguments,
                     forceTerminal: true
@@ -427,7 +438,7 @@ extension ContentView {
             CosmosActionTile(title: title, subtitle: subtitle, systemImage: systemImage)
         }
         .buttonStyle(CosmosButtonStyle())
-        .disabled(isRunning)
+        .disabled(isRunning || pendingTerminalJobID != nil)
     }
 
     func submitStoreImport(
