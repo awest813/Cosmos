@@ -2,6 +2,31 @@ import XCTest
 @testable import Cosmos
 
 final class PendingGameInstallationTests: XCTestCase {
+    func testInstallerChooserScriptsCompileWithoutOpeningDialogs() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let helper = try String(contentsOf: root.appendingPathComponent("scripts/install_program.command"), encoding: .utf8)
+        let scripts = helper.components(separatedBy: "<<'APPLESCRIPT'\n").dropFirst().map {
+            String($0.components(separatedBy: "\nAPPLESCRIPT")[0])
+        }
+        XCTAssertEqual(scripts.count, 2)
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        for (index, script) in scripts.enumerated() {
+            let source = temporary.appendingPathComponent("chooser-\(index).applescript")
+            try script.write(to: source, atomically: true, encoding: .utf8)
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osacompile")
+            process.arguments = ["-o", temporary.appendingPathComponent("chooser-\(index).scpt").path, source.path]
+            let errors = Pipe()
+            process.standardError = errors
+            try process.run()
+            process.waitUntilExit()
+            let message = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            XCTAssertEqual(process.terminationStatus, 0, message)
+        }
+    }
+
     func testPendingDiscoveryUsesCustomDirectoriesAndHidesRegisteredOrInvalidRecords() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
