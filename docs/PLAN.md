@@ -16,6 +16,7 @@ candidate priorities and evidence are tracked here and in
 | --- | --- | --- |
 | 1 | Sikarugir-style Ports without Steam setup | Ports is available before Steam; installer and installed-EXE routes are available directly in Ports. Verify the complete journey on an Apple Silicon Mac. |
 | 1 | Setup finishes but game registration is interrupted | Finish Installation resumes selection without rerunning setup and remembers custom folders. Regression fixtures cover recovery and disconnected/moved folders. |
+| 1 | Changing an installed game's executable or compatibility settings requires recreating its port | Edit Port and CLI update preserve identity, installation and metadata. Invalid/failed saves retain the original definition. Rebuild previously created Mac apps after editing. |
 | 1 | 32-bit classic games, starting with SimCity 3000 Unlimited | Dedicated WoW64/WineD3D installation, PE detection, and architecture propagation implemented. Actual installation, city creation, save/load and relaunch pending. |
 | 2 | SpockD3D9 matching x86/x64 DLLs and fallback | Placement and WineD3D fallback covered by shell fixtures; UI descriptions reflect enabled switches. Loaded-renderer comparison on a real game pending. |
 | 2 | Native UI/accessibility polish | Narrow-layout action fallback, retained drafts/errors and CI screenshots implemented. Interactive keyboard, VoiceOver, Reduce Motion and visual review pending. |

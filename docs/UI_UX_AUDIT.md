@@ -21,6 +21,13 @@ tests cover recovery-form validation and renderer descriptions; screenshot
 captures include the new Ports actions. Real-game and interactive accessibility
 checks remain pending. Earlier entries below preserve their original evidence.
 
+Follow-up: existing port details now show their environment and offer Edit.
+The sheet loads saved values, allows clearing optional settings, retains failed
+edits for correction, and explains rebuilding previously created Mac apps.
+CLI update keeps the port ID and writes the full definition atomically; it
+preserves installed files and unrelated metadata. Renderer/architecture failures
+and a simulated final-write failure leave the original definition unchanged.
+
 Reviewed the native SwiftUI shell, shared design components, library toolbar, and search interactions on September 7, 2026.
 
 ## Findings addressed

@@ -18,6 +18,7 @@ enum CosmosOperationLabel {
             case "launch": return "Opening your port…"
             case "build": return "Making a Mac app…"
             case "create": return "Creating a port…"
+            case "update": return "Saving port settings…"
             case "delete": return "Removing a port…"
             default: return "Updating ports…"
             }

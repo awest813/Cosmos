@@ -192,6 +192,12 @@ extension ContentView {
                 onInstall: { storeImportRequest = .classicGame() },
                 onResumeInstall: { storeImportRequest = .classicGame(resuming: true) },
                 requiresRosetta: wineRuntime.needsRosetta && !wineRuntime.rosettaReady,
+                onUpdate: { port, draft, completion in
+                    runCommand(
+                        script: "port.command", arguments: draft.commandArguments(updating: port.id),
+                        onCompletion: { succeeded, message in completion(succeeded ? nil : message) }
+                    )
+                },
                 onCreate: { draft, completion in
                     runCommand(
                         script: "port.command", arguments: draft.commandArguments,

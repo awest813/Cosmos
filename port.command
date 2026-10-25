@@ -52,6 +52,8 @@ Commands:
       --cnc-ddraw-path <path>   Folder containing ddraw.dll (not bundled).
       --gptk-path <path>        Your Game Porting Toolkit install. Personal only.
   show <slug>                   Print a port's settings and launch backend.
+  update <slug> [options]        Edit settings using create options (except --slug).
+                                Empty args/paths/bottle clear saved values.
   validate <slug>               Check the graphics stack. Does not launch.
   build <slug> [--output dir]   Write a double-clickable .app.
   launch <slug>                 Open the Windows program in the port's bottle.
@@ -103,31 +105,47 @@ cmd_list() {
   fi
 }
 
-cmd_create() {
+cmd_save() {
+  local mode="$1"; shift
   local name="" exe="" slug="" bottle="" distribution="personal" windows="win10"
   local retina="0" args="" program_arch="" dxmt="1" d3dmetal="0" dxvk="0" d9vk="1" cnc="1" wined3d="1"
   local cnc_path="" gptk_path=""
+  local exe_changed=0 arch_explicit=0
   port_require_apple_silicon || exit 1
+  if [[ "${mode}" == update ]]; then
+    slug="${1:-}"
+    require_port "${slug}"
+    shift
+    port_load_conf "$(port_dir "${slug}")/port.conf"
+    name="${PORT_NAME}"; exe="${PORT_EXE}"; bottle="${PORT_BOTTLE}"
+    distribution="${PORT_DISTRIBUTION}"; windows="${PORT_WINDOWS}"; retina="${PORT_RETINA}"
+    args="${PORT_ARGS}"; program_arch="${PORT_PROGRAM_ARCH}"
+    dxmt="${PORT_RENDER_DXMT}"; d3dmetal="${PORT_RENDER_D3DMETAL}"; dxvk="${PORT_RENDER_DXVK}"
+    d9vk="${PORT_RENDER_D9VK}"; cnc="${PORT_RENDER_CNC_DDRAW}"; wined3d="${PORT_RENDER_WINED3D}"
+    cnc_path="${PORT_CNC_DDRAW_PATH}"; gptk_path="${PORT_GPTK_PATH}"
+  fi
   while (($#)); do
     case "$1" in
       --name) name="$(take_opt "$1" "${2:-}")"; shift 2 ;;
-      --exe) exe="$(take_opt "$1" "${2:-}")"; shift 2 ;;
-      --slug) slug="$(take_opt "$1" "${2:-}")"; shift 2 ;;
-      --bottle) bottle="$(take_opt "$1" "${2:-}")"; shift 2 ;;
+      --exe) exe="$(take_opt "$1" "${2:-}")"; exe_changed=1; shift 2 ;;
+      --slug)
+        [[ "${mode}" == create ]] || die "The port ID cannot be changed. Use --name for its display name."
+        slug="$(take_opt "$1" "${2:-}")"; shift 2 ;;
+      --bottle) [[ $# -ge 2 ]] || die "Missing value for $1."; bottle="$2"; shift 2 ;;
       --distribution) distribution="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --windows) windows="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --retina) retina="$(take_opt "$1" "${2:-}")"; shift 2 ;;
-      --args) args="$(take_opt "$1" "${2:-}")"; shift 2 ;;
-      --program-arch) program_arch="$(take_opt "$1" "${2:-}")"; shift 2 ;;
+      --args) [[ $# -ge 2 ]] || die "Missing value for $1."; args="$2"; shift 2 ;;
+      --program-arch) program_arch="$(take_opt "$1" "${2:-}")"; arch_explicit=1; shift 2 ;;
       --dxmt) dxmt="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --d3dmetal) d3dmetal="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --dxvk) dxvk="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --d9vk) d9vk="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --cnc-ddraw) cnc="$(take_opt "$1" "${2:-}")"; shift 2 ;;
       --wined3d) wined3d="$(take_opt "$1" "${2:-}")"; shift 2 ;;
-      --cnc-ddraw-path) cnc_path="$(take_opt "$1" "${2:-}")"; shift 2 ;;
-      --gptk-path) gptk_path="$(take_opt "$1" "${2:-}")"; shift 2 ;;
-      --*) die "Unknown create option: $1" ;;
+      --cnc-ddraw-path) [[ $# -ge 2 ]] || die "Missing value for $1."; cnc_path="$2"; shift 2 ;;
+      --gptk-path) [[ $# -ge 2 ]] || die "Missing value for $1."; gptk_path="$2"; shift 2 ;;
+      --*) die "Unknown ${mode} option: $1" ;;
       *) die "Unexpected argument: $1" ;;
     esac
   done
@@ -153,6 +171,9 @@ cmd_create() {
   retina="$(port_normalize_flag "${retina}")" || die "--retina must be 0 or 1."
   local detected_arch
   detected_arch="$(port_detect_program_arch "${exe}" || true)"
+  if [[ "${mode}" == update && "${exe_changed}" == 1 && "${arch_explicit}" == 0 && -n "${detected_arch}" ]]; then
+    program_arch="${detected_arch}"
+  fi
   program_arch="$(program_arch_normalize "${program_arch:-${detected_arch:-win64}}")" || die "--program-arch must be win64 or win32."
   if [[ -n "${detected_arch}" && "${detected_arch}" != "${program_arch}" ]]; then
     die "The executable is ${detected_arch}, but --program-arch is ${program_arch}. Choose the matching program architecture."
@@ -179,8 +200,9 @@ cmd_create() {
 
   local dir conf primary
   dir="$(port_dir "${slug}")"
-  [[ ! -e "${dir}" ]] || die "Port already exists: ${slug}"
-  conf="${dir}/port.conf"
+  if [[ "${mode}" == create ]]; then
+    [[ ! -e "${dir}" ]] || die "Port already exists: ${slug}"
+  fi
 
   if [[ -f "${exe}" ]]; then
     exe="$(cd -- "$(dirname -- "${exe}")" && pwd)/$(basename -- "${exe}")"
@@ -198,7 +220,15 @@ cmd_create() {
   primary="$(port_resolve_primary)" || exit 1
 
   mkdir -p "${dir}"
-  printf '%s\n' "# Cosmos port \"${name}\". Apple Silicon wrapper. Do not put D3DMetal in a shared port." > "${conf}"
+  # Stage a complete definition beside the original, then replace it atomically.
+  # Retain extension metadata and built-app location during an edit.
+  conf="$(mktemp "${dir}/.port.conf.XXXXXX")"
+  trap "$(printf 'rm -f -- %q' "${conf}")" EXIT
+  if [[ "${mode}" == update ]]; then
+    cp "${dir}/port.conf" "${conf}"
+  else
+    printf '%s\n' "# Cosmos port \"${name}\". Apple Silicon wrapper. Do not put D3DMetal in a shared port." > "${conf}"
+  fi
   port_set_setting "${conf}" PORT_SCHEMA "cosmos-port-v1"
   port_set_setting "${conf}" PORT_NAME "${name}"
   port_set_setting "${conf}" PORT_SLUG "${slug}"
@@ -220,15 +250,25 @@ cmd_create() {
   port_set_setting "${conf}" PORT_RENDER_WINED3D "${wined3d}"
   port_set_setting "${conf}" PORT_CNC_DDRAW_PATH "${cnc_path}"
   port_set_setting "${conf}" PORT_GPTK_PATH "${gptk_path}"
+  mv "${conf}" "${dir}/port.conf"
+  trap - EXIT
 
-  log "Created port '${slug}' (${name})"
+  if [[ "${mode}" == update ]]; then
+    log "Updated port '${slug}' (${name})"
+    echo "Existing Mac apps keep their previous settings. Rebuild with port.command build ${slug} to apply these changes to an app."
+  else
+    log "Created port '${slug}' (${name})"
+  fi
   echo "Launch backend: ${primary}"
-  echo "Definition: ${conf}"
+  echo "Definition: ${dir}/port.conf"
   if [[ ! -f "${exe}" && "${exe}" != drive_c/* ]]; then
     echo "Note: ${exe} is not on disk yet. The Mac app can still be built; launch works once the program is there."
   fi
   echo "Build a Mac app with: port.command build ${slug}"
 }
+
+cmd_create() { cmd_save create "$@"; }
+cmd_update() { cmd_save update "$@"; }
 
 cmd_show() {
   local slug="${1:-}"
@@ -391,6 +431,7 @@ main() {
     ""|-h|--help|help) usage ;;
     list) shift; cmd_list "$@" ;;
     create) shift; cmd_create "$@" ;;
+    update) shift; cmd_update "$@" ;;
     show) shift; cmd_show "$@" ;;
     validate) shift; cmd_validate "$@" ;;
     build) shift; cmd_build "$@" ;;

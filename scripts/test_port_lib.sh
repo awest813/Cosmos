@@ -281,6 +281,65 @@ fi
 grep -q 'Invalid port launch arguments' "${tmpdir}/bad-args.log" || fail "malformed arguments need a useful error"
 if grep -q '^backend=' "${tmpdir}/bad-args.log"; then fail "malformed arguments launched the game"; fi
 
+# Updates retain the identity, unrelated metadata and built app, while changing
+# only the definition. Invalid edits must leave its bytes unchanged.
+edit_conf="${COSMOS_SUPPORT_DIR}/Ports/old-game/port.conf"
+printf 'PORT_EXTENSION="keep me"\n' >> "${edit_conf}"
+old_app="${tmpdir}/apps/Old Game.app"
+cp "${old_app}/Contents/Resources/port.env" "${tmpdir}/old-app.env"
+"${ROOT}/port.command" update old-game --name "Classic Game" --exe "${tmpdir}/game64.exe" \
+  --windows win7 --dxmt 0 --d9vk 0 --cnc-ddraw 0 --wined3d 1 --args '' >"${tmpdir}/update.log"
+[[ "$(port_get_setting "${edit_conf}" PORT_SLUG)" == old-game ]] || fail "edit changed port identity"
+[[ "$(port_get_setting "${edit_conf}" PORT_EXTENSION)" == 'keep me' ]] || fail "edit lost extension metadata"
+[[ "$(port_get_setting "${edit_conf}" PORT_BUILT_APP)" == "${old_app}" ]] || fail "edit lost built app location"
+[[ "$(port_get_setting "${edit_conf}" PORT_PROGRAM_ARCH)" == win64 ]] || fail "edited EXE architecture not detected"
+[[ "$(port_get_setting "${edit_conf}" PORT_ARGS)" == '' ]] || fail "edit failed to clear arguments"
+"${ROOT}/port.command" validate old-game >/dev/null
+cmp "${old_app}/Contents/Resources/port.env" "${tmpdir}/old-app.env" || fail "edit changed built app without rebuild"
+grep -q 'Rebuild' "${tmpdir}/update.log" || fail "edit must explain rebuilding"
+edited_out="$(SCRIPT_DIR="${fake}" "${ROOT}/port.command" launch old-game)"
+printf '%s\n' "${edited_out}" | grep -Fxq 'backend=wined3d' || fail "updated CLI backend"
+printf '%s\n' "${edited_out}" | grep -Fxq 'program=win64' || fail "updated CLI architecture"
+printf '%s\n' "${edited_out}" | grep -Fxq "game=${tmpdir}/game64.exe" || fail "updated CLI executable"
+if printf '%s\n' "${edited_out}" | grep -Fq 'arg=<--windowed>'; then fail "cleared launch arguments still used"; fi
+cp "${edit_conf}" "${tmpdir}/before-invalid.conf"
+if "${ROOT}/port.command" update old-game --distribution share --d3dmetal 1 >"${tmpdir}/invalid-update.log" 2>&1; then
+  fail "update allowed shared D3DMetal"
+fi
+cmp "${edit_conf}" "${tmpdir}/before-invalid.conf" || fail "invalid renderer edit changed definition"
+if "${ROOT}/port.command" update old-game --exe "${tmpdir}/game32.exe" --program-arch win64 >/dev/null 2>&1; then
+  fail "update allowed mismatched executable architecture"
+fi
+cmp "${edit_conf}" "${tmpdir}/before-invalid.conf" || fail "architecture failure changed definition"
+# Simulate a disk/write failure during the final atomic replacement.
+mkdir -p "${tmpdir}/fail-bin"
+cat > "${tmpdir}/fail-bin/mv" <<'EOF'
+#!/usr/bin/env bash
+for last in "$@"; do :; done
+[[ "${last}" != "${TEST_MV_TARGET}" ]] || exit 73
+exec "${TEST_REAL_MV}" "$@"
+EOF
+chmod +x "${tmpdir}/fail-bin/mv"
+real_mv="$(command -v mv)"
+if PATH="${tmpdir}/fail-bin:${PATH}" TEST_MV_TARGET="${edit_conf}" TEST_REAL_MV="${real_mv}" \
+  "${ROOT}/port.command" update old-game --name "Failed Save" >"${tmpdir}/failed-save.log" 2>&1; then
+  fail "failed atomic replacement reported success"
+fi
+cmp "${edit_conf}" "${tmpdir}/before-invalid.conf" || fail "failed save changed original definition"
+if compgen -G "${COSMOS_SUPPORT_DIR}/Ports/old-game/.port.conf.*" >/dev/null; then
+  fail "failed save left a staged definition"
+fi
+if "${ROOT}/port.command" update old-game --slug renamed >/dev/null 2>&1; then fail "update changed directory identity"; fi
+if "${ROOT}/port.command" update missing --name "Ghost" >/dev/null 2>&1; then fail "update created a missing port"; fi
+mkdir -p "${COSMOS_SUPPORT_DIR}/Bottles/edit-bottle"
+"${ROOT}/port.command" update old-game --bottle edit-bottle --cnc-ddraw-path '/tmp/ddraw' --gptk-path '/tmp/GPTK' >/dev/null
+"${ROOT}/port.command" update old-game --bottle '' --cnc-ddraw-path '' --gptk-path '' >/dev/null
+for key in PORT_BOTTLE PORT_CNC_DDRAW_PATH PORT_GPTK_PATH; do
+  [[ "$(port_get_setting "${edit_conf}" "${key}")" == '' ]] || fail "update failed to clear ${key}"
+done
+COSMOS_PORT_RUNTIME_ROOT="${fake}" "${ROOT}/port.command" build old-game --output "${tmpdir}/apps" >/dev/null
+grep -q 'COSMOS_BACKEND=wined3d' "${tmpdir}/apps/Classic Game.app/Contents/Resources/port.env" || fail "rebuilt app ignored edited graphics"
+
 "${ROOT}/port.command" delete notepad --force >/dev/null
 [[ ! -d "${COSMOS_SUPPORT_DIR}/Ports/notepad" ]] || fail "delete should remove the port definition"
 [[ -d "${app}" ]] || fail "delete should leave the built Mac app in place"

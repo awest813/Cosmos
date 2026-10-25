@@ -39,6 +39,14 @@ branch's Ports and split-dashboard architecture.
 
 ## Evidence and release gates
 
+Ports now also supports editing existing definitions without reinstalling.
+CLI updates and the native Edit sheet share creation validation; staged saves
+retain original settings on invalid input or write failure. Shell fixtures cover
+EXE/architecture changes, renderer switching, clearing saved values, metadata
+retention, failed writes, launching the edited definition, and rebuilding an app.
+Native tests cover draft loading/clearing and capture the Edit sheet. Interactive
+edit/retry and the resulting real-game launch remain part of the UI/game gates.
+
 Shell regression tests cover port creation/build/launch with a fake runtime,
 program-architecture propagation, arguments containing spaces and empty values,
 literal wildcards, malformed quotes, Spock DLL placement and fallback overrides,

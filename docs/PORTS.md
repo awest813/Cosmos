@@ -18,7 +18,7 @@ Cosmos does not bundle Sikarugir, Wineskin, or D3DMetal.
 | Graphics | One backend for the whole bottle | Sikarugir-style switches that stay on together. DXMT and SpockD3D9 launch side by side |
 | Machines | Apple Silicon and Intel | **Apple Silicon only**, macOS **14.6+** |
 
-The dashboard **Ports** tab (⌘3, on the main tab bar) creates, opens, and builds ports
+The dashboard **Ports** tab (⌘3, on the main tab bar) creates, edits, opens, and builds ports
 from the first launch. Steam setup is optional. The same actions work from
 `port.command`.
 
@@ -45,6 +45,7 @@ also refuses a shared port whose resolved backend is `d3dmetal`.
 ```bash
 ./port.command create --name "Notepad" --exe /path/to/notepad.exe
 ./port.command show notepad
+./port.command update notepad --windows win7 --args '--windowed'
 ./port.command build notepad
 ./port.command launch notepad
 ./port.command delete notepad
@@ -53,6 +54,19 @@ also refuses a shared port whose resolved backend is `d3dmetal`.
 Useful options on `create`: `--bottle`, `--distribution personal|share`,
 `--windows`, `--retina`, `--args`, `--program-arch win64|win32`, `--dxmt`, `--d9vk`, `--cnc-ddraw`, `--wined3d`,
 `--dxvk`, `--d3dmetal`, `--cnc-ddraw-path`, `--gptk-path`.
+
+Select a port and choose **Edit** to change its executable, environment, Windows
+version, arguments or graphics. Saving preserves its ID and installed files.
+Failed validation/save keeps the previous definition; the form stays open for
+correction. Existing Mac apps keep their previous settings until **Make Mac App**
+is run again. Renaming a port does not remove an app built under its old name.
+
+`update <slug>` accepts the `create` options except `--slug`; omitted values keep
+their current settings. Use `--args ''`, `--bottle ''`, `--cnc-ddraw-path ''` or
+`--gptk-path ''` to clear a value. Selecting another existing EXE detects its
+architecture unless explicitly overridden; conflicting bitness is rejected.
+Definitions are staged and replaced atomically, retaining extension metadata and
+the previous built-app location. Updating a definition does not run Wine.
 
 `build` writes `~/Applications/Cosmos Ports/<Name>.app`. The app's launcher
 checks for arm64, then runs Cosmos `run.command --game` with `COSMOS_SKIP_STEAM=1`

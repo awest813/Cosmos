@@ -10,6 +10,7 @@ struct PortsDashboard: View {
     var onInstall: (() -> Void)? = nil
     var onResumeInstall: (() -> Void)? = nil
     var requiresRosetta: Bool = false
+    var onUpdate: ((WinePort, WinePortDraft, @escaping (String?) -> Void) -> Void)? = nil
     var onCreate: (WinePortDraft, @escaping (String?) -> Void) -> Void
     var onLaunch: (WinePort) -> Void
     var onBuild: (WinePort) -> Void
@@ -18,6 +19,7 @@ struct PortsDashboard: View {
     @State private var selectedID: String?
     @State private var showCreateSheet = false
     @State private var pendingDelete: WinePort?
+    @State private var editingPort: WinePort?
 
     private var selectedPort: WinePort? {
         ports.first { $0.id == selectedID }
@@ -100,6 +102,14 @@ struct PortsDashboard: View {
                 isRunning: isRunning,
                 onCancel: { showCreateSheet = false },
                 onCreate: onCreate
+            )
+        }
+        .sheet(item: $editingPort) { port in
+            NewPortSheet(
+                bottleNames: bottleNames, isRunning: isRunning,
+                initialDraft: WinePortDraft(port: port), isEditing: true,
+                onCancel: { editingPort = nil },
+                onCreate: { draft, completion in onUpdate?(port, draft, completion) }
             )
         }
         .confirmationDialog(
@@ -202,6 +212,9 @@ struct PortsDashboard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
+            Text("Environment: \(port.bottleLabel)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Text(PortStack.launchSummary(port.renderers, distribution: port.distribution))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -234,6 +247,14 @@ struct PortsDashboard: View {
         .tint(Color.cosmosPrimary)
         .disabled(isRunning || unavailableReason != nil)
         .help(requiresRosetta ? "Install Rosetta in Terminal, then open this port." : "Open this Windows program")
+        if onUpdate != nil {
+            Button { editingPort = port } label: {
+                Label("Edit", systemImage: "slider.horizontal.3")
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRunning || unavailableReason != nil)
+            .help("Change the program, arguments, Windows version, or graphics without reinstalling")
+        }
         Button {
             onBuild(port)
         } label: {
@@ -255,25 +276,46 @@ struct PortsDashboard: View {
 struct NewPortSheet: View {
     let bottleNames: [String]
     let isRunning: Bool
+    let isEditing: Bool
     var onCancel: () -> Void
     var onCreate: (WinePortDraft, @escaping (String?) -> Void) -> Void
 
-    @State private var draft = WinePortDraft.empty
+    @State private var draft: WinePortDraft
     @State private var isSubmitting = false
     @State private var creationError: String?
     private var isBusy: Bool { isRunning || isSubmitting }
     @FocusState private var nameFocused: Bool
 
+    init(
+        bottleNames: [String], isRunning: Bool,
+        initialDraft: WinePortDraft = .empty, isEditing: Bool = false,
+        onCancel: @escaping () -> Void,
+        onCreate: @escaping (WinePortDraft, @escaping (String?) -> Void) -> Void
+    ) {
+        self.bottleNames = bottleNames
+        self.isRunning = isRunning
+        self.isEditing = isEditing
+        self.onCancel = onCancel
+        self.onCreate = onCreate
+        _draft = State(initialValue: initialDraft)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
-                Text("New Port")
+                Text(isEditing ? "Edit Port" : "New Port")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(CosmosGradients.heroTitle)
                 Text("Apple Silicon, macOS 14.6 or later. The Windows program opens like a Mac app, using the graphics stack below.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if isEditing {
+                    Text("Saving updates this port without reinstalling the game. Use Make Mac App afterward to apply changes to a previously built app.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 Form {
                     TextField("Name", text: $draft.name)
@@ -287,7 +329,7 @@ struct NewPortSheet: View {
                     }
                     Picker("Bottle", selection: $draft.bottle) {
                         Text("Main environment").tag("")
-                        ForEach(bottleNames, id: \.self) { name in
+                        ForEach(Array(Set(bottleNames + (draft.bottle.isEmpty ? [] : [draft.bottle]))).sorted(), id: \.self) { name in
                             Text(name).tag(name)
                         }
                     }
@@ -375,7 +417,7 @@ struct NewPortSheet: View {
                 if let creationError {
                     CosmosNoticeBanner(
                         tint: Color.cosmosDanger, systemImage: "exclamationmark.triangle.fill",
-                        title: "Could not create port", message: creationError
+                        title: isEditing ? "Could not save port" : "Could not create port", message: creationError
                     )
                 }
 
@@ -391,13 +433,13 @@ struct NewPortSheet: View {
                 HStack {
                     if isSubmitting {
                         ProgressView().controlSize(.small)
-                        Text("Creating port…").font(.caption)
+                        Text(isEditing ? "Saving port…" : "Creating port…").font(.caption)
                     }
                     Spacer()
                     Button("Cancel", action: onCancel)
                         .keyboardShortcut(.cancelAction)
                         .disabled(isBusy)
-                    Button("Create") {
+                    Button(isEditing ? "Save Changes" : "Create") {
                         guard !isBusy else { return }
                         creationError = nil
                         isSubmitting = true

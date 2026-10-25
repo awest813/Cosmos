@@ -25,7 +25,8 @@ final class PortsRenderingTests: XCTestCase {
             for scheme in [ColorScheme.light, .dark] {
                 let dashboard = PortsDashboard(
                     ports: [port], bottleNames: ["Classic Games"], isRunning: false,
-                    onOpenDownloads: {}, onInstall: {}, onResumeInstall: {}, onCreate: { _, done in done(nil) },
+                    onOpenDownloads: {}, onInstall: {}, onResumeInstall: {},
+                    onUpdate: { _, _, done in done(nil) }, onCreate: { _, done in done(nil) },
                     onLaunch: { _ in }, onBuild: { _ in }, onDelete: { _ in }
                 )
                 try capture(
@@ -62,6 +63,10 @@ final class PortsRenderingTests: XCTestCase {
             try capture(
                 NewPortSheet(bottleNames: ["Classic Games"], isRunning: false, onCancel: {}, onCreate: { _, done in done(nil) }),
                 name: "new-port", size: NSSize(width: 560, height: 640), scheme: .light, directory: directory
+            )
+            try capture(
+                NewPortSheet(bottleNames: [], isRunning: false, initialDraft: WinePortDraft(port: port), isEditing: true, onCancel: {}, onCreate: { _, done in done(nil) }),
+                name: "edit-port", size: NSSize(width: 560, height: 640), scheme: .dark, directory: directory
             )
         }
     }

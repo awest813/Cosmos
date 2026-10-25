@@ -214,4 +214,33 @@ final class WinePortTests: XCTestCase {
         }
         return args[args.index(after: index)]
     }
+
+    func testEditingLoadsSavedSettingsAndCanClearOptionalValues() {
+        let port = WinePort(id: "original-id", settings: [
+            "PORT_NAME": "Classic Game", "PORT_EXE": "/Games/SC3U.exe",
+            "PORT_BOTTLE": "game-simcity", "PORT_ARGS": "--windowed",
+            "PORT_PROGRAM_ARCH": "win32", "PORT_WINDOWS": "win7",
+            "PORT_RETINA": "1", "PORT_RENDER_WINED3D": "1",
+            "PORT_CNC_DDRAW_PATH": "/ddraw", "PORT_GPTK_PATH": "/GPTK"
+        ], directory: URL(fileURLWithPath: "/tmp/port"))
+        var draft = WinePortDraft(port: port)
+        XCTAssertEqual(draft.name, "Classic Game")
+        XCTAssertEqual(draft.exe, "/Games/SC3U.exe")
+        XCTAssertEqual(draft.programArch, "win32")
+        XCTAssertEqual(draft.windows, "win7")
+        XCTAssertTrue(draft.retina)
+        XCTAssertTrue(draft.renderers.wineD3D)
+        XCTAssertFalse(draft.renderers.dxmt)
+        XCTAssertEqual(draft.arguments, "--windowed")
+        draft.name = "Renamed"
+        draft.arguments = ""; draft.bottle = ""
+        draft.cncDDrawPath = ""; draft.gptkPath = ""
+        let args = draft.commandArguments(updating: port.id)
+        XCTAssertEqual(Array(args.prefix(2)), ["update", "original-id"])
+        XCTAssertEqual(flag(args, "--name"), "Renamed")
+        for key in ["--args", "--bottle", "--cnc-ddraw-path", "--gptk-path"] {
+            XCTAssertEqual(flag(args, key), "")
+        }
+        XCTAssertEqual(CosmosOperationLabel.title(script: "port.command", arguments: args), "Saving port settings…")
+    }
 }

@@ -306,8 +306,11 @@ struct WinePortDraft: Equatable {
     }
 
     var commandArguments: [String] {
+        commandArguments(updating: nil)
+    }
+
+    func commandArguments(updating portID: String?) -> [String] {
         var args = [
-            "create",
             "--name", name.trimmingCharacters(in: .whitespacesAndNewlines),
             "--exe", exe.trimmingCharacters(in: .whitespacesAndNewlines),
             "--distribution", distribution,
@@ -322,21 +325,34 @@ struct WinePortDraft: Equatable {
             "--wined3d", renderers.wineD3D ? "1" : "0",
         ]
         let trimmedArgs = arguments.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedArgs.isEmpty {
+        if !trimmedArgs.isEmpty || portID != nil {
             args += ["--args", trimmedArgs]
         }
         let trimmedBottle = bottle.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedBottle.isEmpty {
+        if !trimmedBottle.isEmpty || portID != nil {
             args += ["--bottle", trimmedBottle]
         }
         let cnc = cncDDrawPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !cnc.isEmpty {
+        if !cnc.isEmpty || portID != nil {
             args += ["--cnc-ddraw-path", cnc]
         }
         let gptk = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !gptk.isEmpty && distribution == "personal" {
-            args += ["--gptk-path", gptk]
+        if (!gptk.isEmpty && distribution == "personal") || portID != nil {
+            args += ["--gptk-path", distribution == "personal" ? gptk : ""]
         }
-        return args
+        return (portID.map { ["update", $0] } ?? ["create"]) + args
+    }
+}
+
+extension WinePortDraft {
+    init(port: WinePort) {
+        self.init(
+            name: port.name, exe: port.exe, bottle: port.bottle,
+            distribution: port.distribution, windows: port.windowsVersion,
+            retina: port.retinaEnabled, arguments: port.arguments,
+            programArch: port.programArch, renderers: port.renderers,
+            cncDDrawPath: port.settings["PORT_CNC_DDRAW_PATH"] ?? "",
+            gptkPath: port.settings["PORT_GPTK_PATH"] ?? ""
+        )
     }
 }
