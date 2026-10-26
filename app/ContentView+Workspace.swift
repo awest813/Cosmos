@@ -118,6 +118,21 @@ extension ContentView {
                 }, onCompletion: { success, message in done(success ? nil : message) })
             })
         }
+        .sheet(item: $installationWizard) { request in
+            InstallationWizardView(request: request, bottles: bottles, busy: workspaceBusy,
+                hostIssue: workspacePortHostIssue,
+                requirements: "Wine is required; the selected environment's pinned version may download during setup. \(wineRuntime.needsRosetta && !wineRuntime.rosettaReady ? "Rosetta is required on this Mac; setup may ask to install it in Terminal." : "Review any installer or macOS permission prompts before proceeding.")",
+                onCancel: { installationWizard = nil }, onSubmit: { draft, done in
+                    guard !workspaceBusy, workspacePortHostIssue == nil else {
+                        done(workspacePortHostIssue ?? "Wait for the current operation to finish."); return
+                    }
+                    runInTerminal(script: "scripts/install_program.command", arguments: draft.importRequest.installerArguments(values: draft.values),
+                        onHandoff: { error in
+                            if error == nil { workspaceDestination = .installations }
+                            done(error)
+                        })
+                })
+        }
         .sheet(item: $workspaceEditingPort) { port in
             NewPortSheet(bottleNames: bottles.map(\.name), isRunning: workspaceBusy,
                          initialDraft: WinePortDraft(port: port), isEditing: true, presentationTitle: "Game Settings",
@@ -164,13 +179,13 @@ extension ContentView {
         case .installations:
             Text("Installations").font(.largeTitle.bold())
             Text("Install Windows games and continue unfinished setup. Steam is optional.").foregroundStyle(.secondary)
-            HStack { workspaceButton(.install); Button("Finish an Older Installation…") { storeImportRequest = .classicGame(resuming: true) }.disabled(workspaceBusy || workspacePortHostIssue != nil) }
+            HStack { workspaceButton(.install); Button("Finish an Older Installation…") { installationWizard = InstallationWizardRequest(resuming: true) }.disabled(workspaceBusy || workspacePortHostIssue != nil) }
             if let issue = workspacePortHostIssue { Text(issue).foregroundStyle(.secondary) }
             if pendingGameInstallations.isEmpty {
                 Text("No unfinished installations. Registered games appear in Library.").foregroundStyle(.secondary)
             } else {
                 PendingGameInstallationsView(installations: pendingGameInstallations, isBusy: workspaceBusy || workspacePortHostIssue != nil,
-                    onContinue: { installation, retry in storeImportRequest = .classicGame(resuming: !retry, installation: installation) })
+                    onContinue: { installation, retry in installationWizard = InstallationWizardRequest(resuming: !retry, installation: installation) })
             }
         case .environments:
             Text("Environments").font(.largeTitle.bold())
@@ -247,7 +262,7 @@ extension ContentView {
     func performWorkspaceCommand(_ command: WorkspaceCommand) {
         guard workspaceDisabledReason(command) == nil else { return }
         switch command {
-        case .install: storeImportRequest = .classicGame()
+        case .install: installationWizard = InstallationWizardRequest()
         case .addExecutable: workspaceAddingExecutable = true
         case .refresh: refreshStatus()
         case .focusSearch:
