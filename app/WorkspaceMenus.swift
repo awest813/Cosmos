@@ -34,6 +34,7 @@ struct WorkspaceMenus: Commands {
             Button("Components") { actions?.navigate(.components) }.keyboardShortcut("4", modifiers: .command)
             Button("Activity") { actions?.navigate(.activity) }.keyboardShortcut("5", modifiers: .command)
             Divider()
+            item(.focusSearch).keyboardShortcut("f", modifiers: .command)
             item(.refresh).keyboardShortcut("r", modifiers: .command)
         }
         CommandMenu("Game") {

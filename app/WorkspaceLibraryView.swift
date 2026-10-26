@@ -5,6 +5,8 @@ struct WorkspaceLibraryView: View {
     @Binding var selection: String?
     let reason: (WorkspaceCommand) -> String?
     let perform: (WorkspaceCommand) -> Void
+    var searchRequest: Int = 0
+    @FocusState private var searchFocused: Bool
     @State private var query = ""
     @State private var source = "All"
 
@@ -20,7 +22,7 @@ struct WorkspaceLibraryView: View {
             }
             HStack {
                 TextField("Search games or executable paths", text: $query)
-                    .textFieldStyle(.roundedBorder).accessibilityLabel("Search Library")
+                    .textFieldStyle(.roundedBorder).accessibilityLabel("Search Library").focused($searchFocused)
                 Picker("Source", selection: $source) {
                     Text("All Sources").tag("All")
                     ForEach(Array(Set(games.map(\.source))).sorted(), id: \.self) { Text($0).tag($0) }
@@ -73,6 +75,11 @@ struct WorkspaceLibraryView: View {
                 }
                 .frame(height: 400)
             }
+        }
+        .onAppear { if searchRequest > 0 { searchFocused = true } }
+        .onChange(of: searchRequest) { _ in searchFocused = true }
+        .onChange(of: games.map(\.source)) { sources in
+            if source != "All" && !sources.contains(source) { source = "All" }
         }
     }
     private func commandButton(_ command: WorkspaceCommand) -> some View {

@@ -19,6 +19,8 @@ progress; existing tools stay reachable while their dedicated screens are rebuil
   saved launcher. Menus follow the focused workspace window.
 - Native Settings with a temporary previous-interface switch, neutral first-run
   messaging, restrained navigation, and a compact active-operation strip.
+- Destination back/forward history, last-destination restoration and Command-F
+  Library search. Additional tools open inline so their sheets can present normally.
 - Existing environment/component views appear in their new destinations. Activity
   presents current/latest output without claiming persistent operation history.
 
@@ -47,7 +49,7 @@ destination remains work before removing the fallback.
 ## Remaining phases
 
 - Replace inherited creation/installer sheets with the full staged wizard.
-- Complete compact grid/list/inspector layouts, favorites/recents and routing history.
+- Complete compact grid/list/inspector layouts and favorites/recents.
 - Move all saved-profile and per-environment advanced actions into shared commands.
 - Replace inherited environment/component views with the designed detailed screens.
 - Persistent Activity history, richer native Settings and sanitized diagnostic export.

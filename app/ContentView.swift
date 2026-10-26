@@ -15,7 +15,13 @@ struct ContentView: View {
 
     @State var output = "Welcome to Cosmos. Install a Windows game or add an installed EXE from Library. Steam setup is optional."
     @AppStorage("cosmos.useRedesignedWorkspace") var useRedesignedWorkspace = true
-    @State var workspaceDestination: WorkspaceDestination = .library
+    @State var workspaceRouter = WorkspaceRouter()
+    var workspaceDestination: WorkspaceDestination {
+        get { workspaceRouter.current }
+        nonmutating set { workspaceUtilitySection = nil; workspaceRouter.visit(newValue) }
+    }
+    @State var workspaceSearchRequest = 0
+    @AppStorage("cosmos.workspaceDestination") var storedWorkspaceDestination = "Library"
     @State var workspaceGameID: String?
     @State var workspaceAddingExecutable = false
     @State var workspaceEditingPort: WinePort?

@@ -15,6 +15,24 @@ enum WorkspaceDestination: String, CaseIterable, Identifiable {
     }
 }
 
+struct WorkspaceRouter {
+    private(set) var current: WorkspaceDestination = .library
+    private(set) var back: [WorkspaceDestination] = []
+    private(set) var forward: [WorkspaceDestination] = []
+    mutating func visit(_ destination: WorkspaceDestination) {
+        guard destination != current else { return }
+        back.append(current); current = destination; forward.removeAll()
+    }
+    mutating func goBack() {
+        guard let destination = back.popLast() else { return }
+        forward.append(current); current = destination
+    }
+    mutating func goForward() {
+        guard let destination = forward.popLast() else { return }
+        back.append(current); current = destination
+    }
+}
+
 /// A presentation adapter. Existing records and launch semantics stay intact.
 enum WorkspaceGame: Identifiable, Hashable {
     case port(WinePort)
@@ -46,7 +64,7 @@ enum WorkspaceGame: Identifiable, Hashable {
 }
 
 enum WorkspaceCommand: String, CaseIterable {
-    case install, addExecutable, play, edit, buildApp, reveal, checkFiles, diagnose, refresh
+    case install, addExecutable, play, edit, buildApp, reveal, checkFiles, diagnose, refresh, focusSearch
     var title: String {
         switch self {
         case .install: return "Install Windows Game…"
@@ -58,6 +76,7 @@ enum WorkspaceCommand: String, CaseIterable {
         case .checkFiles: return "Check Game Files"
         case .diagnose: return "Diagnose Launch"
         case .refresh: return "Refresh"
+        case .focusSearch: return "Find in Library"
         }
     }
 }
@@ -71,6 +90,7 @@ struct WorkspaceCommandContext {
     let runtimeIssue: String?
 
     func disabledReason(_ command: WorkspaceCommand) -> String? {
+        if command == .focusSearch { return nil }
         if command == .refresh { return busy ? "Wait for the current operation to finish." : nil }
         if command == .install || command == .addExecutable {
             return busy ? "Wait for the current operation to finish." : portHostIssue

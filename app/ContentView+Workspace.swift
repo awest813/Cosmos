@@ -11,7 +11,7 @@ extension ContentView {
     func workspaceDisabledReason(_ command: WorkspaceCommand) -> String? {
         if command == .checkFiles && workspaceCheckingFiles { return "A file check is already running." }
         return WorkspaceCommandContext(
-            game: workspaceDestination == .library ? workspaceSelectedGame : nil,
+            game: workspaceDestination == .library && workspaceUtilitySection == nil ? workspaceSelectedGame : nil,
             busy: workspaceBusy, portHostIssue: workspacePortHostIssue,
             runtimeIssue: wineRuntime.canStartWineLaunch ? nil : "Review Wine and platform requirements in Components."
         ).disabledReason(command)
@@ -38,7 +38,8 @@ extension ContentView {
                     if let banner = commandBannerQueue.current {
                         CommandBannerView(banner: banner) { dismissCommandBanner() }
                     }
-                    workspaceDestinationContent
+                    if let section = workspaceUtilitySection { workspaceUtilityContent(section) }
+                    else { workspaceDestinationContent }
                 }.padding(24).frame(maxWidth: 1100, alignment: .leading).frame(maxWidth: .infinity)
             }
             .navigationTitle(workspaceDestination.rawValue)
@@ -54,6 +55,17 @@ extension ContentView {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    HStack {
+                        Button {
+                            if workspaceUtilitySection != nil { workspaceUtilitySection = nil }
+                            else { workspaceRouter.goBack() }
+                        } label: { Label("Back", systemImage: "chevron.left") }
+                            .disabled(workspaceRouter.back.isEmpty && workspaceUtilitySection == nil)
+                        Button { workspaceRouter.goForward() } label: { Label("Forward", systemImage: "chevron.right") }
+                            .disabled(workspaceRouter.forward.isEmpty)
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         workspaceButton(.install)
@@ -79,6 +91,13 @@ extension ContentView {
             openHelp: { openRepositoryDoc(relativePath: "docs/SIMCITY_3000_SETUP.md", bundleName: "SIMCITY_3000_SETUP.md", fallbackMessage: "See the Windows installation guide in the Cosmos repository.") },
             checkUpdates: checkForUpdates
         ))
+        .onAppear {
+            if let restored = WorkspaceDestination(rawValue: storedWorkspaceDestination) { workspaceDestination = restored }
+        }
+        .onChange(of: workspaceDestination) { destination in
+            storedWorkspaceDestination = destination.rawValue
+            workspaceUtilitySection = nil
+        }
         .onChange(of: workspaceGameID) { _ in
             workspaceFileCheck = nil
             if case .profile(let profile)? = workspaceSelectedGame { selectedProfileID = profile.id }
@@ -107,25 +126,26 @@ extension ContentView {
                            onCompletion: { success, message in done(success ? nil : message) })
             })
         }
-        .sheet(item: $workspaceUtilitySection) { section in
+    }
+
+    private func workspaceUtilityContent(_ section: DashboardSection) -> some View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Additional Tools").font(.title2.bold())
                     Spacer()
-                    Button("Done") { workspaceUtilitySection = nil }.keyboardShortcut(.cancelAction)
+                    Button("Back to Workspace") { workspaceUtilitySection = nil }
                 }
                 Text("These existing tools remain available while their screens are redesigned.")
                     .font(.caption).foregroundStyle(.secondary)
-                ScrollView { VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 20) {
                     if section == .launch {
                         setupAssistantSection
                         steamWineSettingsSection
                         performanceGraphicsSection
                         setupToolsGrid
                     } else { dashboardSectionContent }
-                }.padding(4) }
-            }.padding(22).frame(minWidth: 720, idealWidth: 800, minHeight: 500, idealHeight: 650)
-        }
+                }.padding(4)
+            }
     }
 
     @ViewBuilder var workspaceDestinationContent: some View {
@@ -174,7 +194,7 @@ extension ContentView {
     }
 
     private var workspaceLibrary: some View {
-        WorkspaceLibraryView(games: workspaceGames, selection: $workspaceGameID, reason: workspaceDisabledReason, perform: performWorkspaceCommand)
+        WorkspaceLibraryView(games: workspaceGames, selection: $workspaceGameID, reason: workspaceDisabledReason, perform: performWorkspaceCommand, searchRequest: workspaceSearchRequest)
     }
 
     private func workspaceGameDetail(_ game: WorkspaceGame) -> some View {
@@ -230,6 +250,10 @@ extension ContentView {
         case .install: storeImportRequest = .classicGame()
         case .addExecutable: workspaceAddingExecutable = true
         case .refresh: refreshStatus()
+        case .focusSearch:
+            workspaceUtilitySection = nil
+            workspaceDestination = .library
+            workspaceSearchRequest += 1
         default:
             guard let game = workspaceSelectedGame else { return }
             switch game {

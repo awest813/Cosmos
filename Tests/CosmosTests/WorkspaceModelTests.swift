@@ -2,6 +2,16 @@ import XCTest
 @testable import Cosmos
 
 final class WorkspaceModelTests: XCTestCase {
+    func testNavigationHistoryBranchesAndDoesNotDuplicateCurrentRoute() {
+        var router = WorkspaceRouter()
+        router.visit(.installations); router.visit(.environments); router.visit(.environments)
+        XCTAssertEqual(router.back, [.library, .installations])
+        router.goBack(); XCTAssertEqual(router.current, .installations)
+        router.goForward(); XCTAssertEqual(router.current, .environments)
+        router.goBack(); router.visit(.components)
+        XCTAssertTrue(router.forward.isEmpty)
+        router.goBack(); XCTAssertEqual(router.current, .installations)
+    }
     private var port: WinePort {
         WinePort(id: "same-id", settings: ["PORT_NAME": "Same title", "PORT_EXE": "C:\\Game\\Game.exe", "PORT_BOTTLE": "classic", "PORT_PROGRAM_ARCH": "win32"], directory: URL(fileURLWithPath: "/fixture/Ports/same-id"))
     }
