@@ -13,7 +13,9 @@ extension ContentView {
         return WorkspaceCommandContext(
             game: workspaceDestination == .library && workspaceUtilitySection == nil ? workspaceSelectedGame : nil,
             busy: workspaceBusy, portHostIssue: workspacePortHostIssue,
-            runtimeIssue: wineRuntime.canStartWineLaunch ? nil : "Review Wine and platform requirements in Components."
+            runtimeIssue: wineRuntime.canStartWineLaunch ? nil : "Review Wine and platform requirements in Components.",
+            modalPresented: installationWizard != nil || workspaceAddingExecutable || workspaceEditingPort != nil ||
+                storeImportRequest != nil || showNewBottleSheet || showDownloads || showAddGameProfileSheet
         ).disabledReason(command)
     }
 
@@ -250,7 +252,7 @@ extension ContentView {
             .help(workspaceDisabledReason(command) ?? command.title)
     }
     func newWorkspaceEnvironment() {
-        guard !workspaceBusy else { return }
+        guard workspaceDisabledReason(.refresh) == nil else { return }
         workspaceDestination = .environments
         newBottleName = ""; newBottleBackend = "recommended"; newBottleWindows = "win10"
         newBottleArch = "wow64"; newBottleRetina = false; showNewBottleSheet = true

@@ -88,8 +88,10 @@ struct WorkspaceCommandContext {
     let busy: Bool
     let portHostIssue: String?
     let runtimeIssue: String?
+    var modalPresented: Bool = false
 
     func disabledReason(_ command: WorkspaceCommand) -> String? {
+        if modalPresented { return "Finish or close the current sheet before starting another action." }
         if command == .focusSearch { return nil }
         if command == .refresh { return busy ? "Wait for the current operation to finish." : nil }
         if command == .install || command == .addExecutable {

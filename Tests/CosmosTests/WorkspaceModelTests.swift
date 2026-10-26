@@ -2,6 +2,10 @@ import XCTest
 @testable import Cosmos
 
 final class WorkspaceModelTests: XCTestCase {
+    func testModalEditorPreventsMenusFromLaunchingOrOpeningCompetingSheets() {
+        let context = WorkspaceCommandContext(game: .port(port), busy: false, portHostIssue: nil, runtimeIssue: nil, modalPresented: true)
+        for command in WorkspaceCommand.allCases { XCTAssertNotNil(context.disabledReason(command), command.rawValue) }
+    }
     func testNavigationHistoryBranchesAndDoesNotDuplicateCurrentRoute() {
         var router = WorkspaceRouter()
         router.visit(.installations); router.visit(.environments); router.visit(.environments)
