@@ -502,26 +502,33 @@ extension ContentView {
         script: String,
         arguments: [String] = [],
         environment: [String: String] = [:],
-        intent: CommandIntent = .general
+        intent: CommandIntent = .general,
+        onHandoff: ((String?) -> Void)? = nil
     ) {
+        guard !isRunning, pendingTerminalJobID == nil else {
+            let message = "Wait for the current operation to finish before opening another Terminal job."
+            showBanner(kind: .info, message: message)
+            onHandoff?(message)
+            return
+        }
         guard let scriptURL = resolveScript(script) else {
             let message = "Script not found or not executable: \(script)"
             output = message
             showBanner(kind: .failure, message: message)
+            onHandoff?(message)
             return
         }
         guard let wrapURL = resolveScript("scripts/terminal_wrap.sh") else {
             let message = "Terminal wrapper not found: scripts/terminal_wrap.sh"
             output = message
             showBanner(kind: .failure, message: message)
+            onHandoff?(message)
             return
         }
 
         let displayed = ([script] + arguments).joined(separator: " ")
         activeOperationTitle = CosmosOperationLabel.title(script: script, arguments: arguments)
         let jobID = TerminalJobTracker.makeJobID()
-        pendingTerminalJobID = jobID
-        TerminalJobTracker.saveTrackedJob(id: jobID, label: displayed)
         do {
             try TerminalJobTracker.prepareJobsDirectory()
             TerminalJobTracker.cleanup(jobID: jobID)
@@ -529,11 +536,24 @@ extension ContentView {
             let message = "Could not prepare Terminal job directory: \(error.localizedDescription)"
             output = message
             showBanner(kind: .failure, message: message)
+            onHandoff?(message)
             return
         }
 
-        var innerParts: [String] = []
-        for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
+        pendingTerminalJobID = jobID
+        TerminalJobTracker.saveTrackedJob(id: jobID, label: displayed)
+
+        var roots = [
+            "COSMOS_SUPPORT_DIR": CosmosPaths.supportDirectory.path,
+            "COSMOS_BOTTLES_DIR": BottleStore.bottlesDirectoryURL.path,
+            "COSMOS_PORTS_DIR": WinePortStore.portsDirectoryURL.path,
+            "COSMOS_CONFIGS_DIR": CosmosPaths.resolvedConfigsDirectory().path,
+            "COSMOS_RUNTIME_DIR": CosmosPaths.defaultSpockD3D9Directory.deletingLastPathComponent().path
+        ]
+        if let repositoryRootURL { roots["COSMOS_ROOT"] = repositoryRootURL.path; roots["SCRIPT_DIR"] = repositoryRootURL.path }
+        let handoffEnvironment = TerminalJobTracker.handoffEnvironment(app: ProcessInfo.processInfo.environment, roots: roots, explicit: environment)
+        var innerParts = ["unset " + TerminalJobTracker.handoffResetKeys.joined(separator: " ")]
+        for (key, value) in handoffEnvironment.sorted(by: { $0.key < $1.key }) {
             innerParts.append("export \(key)=\(ShellArgumentParser.shellQuote(value))")
         }
         innerParts.append(([scriptURL.path] + arguments).map(ShellArgumentParser.shellQuote).joined(separator: " "))
@@ -552,38 +572,24 @@ extension ContentView {
         end tell
         """
 
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        task.arguments = ["-e", appleScript]
-
-        do {
-            try task.run()
-            output = """
-            Opened Terminal to run: \(displayed)
-
-            Complete any password or confirmation prompts in the Terminal window. \
-            Cosmos will report the exit status when the command finishes.
-            """
-            showBanner(
-                kind: .info,
-                message: "Running in Terminal — exit status will appear here when finished.",
-                actions: [
-                    CommandBannerAction(title: "Check Status", systemImage: "list.bullet.rectangle") {
-                        runCommand(script: "run.command", arguments: ["--status"])
-                    },
-                    CommandBannerAction(title: "Open Logs", systemImage: "doc.text.magnifyingglass") {
-                        openLatestLogs()
-                    },
-                ]
-            )
-            watchTerminalJob(jobID: jobID, displayedCommand: displayed, intent: intent)
-        } catch {
-            pendingTerminalJobID = nil
-            TerminalJobTracker.clearTrackedJob()
-            let message = "Could not open Terminal: \(error.localizedDescription)"
-            output = message
-            showBanner(kind: .failure, message: message)
-        }
+        output = "Opening Terminal for: \(displayed)\n"
+        TerminalHandoffRunner.run(
+            arguments: ["-e", appleScript], directory: scriptURL.deletingLastPathComponent(),
+            completion: { failure in
+                if let failure {
+                    if pendingTerminalJobID == jobID { pendingTerminalJobID = nil }
+                    if TerminalJobTracker.loadTrackedJob()?.id == jobID { TerminalJobTracker.clearTrackedJob() }
+                    output = failure
+                    showBanner(kind: .failure, message: failure)
+                    onHandoff?(failure)
+                    return
+                }
+                output = "Opened Terminal to run: \(displayed)\n\nComplete any password or confirmation prompts there. Cosmos will report the helper's exit status when it finishes."
+                showBanner(kind: .info, message: "Running in Terminal — exit status will appear here when finished.")
+                watchTerminalJob(jobID: jobID, displayedCommand: displayed, intent: intent)
+                onHandoff?(nil)
+            }
+        )
     }
 
     func watchTerminalJob(jobID: String, displayedCommand: String, intent: CommandIntent) {

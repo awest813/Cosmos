@@ -48,7 +48,8 @@ destination remains work before removing the fallback.
 
 ## Remaining phases
 
-- Replace inherited creation/installer sheets with the full staged wizard.
+- Complete native execution/progress and post-setup EXE selection; the staged
+  wizard currently uses the tracked Terminal/Windows installer handoff.
 - Complete compact grid/list/inspector layouts and favorites/recents.
 - Move all saved-profile and per-environment advanced actions into shared commands.
 - Replace inherited environment/component views with the designed detailed screens.
@@ -60,3 +61,35 @@ Tests cover duplicate source IDs/titles, preserved architecture/environment/path
 selection absence, Steam-independent capability checks, busy/host restrictions
 and catalog search. Native snapshots include first launch and Library light/dark.
 CI compilation, bundle and regression checks must pass for the final commit.
+
+## Installation wizard follow-up
+
+Library and Installations now open a four-step Game → Destination → Requirements
+→ Review wizard. It accepts EXE/MSI, names a dedicated environment or explicitly
+reuses an existing WoW64 environment, and previews the actual Windows destination
+through the read-only filesystem bridge before starting setup. The default folder
+is explicit, so a new installation does not need a second folder chooser in Terminal.
+Existing-prefix mappings are respected; uninitialized defaults are labeled as such.
+
+Continuation locks the saved title/environment and omits a folder override unless
+the user chooses relocation. Retry includes setup; Finish never runs it. Source
+headers, destination mappings and missing saved folders are checked off the main
+thread, without creating environment data. Back/error paths retain the form.
+
+Terminal AppleScript acceptance is now collected asynchronously through the shared
+command runner. Nonzero exit and launch failure retain the wizard, display the
+error, and clear only the rejected handoff's pending tracking. Directory preparation
+failure no longer leaves a pending job behind. Accepted handoff starts the existing
+job watcher; it is not a claim that setup or gameplay succeeded. The Windows
+installer and final game chooser remain interactive in the tracked helper.
+
+Native fixtures cover source validation, MSI/DLL rejection, explicit environment
+reuse, immutable recovery identity, default arguments, actual D: mappings,
+read-only new-prefix preview, disconnected destinations, and accepted/rejected/
+large-output handoffs. Snapshots cover all four stages and a fresh installation.
+
+Terminal handoffs explicitly use the app's resolved support/bottle/port/config/
+runtime roots and clear conflicting inherited shell values. Exports and the
+helper run together inside the tracked shell; an integration fixture executes the
+real wrapper with quoted paths/literal shell characters and verifies the helper's
+actual exit code. Terminal's unrelated environment cannot redirect previewed data.

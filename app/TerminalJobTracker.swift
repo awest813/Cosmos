@@ -3,6 +3,20 @@ import Foundation
 /// Tracks Terminal-launched helpers via exit-status files under Application Support.
 /// File-based IPC pattern. Cosmos is GPL-3.0-or-later.
 enum TerminalJobTracker {
+    static let handoffResetKeys = ["WINE_ROOT", "WINE_VERSION", "WINEPREFIX", "COSMOS_BOTTLE", "COSMOS_BOTTLES_DIR", "COSMOS_PORTS_DIR", "COSMOS_CONFIGS_DIR", "COSMOS_RUNTIME_DIR", "COSMOS_ROOT", "SCRIPT_DIR"]
+
+    /// Terminal has its own shell environment. Forward only selected app
+    /// overrides and resolved roots, rather than inheriting a different prefix.
+    static func handoffEnvironment(app: [String: String], roots: [String: String], explicit: [String: String]) -> [String: String] {
+        var environment = roots
+        for key in ["WINE_ROOT", "WINE_VERSION", "COSMOS_RUNTIME_DIR"] {
+            if let value = app[key], !value.isEmpty { environment[key] = value }
+        }
+        for (key, value) in explicit { environment[key] = value }
+        // The wrapper's exit/status files must stay under this app's data root.
+        environment["COSMOS_SUPPORT_DIR"] = roots["COSMOS_SUPPORT_DIR"]
+        return environment
+    }
     private static let fileManager = FileManager.default
     private static let trackedJobIDKey = "com.cosmos.pendingTerminalJobID"
     private static let trackedJobLabelKey = "com.cosmos.pendingTerminalJobLabel"
@@ -93,7 +107,7 @@ enum TerminalJobTracker {
         return [
             "export COSMOS_SUPPORT_DIR=\(ShellArgumentParser.shellQuote(support))",
             "export COSMOS_TERMINAL_LABEL=\(ShellArgumentParser.shellQuote(label))",
-            "\(ShellArgumentParser.shellQuote(wrapScriptPath)) \(ShellArgumentParser.shellQuote(jobID)) -- \(innerCommand)",
+            "\(ShellArgumentParser.shellQuote(wrapScriptPath)) \(ShellArgumentParser.shellQuote(jobID)) -- /bin/bash -c \(ShellArgumentParser.shellQuote(innerCommand))",
         ].joined(separator: "; ")
     }
 

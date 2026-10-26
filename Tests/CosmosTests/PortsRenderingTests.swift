@@ -14,6 +14,21 @@ final class PortsRenderingTests: XCTestCase {
             _ = NSApplication.shared
             let directory = URL(fileURLWithPath: output, isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let installation = PendingGameInstallation(id: "simcity/game", name: "SimCity 3000 Unlimited", slug: "simcity-3000-unlimited", bottle: "game-simcity", folder: "/Games/SimCity", installer: "/Downloads/Setup.exe", stage: "awaiting-game")
+            for step in InstallationWizardStep.allCases {
+                try capture(
+                    InstallationWizardView(request: .init(resuming: true, installation: installation), bottles: [], busy: false,
+                        hostIssue: nil, requirements: "Wine is installed. Review any installer and macOS permission prompts.", initialStep: step,
+                        initialPreview: .init(hostFolder: URL(fileURLWithPath: "/Games/SimCity"), windowsFolder: "C:\\Games\\SimCity", assumedMappings: false),
+                        onCancel: {}, onSubmit: { _, _ in }),
+                    name: "installation-wizard-\(step.rawValue)", size: NSSize(width: 620, height: 570),
+                    scheme: step == .review ? .dark : .light, directory: directory
+                )
+            }
+            try capture(
+                InstallationWizardView(request: .init(), bottles: [], busy: false, hostIssue: nil, requirements: "Wine may download during setup.",
+                    onCancel: {}, onSubmit: { _, _ in }), name: "installation-wizard-new", size: NSSize(width: 620, height: 570), scheme: .light, directory: directory
+            )
             try capture(
                 StoreImportSheet(request: .cloneEnvironment(source: "game-simcity"), onCancel: {}, onSubmit: { _ in nil }),
                 name: "clone-environment", size: NSSize(width: 520, height: 400), scheme: .light, directory: directory
