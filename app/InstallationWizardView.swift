@@ -110,6 +110,8 @@ struct InstallationWizardView: View {
         case .review:
             Text(draft.effectiveTitle).font(.title2.bold())
             LabeledContent("Action", value: draft.request.resuming ? "Select/register game; skip setup" : "Run installer, then choose installed game")
+            if !draft.request.resuming { LabeledContent("Installer") { Text(draft.installer).textSelection(.enabled) } }
+            if !draft.gameExecutable.isEmpty { LabeledContent("Game EXE") { Text(draft.gameExecutable).textSelection(.enabled) } }
             LabeledContent("Environment", value: draft.environmentName)
             destinationSummary
             Toggle("Create a Mac app shortcut", isOn: $draft.makeMacApp)

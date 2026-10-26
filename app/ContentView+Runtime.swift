@@ -543,8 +543,17 @@ extension ContentView {
         pendingTerminalJobID = jobID
         TerminalJobTracker.saveTrackedJob(id: jobID, label: displayed)
 
-        var innerParts: [String] = []
-        for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
+        var roots = [
+            "COSMOS_SUPPORT_DIR": CosmosPaths.supportDirectory.path,
+            "COSMOS_BOTTLES_DIR": BottleStore.bottlesDirectoryURL.path,
+            "COSMOS_PORTS_DIR": WinePortStore.portsDirectoryURL.path,
+            "COSMOS_CONFIGS_DIR": CosmosPaths.resolvedConfigsDirectory().path,
+            "COSMOS_RUNTIME_DIR": CosmosPaths.defaultSpockD3D9Directory.deletingLastPathComponent().path
+        ]
+        if let repositoryRootURL { roots["COSMOS_ROOT"] = repositoryRootURL.path; roots["SCRIPT_DIR"] = repositoryRootURL.path }
+        let handoffEnvironment = TerminalJobTracker.handoffEnvironment(app: ProcessInfo.processInfo.environment, roots: roots, explicit: environment)
+        var innerParts = ["unset " + TerminalJobTracker.handoffResetKeys.joined(separator: " ")]
+        for (key, value) in handoffEnvironment.sorted(by: { $0.key < $1.key }) {
             innerParts.append("export \(key)=\(ShellArgumentParser.shellQuote(value))")
         }
         innerParts.append(([scriptURL.path] + arguments).map(ShellArgumentParser.shellQuote).joined(separator: " "))

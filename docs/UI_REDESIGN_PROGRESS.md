@@ -87,3 +87,9 @@ Native fixtures cover source validation, MSI/DLL rejection, explicit environment
 reuse, immutable recovery identity, default arguments, actual D: mappings,
 read-only new-prefix preview, disconnected destinations, and accepted/rejected/
 large-output handoffs. Snapshots cover all four stages and a fresh installation.
+
+Terminal handoffs explicitly use the app's resolved support/bottle/port/config/
+runtime roots and clear conflicting inherited shell values. Exports and the
+helper run together inside the tracked shell; an integration fixture executes the
+real wrapper with quoted paths/literal shell characters and verifies the helper's
+actual exit code. Terminal's unrelated environment cannot redirect previewed data.
