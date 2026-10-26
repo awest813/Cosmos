@@ -87,3 +87,18 @@ Other Windows games may use an `.msi` installer. Install Windows Game accepts
 EXE and MSI files; MSI runs through Wine's `msiexec`. A valid container/header
 does not establish that a particular installer or game works. Modern games may
 need a different graphics stack, which can be selected using Edit Port.
+
+## Redesigned workspace wizard
+
+In the redesigned interface, choose Add Game → Install Windows Game, or open
+Installations. The Game, Destination, Requirements and Review steps collect the
+installer/title, select a new or existing WoW64 environment, and show the actual
+Mac folder and Windows destination before setup. The default folder is inside
+that game's environment. Copy the Windows destination for the Windows installer.
+New-prefix drive mappings are marked as assumptions and checked again by setup.
+
+Start Setup in Terminal opens the existing interactive installer/game chooser.
+Cosmos confirms that Terminal accepted the handoff; a rejected handoff keeps the
+form open for retry. It does not treat handoff acceptance as successful installation.
+Installations offers continuation or retry using the saved environment/title.
+Leave the recovery folder blank unless explicitly relocating the installed game.

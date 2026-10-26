@@ -28,6 +28,7 @@ struct ContentView: View {
     @State var workspaceUtilitySection: DashboardSection?
     @State var workspaceCheckingFiles = false
     @State var workspaceFileCheck: PortFileCheck?
+    @State var installationWizard: InstallationWizardRequest?
     @State var profiles: [SavedProfile] = []
     @State var selectedProfileID: String?
     @State var profileSearchText = ""
