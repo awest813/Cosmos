@@ -14,12 +14,22 @@ struct CosmosApp: App {
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands { CosmosCommands(appState: appState) }
+        Settings { WorkspaceSettingsView() }
     }
 }
 
 /// Observe availability in the menus, without rebuilding the WindowGroup when
 /// a command starts or finishes.
 private struct CosmosCommands: Commands {
+    @ObservedObject var appState: CosmosAppState
+
+    var body: some Commands {
+        if appState.usesRedesignedWorkspace { WorkspaceMenus() }
+        else { PreviousCosmosCommands(appState: appState) }
+    }
+}
+
+private struct PreviousCosmosCommands: Commands {
     @ObservedObject var appState: CosmosAppState
 
     var body: some Commands {

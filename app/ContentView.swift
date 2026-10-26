@@ -13,7 +13,15 @@ struct ContentView: View {
     let consoleBottomID = "console-bottom"
     let steamLibraryCheckInterval: TimeInterval = 300
 
-    @State var output = "Welcome to Cosmos\n\nNew here? Follow the setup guide below — one button per step.\nFirst-time setup takes about 10–15 minutes (downloads + Steam installer).\n\nWhen finished, launch Steam, install a Windows game, then choose Find Installed Games."
+    @State var output = "Welcome to Cosmos. Install a Windows game or add an installed EXE from Library. Steam setup is optional."
+    @AppStorage("cosmos.useRedesignedWorkspace") var useRedesignedWorkspace = true
+    @State var workspaceDestination: WorkspaceDestination = .library
+    @State var workspaceGameID: String?
+    @State var workspaceAddingExecutable = false
+    @State var workspaceEditingPort: WinePort?
+    @State var workspaceUtilitySection: DashboardSection?
+    @State var workspaceCheckingFiles = false
+    @State var workspaceFileCheck: PortFileCheck?
     @State var profiles: [SavedProfile] = []
     @State var selectedProfileID: String?
     @State var profileSearchText = ""
@@ -211,7 +219,12 @@ struct ContentView: View {
         )
     }
 
-    var dashboardRoot: some View {
+    @ViewBuilder var dashboardRoot: some View {
+        if useRedesignedWorkspace { workspaceRoot }
+        else { previousDashboardRoot }
+    }
+
+    var previousDashboardRoot: some View {
         NavigationSplitView {
             sidebarContent
                 .frame(minWidth: 270)
@@ -223,6 +236,7 @@ struct ContentView: View {
     func lifecycleHandlers<Content: View>(_ content: Content) -> some View {
         content
         .task {
+            appState.usesRedesignedWorkspace = useRedesignedWorkspace
             refreshStatus()
             resumeTerminalJobs()
             checkForUpdatesSilently()
@@ -295,6 +309,9 @@ struct ContentView: View {
 
     func stateChangeHandlers<Content: View>(_ content: Content) -> some View {
         content
+        .onChange(of: useRedesignedWorkspace) { enabled in
+            appState.usesRedesignedWorkspace = enabled
+        }
         .onChange(of: isSetupComplete) { complete in
             DispatchQueue.main.async {
                 appState.updateSetupComplete(complete)

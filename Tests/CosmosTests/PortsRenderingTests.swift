@@ -26,6 +26,18 @@ final class PortsRenderingTests: XCTestCase {
                 "PORT_RENDER_CNC_DDRAW": "1", "PORT_RENDER_WINED3D": "1"
             ]
             let port = WinePort(id: "classic-game", settings: settings, directory: directory)
+            for scheme in [ColorScheme.light, .dark] {
+                try capture(
+                    ScrollView {
+                        WorkspaceLibraryView(games: [.port(port)], selection: .constant("port:classic-game"), reason: { _ in nil }, perform: { _ in }).padding(24)
+                    }, name: "workspace-library-\(scheme == .dark ? "dark" : "light")",
+                    size: NSSize(width: 720, height: 640), scheme: scheme, directory: directory
+                )
+            }
+            try capture(
+                WorkspaceLibraryView(games: [], selection: .constant(nil), reason: { _ in nil }, perform: { _ in }).padding(24),
+                name: "workspace-first-launch", size: NSSize(width: 720, height: 500), scheme: .light, directory: directory
+            )
             try capture(
                 ScrollView { WineEnvironmentFilesView(layout: WineEnvironmentLayout(prefix: directory.appendingPathComponent("missing-prefix"))).padding(20) },
                 name: "windows-environment-files", size: NSSize(width: 560, height: 640), scheme: .light, directory: directory

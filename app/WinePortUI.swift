@@ -485,6 +485,7 @@ struct NewPortSheet: View {
     let bottleNames: [String]
     let isRunning: Bool
     let isEditing: Bool
+    let presentationTitle: String?
     var onCancel: () -> Void
     var onCreate: (WinePortDraft, @escaping (String?) -> Void) -> Void
 
@@ -496,13 +497,14 @@ struct NewPortSheet: View {
 
     init(
         bottleNames: [String], isRunning: Bool,
-        initialDraft: WinePortDraft = .empty, isEditing: Bool = false,
+        initialDraft: WinePortDraft = .empty, isEditing: Bool = false, presentationTitle: String? = nil,
         onCancel: @escaping () -> Void,
         onCreate: @escaping (WinePortDraft, @escaping (String?) -> Void) -> Void
     ) {
         self.bottleNames = bottleNames
         self.isRunning = isRunning
         self.isEditing = isEditing
+        self.presentationTitle = presentationTitle
         self.onCancel = onCancel
         self.onCreate = onCreate
         _draft = State(initialValue: initialDraft)
@@ -511,7 +513,7 @@ struct NewPortSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
-                Text(isEditing ? "Edit Port" : "New Port")
+                Text(presentationTitle ?? (isEditing ? "Edit Port" : "New Port"))
                     .font(.title2.weight(.bold))
                     .foregroundStyle(CosmosGradients.heroTitle)
                 Text("Apple Silicon, macOS 14.6 or later. The Windows program opens like a Mac app, using the graphics stack below.")

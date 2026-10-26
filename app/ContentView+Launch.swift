@@ -110,6 +110,10 @@ extension ContentView {
 
     func focusDashboardSection(_ section: DashboardSection) {
         dashboardSection = section
+        if useRedesignedWorkspace {
+            if section == .bottles { workspaceDestination = .environments }
+            else { workspaceUtilitySection = section }
+        }
     }
 
     func focusBottlesSection() {
