@@ -8,6 +8,11 @@ struct StoreImportRequest: Identifiable {
         case displayName
         case epicAppName
         case battlenetSlug
+        case installDirectory
+        case gameExecutable
+        case makeMacApp
+        case launchAfterInstall
+        case installationBottle
     }
 
     struct Field: Identifiable {
@@ -15,6 +20,10 @@ struct StoreImportRequest: Identifiable {
         let label: String
         let placeholder: String
         var allowsFilePicker: Bool = false
+        var isRequired: Bool = true
+        var choosesDirectory: Bool = false
+        var help: String? = nil
+        var isEditable: Bool = true
     }
 
     let id = UUID()
@@ -25,6 +34,66 @@ struct StoreImportRequest: Identifiable {
     let script: String
     let baseArguments: [String]
     let forceTerminal: Bool
+    var initialValues: [FieldKind: String] = [:]
+
+    static func classicGame(resuming: Bool = false, installation: PendingGameInstallation? = nil) -> StoreImportRequest {
+        var fields: [Field] = []
+        if !resuming {
+            fields.append(.init(id: .path, label: "Installer EXE or MSI", placeholder: "/Users/you/Downloads/setup_game.exe", allowsFilePicker: true))
+        }
+        fields.append(.init(id: .displayName, label: "Game title", placeholder: "SimCity 3000 Unlimited"))
+        fields.append(.init(id: .installDirectory, label: "Installation folder (optional)", placeholder: "Choose in Terminal if left blank", allowsFilePicker: true, isRequired: false, choosesDirectory: true, help: "Use this same destination in the Windows installer. Recovery reuses the saved folder when left blank."))
+        if resuming {
+            fields.append(.init(id: .gameExecutable, label: "Installed game EXE (optional)", placeholder: "Choose after continuing if left blank", allowsFilePicker: true, isRequired: false))
+        }
+        if installation != nil, let index = fields.firstIndex(where: { $0.id == .displayName }) {
+            fields[index].isEditable = false
+            fields[index].help = "This title identifies the saved installation. Rename the port with Edit after registration."
+        }
+        var request = StoreImportRequest(
+            title: resuming ? "Finish Game Installation" : "Install Windows Game",
+            message: resuming
+                ? "Use the same title as setup. Terminal reopens the saved installation folder so you can select the installed game EXE. Setup will not run again. A listed installation keeps its saved environment."
+                : "Choose an EXE or MSI installer and enter the game title. Setup runs in a dedicated Windows environment. After setup finishes, select the installed game EXE. WineD3D is the starting graphics setting; you can change it in Edit Port.",
+            fields: fields,
+            submitLabel: resuming ? "Continue in Terminal" : "Install in Terminal",
+            script: "scripts/install_program.command",
+            baseArguments: [resuming ? "resume" : "install"],
+            forceTerminal: true
+        )
+        if let installation {
+            request.initialValues = [.displayName: installation.name, .path: installation.installer, .installationBottle: installation.bottle]
+            // Resume uses the saved folder so disconnected drives retain the
+            // helper's missing-folder guard instead of an explicit mkdir.
+            if !resuming, FileManager.default.fileExists(atPath: installation.folder) {
+                request.initialValues[.installDirectory] = installation.folder
+            }
+        }
+        return request
+    }
+
+    func installerArguments(values: [FieldKind: String]) -> [String] {
+        func value(_ kind: FieldKind) -> String { (values[kind] ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+        var arguments = baseArguments
+        if !baseArguments.contains("resume") { arguments.append(value(.path)) }
+        arguments += ["--name", value(.displayName)]
+        for (kind, flag) in [(FieldKind.installDirectory, "--install-dir"), (.gameExecutable, "--game-exe"), (.installationBottle, "--bottle")] {
+            let text = value(kind)
+            if !text.isEmpty { arguments += [flag, text] }
+        }
+        if values[.makeMacApp] == "1" { arguments.append("--make-app") }
+        if values[.launchAfterInstall] == "0" { arguments.append("--no-launch") }
+        return arguments
+    }
+
+    static func cloneEnvironment(source: String) -> StoreImportRequest {
+        StoreImportRequest(
+            title: "Clone Windows Environment",
+            message: "Cosmos stops Wine in \(source), then copies its Windows files, registry and settings into a new environment. Save your game first. External drive folders remain linked. Existing environments are preserved.",
+            fields: [.init(id: .displayName, label: "New environment name", placeholder: "simcity-backup")],
+            submitLabel: "Stop and Clone", script: "bottle.command", baseArguments: ["clone", source], forceTerminal: false
+        )
+    }
 }
 
 struct StoreImportSheet: View {
@@ -33,18 +102,44 @@ struct StoreImportSheet: View {
     /// Return `nil` to close the sheet, or an error message to show inline.
     var onSubmit: (_ values: [StoreImportRequest.FieldKind: String]) -> String?
 
-    @State private var values: [StoreImportRequest.FieldKind: String] = [:]
+    @State private var values: [StoreImportRequest.FieldKind: String]
     @State private var errorMessage: String?
     @State private var isSubmitting = false
+    @State private var makeMacApp = false
+    @State private var launchAfterInstall = true
     @FocusState private var focusedField: StoreImportRequest.FieldKind?
+
+    init(
+        request: StoreImportRequest, onCancel: @escaping () -> Void,
+        onSubmit: @escaping ([StoreImportRequest.FieldKind: String]) -> String?
+    ) {
+        self.request = request
+        self.onCancel = onCancel
+        self.onSubmit = onSubmit
+        _values = State(initialValue: request.initialValues)
+    }
 
     private var canSubmit: Bool {
         request.fields.allSatisfy { field in
-            !(values[field.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            !field.isRequired || !(values[field.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 
     var body: some View {
+        Group {
+            if request.script == "scripts/install_program.command" {
+                ScrollView { sheetContents }
+                    .frame(width: 520)
+                    .frame(maxHeight: 680)
+            } else {
+                sheetContents.frame(width: 460)
+            }
+        }
+        .background(Color.cosmosContentBackground)
+        .onAppear { focusedField = request.fields.first?.id }
+    }
+
+    private var sheetContents: some View {
         VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
             Text(request.title)
                 .font(.title2.weight(.bold))
@@ -54,6 +149,9 @@ struct StoreImportSheet: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if let bottle = values[.installationBottle], !bottle.isEmpty {
+                Text("Environment: \(bottle)").font(.caption).foregroundStyle(.secondary)
+            }
 
             if let errorMessage {
                 CosmosNoticeBanner(
@@ -75,7 +173,7 @@ struct StoreImportSheet: View {
                                 .textFieldStyle(.roundedBorder)
                                 .focused($focusedField, equals: field.id)
                                 .accessibilityLabel(field.label)
-                                .disabled(isSubmitting)
+                                .disabled(isSubmitting || !field.isEditable)
                             if field.allowsFilePicker {
                                 Button("Choose…") {
                                     pickFile(for: field.id)
@@ -84,11 +182,23 @@ struct StoreImportSheet: View {
                                 .disabled(isSubmitting)
                             }
                         }
+                        if let help = field.help {
+                            Text(help).font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
             }
             .formStyle(.grouped)
             .disabled(isSubmitting)
+
+            if request.script == "scripts/install_program.command" {
+                Toggle("Create a Mac app shortcut", isOn: $makeMacApp).disabled(isSubmitting)
+                Toggle("Launch game after installation", isOn: $launchAfterInstall).disabled(isSubmitting)
+                Text("The shortcut is saved in ~/Applications/Cosmos Ports. Keep companion setup files beside the installer.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             HStack {
                 if isSubmitting {
@@ -110,7 +220,10 @@ struct StoreImportSheet: View {
                         isSubmitting = false
                         return
                     }
-                    if let submitError = onSubmit(values) {
+                    var submittedValues = values
+                    submittedValues[.makeMacApp] = makeMacApp ? "1" : "0"
+                    submittedValues[.launchAfterInstall] = launchAfterInstall ? "1" : "0"
+                    if let submitError = onSubmit(submittedValues) {
                         errorMessage = submitError
                         isSubmitting = false
                         return
@@ -124,11 +237,6 @@ struct StoreImportSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 460)
-        .background(Color.cosmosContentBackground)
-        .onAppear {
-            focusedField = request.fields.first?.id
-        }
     }
 
     private func binding(for kind: StoreImportRequest.FieldKind) -> Binding<String> {
@@ -140,8 +248,13 @@ struct StoreImportSheet: View {
 
     private func pickFile(for kind: StoreImportRequest.FieldKind) {
         let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = (kind == .path && request.baseArguments.contains("add-itch"))
+        let directory = request.fields.first { $0.id == kind }?.choosesDirectory == true
+        panel.canChooseFiles = !directory
+        if request.script == "scripts/install_program.command", !directory {
+            panel.allowedFileTypes = kind == .gameExecutable ? ["exe"] : ["exe", "msi"]
+        }
+        panel.canChooseDirectories = directory || (kind == .path && request.baseArguments.contains("add-itch"))
+        panel.canCreateDirectories = directory
         panel.allowsMultipleSelection = false
         panel.prompt = "Choose"
         guard panel.runModal() == .OK, let url = panel.url else { return }

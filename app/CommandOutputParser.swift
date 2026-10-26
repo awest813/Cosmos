@@ -23,6 +23,9 @@ enum CommandOutputParser {
 
     /// Short summary from `repair.command diagnose` output.
     static func diagnoseSummary(from output: String) -> String? {
+        if output.contains("[runtime] Wine builtin missing:") {
+            return "Wine runtime files are missing. Restore the matching Wine build before reinstalling the game or changing its environment."
+        }
         if let count = suggestedFixCount(from: output), count > 0 {
             let noun = count == 1 ? "issue" : "issues"
             return "Diagnosis found \(count) \(noun). Review the output below or apply safe fixes."

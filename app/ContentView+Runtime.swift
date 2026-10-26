@@ -415,6 +415,7 @@ extension ContentView {
         profilePreferences = ProfilePreferencesStore.prune(validProfileIDs: Set(profiles.map(\.id)))
         bottles = BottleStore.load()
         ports = WinePortStore.load()
+        pendingGameInstallations = PendingGameInstallationStore.load()
         reloadGraphicsSettings()
         gameProfiles = GameProfileStore.load()
         dependencyRecipes = RecipeStore.loadDependencies()

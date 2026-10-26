@@ -57,6 +57,7 @@ spockd3d9_validate_path "${tmpdir}/spock" >/dev/null || fail "64-bit-only builds
 export COSMOS_SKIP_PE_CHECK=1
 mkdir -p "${tmpdir}/spock/x86"
 printf 'MZ\n' > "${tmpdir}/spock/x86/d3d9.dll"
+cp "${tmpdir}/spock/x86/d3d9.dll" "${tmpdir}/saved-x86.dll"
 [[ -f "${tmpdir}/spock/x64/d3d9.dll" ]] || printf 'MZ\n' > "${tmpdir}/spock/x64/d3d9.dll"
 prefix="${tmpdir}/prefix"
 mkdir -p "${prefix}/drive_c/windows/system32"
@@ -89,5 +90,61 @@ fi
 COSMOS_PREFIX_ARCH=wow64 COSMOS_PROGRAM_ARCH=win32 \
   spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" \
   | grep -q "WineD3D" || fail "missing 32-bit DLL should say WineD3D remains"
+
+# Fallback must force the builtin DLL, even if a stale native DLL and a grouped
+# native override are present from a previous graphics backend.
+log() { :; }
+runtime_prepare_moltenvk_env() { :; }
+COSMOS_PROGRAM_ARCH=win32
+COSMOS_PREFIX_ARCH=wow64
+WINEDLLOVERRIDES='d3d9,dxgi=n;dinput8=n,b'
+spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" >/dev/null
+enable_spockd3d9_env >/dev/null
+[[ "${WINEDLLOVERRIDES}" == 'dxgi=n;dinput8=n,b;d3d9=b' ]] || fail "WineD3D fallback must override stale native D3D9 without removing DXMT"
+
+cp "${tmpdir}/saved-x86.dll" "${tmpdir}/spock/x86/d3d9.dll"
+spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" >/dev/null
+enable_spockd3d9_env >/dev/null
+[[ "${WINEDLLOVERRIDES}" == 'dxgi=n;dinput8=n,b;d3d9=n,b' ]] || fail "matching x86 DLL should enable Spock again"
+
+# A changed creation preference must not install a 64-bit DLL into an existing
+# 32-bit prefix's system32. Also cover Windows registry CRLF line endings.
+printf 'WINE REGISTRY Version 2\r\n#arch=win32\r\n' > "${prefix}/system.reg"
+rm -rf "${prefix}/drive_c/windows/syswow64"
+COSMOS_PREFIX_ARCH=wow64 spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" >/dev/null
+cmp "${tmpdir}/spock/x86/d3d9.dll" "${prefix}/drive_c/windows/system32/d3d9.dll" || fail "existing win32 layout must win over preference"
+[[ ! -d "${prefix}/drive_c/windows/syswow64" ]] || fail "win32 prefix must not create syswow64"
+printf 'WINE REGISTRY Version 2\n#arch=win64\n' > "${prefix}/system.reg"
+if COSMOS_PREFIX_ARCH=win32 spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}" >/dev/null 2>&1; then
+  fail "win32 preference must not overwrite an existing win64 system32"
+fi
+
+if (
+  cp() { return 1; }
+  COSMOS_PREFIX_ARCH=wow64 spockd3d9_install_into_prefix "${tmpdir}/spock" "${prefix}"
+) >/dev/null 2>&1; then
+  fail "copy failures must fail installation even when called in a conditional"
+fi
+
+# A fresh default port can use its enabled WineD3D fallback before Spock exists.
+# This must neither prefer an old native DLL nor fetch unused MoltenVK.
+(
+  die() { echo "$*" >&2; exit 1; }
+  runtime_prepare_moltenvk_env() { touch "${tmpdir}/moltenvk-requested"; }
+  unset SPOCK_D3D9_PATH COSMOS_AUTO_SPOCK_D3D9
+  COSMOS_RUNTIME_DIR="${tmpdir}/not-installed"
+  COSMOS_PORT=1
+  COSMOS_PORT_RENDERERS='dxmt,d9vk,wined3d'
+  ensure_spockd3d9_installed >/dev/null
+  enable_spockd3d9_env >/dev/null
+  [[ "${WINEDLLOVERRIDES}" == *'d3d9=b' ]] || fail "fresh port should force WineD3D"
+  [[ ! -f "${tmpdir}/moltenvk-requested" ]] || fail "WineD3D fallback must not download MoltenVK"
+  if (COSMOS_PORT_RENDERERS='dxmt,d9vk'; ensure_spockd3d9_installed) >/dev/null 2>&1; then
+    fail "missing Spock must fail if port did not enable WineD3D"
+  fi
+  if (SPOCK_D3D9_PATH="${tmpdir}/invalid-explicit-path"; ensure_spockd3d9_installed) >/dev/null 2>&1; then
+    fail "invalid explicit Spock path must report an error"
+  fi
+)
 
 printf 'OK: Spock path, PE architecture, and override-merge tests passed\n'

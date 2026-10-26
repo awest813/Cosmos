@@ -5,6 +5,7 @@
   "components": {
     "wine": {
       "version": "11.8",
+      "sha256": "5c9f0984961ee6289f4f2c4fe751c27f02b6c28855154e3f99b7e2bd8108b620",
       "license": "LGPL-2.1-or-later",
       "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.8/wine-devel-11.8-osx64.tar.xz",
       "install_subdir": "wine-{version}",
@@ -14,6 +15,7 @@
     },
     "dxmt": {
       "version": "0.80",
+      "sha256": "8f260e36b5739e68f3bad613381441385c4dc7b85b78ba8de653d5a6a264529d",
       "license": "MIT",
       "mit_max_version": "0.80",
       "latest_version": "0.81",
@@ -26,12 +28,14 @@
     },
     "dxvk_macos": {
       "version": "1.10.3-20230507-repack",
+      "sha256": "810b1e5caf8ce975b784fae866a130ad23fa0ea233b0e5609cbc4a45f3ef6f00",
       "license": "Zlib",
       "url": "https://github.com/Gcenx/DXVK-macOS/releases/download/v1.10.3-20230507-repack/dxvk-macOS-async-v1.10.3-20230507-repack-builtin.tar.gz",
       "install_subdir": "dxvk-macOS-{version}"
     },
     "moltenvk": {
       "version": "1.2.8",
+      "sha256": "7ebdf5a476254a4bca923583a45c956183bb2cf717a99128b196aa10b2ca8da8",
       "license": "Apache-2.0",
       "url": "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.8/MoltenVK-macos.tar",
       "install_subdir": "MoltenVK-{version}"

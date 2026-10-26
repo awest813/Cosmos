@@ -109,12 +109,10 @@ extension ContentView {
     }
 
     func focusDashboardSection(_ section: DashboardSection) {
-        switch section {
-        case .launch:
-            dashboardSection = .launch
-        case .library, .tools, .bottles, .ports:
-            guard isSteamReady else { return }
-            dashboardSection = section
+        dashboardSection = section
+        if useRedesignedWorkspace {
+            if section == .bottles { workspaceDestination = .environments }
+            else { workspaceUtilitySection = section }
         }
     }
 
@@ -751,8 +749,8 @@ extension ContentView {
     var spockD3d9SetupCard: some View {
         GraphicsPathSetupCard(
             title: "D3D9 — SpockD3D9",
-            caption: "Experimental Windows DLLs for D3D9 → Vulkan → Metal. Validate the game’s architecture, then test in a separate environment. DLL validation does not prove a game will render.",
-            fieldLabel: "SPOCK_D3D9_PATH",
+            caption: "Experimental DirectX 9 support. Classic games often need the 32-bit DLL, even on a 64-bit Mac. MoltenVK is also required. Test in a separate environment against WineD3D.",
+            fieldLabel: "Spock DLL folder",
             path: spockD3D9PathBinding,
             isReady: spockD3D9Validation.valid,
             isInvalid: graphicsSettings.spockD3D9Configured && !spockD3D9Validation.valid,
@@ -769,13 +767,13 @@ extension ContentView {
             .disabled(isRunning || !graphicsSettings.spockD3D9Configured)
 
             Button { buildSpockD3D9Dlls() } label: {
-                Label("Build PE DLLs", systemImage: "hammer.fill")
+                Label("Build 32-bit + 64-bit DLLs", systemImage: "hammer.fill")
             }
             .buttonStyle(.bordered)
             .disabled(isRunning)
 
             Button { saveSpockD3D9PathAndApply() } label: {
-                Label(selectedBottle == nil ? "Use for Default Environment" : "Use for Selected Environment", systemImage: "square.and.arrow.down")
+                Label(selectedBottle.map { "Use for \($0.name)" } ?? "Use for Default Environment", systemImage: "square.and.arrow.down")
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.cosmosPrimary)

@@ -135,10 +135,27 @@ licenses. Apple's D3DMetal and the CrossOver application stay out.
 | [Soju](https://github.com/BCD1210/soju) | GPL-3.0 | May be combined. AVX, the login-page switch, the D3DMetal layout, and the Battle.net signature seed are reimplemented in Cosmos. Do not copy CodeWeavers' engine |
 | [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | GPL-3.0 | May be combined. Keep upstream copyright notices with any copied files |
 | [Lutris](https://github.com/lutris/lutris) | GPL-3.0 | Installer scripts may be combined. Profiles are still Cosmos YAML, not a full installer runner |
-| [Highball](https://github.com/gauthierpiarrette/highball) | GPL-3.0 | Vendored at `third_party/highball` (commit `bbada878`). Its CC0 database is `third_party/highball-db`. Apple's GPTK license text is not included |
+| [Highball](https://github.com/gauthierpiarrette/highball) | GPL-3.0 | Vendored at `third_party/highball` (commit `bbada878`). `third_party/highball-db` has CC0 curated data/recipes, ODbL-1.0 derived predictions and MIT-derived anti-cheat data; preserve the separate notices. Apple's GPTK license text is not included |
+| [Sikarugir](https://github.com/Sikarugir-App/Sikarugir) | Component-specific | Main README separates LGPL Configure sources from newer Creator/Launcher components. Only verified [FOSS sources](https://github.com/Sikarugir-App/Sikarugir-foss-sources) have the reviewed LGPL-2.1 grant; do not treat the distribution as uniformly LGPL |
+| [Bottles](https://github.com/bottlesdevs/Bottles) | GPL-3.0 | Backup/versioning architecture reference; Linux/GTK/FVS dependencies require adaptation |
 | [Vermut](https://github.com/Contessafry/Vermut) 1.2.0 | MIT | Vendored at `third_party/vermut` (commit `3ad9649`). Copyright (c) 2026 Vermut Contributors. The release DMG is not included |
 | [macos-wine-steam / Merlot](https://github.com/ByMedion/macos-wine-steam) | MIT | Direct lineage; safe to compare scripts |
 | [find-steam-app](https://github.com/Ciberusps/find-steam-app) | MIT | Optional detection cross-check; VDF parsing patterns in `steam_lib.sh` |
 | [steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) | MIT | Vendored `third_party/steam-on-m1-wine/` (wrapper + assets); launch/prefix integration in `steam_lib.sh` |
 
 See also [OPEN_SOURCE_INTEGRATIONS.md](OPEN_SOURCE_INTEGRATIONS.md).
+
+## October 2026 upstream adaptations
+
+`scripts/lib/wine_filesystem.py`, `runtime_integrity.py` and
+`component_download.py` reference Highball's GPLv3 reparse, integrity and resume
+patterns at `1512223fff145eae3b4c9fb588edf86758bc756b`. Their Cosmos adaptations
+ship with Cosmos's GPL license. `environment_clone.py` records Soju's GPLv3
+complete-prefix scope at `43ed224336cdffdba9dc4b47aa858a5273eb0838`.
+`prefix_processes.py` includes Vermut's complete MIT notice and source revision.
+
+`upstream_recipes.py` adapts only the vendored highball-db `recipes/` snapshot
+`2b5c876308a39268189b12f391d07c34c5fb7c3e`. The built review index includes source
+URLs/revision per entry and its CC0 license is bundled alongside it. ODbL derived
+predictions and MIT anti-cheat data are excluded from this index. `xact.recipe`
+records its curated upstream source. Existing vendor notices remain in place.

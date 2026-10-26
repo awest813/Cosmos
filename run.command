@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=scripts/lib/steam_lib.sh
 source "${SCRIPT_DIR}/scripts/lib/steam_lib.sh"
+source "${SCRIPT_DIR}/scripts/lib/wine_filesystem.sh"
 if [[ -f "${SCRIPT_DIR}/scripts/lib/import_lib.sh" ]]; then
   # shellcheck source=scripts/lib/import_lib.sh
   source "${SCRIPT_DIR}/scripts/lib/import_lib.sh"
@@ -682,10 +683,15 @@ ensure_wine_installed() {
       runtime_try_offline_stack || true
     fi
     if [[ ! -x "${WINE_BIN}" ]]; then
-      mkdir -p "${WINE_ROOT}"
-      if ! curl -L --fail --retry 5 --retry-delay 1 "${WINE_URL}" | tar xJf - -C "${WINE_ROOT}"; then
+      local archive stage
+      archive="$(runtime_download_archive "${WINE_URL}")" || die "Wine download failed verification or could not be resumed. Review the URL/checksum and retry."
+      stage="$(mktemp -d "${TMPDIR:-/tmp}/cosmos-wine.XXXXXX")"
+      if ! tar xJf "${archive}" -C "${stage}" || [[ ! -x "${stage}/Wine Devel.app/Contents/Resources/wine/bin/wine" ]]; then
+        rm -rf "${stage}"
         die "Wine download failed. Check your network connection and try again."
       fi
+      runtime_activate_payload "${stage}" "${WINE_ROOT}" || die "Wine activation failed; the previous installation was preserved."
+      rm -rf "${stage}"
       [[ -x "${WINE_BIN}" ]] || die "Wine binary not found after extraction: ${WINE_BIN}"
     fi
   fi
@@ -1060,7 +1066,8 @@ ensure_dxmt_installed() {
   local tmp_dir
   tmp_dir="$(mktemp -d /tmp/dxmt.XXXXXX)"
 
-  if ! curl -L --fail --retry 5 --retry-delay 1 "${DXMT_URL}" | tar xzf - -C "${tmp_dir}"; then
+  local archive
+  if ! archive="$(runtime_download_archive "${DXMT_URL}")" || ! tar xzf "${archive}" -C "${tmp_dir}"; then
     rm -rf "${tmp_dir}"
     die "DXMT download failed. Check your network connection and try again."
   fi
@@ -1074,11 +1081,7 @@ ensure_dxmt_installed() {
 
   [[ -n "${payload_dir}" ]] || die "DXMT extraction failed: payload directories not found."
 
-  mkdir -p "${DXMT_ROOT}"
-  rm -rf "${DXMT_ROOT}/i386-windows" "${DXMT_ROOT}/x86_64-windows" "${DXMT_ROOT}/x86_64-unix"
-  cp -R "${payload_dir}/i386-windows" "${DXMT_ROOT}/"
-  cp -R "${payload_dir}/x86_64-windows" "${DXMT_ROOT}/"
-  cp -R "${payload_dir}/x86_64-unix" "${DXMT_ROOT}/"
+  runtime_activate_payload "${payload_dir}" "${DXMT_ROOT}" || die "DXMT activation failed; the previous installation was preserved."
   rm -rf "${tmp_dir}"
 }
 
@@ -1434,21 +1437,7 @@ launch_epic_via_legendary() {
 }
 
 resolve_game_exe_path() {
-  local path="${GAME_EXE_PATH:-}"
-  [[ -n "${path}" ]] || return 1
-  if [[ "${path}" == drive_c/* ]]; then
-    printf '%s' "${WINEPREFIX}/${path}"
-    return 0
-  fi
-  if [[ -f "${path}" ]]; then
-    printf '%s' "${path}"
-    return 0
-  fi
-  if [[ -f "${WINEPREFIX}/${path}" ]]; then
-    printf '%s' "${WINEPREFIX}/${path}"
-    return 0
-  fi
-  return 1
+  resolve_prefix_path "${GAME_EXE_PATH:-}"
 }
 
 battlenet_agent_running() {
@@ -1458,19 +1447,10 @@ battlenet_agent_running() {
 resolve_prefix_path() {
   local path="$1"
   [[ -n "${path}" ]] || return 1
-  if [[ "${path}" == drive_c/* ]]; then
-    printf '%s' "${WINEPREFIX}/${path}"
-    return 0
+  if [[ "${path}" != drive_c/* && "${path}" != [A-Za-z]:* && -f "${path}" ]]; then
+    path="$(cd -- "$(dirname -- "${path}")" && pwd)/$(basename -- "${path}")"
   fi
-  if [[ -f "${path}" ]]; then
-    printf '%s' "${path}"
-    return 0
-  fi
-  if [[ -f "${WINEPREFIX}/${path}" ]]; then
-    printf '%s' "${WINEPREFIX}/${path}"
-    return 0
-  fi
-  return 1
+  wine_fs_host_path "${WINEPREFIX}" "${path}"
 }
 
 ensure_battlenet_agent() {
@@ -1552,9 +1532,9 @@ launch_profile() {
   log "Launching profile: ${PROFILE_EXECUTABLE}"
   [[ -n "${PROFILE_EXECUTABLE}" ]] || die "The --game/--profile flag requires a profile executable path."
   local profile_executable="${PROFILE_EXECUTABLE}"
-  if [[ "${profile_executable}" == drive_c/* ]]; then
+  if [[ "${profile_executable}" == drive_c/* || "${profile_executable}" == [A-Za-z]:* ]]; then
     # Imported games store paths relative to the selected Windows environment.
-    profile_executable="${WINEPREFIX}/${profile_executable}"
+    profile_executable="$(wine_fs_host_path "${WINEPREFIX}" "${profile_executable}")" || die "Invalid profile executable path: ${PROFILE_EXECUTABLE}"
   elif [[ "${profile_executable}" != /* && -f "${PROFILE_DIRECTORY}/${profile_executable}" ]]; then
     # Relative names are resolved against the saved profiles directory first.
     profile_executable="${PROFILE_DIRECTORY}/${profile_executable}"

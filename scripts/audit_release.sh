@@ -21,10 +21,13 @@ pass "CLI install-update flag wired"
 grep -q -- '--install' "${ROOT}/scripts/check_updates.sh" || fail "check_updates.sh missing --install"
 pass "check_updates --install flag present"
 
-for script in check_updates.sh install_update.sh terminal_wrap.sh; do
+for script in check_updates.sh install_update.sh terminal_wrap.sh install_program.command; do
   [[ -x "${ROOT}/scripts/${script}" ]] || fail "missing scripts/${script}"
 done
 [[ -f "${ROOT}/scripts/lib/release_lib.sh" ]] || fail "missing scripts/lib/release_lib.sh"
+for helper in wine_filesystem.sh wine_filesystem.py runtime_integrity.py prefix_processes.py environment_clone.py environment_cleanup.py component_download.py upstream_recipes.py; do
+  [[ -f "${ROOT}/scripts/lib/${helper}" ]] || fail "missing scripts/lib/${helper}"
+done
 [[ -f "${ROOT}/scripts/fixtures/github_release_latest.json" ]] || fail "missing release fixture"
 pass "update + terminal helper scripts executable"
 
@@ -39,9 +42,15 @@ done
 pass "in-app update + terminal trackers present"
 
 if [[ -d "${APP_BUNDLE}" ]]; then
+  for helper in wine_filesystem.sh wine_filesystem.py runtime_integrity.py prefix_processes.py environment_clone.py environment_cleanup.py component_download.py upstream_recipes.py; do
+    [[ -f "${RESOURCES}/scripts/lib/${helper}" ]] || fail "bundle missing filesystem helper ${helper}"
+  done
+  for data in highball-recipes.json HIGHBALL-RECIPES-LICENSE.txt; do
+    [[ -f "${RESOURCES}/runtime/${data}" ]] || fail "bundle missing curated recipe data ${data}"
+  done
   app_binary="${APP_BUNDLE}/Contents/MacOS/Cosmos"
   [[ -x "${app_binary}" ]] || fail "bundle missing executable Contents/MacOS/Cosmos"
-  for script in check_updates.sh install_update.sh terminal_wrap.sh; do
+  for script in check_updates.sh install_update.sh terminal_wrap.sh install_program.command; do
     [[ -x "${RESOURCES}/scripts/${script}" ]] || fail "bundle missing Resources/scripts/${script}"
   done
   [[ -f "${RESOURCES}/VERSION" ]] || fail "bundle missing Resources/VERSION"

@@ -57,6 +57,7 @@ echo 'PASS: failed downloads preserve existing files and report failure'
 # A successful HTTP response with a valid but wrong archive must also fail.
 mkdir -p "${WORK}/empty"
 tar czf "${WORK}/wrong.tar.gz" -C "${WORK}/empty" .
+runtime_download_archive() { printf '%s' "${WORK}/wrong.tar.gz"; }
 curl() {
   while [[ $# -gt 0 ]]; do
     if [[ "$1" == -o ]]; then cp "${WORK}/wrong.tar.gz" "$2"; return; fi

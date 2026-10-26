@@ -209,11 +209,27 @@ extension ContentView {
                 spacing: CosmosSpacing.gridGap
             ) {
                 storeActionButton(
+                    title: "Install Windows Game",
+                    subtitle: "Installer → folder → game EXE",
+                    systemImage: "shippingbox.fill",
+                    script: "scripts/install_program.command",
+                    arguments: ["install"],
+                    needsStoreTitle: true,
+                    pathPrompt: "Install a classic Windows game from EXE"
+                )
+                storeActionButton(
                     title: "List Imports",
                     subtitle: "Standalone configs",
                     systemImage: "list.bullet",
                     script: "import_game.command",
                     arguments: ["list"]
+                )
+                storeActionButton(
+                    title: "Review Upstream Recipe",
+                    subtitle: "Requirements and dependency hints",
+                    systemImage: "doc.text.magnifyingglass",
+                    script: "profile.command", arguments: ["upstream-recipe"],
+                    needsPath: true, pathPrompt: "Upstream recipe id (for example xact)"
                 )
                 storeActionButton(
                     title: "Run Installer",
@@ -358,7 +374,9 @@ extension ContentView {
         forceTerminal: Bool = false
     ) -> some View {
         Button {
-            if needsEpicAppName {
+            if script == "scripts/install_program.command" {
+                storeImportRequest = .classicGame(resuming: arguments.contains("resume"))
+            } else if needsEpicAppName {
                 storeImportRequest = StoreImportRequest(
                     title: "Legendary app name",
                     message: "Use the App name from list-epic (e.g. Sugar), not always the store title. Requires: brew install legendary-gl",
@@ -406,6 +424,13 @@ extension ContentView {
                     baseArguments: arguments,
                     forceTerminal: true
                 )
+            } else if script == "profile.command", arguments.first == "upstream-recipe" {
+                storeImportRequest = StoreImportRequest(
+                    title: "Review Upstream Recipe",
+                    message: "Review a curated Highball recipe's requirements and matching Cosmos dependencies. Upstream verification can require a different engine or macOS version; Cosmos marks it untested. Examples: xact, steam, the-sims-legacy-collection.",
+                    fields: [.init(id: .path, label: "Recipe id", placeholder: "xact")],
+                    submitLabel: "Review", script: script, baseArguments: arguments, forceTerminal: false
+                )
             } else if needsPath {
                 storeImportRequest = StoreImportRequest(
                     title: pathPrompt,
@@ -427,7 +452,7 @@ extension ContentView {
             CosmosActionTile(title: title, subtitle: subtitle, systemImage: systemImage)
         }
         .buttonStyle(CosmosButtonStyle())
-        .disabled(isRunning)
+        .disabled(isRunning || pendingTerminalJobID != nil)
     }
 
     func submitStoreImport(
@@ -436,6 +461,20 @@ extension ContentView {
     ) {
         func trimmed(_ kind: StoreImportRequest.FieldKind) -> String {
             (values[kind] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        if request.script == "scripts/install_program.command" {
+            runInTerminal(script: request.script, arguments: request.installerArguments(values: values))
+            return
+        }
+        if request.script == "bottle.command", request.baseArguments.first == "clone" {
+            let name = trimmed(.displayName)
+            runCommand(script: request.script, arguments: request.baseArguments + ["--name", name], onSuccess: {
+                showAdvancedTabs = true
+                selectedBottleID = name
+                dashboardSection = .bottles
+            })
+            return
         }
 
         var args = request.baseArguments

@@ -364,7 +364,7 @@ struct GraphicsPathSetupCard<Actions: View>: View {
                 Text(summaryText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             ViewThatFits(in: .horizontal) {

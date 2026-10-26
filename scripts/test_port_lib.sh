@@ -8,6 +8,21 @@ source "${ROOT}/scripts/lib/port_lib.sh"
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
+port_macos_version_supported 14.6 || fail "macOS 14.6 should be supported"
+port_macos_version_supported 26.1 || fail "newer macOS should be supported"
+port_macos_version_supported 14.5.1 && fail "macOS 14.5 must be refused"
+port_macos_version_supported unknown && fail "unknown macOS must be refused"
+(
+  unset COSMOS_PORT_SKIP_ARCH
+  uname() { if [[ "$1" == -s ]]; then echo Darwin; else echo x86_64; fi; }
+  sysctl() { echo 1; }
+  sw_vers() { echo 14.6; }
+  port_require_apple_silicon || fail "Apple Silicon from Rosetta Terminal should be supported"
+  sw_vers() { echo 14.5; }
+  port_require_apple_silicon >/dev/null 2>&1 && fail "old macOS must fail on Apple Silicon too"
+  true
+)
+
 assert_backend() {
   local expected="$1"
   local got
@@ -102,6 +117,23 @@ export COSMOS_PORTS_OUTPUT="${tmpdir}/apps"
 exe="${tmpdir}/notepad.exe"
 printf 'MZ\n' > "${exe}"
 
+python3 - "${tmpdir}" <<'PY'
+from pathlib import Path
+import struct, sys
+root = Path(sys.argv[1])
+for arch, machine, magic, size in [('32', 0x14c, 0x10b, 224), ('64', 0x8664, 0x20b, 240)]:
+    data = bytearray(1024)
+    data[:2] = b'MZ'
+    struct.pack_into('<I', data, 60, 128)
+    data[128:132] = b'PE\0\0'
+    struct.pack_into('<HHIIIHH', data, 132, machine, 1, 0, 0, 0, size, 0x102 if arch == '32' else 0x22)
+    struct.pack_into('<H', data, 152, magic)
+    struct.pack_into('<H', data, 220, 2)
+    (root / f'game{arch}.exe').write_bytes(data)
+PY
+[[ "$(port_detect_program_arch "${tmpdir}/game32.exe")" == win32 ]] || fail "detect x86 EXE"
+[[ "$(port_detect_program_arch "${tmpdir}/game64.exe")" == win64 ]] || fail "detect x64 EXE"
+
 set +e
 arch_out="$(env -u COSMOS_PORT_SKIP_ARCH COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR}" \
   "${ROOT}/port.command" create --name "Notepad" --exe "${exe}" 2>&1)"
@@ -111,6 +143,15 @@ set -e
 printf '%s' "${arch_out}" | grep -q "Apple Silicon" || fail "arch error should mention Apple Silicon: ${arch_out}"
 
 export COSMOS_PORT_SKIP_ARCH=1
+
+"${ROOT}/port.command" create --name "Detected x86" --exe "${tmpdir}/game32.exe" >/dev/null
+detected="$("${ROOT}/port.command" show detected-x86)"
+printf '%s\n' "${detected}" | grep -q 'Program:       32-bit' || fail "create must detect x86 automatically"
+if "${ROOT}/port.command" create --name "Wrong Architecture" --exe "${tmpdir}/game32.exe" --program-arch win64 >"${tmpdir}/wrong-arch.log" 2>&1; then
+  fail "explicit architecture mismatch must fail"
+fi
+grep -q 'executable is win32' "${tmpdir}/wrong-arch.log" || fail "architecture mismatch needs actionable error"
+[[ ! -d "${COSMOS_SUPPORT_DIR}/Ports/wrong-architecture" ]] || fail "invalid creation must not leave a partial port"
 
 set +e
 missing_out="$("${ROOT}/port.command" create --name "Ghost" --exe "${exe}" --bottle "no-such-bottle" 2>&1)"
@@ -140,6 +181,9 @@ cat > "${fake}/run.command" <<'EOF'
 #!/bin/bash
 printf 'backend=%s\nskip=%s\nport=%s\ngame=%s\n' \
   "${COSMOS_BACKEND}" "${COSMOS_SKIP_STEAM}" "${COSMOS_PORT}" "$2"
+printf 'program=%s\n' "${COSMOS_PROGRAM_ARCH:-}"
+printf 'bottle=%s\n' "${COSMOS_BOTTLE:-}"
+printf 'arg=<%s>\n' "$@"
 EOF
 chmod +x "${fake}/run.command"
 
@@ -165,6 +209,8 @@ printf '%s\n' "${launch_out}" | grep -q "backend=spockd3d9" || fail "launch back
 printf '%s\n' "${launch_out}" | grep -q "skip=1" || fail "launch skip steam: ${launch_out}"
 printf '%s\n' "${launch_out}" | grep -q "port=1" || fail "launch port flag: ${launch_out}"
 printf '%s\n' "${launch_out}" | grep -Fq "game=${stored_exe}" || fail "launch game path: ${launch_out}"
+default_out="$(COSMOS_BOTTLE=unrelated "${app}/Contents/MacOS/launcher")"
+printf '%s\n' "${default_out}" | grep -Fxq 'bottle=' || fail "main-environment port inherited an unrelated bottle"
 
 set +e
 blocked="$(env -u COSMOS_PORT_SKIP_ARCH "${app}/Contents/MacOS/launcher" 2>&1)"
@@ -205,16 +251,106 @@ fi
   --exe "${exe}" \
   --slug old-game \
   --program-arch win32 \
-  --args "--windowed" >/dev/null
+  --args '--windowed --save "two words" --empty "" *.sav' >/dev/null
 old_show="$("${ROOT}/port.command" show old-game)"
 printf '%s\n' "${old_show}" | grep -q "Program:       32-bit" || fail "32-bit program: ${old_show}"
-printf '%s\n' "${old_show}" | grep -q "Arguments:     --windowed" || fail "launch arguments: ${old_show}"
+printf '%s\n' "${old_show}" | grep -Fq 'Arguments:     --windowed --save "two words"' || fail "launch arguments must retain quotes: ${old_show}"
 COSMOS_PORT_RUNTIME_ROOT="${fake}" "${ROOT}/port.command" build old-game --output "${tmpdir}/apps" >/dev/null
 old_env="${tmpdir}/apps/Old Game.app/Contents/Resources/port.env"
 grep -q "COSMOS_PROGRAM_ARCH=win32" "${old_env}" || fail "port env should record the 32-bit program"
 grep -q "PORT_ARGS=--windowed" "${old_env}" || fail "port env should record launch arguments"
 
+# Exercise both the built app and CLI, without Wine or macOS. Literal glob
+# arguments must survive even when the runtime directory contains matches.
+touch "${fake}/expanded.sav"
+old_out="$("${tmpdir}/apps/Old Game.app/Contents/MacOS/launcher")"
+printf '%s\n' "${old_out}" | grep -Fxq 'program=win32' || fail "built app program architecture"
+printf '%s\n' "${old_out}" | grep -Fxq 'arg=<two words>' || fail "quoted argument split in built launcher"
+printf '%s\n' "${old_out}" | grep -Fxq 'arg=<>' || fail "empty argument lost in built launcher"
+printf '%s\n' "${old_out}" | grep -Fxq 'arg=<*.sav>' || fail "glob expanded in built launcher"
+mkdir -p "${fake}/scripts/lib"
+cp "${ROOT}/scripts/lib/port_lib.sh" "${ROOT}/scripts/lib/prefix_arch.sh" \
+  "${ROOT}/scripts/lib/wine_filesystem.sh" "${ROOT}/scripts/lib/wine_filesystem.py" "${fake}/scripts/lib/"
+cli_out="$(SCRIPT_DIR="${fake}" COSMOS_PROGRAM_ARCH=win64 "${ROOT}/port.command" launch old-game)"
+printf '%s\n' "${cli_out}" | grep -Fxq 'program=win32' || fail "CLI ignored port program architecture"
+printf '%s\n' "${cli_out}" | grep -Fxq 'arg=<two words>' || fail "CLI split quoted arguments"
+printf '%s\n' "${cli_out}" | grep -Fxq 'arg=<*.sav>' || fail "CLI expanded a literal glob"
+
+if (port_exec_program "${fake}/run.command" "${exe}" '--save "unterminated') >"${tmpdir}/bad-args.log" 2>&1; then
+  fail "malformed arguments should fail before launching"
+fi
+grep -q 'Invalid port launch arguments' "${tmpdir}/bad-args.log" || fail "malformed arguments need a useful error"
+if grep -q '^backend=' "${tmpdir}/bad-args.log"; then fail "malformed arguments launched the game"; fi
+
+# Updates retain the identity, unrelated metadata and built app, while changing
+# only the definition. Invalid edits must leave its bytes unchanged.
+edit_conf="${COSMOS_SUPPORT_DIR}/Ports/old-game/port.conf"
+printf 'PORT_EXTENSION="keep me"\n' >> "${edit_conf}"
+old_app="${tmpdir}/apps/Old Game.app"
+cp "${old_app}/Contents/Resources/port.env" "${tmpdir}/old-app.env"
+"${ROOT}/port.command" update old-game --name "Classic Game" --exe "${tmpdir}/game64.exe" \
+  --windows win7 --dxmt 0 --d9vk 0 --cnc-ddraw 0 --wined3d 1 --args '' >"${tmpdir}/update.log"
+[[ "$(port_get_setting "${edit_conf}" PORT_SLUG)" == old-game ]] || fail "edit changed port identity"
+[[ "$(port_get_setting "${edit_conf}" PORT_EXTENSION)" == 'keep me' ]] || fail "edit lost extension metadata"
+[[ "$(port_get_setting "${edit_conf}" PORT_BUILT_APP)" == "${old_app}" ]] || fail "edit lost built app location"
+[[ "$(port_get_setting "${edit_conf}" PORT_PROGRAM_ARCH)" == win64 ]] || fail "edited EXE architecture not detected"
+[[ "$(port_get_setting "${edit_conf}" PORT_ARGS)" == '' ]] || fail "edit failed to clear arguments"
+"${ROOT}/port.command" validate old-game >/dev/null
+cmp "${old_app}/Contents/Resources/port.env" "${tmpdir}/old-app.env" || fail "edit changed built app without rebuild"
+grep -q 'Rebuild' "${tmpdir}/update.log" || fail "edit must explain rebuilding"
+edited_out="$(SCRIPT_DIR="${fake}" "${ROOT}/port.command" launch old-game)"
+printf '%s\n' "${edited_out}" | grep -Fxq 'backend=wined3d' || fail "updated CLI backend"
+printf '%s\n' "${edited_out}" | grep -Fxq 'program=win64' || fail "updated CLI architecture"
+printf '%s\n' "${edited_out}" | grep -Fxq "game=${tmpdir}/game64.exe" || fail "updated CLI executable"
+if printf '%s\n' "${edited_out}" | grep -Fq 'arg=<--windowed>'; then fail "cleared launch arguments still used"; fi
+cp "${edit_conf}" "${tmpdir}/before-invalid.conf"
+if "${ROOT}/port.command" update old-game --distribution share --d3dmetal 1 >"${tmpdir}/invalid-update.log" 2>&1; then
+  fail "update allowed shared D3DMetal"
+fi
+cmp "${edit_conf}" "${tmpdir}/before-invalid.conf" || fail "invalid renderer edit changed definition"
+if "${ROOT}/port.command" update old-game --exe "${tmpdir}/game32.exe" --program-arch win64 >/dev/null 2>&1; then
+  fail "update allowed mismatched executable architecture"
+fi
+cmp "${edit_conf}" "${tmpdir}/before-invalid.conf" || fail "architecture failure changed definition"
+# Simulate a disk/write failure during the final atomic replacement.
+mkdir -p "${tmpdir}/fail-bin"
+cat > "${tmpdir}/fail-bin/mv" <<'EOF'
+#!/usr/bin/env bash
+for last in "$@"; do :; done
+[[ "${last}" != "${TEST_MV_TARGET}" ]] || exit 73
+exec "${TEST_REAL_MV}" "$@"
+EOF
+chmod +x "${tmpdir}/fail-bin/mv"
+real_mv="$(command -v mv)"
+if PATH="${tmpdir}/fail-bin:${PATH}" TEST_MV_TARGET="${edit_conf}" TEST_REAL_MV="${real_mv}" \
+  "${ROOT}/port.command" update old-game --name "Failed Save" >"${tmpdir}/failed-save.log" 2>&1; then
+  fail "failed atomic replacement reported success"
+fi
+cmp "${edit_conf}" "${tmpdir}/before-invalid.conf" || fail "failed save changed original definition"
+if compgen -G "${COSMOS_SUPPORT_DIR}/Ports/old-game/.port.conf.*" >/dev/null; then
+  fail "failed save left a staged definition"
+fi
+if "${ROOT}/port.command" update old-game --slug renamed >/dev/null 2>&1; then fail "update changed directory identity"; fi
+if "${ROOT}/port.command" update missing --name "Ghost" >/dev/null 2>&1; then fail "update created a missing port"; fi
+mkdir -p "${COSMOS_SUPPORT_DIR}/Bottles/edit-bottle"
+"${ROOT}/port.command" update old-game --bottle edit-bottle --cnc-ddraw-path '/tmp/ddraw' --gptk-path '/tmp/GPTK' >/dev/null
+"${ROOT}/port.command" update old-game --bottle '' --cnc-ddraw-path '' --gptk-path '' >/dev/null
+for key in PORT_BOTTLE PORT_CNC_DDRAW_PATH PORT_GPTK_PATH; do
+  [[ "$(port_get_setting "${edit_conf}" "${key}")" == '' ]] || fail "update failed to clear ${key}"
+done
+COSMOS_PORT_RUNTIME_ROOT="${fake}" "${ROOT}/port.command" build old-game --output "${tmpdir}/apps" >/dev/null
+grep -q 'COSMOS_BACKEND=wined3d' "${tmpdir}/apps/Classic Game.app/Contents/Resources/port.env" || fail "rebuilt app ignored edited graphics"
+
 "${ROOT}/port.command" delete notepad --force >/dev/null
+windows_prefix="${tmpdir}/windows-prefix"
+mkdir -p "${windows_prefix}/drive_c/Games"
+cp "${tmpdir}/game32.exe" "${windows_prefix}/drive_c/Games/SC3U.exe"
+WINEPREFIX="${windows_prefix}" "${ROOT}/port.command" create --name "Windows Path" --exe 'C:\games\sc3u.exe' >/dev/null
+windows_conf="${COSMOS_SUPPORT_DIR}/Ports/windows-path/port.conf"
+[[ "$(port_get_setting "${windows_conf}" PORT_EXE)" == 'C:\games\sc3u.exe' ]] || fail "logical Windows path was not retained"
+[[ "$(port_get_setting "${windows_conf}" PORT_PROGRAM_ARCH)" == win32 ]] || fail "Windows path architecture not detected"
+windows_out="$(WINEPREFIX="${windows_prefix}" SCRIPT_DIR="${fake}" "${ROOT}/port.command" launch windows-path)"
+printf '%s\n' "${windows_out}" | grep -Fxq "game=${windows_prefix}/drive_c/Games/SC3U.exe" || fail "logical Windows launch did not resolve actual casing"
 [[ ! -d "${COSMOS_SUPPORT_DIR}/Ports/notepad" ]] || fail "delete should remove the port definition"
 [[ -d "${app}" ]] || fail "delete should leave the built Mac app in place"
 

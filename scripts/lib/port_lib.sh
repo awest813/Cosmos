@@ -128,17 +128,46 @@ port_renderers_csv() {
   printf '%s' "${out}"
 }
 
+port_macos_version_supported() {
+  local version="${1:-}" major minor
+  [[ "${version}" =~ ^([0-9]+)(\.([0-9]+))?(\.[0-9]+)?$ ]] || return 1
+  major="${BASH_REMATCH[1]}"
+  minor="${BASH_REMATCH[3]:-0}"
+  (( 10#${major} > 14 || (10#${major} == 14 && 10#${minor} >= 6) ))
+}
+
 port_require_apple_silicon() {
-  local os arch
+  local os arch version
   if [[ "${COSMOS_PORT_SKIP_ARCH:-0}" == "1" ]]; then
     return 0
   fi
   os="$(uname -s)"
   arch="$(uname -m)"
+  # A Rosetta Terminal reports x86_64 on an Apple Silicon host.
+  if [[ "${os}" == Darwin && "${arch}" != arm64 && "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" == 1 ]]; then
+    arch=arm64
+  fi
   if [[ "${os}" != "Darwin" || "${arch}" != "arm64" ]]; then
     printf 'Error: %s\n' "Cosmos ports are for Apple Silicon Macs (macOS 14.6 or later). This machine is ${os} ${arch}." >&2
     return 1
   fi
+  version="$(sw_vers -productVersion 2>/dev/null || true)"
+  if ! port_macos_version_supported "${version}"; then
+    printf 'Error: Ports require macOS 14.6 or later (detected %s).\n' "${version:-unknown}" >&2
+    return 1
+  fi
+}
+
+port_detect_program_arch() {
+  local description
+  [[ -f "$1" ]] || return 1
+  description="$(file -b "$1" 2>/dev/null)" || return 1
+  case "${description}" in
+    *\(DLL\)*) return 1 ;;
+    *PE32+*x86-64*) printf 'win64' ;;
+    *PE32*Intel*80386*|*PE32*Intel*i386*) printf 'win32' ;;
+    *) return 1 ;;
+  esac
 }
 
 port_get_setting() {
@@ -158,7 +187,8 @@ port_get_setting() {
 port_set_setting() {
   local conf="$1" key="$2" val="$3"
   local tmp found=0 line dir
-  val="${val//\"/}"
+  # Definitions are read as data by port_get_setting/BottleStore, never sourced.
+  # Preserve quotes in arguments and paths; port_write_env shell-escapes them.
   val="${val//$'\n'/}"
   dir="$(dirname -- "${conf}")"
   mkdir -p "${dir}"
@@ -258,18 +288,45 @@ port_write_info_plist() {
 EOF
 }
 
+port_exec_program() {
+  local run="$1" exe="$2" text="${3:-}" tmp arg
+  local -a extra=()
+  if [[ -n "${text}" ]]; then
+    command -v python3 >/dev/null 2>&1 || {
+      echo "Python 3 is required to read port launch arguments." >&2
+      return 1
+    }
+    tmp="$(mktemp "${TMPDIR:-/tmp}/cosmos-port-args.XXXXXX")" || return 1
+    if ! python3 -c '
+import shlex, sys
+try:
+    args = shlex.split(sys.argv[1])
+except ValueError as error:
+    print(f"Invalid port launch arguments: {error}", file=sys.stderr)
+    sys.exit(1)
+for arg in args:
+    sys.stdout.buffer.write(arg.encode("utf-8") + b"\0")
+' "${text}" > "${tmp}"
+    then
+      rm -f "${tmp}"
+      return 1
+    fi
+    while IFS= read -r -d '' arg; do extra+=("${arg}"); done < "${tmp}"
+    rm -f "${tmp}"
+  fi
+  exec /bin/bash "${run}" --game "${exe}" ${extra[@]+"${extra[@]}"}
+}
+
 port_write_launcher() {
   local destination="$1"
-  cat > "${destination}" <<'EOF'
-#!/bin/bash
+  {
+  printf '%s\n' '#!/bin/bash'
+  declare -f port_exec_program
+  declare -f port_macos_version_supported port_require_apple_silicon
+  cat <<'EOF'
 # Cosmos port launcher. Apple Silicon (arm64), macOS 14.6 or later.
 set -euo pipefail
-if [[ "${COSMOS_PORT_SKIP_ARCH:-0}" != "1" ]]; then
-  if [[ "$(uname -s)" != "Darwin" || "$(uname -m)" != "arm64" ]]; then
-    echo "This Cosmos port runs on Apple Silicon Macs (arm64)." >&2
-    exit 1
-  fi
-fi
+port_require_apple_silicon || exit 1
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck disable=SC1091
 source "${HERE}/Resources/port.env"
@@ -283,14 +340,12 @@ if [[ -z "${RUN}" ]]; then
   echo "Cosmos runtime not found. Install Cosmos, or rebuild this port." >&2
   exit 1
 fi
+COSMOS_ROOT="$(cd "$(dirname "${RUN}")" && pwd)"
+export COSMOS_ROOT SCRIPT_DIR="${COSMOS_ROOT}"
 cd "${COSMOS_ROOT}"
-extra=()
-if [[ -n "${PORT_ARGS:-}" ]]; then
-  # shellcheck disable=SC2206
-  extra=(${PORT_ARGS})
-fi
-exec /bin/bash "${RUN}" --game "${GAME_EXE_PATH}" ${extra[@]+"${extra[@]}"}
+port_exec_program "${RUN}" "${GAME_EXE_PATH}" "${PORT_ARGS:-}"
 EOF
+  } > "${destination}"
   chmod +x "${destination}"
 }
 
@@ -316,6 +371,8 @@ port_write_env() {
     printf 'export WINE_RETINA_MODE=%q\n' "${PORT_RETINA:-0}"
     if [[ -n "${PORT_BOTTLE:-}" ]]; then
       printf 'export COSMOS_BOTTLE=%q\n' "${PORT_BOTTLE}"
+    else
+      printf 'unset COSMOS_BOTTLE\n'
     fi
     if [[ -n "${PORT_CNC_DDRAW_PATH:-}" ]]; then
       printf 'export CNC_DDRAW_PATH=%q\n' "${PORT_CNC_DDRAW_PATH}"

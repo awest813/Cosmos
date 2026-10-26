@@ -6,6 +6,12 @@ Cosmos can register non-Steam Windows games as first-class `.app` launchers usin
 
 ## Quick start
 
+For **installer → chosen folder → installed game EXE → launch**, use **Install
+Windows Game** in Ports or Tools, or `scripts/install_program.command`. This flow
+accepts EXE/MSI installers, an optional destination folder, Mac app creation and
+launch-after-install choices. See the
+[SimCity 3000 Unlimited guide](SIMCITY_3000_SETUP.md) for a concrete example.
+
 ```bash
 # 1. Run an installer inside your Wine prefix
 ./import_game.command run-installer ~/Downloads/GameSetup.exe

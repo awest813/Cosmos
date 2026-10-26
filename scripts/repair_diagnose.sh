@@ -40,7 +40,7 @@ repair_resolve_launch_log() {
     return 0
   fi
   if [[ -n "${COSMOS_BOTTLE:-}" ]]; then
-    local dir="${support}/Bottles/${COSMOS_BOTTLE}/logs/launch.log"
+    local dir="${COSMOS_BOTTLES_DIR:-${support}/Bottles}/${COSMOS_BOTTLE}/logs/launch.log"
     printf '%s' "${dir}"
     return 0
   fi
@@ -49,18 +49,21 @@ repair_resolve_launch_log() {
 
 repair_diagnose_prefix_health() {
   local pfx="${WINEPREFIX:?WINEPREFIX required}"
+  local setup_hint="Try: ./run.command --setup-steam"
+  [[ "${COSMOS_SKIP_STEAM:-0}" != 1 ]] || setup_hint="Open the port to initialize its environment, or finish its installation from Ports."
   if [[ ! -d "${pfx}" ]]; then
     repair_diagnose_note prefix-missing \
       "[prefix] No Wine prefix at ${pfx}
-  Try: ./run.command --setup-steam"
+  ${setup_hint}"
     return
   fi
   if [[ ! -f "${pfx}/system.reg" ]]; then
     repair_diagnose_note prefix-empty \
       "[prefix] Prefix directory exists but is not initialized
-  Try: ./run.command --setup-steam"
+  ${setup_hint}"
     return
   fi
+  [[ "${COSMOS_SKIP_STEAM:-0}" != 1 ]] || return 0
   local steam_candidate=""
   if [[ -f "${pfx}/drive_c/Program Files (x86)/Steam/steam.exe" ]]; then
     steam_candidate="${pfx}/drive_c/Program Files (x86)/Steam/steam.exe"
@@ -189,6 +192,22 @@ repair_diagnose_scan_log() {
   local blob
   blob="$(tail -n 500 "${log_file}" 2>/dev/null || true)"
   [[ -n "${blob}" ]] || return 0
+  local runtime_output="" runtime_binary="${WINE_BIN:-}" runtime_version="${WINE_VERSION:-11.8}"
+  if [[ -z "${runtime_binary}" && -z "${WINE_VERSION:-}" ]]; then
+    local bottle_conf="${COSMOS_SUPPORT_DIR:-${HOME}/Library/Application Support/Cosmos}/steam.conf"
+    if [[ -n "${COSMOS_BOTTLE:-}" ]]; then
+      bottle_conf="${COSMOS_BOTTLES_DIR:-${COSMOS_SUPPORT_DIR:-${HOME}/Library/Application Support/Cosmos}/Bottles}/${COSMOS_BOTTLE}/bottle.conf"
+    fi
+    runtime_version="$(sed -n 's/^WINE_VERSION="\{0,1\}\([^"[:space:]]*\).*$/\1/p' "${bottle_conf}" 2>/dev/null | head -1 || true)"
+    runtime_version="${runtime_version:-11.8}"
+  fi
+  runtime_binary="${runtime_binary:-${WINE_ROOT:-${HOME}/wine-${runtime_version}}/Wine Devel.app/Contents/Resources/wine/bin/wine}"
+  if [[ -f "${runtime_binary}" && -f "${SCRIPT_DIR:-}/scripts/lib/runtime_integrity.py" ]]; then
+    local -a runtime_args=()
+    [[ -z "${COSMOS_PROGRAM_ARCH:-}" ]] || runtime_args+=(--architecture "${COSMOS_PROGRAM_ARCH}")
+    runtime_output="$(python3 "${SCRIPT_DIR}/scripts/lib/runtime_integrity.py" --binary "${runtime_binary}" --log "${log_file}" ${runtime_args[@]+"${runtime_args[@]}"} 2>/dev/null || true)"
+    [[ -z "${runtime_output}" ]] || repair_diagnose_note runtime-integrity "${runtime_output}"
+  fi
 
   if printf '%s' "${blob}" | grep -Eiq 'prefix.*in use|already using this prefix|wineserver.*running'; then
     repair_diagnose_suggest fix kill_wine \
@@ -367,16 +386,15 @@ repair_diagnose_scan_log() {
     repair_diagnose_suggest fix kill_wine \
       "[crash] Wine or the game crashed — stop lingering processes first
   Try: ./repair.command apply-fix kill_wine"
-    repair_diagnose_suggest fix clear_steam_caches \
+    if [[ "${COSMOS_SKIP_STEAM:-0}" != 1 ]]; then repair_diagnose_suggest fix clear_steam_caches \
       "[crash] Clear caches after killing Wine
-  Try: ./repair.command apply-fix clear_steam_caches"
+  Try: ./repair.command apply-fix clear_steam_caches"; fi
   fi
 
-  if printf '%s' "${blob}" | grep -Eiq 'err:module:import_dll|\.dll.*not found|could not load library'; then
-    repair_diagnose_suggest dep vcrun2015 \
+  if [[ -z "${runtime_output}" ]] && printf '%s' "${blob}" | grep -Eiq 'err:module:import_dll|\.dll.*not found|could not load library'; then
+    repair_diagnose_note unknown-module \
       "[module] Missing DLL reported in log
-  Try: ./repair.command install-dep vcrun2015
-       or: DLL_OVERRIDE='<dll>=n,b' ./repair.command apply-fix dll_override"
+  Check the game's documented prerequisites and DLL architecture. Game-specific libraries are not evidence that Wine is damaged; no dependency is installed automatically from this generic message."
   fi
 
   if printf '%s' "${blob}" | grep -Eiq 'prefix.*corrupt|registry.*corrupt|system\.reg'; then

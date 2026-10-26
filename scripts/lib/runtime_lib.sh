@@ -29,6 +29,27 @@ runtime_default_dir() {
   printf '%s/%s' "$(runtime_support_root)" "Runtime"
 }
 
+runtime_download_archive() {
+  local url="$1" manifest sha
+  manifest="$(runtime_manifest_path)" || return 1
+  sha="$(python3 - "${manifest}" "${url}" <<'PY'
+import json, os, sys
+data = json.load(open(sys.argv[1]))
+for component in data.get('components', {}).values():
+    if component.get('url') == sys.argv[2]:
+        print(component.get('sha256', '')); break
+else:
+    print(os.environ.get('COSMOS_DOWNLOAD_SHA256', ''))
+PY
+)" || return 1
+  [[ -n "${sha}" ]] || { echo 'Error: This component URL has no SHA-256 pin. Select a pinned version or provide COSMOS_DOWNLOAD_SHA256 for a verified custom artifact.' >&2; return 1; }
+  python3 "${SCRIPT_DIR}/scripts/lib/component_download.py" fetch --url "${url}" --sha256 "${sha}" --cache "$(runtime_support_root)/Downloads/Components"
+}
+
+runtime_activate_payload() {
+  python3 "${SCRIPT_DIR}/scripts/lib/component_download.py" activate "$1" "$2"
+}
+
 runtime_load_manifest() {
   local manifest
   manifest="$(runtime_manifest_path || true)"
@@ -150,17 +171,16 @@ runtime_prepare_moltenvk_env() {
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/cosmos-mvk.XXXXXX")"
     echo "Downloading MoltenVK ${ver}..."
     mkdir -p "${tmp}/payload" || return 1
-    if ! curl -fsSL --retry 3 "${url}" -o "${tmp}/moltenvk.tar" ||
-       ! tar xf "${tmp}/moltenvk.tar" -C "${tmp}/payload" ||
+    local archive
+    if ! archive="$(runtime_download_archive "${url}")" ||
+       ! tar xf "${archive}" -C "${tmp}/payload" ||
        ! find "${tmp}/payload" -name 'libMoltenVK.dylib' -type f | grep -q . ||
        ! runtime_find_icd_json "${tmp}/payload" >/dev/null; then
       rm -rf "${tmp}"
       echo "Error: MoltenVK download is incomplete. Check your connection and retry." >&2
       return 1
     fi
-    rm -rf "${dest}"
-    mkdir -p "${dest}" || return 1
-    cp -R "${tmp}/payload/." "${dest}/" || return 1
+    runtime_activate_payload "${tmp}/payload" "${dest}" || return 1
     rm -rf "${tmp}"
   fi
 
@@ -194,16 +214,15 @@ runtime_prepare_dxvk_path() {
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/cosmos-dxvk.XXXXXX")"
     echo "Downloading DXVK-macOS ${ver}..."
     mkdir -p "${tmp}/payload" || return 1
-    if ! curl -fsSL --retry 3 "${url}" -o "${tmp}/dxvk.tar.gz" ||
-       ! tar xzf "${tmp}/dxvk.tar.gz" -C "${tmp}/payload" ||
+    local archive
+    if ! archive="$(runtime_download_archive "${url}")" ||
+       ! tar xzf "${archive}" -C "${tmp}/payload" ||
        ! find "${tmp}/payload" -name 'd3d11.dll' -type f | grep -q .; then
       rm -rf "${tmp}"
       echo "Error: DXVK download is incomplete. Check your connection and retry." >&2
       return 1
     fi
-    rm -rf "${dest}"
-    mkdir -p "${dest}" || return 1
-    cp -R "${tmp}/payload/." "${dest}/" || return 1
+    runtime_activate_payload "${tmp}/payload" "${dest}" || return 1
     rm -rf "${tmp}"
   fi
 

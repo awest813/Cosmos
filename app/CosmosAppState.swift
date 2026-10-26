@@ -12,6 +12,7 @@ final class CosmosAppState: ObservableObject {
     @Published private(set) var canAcceptCommands: Bool = true
     @Published private(set) var canLaunchSelectedProfile: Bool = false
     @Published private(set) var hasSelectedProfile: Bool = false
+    @Published var usesRedesignedWorkspace: Bool = UserDefaults.standard.object(forKey: "cosmos.useRedesignedWorkspace") as? Bool ?? true
 
     private init() {
         isSetupComplete = UserDefaults.standard.bool(forKey: Self.setupCompleteKey)

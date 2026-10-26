@@ -30,20 +30,23 @@ extension ContentView {
                     steamHealthNoticesSection
                     heroSection
                     CosmosStorageNotice()
+                    dashboardSectionPicker
                     if isSteamReady {
                         if !isSetupComplete {
                             almostDoneSection
                         }
-                        dashboardSectionPicker
                         dashboardSectionContent
                         // Post-setup: collapsed checklist reference (EmptyView once complete).
                         setupAssistantSection
+                    } else if dashboardSection != .launch {
+                        dashboardSectionContent
                     } else {
                         // New user: lead with the guided setup card and its primary action.
                         setupAssistantSection
                         setupLaunchHintSection
                         if showAdvancedSetupOptions {
                             steamWineSettingsSection
+                            performanceGraphicsSection
                             setupToolsGrid
                         } else {
                             newUserMaintenanceSection
@@ -86,7 +89,7 @@ extension ContentView {
         return sections
     }
 
-    /// Tab navigation for the post-setup dashboard — one focus area at a time.
+    /// Navigation is available before Steam setup; ports do not depend on Steam.
     var dashboardSectionPicker: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -180,11 +183,48 @@ extension ContentView {
             PortsDashboard(
                 ports: ports,
                 bottleNames: bottles.map(\.name),
-                isRunning: isRunning,
-                onCreate: { draft in
-                    runCommand(script: "port.command", arguments: draft.commandArguments)
+                isRunning: isRunning || pendingTerminalJobID != nil,
+                unavailableReason: PortHostSupport.unavailableReason(
+                    architecture: wineRuntime.chipArchitecture,
+                    version: ProcessInfo.processInfo.operatingSystemVersion
+                ),
+                onOpenDownloads: { showDownloads = true },
+                onInstall: { storeImportRequest = .classicGame() },
+                onResumeInstall: { storeImportRequest = .classicGame(resuming: true) },
+                pendingInstallations: pendingGameInstallations,
+                onContinueInstallation: { installation, retry in
+                    storeImportRequest = .classicGame(resuming: !retry, installation: installation)
+                },
+                requiresRosetta: wineRuntime.needsRosetta && !wineRuntime.rosettaReady,
+                onUpdate: { port, draft, completion in
+                    runCommand(
+                        script: "port.command", arguments: draft.commandArguments(updating: port.id),
+                        onCompletion: { succeeded, message in completion(succeeded ? nil : message) }
+                    )
+                },
+                onOpenLogs: { port in
+                    runCommand(
+                        script: "run.command", arguments: ["--logs"],
+                        environment: ["COSMOS_BOTTLE": port.bottle]
+                    )
+                },
+                onDiagnose: { port in
+                    runCommand(script: "repair.command", arguments: ["diagnose"], environment: portCommandEnvironment(port), intent: .diagnose)
+                },
+                onStopEnvironment: { port in
+                    runCommand(script: "repair.command", arguments: ["apply-fix", "kill_wine"], environment: portCommandEnvironment(port))
+                },
+                onCloneEnvironment: { port in
+                    storeImportRequest = .cloneEnvironment(source: port.bottle)
+                },
+                onCreate: { draft, completion in
+                    runCommand(
+                        script: "port.command", arguments: draft.commandArguments,
+                        onCompletion: { succeeded, message in completion(succeeded ? nil : message) }
+                    )
                 },
                 onLaunch: { port in
+                    guard ensureRosettaForWineLaunch() else { return }
                     runCommand(
                         script: "port.command",
                         arguments: ["launch", port.id],
@@ -214,8 +254,19 @@ extension ContentView {
         .accessibilityElement(children: .combine)
     }
 
+    func portCommandEnvironment(_ port: WinePort) -> [String: String] {
+        var environment = ["COSMOS_BOTTLE": port.bottle, "COSMOS_PROGRAM_ARCH": port.programArch, "COSMOS_SKIP_STEAM": "1"]
+        if port.bottle.isEmpty {
+            environment["WINE_VERSION"] = steamSettings.wineVersion
+        } else {
+            let config = BottleStore.bottlesDirectoryURL.appendingPathComponent(port.bottle).appendingPathComponent("bottle.conf")
+            environment["WINE_VERSION"] = BottleStore.parseConf(config)["WINE_VERSION"] ?? "11.8"
+        }
+        return environment
+    }
+
     var heroTitle: String {
-        if !isSteamReady { return "Welcome to Cosmos" }
+        if !isSteamReady && dashboardSection == .launch { return "Welcome to Cosmos" }
         switch dashboardSection {
         case .launch: return "Ready to play"
         case .library: return "Your Games"
@@ -343,6 +394,9 @@ extension ContentView {
     }
 
     var heroSubtitle: String {
+        if dashboardSection == .ports {
+            return "Wrap a Windows program as a Mac app on Apple Silicon. Steam setup is optional."
+        }
         if isSteamReady {
             switch dashboardSection {
             case .launch: return "Pick a game and play. Your settings are ready when you need them."

@@ -2,6 +2,39 @@ import XCTest
 @testable import Cosmos
 
 final class WinePortTests: XCTestCase {
+    func testPortHostRequirements() {
+        func version(_ major: Int, _ minor: Int) -> OperatingSystemVersion {
+            OperatingSystemVersion(majorVersion: major, minorVersion: minor, patchVersion: 0)
+        }
+        XCTAssertNotNil(PortHostSupport.unavailableReason(architecture: "x86_64", version: version(26, 0)))
+        XCTAssertNotNil(PortHostSupport.unavailableReason(architecture: "arm64", version: version(13, 6)))
+        XCTAssertNotNil(PortHostSupport.unavailableReason(architecture: "arm64", version: version(14, 5)))
+        XCTAssertNil(PortHostSupport.unavailableReason(architecture: "arm64", version: version(14, 6)))
+        XCTAssertNil(PortHostSupport.unavailableReason(architecture: "arm64", version: version(26, 0)))
+    }
+
+    func testDetectsWindowsExecutableArchitectureWithoutLaunching() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("Game With Spaces.exe")
+        var bytes = [UInt8](repeating: 0, count: 256)
+        bytes[0] = 0x4d; bytes[1] = 0x5a; bytes[60] = 128
+        bytes[128] = 0x50; bytes[129] = 0x45
+        bytes[132] = 0x4c; bytes[133] = 0x01
+        try Data(bytes).write(to: url)
+        XCTAssertEqual(WindowsProgramArchitecture.detect(at: url), .win32)
+        bytes[132] = 0x64; bytes[133] = 0x86
+        try Data(bytes).write(to: url)
+        XCTAssertEqual(WindowsProgramArchitecture.detect(at: url), .win64)
+        bytes[151] = 0x20 // DLL flag: not a program.
+        try Data(bytes).write(to: url)
+        XCTAssertNil(WindowsProgramArchitecture.detect(at: url))
+        try Data([0x4d, 0x5a]).write(to: url)
+        XCTAssertNil(WindowsProgramArchitecture.detect(at: url))
+        XCTAssertNil(WindowsProgramArchitecture.detect(at: root.appendingPathComponent("missing.exe")))
+    }
+
     func testDefaultStackMatchesSikarugirAppleSiliconDefaults() throws {
         let backend = PortStack.resolve(.appleSiliconDefaults, distribution: "personal")
         XCTAssertEqual(try backend.get(), "spockd3d9")
@@ -48,6 +81,19 @@ final class WinePortTests: XCTestCase {
     func testNoRendererFails() {
         let renderers = PortRenderers(dxmt: false, d3dmetal: false, dxvk: false, d9vk: false, cncDDraw: false, wineD3D: false)
         XCTAssertEqual(PortStack.resolve(renderers, distribution: "personal"), .failure(.noRenderer))
+    }
+
+    func testSpockOnlyDescriptionDoesNotClaimDxmtOrFallback() {
+        var renderers = PortRenderers.appleSiliconDefaults
+        renderers.dxmt = false
+        renderers.wineD3D = false
+        let summary = PortStack.launchSummary(renderers, distribution: "personal")
+        XCTAssertFalse(summary.contains("DXMT"))
+        XCTAssertTrue(summary.contains("fallback is off"))
+        renderers.wineD3D = true
+        XCTAssertTrue(PortStack.launchSummary(renderers, distribution: "personal").contains("WineD3D handles DirectX 9"))
+        let port = WinePort(id: "spock", settings: ["PORT_PRIMARY": "spockd3d9", "PORT_RENDER_D9VK": "1"], directory: URL(fileURLWithPath: "/tmp/spock"))
+        XCTAssertEqual(port.graphicsLabel, "SpockD3D9")
     }
 
     func testCreateArgumentsUseTheAppleSiliconDefaults() {
@@ -131,6 +177,22 @@ final class WinePortTests: XCTestCase {
         XCTAssertEqual(flag(args, "--args"), "--windowed")
     }
 
+    func testPortsDirectoryMatchesCLIOverrides() {
+        let originalSupport = ProcessInfo.processInfo.environment["COSMOS_SUPPORT_DIR"]
+        let originalPorts = ProcessInfo.processInfo.environment["COSMOS_PORTS_DIR"]
+        defer {
+            if let originalSupport { setenv("COSMOS_SUPPORT_DIR", originalSupport, 1) }
+            else { unsetenv("COSMOS_SUPPORT_DIR") }
+            if let originalPorts { setenv("COSMOS_PORTS_DIR", originalPorts, 1) }
+            else { unsetenv("COSMOS_PORTS_DIR") }
+        }
+        unsetenv("COSMOS_PORTS_DIR")
+        setenv("COSMOS_SUPPORT_DIR", "/tmp/cosmos-custom-support", 1)
+        XCTAssertEqual(WinePortStore.portsDirectoryURL.path, "/tmp/cosmos-custom-support/Ports")
+        setenv("COSMOS_PORTS_DIR", "/tmp/cosmos-custom-ports", 1)
+        XCTAssertEqual(WinePortStore.portsDirectoryURL.path, "/tmp/cosmos-custom-ports")
+    }
+
     func testPortOperationLabels() {
         XCTAssertEqual(
             CosmosOperationLabel.title(script: "port.command", arguments: ["launch", "notepad"]),
@@ -151,5 +213,34 @@ final class WinePortTests: XCTestCase {
             return nil
         }
         return args[args.index(after: index)]
+    }
+
+    func testEditingLoadsSavedSettingsAndCanClearOptionalValues() {
+        let port = WinePort(id: "original-id", settings: [
+            "PORT_NAME": "Classic Game", "PORT_EXE": "/Games/SC3U.exe",
+            "PORT_BOTTLE": "game-simcity", "PORT_ARGS": "--windowed",
+            "PORT_PROGRAM_ARCH": "win32", "PORT_WINDOWS": "win7",
+            "PORT_RETINA": "1", "PORT_RENDER_WINED3D": "1",
+            "PORT_CNC_DDRAW_PATH": "/ddraw", "PORT_GPTK_PATH": "/GPTK"
+        ], directory: URL(fileURLWithPath: "/tmp/port"))
+        var draft = WinePortDraft(port: port)
+        XCTAssertEqual(draft.name, "Classic Game")
+        XCTAssertEqual(draft.exe, "/Games/SC3U.exe")
+        XCTAssertEqual(draft.programArch, "win32")
+        XCTAssertEqual(draft.windows, "win7")
+        XCTAssertTrue(draft.retina)
+        XCTAssertTrue(draft.renderers.wineD3D)
+        XCTAssertFalse(draft.renderers.dxmt)
+        XCTAssertEqual(draft.arguments, "--windowed")
+        draft.name = "Renamed"
+        draft.arguments = ""; draft.bottle = ""
+        draft.cncDDrawPath = ""; draft.gptkPath = ""
+        let args = draft.commandArguments(updating: port.id)
+        XCTAssertEqual(Array(args.prefix(2)), ["update", "original-id"])
+        XCTAssertEqual(flag(args, "--name"), "Renamed")
+        for key in ["--args", "--bottle", "--cnc-ddraw-path", "--gptk-path"] {
+            XCTAssertEqual(flag(args, key), "")
+        }
+        XCTAssertEqual(CosmosOperationLabel.title(script: "port.command", arguments: args), "Saving port settings…")
     }
 }

@@ -18,9 +18,9 @@ Cosmos does not bundle Sikarugir, Wineskin, or D3DMetal.
 | Graphics | One backend for the whole bottle | Sikarugir-style switches that stay on together. DXMT and SpockD3D9 launch side by side |
 | Machines | Apple Silicon and Intel | **Apple Silicon only**, macOS **14.6+** |
 
-The dashboard **Ports** tab (⌘3, on the main tab bar) creates, opens, and builds ports
-after Steam setup. The same actions work from `port.command` before you care
-about the menu.
+The dashboard **Ports** tab (⌘3, on the main tab bar) creates, edits, opens, and builds ports
+from the first launch. Steam setup is optional. The same actions work from
+`port.command`.
 
 ## Graphics stack
 
@@ -45,6 +45,7 @@ also refuses a shared port whose resolved backend is `d3dmetal`.
 ```bash
 ./port.command create --name "Notepad" --exe /path/to/notepad.exe
 ./port.command show notepad
+./port.command update notepad --windows win7 --args '--windowed'
 ./port.command build notepad
 ./port.command launch notepad
 ./port.command delete notepad
@@ -53,6 +54,41 @@ also refuses a shared port whose resolved backend is `d3dmetal`.
 Useful options on `create`: `--bottle`, `--distribution personal|share`,
 `--windows`, `--retina`, `--args`, `--program-arch win64|win32`, `--dxmt`, `--d9vk`, `--cnc-ddraw`, `--wined3d`,
 `--dxvk`, `--d3dmetal`, `--cnc-ddraw-path`, `--gptk-path`.
+
+Select a port and choose **Edit** to change its executable, environment, Windows
+version, arguments or graphics. Saving preserves its ID and installed files.
+Failed validation/save keeps the previous definition; the form stays open for
+correction. Existing Mac apps keep their previous settings until **Make Mac App**
+is run again. Renaming a port does not remove an app built under its old name.
+
+`update <slug>` accepts the `create` options except `--slug`; omitted values keep
+their current settings. Use `--args ''`, `--bottle ''`, `--cnc-ddraw-path ''` or
+`--gptk-path ''` to clear a value. Selecting another existing EXE detects its
+architecture unless explicitly overridden; conflicting bitness is rejected.
+Definitions are staged and replaced atomically, retaining extension metadata and
+the previous built-app location. Updating a definition does not run Wine.
+
+## If a port does not open
+
+Select it in Ports and use **Check Game Files**. This reads local files to check
+the installed EXE, its saved bitness, environment initialization and a conflicting
+32-bit prefix. Missing files and mismatches point back to Edit. **Show Game Files**
+reveals the EXE in Finder; if it is missing, the checks explain the problem.
+**Open Launch Log** uses this port's environment even if a different bottle is
+selected elsewhere. Log files are shared by games in the same environment.
+
+**Copy Check Details** copies paths and findings for troubleshooting. It explicitly
+records gameplay as untested. Passing file checks does not establish Wine/WoW64
+support, the loaded renderer, or game compatibility. No Wine process, download,
+prefix initialization or repair is triggered by Check Game Files.
+
+Custom `COSMOS_SUPPORT_DIR` and `COSMOS_BOTTLES_DIR` locations now match between
+the native Bottles list, port file checks and shell commands.
+
+Expand **Windows environment files** to browse C:, users/saves, program folders,
+system DLL folders and drive mappings. Windows paths such as
+`C:\Games\SimCity\SC3U.exe` are resolved in the selected environment, including
+case-insensitive filename lookup. See [WINDOWS_FILESYSTEM.md](WINDOWS_FILESYSTEM.md).
 
 `build` writes `~/Applications/Cosmos Ports/<Name>.app`. The app's launcher
 checks for arm64, then runs Cosmos `run.command --game` with `COSMOS_SKIP_STEAM=1`
@@ -67,3 +103,47 @@ built, DirectX 9 stays on WineD3D. A bottle can instead be 64-bit only
 
 Tests that create or build a port on Linux or an Intel Mac set
 `COSMOS_PORT_SKIP_ARCH=1`. That flag does not make the port run there.
+
+## Launch and setup details
+
+The program picker detects x86/x64 PE executable headers and selects 32-bit or
+64-bit automatically. CLI creation also detects an existing executable when
+`--program-arch` is omitted and rejects a conflicting explicit choice. For
+missing or prefix-relative paths, choose the program architecture yourself.
+These header checks do not establish runtime or graphics compatibility.
+
+Ports require Apple Silicon and macOS 14.6 or later. The dashboard explains an
+unsupported host before enabling Create/Open/Make Mac App, while existing
+definitions remain browsable. CLI and generated apps enforce the same minimum;
+an Apple Silicon Mac running a Rosetta Terminal is recognized correctly.
+
+If creation fails, the form retains its fields and shows the error so you can
+correct it and retry. It closes only after creation succeeds.
+
+Use **Graphics Downloads** to get Spock and MoltenVK. On a fresh installation,
+ports that have WineD3D enabled can open before Spock is built: DirectX 9 uses
+WineD3D and DXMT continues to handle DirectX 10/11. This fallback does not fetch
+MoltenVK. An explicitly configured invalid Spock folder still needs correction.
+If Rosetta is missing, the port's action reads **Install Rosetta 2** and opens
+the normal installation in Terminal; open the port after that completes.
+
+Both dashboard/CLI launches and generated apps pass the saved program architecture
+to the graphics setup. Launch arguments support quoted values and empty arguments:
+`--save "folder with spaces/save.dat" --label ""`. Wildcards and shell variables
+stay literal; arguments are parsed as data and never executed as shell commands.
+Malformed quotes stop the launch with an error. Parsing nonempty arguments requires
+Python 3, already used by the Cosmos helper scripts.
+
+When a selected program's Spock architecture is unavailable, the launch forces
+WineD3D's builtin D3D9 DLL, preserving DXMT for DirectX 10/11. An old native DLL
+left in the prefix by another backend cannot silently override that fallback.
+For a launch without a known program architecture, both Spock DLLs are required
+to prefer native D3D9. Build both from Graphics settings to cover Steam games.
+
+The installer respects an existing win32 prefix's registry marker rather than a
+changed creation preference. A win32 preference cannot replace a DLL in an
+existing win64 prefix; select the matching layout or create another environment.
+
+The Ports screen uses `COSMOS_PORTS_DIR`, or `COSMOS_SUPPORT_DIR/Ports`, matching
+the CLI. Launch, build, and creation wait while a Terminal operation is pending.
+See [release readiness](RELEASE_READINESS.md) for the current validation limits.

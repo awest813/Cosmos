@@ -1,5 +1,64 @@
 # UI/UX audit and polish
 
+## Windows installation follow-up — October 25, 2026
+
+Filesystem follow-up: port details now have a Windows environment files disclosure
+with Finder actions for the actual C: target, game/user/program folders, system
+DLL folders and drive links. Unavailable locations are labeled and their actions
+disabled. Reading this structure creates no folders. The view explains linked
+Mac folders and the system32/syswow64 distinction. Installation fields accept
+absolute Windows drive paths as well as Mac and drive_c-relative paths.
+
+Ports now lists unfinished installations with their saved title, folder and
+status. Finish Installation skips setup; Retry Setup reruns it. Prepared records
+offer Run Setup. Continuation forms prefill the title/installer and display the
+saved environment. Registered ports are excluded. The post-setup chooser offers
+filtered EXE candidates with an explicit confirmation and a Browse fallback.
+
+The installer sheet now accepts EXE/MSI files and an optional installation-folder
+picker, with separate choices for a Mac app shortcut and launching after setup.
+Finish Installation can choose a replacement folder and the installed game EXE.
+Optional fields do not block submission; longer installer forms scroll within a
+bounded sheet. Other import sheets retain their existing sizing. The title now
+reads Install Windows Game. Header checks reject unsupported EXEs/DLLs and invalid
+MSI containers before creating an environment; Wine handles the actual installer.
+
+## Sikarugir-first candidate audit — October 24, 2026
+
+Source review found and addressed three gaps in the Ports/installer journey:
+
+- Installation was discoverable only under Advanced Tools. Ports now offers
+  Install Classic Game and Finish Installation directly, with stacked action
+  layouts for narrow widths and the same host/busy guards as port creation.
+- Cancelling game selection after setup lost a custom installation destination.
+  Recovery now reads the saved folder from the dedicated environment without
+  rerunning the installer. Unavailable folders stop with an actionable message;
+  moved folders can be supplied explicitly from Terminal.
+- Spock-only ports claimed DXMT was enabled, and their cards used a combined
+  renderer label. Both descriptions now reflect actual switches, including
+  whether WineD3D fallback is enabled. The New Port graphics copy describes the
+  recommended stack without claiming disabled switches stay on.
+
+Shell fixtures cover folder recovery, disconnected drives and relocation. Native
+tests cover recovery-form validation and renderer descriptions; screenshot
+captures include the new Ports actions. Real-game and interactive accessibility
+checks remain pending. Earlier entries below preserve their original evidence.
+
+Follow-up: existing port details now show their environment and offer Edit.
+The sheet loads saved values, allows clearing optional settings, retains failed
+edits for correction, and explains rebuilding previously created Mac apps.
+CLI update keeps the port ID and writes the full definition atomically; it
+preserves installed files and unrelated metadata. Renderer/architecture failures
+and a simulated final-write failure leave the original definition unchanged.
+
+Recovery follow-up: port details expose Check Game Files, Show Game Files and
+Open Launch Log with a narrow-width fallback. Findings explain missing EXEs,
+architecture conflicts and uninitialized environments, and can be copied without
+claiming gameplay compatibility. Checks remain usable during a background job
+because they read local files only. The command-based log action keeps the busy
+guard and explicitly uses this port's environment. The Bottles list now honors
+custom data-directory settings rather than silently showing the default folder.
+
 Reviewed the native SwiftUI shell, shared design components, library toolbar, and search interactions on September 7, 2026.
 
 ## Findings addressed
@@ -113,3 +172,21 @@ Check Again completed, the success message and Back to Setup appeared, and the
 controls became available again. The fresh diagnostic log contained normal command
 completion with no AttributeGraph warnings or fatal errors. This verifies the
 tested UI flow, not game compatibility or every download provider.
+
+## Upstream implementation polish — October 25, 2026
+
+Ports groups launch logs, read-only launch diagnosis, Stop Environment and Clone
+Environment in an Environment Actions menu. Stop warns about unsaved progress;
+clone uses a new-name sheet and explains linked external folders. File checks
+run off the UI thread, show progress and discard stale results after selection or
+port edits. Reports include the configured logical path and resolved host file.
+
+Advanced Tools offers Review Upstream Recipe. This produces a review plan with
+engine/OS requirements and matching dependency recipes; it never auto-applies
+upstream changes or labels upstream game results as Cosmos-tested.
+
+
+Environment lifecycle follow-up: Bottles details now offer Clone Environment
+before a game port exists. Reset/Delete confirmations explain stopping Wine,
+inside-prefix game loss, preserved external links and ports, and cloning first.
+Cleanup failures report a remaining-data path instead of hiding a partial removal.

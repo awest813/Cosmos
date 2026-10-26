@@ -49,6 +49,8 @@ Commands:
   path <name>                   Print the bottle's prefix path.
   launch <name> [run args...]   Launch into the bottle (runs run.command).
   logs <name>                   Show the bottle's latest launch log.
+  filesystem <name>             Inspect Windows folders/drive mappings as JSON.
+  clone <source> --name <new>    Stop source Wine and clone to a new environment.
   reset <name> [--force]        Delete the prefix only (keep settings/logs).
   delete <name> [--force]       Delete the whole bottle.
 
@@ -273,11 +275,23 @@ cmd_logs() {
   fi
 }
 
+cmd_filesystem() {
+  local name="${1:-}"; require_bottle "${name}"
+  source "${SCRIPT_DIR}/scripts/lib/wine_filesystem.sh"
+  wine_fs_inspect "$(bottle_dir "${name}")/prefix"
+}
+
+cmd_clone() {
+  local name="${1:-}"; require_bottle "${name}"; shift
+  [[ $# == 2 && "$1" == --name ]] || die "Usage: bottle.command clone <source> --name <new>"
+  python3 "${SCRIPT_DIR}/scripts/lib/environment_clone.py" "${name}" --name "$2" --bottles-root "${BOTTLES_DIR}"
+}
+
 cmd_reset() {
   local name="${1:-}" force="${2:-}"
   require_bottle "${name}"
   local pfx; pfx="$(bottle_dir "${name}")/prefix"
-  [[ -d "${pfx}" ]] || { echo "Bottle '${name}' has no prefix to reset."; return; }
+  [[ -e "${pfx}" || -L "${pfx}" ]] || { echo "Bottle '${name}' has no prefix to reset."; return; }
   if [[ "${force}" != "--force" && "${COSMOS_FORCE:-0}" != "1" ]]; then
     if [[ -t 0 ]]; then
       confirm "Delete the prefix for bottle '${name}'? (settings/logs kept)" || { echo "Aborted."; return; }
@@ -285,8 +299,7 @@ cmd_reset() {
       die "Refusing to reset non-interactively. Pass --force (or COSMOS_FORCE=1)."
     fi
   fi
-  rm -rf "${pfx}"
-  echo "Reset bottle '${name}'. The next launch recreates the prefix."
+  python3 "${SCRIPT_DIR}/scripts/lib/environment_cleanup.py" reset "${name}" --bottles-root "${BOTTLES_DIR}"
 }
 
 cmd_delete() {
@@ -300,8 +313,7 @@ cmd_delete() {
       die "Refusing to delete non-interactively. Pass --force (or COSMOS_FORCE=1)."
     fi
   fi
-  rm -rf "${dir}"
-  echo "Deleted bottle '${name}'."
+  python3 "${SCRIPT_DIR}/scripts/lib/environment_cleanup.py" delete "${name}" --bottles-root "${BOTTLES_DIR}"
 }
 
 main() {
@@ -314,6 +326,8 @@ main() {
     path)           shift; cmd_path "$@" ;;
     launch)         shift; cmd_launch "$@" ;;
     logs)           shift; cmd_logs "$@" ;;
+    filesystem)     shift; cmd_filesystem "$@" ;;
+    clone)          shift; cmd_clone "$@" ;;
     reset)          shift; cmd_reset "$@" ;;
     delete)         shift; cmd_delete "$@" ;;
     ""|--help|-h|help) usage ;;

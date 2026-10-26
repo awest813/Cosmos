@@ -1,0 +1,6 @@
+# Source: Highball DB recipes/tweaks/xact.json (CC0-1.0), revision 2b5c8763.
+# Upstream requirements/verification are available via profile.command upstream-recipe xact.
+TYPE=dependency
+ID=xact
+DESCRIPTION=Microsoft XAudio 2.7 / XACT for older 32-bit games (install only when needed)
+WINETRICKS=xact
