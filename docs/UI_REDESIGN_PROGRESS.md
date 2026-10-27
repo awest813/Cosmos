@@ -36,7 +36,8 @@ progress; existing tools stay reachable while their dedicated screens are rebuil
 | Store imports and included launchers | More → Store Import & Advanced Tools |
 | Environment creation/settings/clone/reset/delete/files | Environments and File → New Environment |
 | Wine/graphics downloads, Spock and user-supplied GPTK | Components; existing download/settings sheets |
-| Registry/dependency recipes and upstream review | More → Store Import & Advanced Tools and previous environment tools |
+| Dependency/DLL recipes | Environments → Dependencies & Fixes and Environment menu; exact recipe/source review |
+| Other advanced repairs and upstream review | More → Store Import & Advanced Tools and previous environment tools |
 | Steam setup/settings/verification and advanced maintenance | More → Steam Setup & Settings; previous interface retains original setup and menus |
 | Logs and active Terminal operation output | Activity; existing recovery banners/job tracking |
 | Update checks/help | Native Cosmos/Help menus |
@@ -52,7 +53,7 @@ destination remains work before removing the fallback.
   wizard currently uses the tracked Terminal/Windows installer handoff.
 - Complete compact grid/list/inspector layouts and favorites/recents.
 - Move all saved-profile and per-environment advanced actions into shared commands.
-- Complete environment dependencies/advanced tools and redesign component details.
+- Complete remaining advanced environment tools and redesign component details.
 - Persistent Activity history, richer native Settings and sanitized diagnostic export.
 - Visual screenshot review and interactive keyboard/VoiceOver/layout tests.
 - Real SimCity, x86/WoW64 and Spock gameplay/renderer validation.
@@ -120,3 +121,27 @@ the main thread, without creating data. A win64 marker does not verify x86/WoW64
 loading. Dependency/advanced-tool migration and native main-default editing remain
 follow-up work. Regression fixtures cover identities, assignment isolation,
 capabilities, preferred installation targets and atomic/stale/invalid saves.
+
+## Reviewed dependencies follow-up
+
+Environments and its native menu now open Dependencies & Fixes for the exact
+selected environment. The sheet reads recipes off the main thread and shows the
+original contents, comments/attribution, shared impact and external requirements.
+Inspection does not require Steam, initialized Windows files or a supported host;
+applying a recipe does. It does not infer installed dependencies from registry
+markers or claim upstream/gameplay compatibility.
+
+The new `repair.command reviewed-recipe` entry point snapshots and verifies the
+reviewed recipe's SHA-256, identity and supported payload. It requires an existing
+prefix and explicit Wine version/root with both wine and wineserver; conflicting
+inherited Wine overrides are cleared. Winetricks uses that runtime rather than
+an arbitrary Wine on PATH. Missing runtime/recipe/environment fails without
+initializing or substituting another target. This entry point supports dependency
+verbs and explicit DLL-override recipes. Destructive repairs, Steam-specific and
+parameter-dependent fixes stay in their dedicated/advanced tools. Existing repair
+commands remain compatible. There is no automatic dependency installation.
+
+Native models and shell integration fixtures cover review provenance/revisions,
+target/runtime isolation, unavailable data and rejection of destructive fixes.
+Light/dark snapshots cover the review sheet; visual and real installer/renderer
+validation remain separate gates.

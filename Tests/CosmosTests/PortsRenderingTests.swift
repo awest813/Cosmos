@@ -59,6 +59,14 @@ final class PortsRenderingTests: XCTestCase {
                 name: "environment-unavailable", size: NSSize(width: 800, height: 500), scheme: .light, directory: directory
             )
             let environmentRequest = try XCTUnwrap(EnvironmentSettingsRequest(environment: environmentCatalog[1], revision: String(repeating: "a", count: 64)))
+            let recipeFixture = try XCTUnwrap(EnvironmentRecipe.parse(data: Data("# Source: Highball DB (CC0-1.0); upstream requirements need separate review.\nTYPE=dependency\nID=xact\nDESCRIPTION=XAudio 2.7 / XACT for older 32-bit games\nWINETRICKS=xact\n".utf8), fileID: "xact", kind: .dependency))
+            for scheme in [ColorScheme.light, .dark] {
+                try capture(
+                    EnvironmentToolsView(request: EnvironmentToolsRequest(environment: environmentCatalog[1], runtimeRoot: "/Fixture/wine-11.8"), busy: false,
+                        hostIssue: nil, initialRecipes: [recipeFixture], onClose: {}, onRun: { _, _ in }),
+                    name: "environment-dependencies-\(scheme == .dark ? "dark" : "light")", size: NSSize(width: 760, height: 620), scheme: scheme, directory: directory
+                )
+            }
             try capture(
                 EnvironmentSettingsView(request: environmentRequest, busy: false, onCancel: {}, onSave: { _, _ in }),
                 name: "environment-settings", size: NSSize(width: 570, height: 600), scheme: .light, directory: directory

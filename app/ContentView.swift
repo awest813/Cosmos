@@ -33,6 +33,7 @@ struct ContentView: View {
     @State var workspaceEnvironmentSettings: EnvironmentSettingsRequest?
     @State var workspaceEnvironmentConfirmation: EnvironmentConfirmation?
     @State var workspaceEnvironmentReading = false
+    @State var workspaceEnvironmentTools: EnvironmentToolsRequest?
     @State var profiles: [SavedProfile] = []
     @State var selectedProfileID: String?
     @State var profileSearchText = ""

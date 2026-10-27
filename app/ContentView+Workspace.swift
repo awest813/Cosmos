@@ -143,6 +143,11 @@ extension ContentView {
             })
         }
         .sheet(isPresented: $showNewBottleSheet) { newBottleSheet }
+        .sheet(item: $workspaceEnvironmentTools) { request in
+            EnvironmentToolsView(request: request, busy: workspaceBusy, hostIssue: workspacePortHostIssue,
+                onClose: { workspaceEnvironmentTools = nil },
+                onRun: { recipe, done in runWorkspaceRecipe(recipe, request: request, done: done) })
+        }
         .sheet(item: $workspaceEnvironmentSettings) { request in
             EnvironmentSettingsView(request: request, busy: workspaceBusy,
                 onCancel: { workspaceEnvironmentSettings = nil }, onSave: { draft, done in

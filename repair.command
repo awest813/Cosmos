@@ -14,6 +14,7 @@ FIXES_DIR="${SCRIPT_DIR}/recipes/fixes"
 COSMOS_SUPPORT_DIR="${COSMOS_SUPPORT_DIR:-$HOME/Library/Application Support/Cosmos}"
 
 WINEPREFIX="${WINEPREFIX:-$HOME/.wine-steam-11}"
+REPAIR_REQUESTED_PREFIX="${WINEPREFIX}"
 COSMOS_BOTTLE="${COSMOS_BOTTLE:-}"
 
 # Honor named bottles the same way run.command does.
@@ -47,6 +48,8 @@ Commands:
   apply-suggested [--log <path>] Diagnose, then auto-apply safe suggestions.
   install-dep <id>              Run winetricks for a dependency recipe.
   apply-fix <id>                Apply a fix recipe to the current WINEPREFIX.
+  reviewed-recipe <kind> <id> <sha256>
+                                Apply reviewed dependency/DLL recipe with explicit runtime.
   install-deps <id> [id...]     Install multiple dependencies.
   apply-fixes <id> [id...]      Apply multiple fixes.
   capture-reg <label>           Snapshot WINEPREFIX/user.reg for later diff.
@@ -249,6 +252,47 @@ cmd_recipe_from_diff() {
   echo "Review the recipe, then: ./repair.command apply-fix ${id}"
 }
 
+# A separate entry point for the workspace: never guess a runtime, initialize a
+# prefix, or execute a recipe that differs from the bytes shown for review.
+cmd_reviewed_recipe() (
+  [[ $# == 3 ]] || die "Usage: reviewed-recipe <dependency|fix> <id> <sha256>"
+  local kind="$1" id="$2" revision="$3" source snapshot root bin resolved
+  [[ "${kind}" == dependency || "${kind}" == fix ]] || die "Unknown recipe kind."
+  [[ "${id}" =~ ^[a-zA-Z0-9_-]+$ && "${revision}" =~ ^[a-f0-9]{64}$ ]] || die "Invalid recipe identity or revision."
+  [[ "${REPAIR_REQUESTED_PREFIX}" == /* && -f "${REPAIR_REQUESTED_PREFIX}/system.reg" ]] || die "Initialize the selected environment before applying recipes."
+  if [[ -n "${COSMOS_BOTTLE}" ]]; then
+    resolved="$("${SCRIPT_DIR}/bottle.command" path "${COSMOS_BOTTLE}")" || die "Selected environment is unavailable."
+    [[ "${resolved}" == "${REPAIR_REQUESTED_PREFIX}" ]] || die "Selected environment path changed. Review again."
+  fi
+  export WINEPREFIX="${REPAIR_REQUESTED_PREFIX}"
+  [[ -n "${WINE_VERSION:-}" ]] || die "An explicit Wine version is required."
+  root="${WINE_ROOT:-$HOME/wine-${WINE_VERSION}}"
+  bin="${root}/Wine Devel.app/Contents/Resources/wine/bin"
+  [[ -x "${bin}/wine" && -x "${bin}/wineserver" ]] || die "Selected Wine runtime is unavailable. Install it in Components first."
+  source="$(find_recipe "${kind}" "${id}")"
+  snapshot="$(mktemp "${TMPDIR:-/tmp}/cosmos-reviewed-recipe.XXXXXX")"
+  trap 'rm -f "${snapshot}"' EXIT
+  cp "${source}" "${snapshot}"
+  [[ "$(shasum -a 256 "${snapshot}" | awk '{print $1}')" == "${revision}" ]] || die "Recipe changed. Close and reopen its review."
+  recipe_load "${snapshot}" || die "Invalid recipe."
+  [[ "${RECIPE_ID}" == "${id}" && "${RECIPE_TYPE}" == "${kind}" ]] || die "Recipe identity does not match its file."
+  export WINE="${bin}/wine" WINE_BIN="${bin}/wine" WINESERVER="${bin}/wineserver"
+  export PATH="${bin}:${PATH}"
+  unset WINEARCH WINEDLLOVERRIDES DLL_OVERRIDE WINELOADER
+  if [[ "${kind}" == dependency ]]; then
+    [[ "${RECIPE_WINETRICKS}" =~ ^[a-zA-Z0-9_]+$ ]] || die "This recipe requires advanced review."
+    ensure_winetricks
+    log "Installing ${id} into ${WINEPREFIX} using ${WINE}"
+    echo "(winetricks is LGPL-2.1 — external tool; see runtime/WINETRICKS-NOTICE.txt)"
+    winetricks -q "${RECIPE_WINETRICKS}"
+  else
+    [[ "${RECIPE_SCRIPT}" == dll_override && -n "${RECIPE_DLL_OVERRIDE}" ]] || die "Use the dedicated environment or advanced tools for this fix."
+    export DLL_OVERRIDE="${RECIPE_DLL_OVERRIDE}"
+    repair_dll_override
+  fi
+  echo "Recipe completed. Test the game to verify compatibility."
+)
+
 main() {
   local cmd="${1:-}"; shift || true
   case "${cmd}" in
@@ -259,6 +303,7 @@ main() {
     apply-suggested) cmd_apply_suggested "$@" ;;
     install-dep) cmd_install_dep "$@" ;;
     apply-fix) cmd_apply_fix "$@" ;;
+    reviewed-recipe) cmd_reviewed_recipe "$@" ;;
     install-deps)
       local id
       for id in "$@"; do cmd_install_dep "${id}"; done

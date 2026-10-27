@@ -84,6 +84,7 @@ struct WorkspaceEnvironmentsView: View {
                 VStack(alignment: .leading) { action(.install); action(.settings); action(.reveal) }
             }
             HStack { action(.logs); action(.diagnose); action(.clone) }
+            action(.dependencies)
             Divider()
             Text("Recovery").font(.headline)
             Text("Clone before changing or removing Windows files. Linked external folders are not included in the copy.").font(.caption).foregroundStyle(.secondary)

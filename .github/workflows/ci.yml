@@ -52,6 +52,7 @@ jobs:
           python3 scripts/test_environment_clone.py || status=1
           python3 scripts/test_environment_cleanup.py || status=1
           scripts/test_bottle_update.sh || status=1
+          python3 scripts/test_reviewed_recipes.py || status=1
           exit "$status"
 
       - name: Build installable preview
