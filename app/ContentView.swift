@@ -29,6 +29,10 @@ struct ContentView: View {
     @State var workspaceCheckingFiles = false
     @State var workspaceFileCheck: PortFileCheck?
     @State var installationWizard: InstallationWizardRequest?
+    @State var workspaceEnvironmentID: WorkspaceEnvironmentID = .main
+    @State var workspaceEnvironmentSettings: EnvironmentSettingsRequest?
+    @State var workspaceEnvironmentConfirmation: EnvironmentConfirmation?
+    @State var workspaceEnvironmentReading = false
     @State var profiles: [SavedProfile] = []
     @State var selectedProfileID: String?
     @State var profileSearchText = ""

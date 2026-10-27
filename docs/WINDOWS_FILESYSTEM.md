@@ -119,3 +119,13 @@ this is not an undo feature. Unmount nested volumes and close Wine before retryi
 Reset keeps settings, logs and installer records. Delete removes the named
 environment. Both keep port definitions/app shortcuts and external game folders;
 reinstall games after reset, or edit/remove ports referencing a deleted environment.
+
+## Environment workspace and settings
+
+The redesigned screen separates browsing from launch targeting and shows assigned
+games, folder/drive locations and registry architecture. Shared/legacy launchers
+without a stored environment assignment are not counted as known owned games.
+Named settings review changes, use an SHA-256 revision to reject stale edits, and
+replace configuration atomically. An initialized prefix needs a new environment
+for another architecture; saved preferences do not convert Windows files. Main
+environment maintenance remains available separately.

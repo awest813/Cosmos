@@ -96,7 +96,9 @@ enum BottleStore {
     // Parse the flat KEY="value" bottle.conf into a dictionary.
     static func parseConf(_ url: URL) -> [String: String] {
         guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return [:] }
-
+        return parseConf(contents: contents)
+    }
+    static func parseConf(contents: String) -> [String: String] {
         var result: [String: String] = [:]
         for rawLine in contents.split(whereSeparator: \.isNewline) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)

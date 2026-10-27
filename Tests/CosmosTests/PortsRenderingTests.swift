@@ -41,6 +41,28 @@ final class PortsRenderingTests: XCTestCase {
                 "PORT_RENDER_CNC_DDRAW": "1", "PORT_RENDER_WINED3D": "1"
             ]
             let port = WinePort(id: "classic-game", settings: settings, directory: directory)
+            let environmentBottle = Bottle(id: "classic-games", settings: ["COSMOS_BACKEND": "wined3d", "COSMOS_PREFIX_ARCH": "wow64", "WINDOWS_VERSION": "win10"],
+                prefixURL: directory.appendingPathComponent("fixture-prefix"), isInitialized: true, steamInstalled: false)
+            let environmentPort = WinePort(id: port.id, settings: settings.merging(["PORT_BOTTLE": "classic-games"]) { _, value in value }, directory: directory)
+            let environmentCatalog = WorkspaceEnvironment.catalog(bottles: [environmentBottle], ports: [environmentPort], main: .defaults, mainInitialized: false)
+            for scheme in [ColorScheme.light, .dark] {
+                try capture(
+                    ScrollView {
+                        WorkspaceEnvironmentsView(environments: environmentCatalog, selection: .constant(.named("classic-games")), busy: false,
+                            reason: { _ in nil }, perform: { _ in }, onCreate: {}, onOpenGame: { _ in }).padding(24)
+                    }, name: "environments-\(scheme == .dark ? "dark" : "light")", size: NSSize(width: 800, height: 680), scheme: scheme, directory: directory
+                )
+            }
+            try capture(
+                WorkspaceEnvironmentsView(environments: environmentCatalog, selection: .constant(.named("removed")), busy: false,
+                    reason: { _ in "Unavailable" }, perform: { _ in }, onCreate: {}, onOpenGame: { _ in }).padding(24),
+                name: "environment-unavailable", size: NSSize(width: 800, height: 500), scheme: .light, directory: directory
+            )
+            let environmentRequest = try XCTUnwrap(EnvironmentSettingsRequest(environment: environmentCatalog[1], revision: String(repeating: "a", count: 64)))
+            try capture(
+                EnvironmentSettingsView(request: environmentRequest, busy: false, onCancel: {}, onSave: { _, _ in }),
+                name: "environment-settings", size: NSSize(width: 570, height: 600), scheme: .light, directory: directory
+            )
             for scheme in [ColorScheme.light, .dark] {
                 try capture(
                     ScrollView {

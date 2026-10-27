@@ -4,6 +4,7 @@ struct InstallationWizardRequest: Identifiable {
     let id = UUID()
     var resuming = false
     var installation: PendingGameInstallation? = nil
+    var preferredEnvironment: String? = nil
 }
 
 enum InstallationWizardStep: Int, CaseIterable {
@@ -39,7 +40,7 @@ struct InstallationWizardDraft {
         self.request = request
         title = request.installation?.name ?? ""
         installer = request.installation?.installer ?? ""
-        existingEnvironment = request.installation?.bottle ?? ""
+        existingEnvironment = request.installation?.bottle ?? request.preferredEnvironment ?? ""
         // Resume must leave the folder override blank until the user explicitly
         // relocates it. The backend's disconnected-drive guard stays authoritative.
         if !request.resuming { folder = request.installation?.folder ?? "" }

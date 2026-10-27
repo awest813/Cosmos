@@ -46,6 +46,7 @@ Commands:
       --retina <0|1>            Enable/disable Wine RetinaMode.
   info <name>                   Show a bottle's settings and status.
   set <name> <KEY> <VALUE>      Set/replace a setting (e.g. COSMOS_BACKEND dxmt).
+  update <name> --expect-sha256 <hash> <KEY> <VALUE> [...]  Save settings atomically.
   path <name>                   Print the bottle's prefix path.
   launch <name> [run args...]   Launch into the bottle (runs run.command).
   logs <name>                   Show the bottle's latest launch log.
@@ -255,6 +256,43 @@ cmd_path() {
   printf '%s\n' "$(bottle_dir "${name}")/prefix"
 }
 
+cmd_update() (
+  local name="${1:-}" expected="" key value dir conf stage original actual current seen=" "
+  require_bottle "${name}"; shift
+  [[ $# -ge 4 && "$1" == --expect-sha256 ]] || die "Usage: bottle.command update <name> --expect-sha256 <hash> <KEY> <VALUE> [...]"
+  expected="$2"; shift 2
+  [[ "${expected}" =~ ^[a-f0-9]{64}$ && $(($# % 2)) == 0 ]] || die "Provide an SHA-256 revision and setting/value pairs."
+  dir="$(bottle_dir "${name}")"; conf="${dir}/bottle.conf"
+  [[ ! -L "${dir}" && ! -L "${conf}" && -f "${conf}" ]] || die "Linked or missing environment settings cannot be updated here."
+  actual="$(shasum -a 256 "${conf}" | awk '{print $1}')"
+  [[ "${actual}" == "${expected}" ]] || die "Environment settings changed. Reopen settings before saving."
+  local -a pairs=("$@")
+  while (($#)); do
+    key="$1"; value="$2"; shift 2
+    [[ "${seen}" != *" ${key} "* ]] || die "Duplicate setting: ${key}"
+    seen="${seen}${key} "
+    validate_setting "${key}" "${value}"
+    if [[ "${key}" == COSMOS_PREFIX_ARCH && -f "${dir}/prefix/system.reg" ]]; then
+      current="$(get_setting "${conf}" COSMOS_PREFIX_ARCH)"; current="${current:-wow64}"
+      [[ "$(prefix_arch_normalize "${value}")" == "${current}" ]] || die "Create a new environment to change an initialized prefix's architecture."
+    fi
+  done
+  stage="$(mktemp -d "${dir}/.settings.XXXXXX")"
+  trap 'rm -rf "${stage}"' EXIT
+  cp -p "${conf}" "${stage}/original"
+  cp -p "${conf}" "${stage}/bottle.conf"
+  set -- "${pairs[@]}"
+  while (($#)); do
+    key="$1"; value="$2"; shift 2
+    if [[ "${key}" == COSMOS_PREFIX_ARCH ]]; then value="$(prefix_arch_normalize "${value}")"; fi
+    set_setting "${stage}" "${key}" "${value}"
+  done
+  [[ "$(shasum -a 256 "${conf}" | awk '{print $1}')" == "${expected}" ]] \
+    && cmp -s "${stage}/original" "${conf}" || die "Environment settings changed while saving. Reopen settings."
+  mv "${stage}/bottle.conf" "${conf}"
+  echo "Saved environment settings for '${name}'. Existing games and files were kept."
+)
+
 cmd_launch() {
   local name="${1:-}"; require_bottle "${name}"
   shift
@@ -323,6 +361,7 @@ main() {
     create)         shift; cmd_create "$@" ;;
     info)           shift; cmd_info "$@" ;;
     set)            shift; cmd_set "$@" ;;
+    update)         shift; cmd_update "$@" ;;
     path)           shift; cmd_path "$@" ;;
     launch)         shift; cmd_launch "$@" ;;
     logs)           shift; cmd_logs "$@" ;;
