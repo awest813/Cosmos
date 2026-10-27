@@ -7,6 +7,8 @@ struct WorkspaceActions {
     var newEnvironment: () -> Void
     var openHelp: () -> Void
     var checkUpdates: () -> Void
+    var environmentReason: (WorkspaceEnvironmentAction) -> String?
+    var environmentAction: (WorkspaceEnvironmentAction) -> Void
 }
 private struct WorkspaceActionsKey: FocusedValueKey { typealias Value = WorkspaceActions }
 extension FocusedValues {
@@ -45,6 +47,15 @@ struct WorkspaceMenus: Commands {
             item(.reveal)
             item(.checkFiles)
             item(.diagnose)
+        }
+        CommandMenu("Environment") {
+            Button("Manage Environments") { actions?.navigate(.environments) }.disabled(actions == nil)
+            Divider()
+            ForEach(WorkspaceEnvironmentAction.allCases, id: \.rawValue) { action in
+                Button(action.title) { actions?.environmentAction(action) }
+                    .disabled(actions == nil || actions?.environmentReason(action) != nil)
+                    .help(actions?.environmentReason(action) ?? action.title)
+            }
         }
         CommandGroup(replacing: .help) {
             Button("Windows Game Installation Guide") { actions?.openHelp() }.disabled(actions == nil)

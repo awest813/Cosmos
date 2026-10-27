@@ -14,8 +14,7 @@ extension ContentView {
             game: workspaceDestination == .library && workspaceUtilitySection == nil ? workspaceSelectedGame : nil,
             busy: workspaceBusy, portHostIssue: workspacePortHostIssue,
             runtimeIssue: wineRuntime.canStartWineLaunch ? nil : "Review Wine and platform requirements in Components.",
-            modalPresented: installationWizard != nil || workspaceAddingExecutable || workspaceEditingPort != nil ||
-                storeImportRequest != nil || showNewBottleSheet || showDownloads || showAddGameProfileSheet
+            modalPresented: workspaceModalPresented
         ).disabledReason(command)
     }
 
@@ -91,7 +90,7 @@ extension ContentView {
             perform: performWorkspaceCommand, disabledReason: workspaceDisabledReason,
             navigate: { workspaceDestination = $0 }, newEnvironment: newWorkspaceEnvironment,
             openHelp: { openRepositoryDoc(relativePath: "docs/SIMCITY_3000_SETUP.md", bundleName: "SIMCITY_3000_SETUP.md", fallbackMessage: "See the Windows installation guide in the Cosmos repository.") },
-            checkUpdates: checkForUpdates
+            checkUpdates: checkForUpdates, environmentReason: workspaceEnvironmentReason, environmentAction: performWorkspaceEnvironmentAction
         ))
         .onAppear {
             if let restored = WorkspaceDestination(rawValue: storedWorkspaceDestination) { workspaceDestination = restored }
@@ -143,6 +142,23 @@ extension ContentView {
                            onCompletion: { success, message in done(success ? nil : message) })
             })
         }
+        .sheet(isPresented: $showNewBottleSheet) { newBottleSheet }
+        .sheet(item: $workspaceEnvironmentSettings) { request in
+            EnvironmentSettingsView(request: request, busy: workspaceBusy,
+                onCancel: { workspaceEnvironmentSettings = nil }, onSave: { draft, done in
+                    guard !workspaceBusy, workspaceEnvironments.contains(where: { $0.key == request.environment.key && $0.prefix == request.environment.prefix }) else {
+                        done("The environment is unavailable or another operation is running."); return
+                    }
+                    runCommand(script: "bottle.command", arguments: draft.arguments,
+                        onCompletion: { success, message in done(success ? nil : message) })
+                })
+        }
+        .confirmationDialog(workspaceEnvironmentConfirmation?.action.title ?? "Confirm Environment Action",
+            isPresented: Binding(get: { workspaceEnvironmentConfirmation != nil }, set: { if !$0 { workspaceEnvironmentConfirmation = nil } }),
+            titleVisibility: .visible, presenting: workspaceEnvironmentConfirmation) { pending in
+                Button(pending.action.title, role: .destructive) { confirmWorkspaceEnvironmentAction(pending) }
+                Button("Cancel", role: .cancel) { workspaceEnvironmentConfirmation = nil }
+            } message: { pending in Text(pending.message) }
     }
 
     private func workspaceUtilityContent(_ section: DashboardSection) -> some View {
@@ -190,10 +206,11 @@ extension ContentView {
                     onContinue: { installation, retry in installationWizard = InstallationWizardRequest(resuming: !retry, installation: installation) })
             }
         case .environments:
-            Text("Environments").font(.largeTitle.bold())
-            Text("An environment is an isolated Windows setup, also called a Wine bottle. Games and settings stay in their existing folders.").foregroundStyle(.secondary)
-            bottlesSection
-            DisclosureGroup("Main Environment & Steam") { steamWineSettingsSection }
+            WorkspaceEnvironmentsView(environments: workspaceEnvironments, selection: $workspaceEnvironmentID,
+                busy: workspaceBusy || workspaceEnvironmentReading, reason: workspaceEnvironmentReason,
+                perform: performWorkspaceEnvironmentAction, onCreate: newWorkspaceEnvironment,
+                onOpenGame: { port in workspaceGameID = WorkspaceGame.port(port).id; workspaceDestination = .library })
+            if workspaceEnvironmentReading { ProgressView("Reading environment settings…") }
         case .components:
             Text("Components").font(.largeTitle.bold())
             Text("Manage Wine and graphics components when a game needs them.").foregroundStyle(.secondary)
@@ -228,7 +245,7 @@ extension ContentView {
                 LabeledContent("Program", value: port.programArch == "win32" ? "32-bit Windows" : "64-bit Windows")
                 LabeledContent("Graphics requested", value: port.graphicsLabel)
                 Button("Open Environment") {
-                    selectedBottleID = port.bottle.isEmpty ? nil : port.bottle
+                    workspaceEnvironmentID = port.bottle.isEmpty ? .main : .named(port.bottle)
                     workspaceDestination = .environments
                 }
                 if !port.arguments.isEmpty { LabeledContent("Arguments", value: port.arguments) }

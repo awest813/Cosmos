@@ -470,9 +470,14 @@ extension ContentView {
         if request.script == "bottle.command", request.baseArguments.first == "clone" {
             let name = trimmed(.displayName)
             runCommand(script: request.script, arguments: request.baseArguments + ["--name", name], onSuccess: {
-                showAdvancedTabs = true
-                selectedBottleID = name
-                dashboardSection = .bottles
+                if useRedesignedWorkspace {
+                    workspaceEnvironmentID = .named(name)
+                    workspaceDestination = .environments
+                } else {
+                    showAdvancedTabs = true
+                    selectedBottleID = name
+                    dashboardSection = .bottles
+                }
             })
             return
         }

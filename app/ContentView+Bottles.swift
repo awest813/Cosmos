@@ -314,7 +314,7 @@ extension ContentView {
 
     var newBottleSheet: some View {
         VStack(alignment: .leading, spacing: CosmosSpacing.cardPadding) {
-            Text("New Bottle")
+            Text(useRedesignedWorkspace ? "New Environment" : "New Bottle")
                 .font(.title2.weight(.bold))
                 .foregroundStyle(CosmosGradients.heroTitle)
 
@@ -444,7 +444,8 @@ extension ContentView {
             "--arch", newBottleArch,
             "--retina", newBottleRetina ? "1" : "0",
         ]
-        selectedBottleID = name
+        if useRedesignedWorkspace { workspaceEnvironmentID = .named(name) }
+        else { selectedBottleID = name }
         runCommand(script: "bottle.command", arguments: args)
     }
 

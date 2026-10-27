@@ -52,7 +52,7 @@ destination remains work before removing the fallback.
   wizard currently uses the tracked Terminal/Windows installer handoff.
 - Complete compact grid/list/inspector layouts and favorites/recents.
 - Move all saved-profile and per-environment advanced actions into shared commands.
-- Replace inherited environment/component views with the designed detailed screens.
+- Complete environment dependencies/advanced tools and redesign component details.
 - Persistent Activity history, richer native Settings and sanitized diagnostic export.
 - Visual screenshot review and interactive keyboard/VoiceOver/layout tests.
 - Real SimCity, x86/WoW64 and Spock gameplay/renderer validation.
@@ -93,3 +93,30 @@ runtime roots and clear conflicting inherited shell values. Exports and the
 helper run together inside the tracked shell; an integration fixture executes the
 real wrapper with quoted paths/literal shell characters and verifies the helper's
 actual exit code. Terminal's unrelated environment cannot redirect previewed data.
+
+## Environment workspace follow-up
+
+Environments now has separate overview, assigned-game, filesystem and settings
+pages. Main and named environments have distinct IDs, including a named `main`.
+Browsing/selecting them does not change the shared saved-launcher target. Opening
+an assigned game targets its actual source record; unavailable selections never
+fall back to another environment. Shared/unassigned launchers are not counted as
+known owned games.
+
+Buttons and the Environment menu share target/capability checks. Stop, reset and
+delete capture their target in a confirmation; existing scoped process and cleanup
+protections remain authoritative. Install Here preselects the named environment.
+Main clone/reset/delete are disabled; main defaults remain in the existing Steam
+Setup & Settings tools.
+
+Named settings use a local draft and a human-readable change review. Configuration
+and revision are read together in the background. `bottle.command update` validates
+all values, preserves unrelated data, rejects stale revisions/linked configuration,
+and stages one atomic replacement. Failure retains the editor. Initialized prefix
+architecture cannot change through this new save path; use a new environment.
+
+Files reads folders/drive links and the actual registry architecture marker off
+the main thread, without creating data. A win64 marker does not verify x86/WoW64
+loading. Dependency/advanced-tool migration and native main-default editing remain
+follow-up work. Regression fixtures cover identities, assignment isolation,
+capabilities, preferred installation targets and atomic/stale/invalid saves.

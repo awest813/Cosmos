@@ -25,6 +25,7 @@ UNIT_TESTS=(
   scripts/test_import_gog_json.sh
   scripts/test_profile_lib.sh
   scripts/test_port_lib.sh
+  scripts/test_bottle_update.sh
   scripts/test_install_program.sh
   scripts/test_moonshine_lib.sh
   scripts/test_soju_lib.sh
