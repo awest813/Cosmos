@@ -5,7 +5,7 @@ extension ContentView {
     var workspaceModalPresented: Bool {
         installationWizard != nil || workspaceAddingExecutable || workspaceEditingPort != nil ||
             storeImportRequest != nil || showNewBottleSheet || showDownloads || showAddGameProfileSheet ||
-            workspaceEnvironmentSettings != nil || workspaceEnvironmentConfirmation != nil
+            workspaceEnvironmentSettings != nil || workspaceEnvironmentConfirmation != nil || workspaceEnvironmentTools != nil
     }
     var workspaceEnvironments: [WorkspaceEnvironment] {
         WorkspaceEnvironment.catalog(bottles: bottles, ports: ports, main: steamSettings, mainInitialized: steamSettings.isPrefixInitialized)
@@ -20,6 +20,10 @@ extension ContentView {
     func performWorkspaceEnvironmentAction(_ action: WorkspaceEnvironmentAction) {
         guard workspaceEnvironmentReason(action) == nil, let target = workspaceSelectedEnvironment else { return }
         switch action {
+        case .dependencies:
+            let root = ProcessInfo.processInfo.environment["WINE_ROOT"].flatMap { $0.isEmpty ? nil : $0 }
+                ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("wine-\(target.wineVersion)").path
+            workspaceEnvironmentTools = EnvironmentToolsRequest(environment: target, runtimeRoot: root)
         case .install: installationWizard = InstallationWizardRequest(preferredEnvironment: target.bottle?.name)
         case .clone:
             if let bottle = target.bottle { storeImportRequest = .cloneEnvironment(source: bottle.name) }
@@ -59,6 +63,16 @@ extension ContentView {
         case .logs: runCommand(script: "run.command", arguments: ["--logs"], environment: target.commandEnvironment)
         case .diagnose: runCommand(script: "repair.command", arguments: ["diagnose"], environment: target.commandEnvironment, intent: .diagnose)
         }
+    }
+    func runWorkspaceRecipe(_ recipe: EnvironmentRecipe, request: EnvironmentToolsRequest, done: @escaping (String?) -> Void) {
+        guard !workspaceBusy, workspacePortHostIssue == nil, recipe.unsupportedReason == nil,
+              let current = workspaceEnvironments.first(where: { $0.key == request.environment.key }),
+              current.prefix == request.environment.prefix, current.wineVersion == request.environment.wineVersion,
+              current.initialized else {
+            done("The environment or host is unavailable, changed, or another operation is running. Close and review again."); return
+        }
+        runCommand(script: "repair.command", arguments: recipe.arguments, environment: request.commandEnvironment,
+            onCompletion: { success, message in done(success ? nil : message) })
     }
     func confirmWorkspaceEnvironmentAction(_ pending: EnvironmentConfirmation) {
         workspaceEnvironmentConfirmation = nil

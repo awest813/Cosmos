@@ -39,11 +39,12 @@ struct WorkspaceEnvironment: Identifiable, Hashable {
 }
 
 enum WorkspaceEnvironmentAction: String, CaseIterable {
-    case install, settings, reveal, logs, diagnose, clone, stop, reset, delete
+    case install, settings, dependencies, reveal, logs, diagnose, clone, stop, reset, delete
     var title: String {
         switch self {
         case .install: return "Install a Game Here…"
         case .settings: return "Environment Settings…"
+        case .dependencies: return "Dependencies & Fixes…"
         case .reveal: return "Open Windows Folder"
         case .logs: return "Open Launch Log"
         case .diagnose: return "Diagnose Environment"

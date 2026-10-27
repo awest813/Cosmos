@@ -80,6 +80,7 @@ if command -v python3 >/dev/null 2>&1; then
   python3 scripts/test_environment_cleanup.py
   python3 scripts/test_component_download.py
   python3 scripts/test_upstream_recipes.py
+  python3 scripts/test_reviewed_recipes.py
   python3 scripts/test_game_test_preflight.py
   log "VDF python cross-check"
   pip install -q vdf 2>/dev/null || pip install vdf
