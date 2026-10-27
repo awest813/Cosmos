@@ -143,9 +143,14 @@ struct EnvironmentSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Settings for \(draft.bottle.name)").font(.title2.bold())
-            Text("Changes affect \(request.environment.assignedGames.count) assigned games and any other programs using this environment. Clone first to keep an independent setup.").foregroundStyle(.secondary)
+            Text("This environment has \(request.environment.assignedGames.count) assigned games. Shared defaults apply where games do not have their own overrides. Clone first to keep an independent setup.").foregroundStyle(.secondary)
             ScrollView {
               VStack(alignment: .leading, spacing: 12) {
+            if !request.environment.assignedGames.isEmpty {
+                DisclosureGroup("Assigned games to review") {
+                    ForEach(request.environment.assignedGames) { Text($0.name) }
+                }
+            }
             Form {
                 Picker("Graphics default", selection: $draft.backend) { ForEach(BottleStore.backendOptions, id: \.self) { Text(SettingLabels.backendDisplayName($0)).tag($0) } }
                 Picker("Windows version", selection: $draft.windows) {
